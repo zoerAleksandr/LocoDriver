@@ -8,6 +8,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -300,47 +301,46 @@ private fun CalcTab(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             FillFromRoute(state, vm)
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                val categoryField: @Composable (Modifier) -> Unit = { m ->
-                    VuInput(
-                        "Категория поезда", category.title.substringBefore(" / ").substringBefore(" ("), m,
-                        onClick = { onSheet(BrakeSheet.Category) }, onHelp = { onSheet(BrakeSheet.Help("category")) },
-                    )
-                }
-                if (category.group != TrainGroup.PASSENGER) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        categoryField(Modifier.weight(1f))
-                        VuInput("Зарядное давление", state.chargePressureText, Modifier.weight(1f), onChange = vm::setChargePressure, unit = "кгс/см²", placeholder = "0", onHelp = { onSheet(BrakeSheet.Help("charge")) })
-                    }
-                } else categoryField(Modifier.fillMaxWidth())
+            val density = category.group != TrainGroup.PASSENGER
+            val rt = category.manualBrakesRequired
+            // 1. ДАННЫЕ
+            VuBlock("Данные") {
+                VuInput(
+                    "Категория поезда", category.title.substringBefore(" / ").substringBefore(" ("), Modifier.fillMaxWidth(), sunk = true,
+                    onClick = { onSheet(BrakeSheet.Category) }, onHelp = { onSheet(BrakeSheet.Help("category")) },
+                )
+                VuNormLine("Требуемое нажатие: ${category.norm} тс на 100 т веса")
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    VuInput("Вес состава, т", state.weightText, Modifier.weight(1f), onChange = vm::setWeight, unit = "т", placeholder = "0", onHelp = { onSheet(BrakeSheet.Help("weight")) })
-                    VuInput("Всего осей", state.totalAxlesText, Modifier.weight(1f), onChange = vm::setTotalAxles, unit = "осей", placeholder = "0", keyboard = KeyboardType.Number, onHelp = { onSheet(BrakeSheet.Help("axles")) })
+                    VuInput("Вес состава, т", state.weightText, Modifier.weight(1f), onChange = vm::setWeight, unit = "т", placeholder = "0", sunk = true, onHelp = { onSheet(BrakeSheet.Help("weight")) })
+                    VuInput("Всего осей", state.totalAxlesText, Modifier.weight(1f), onChange = vm::setTotalAxles, unit = "осей", placeholder = "0", sunk = true, keyboard = KeyboardType.Number, onHelp = { onSheet(BrakeSheet.Help("axles")) })
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     when (val pf = state.pressureField()) {
                         PressureField.Multiple -> VuInput(
                             "Нажатие на ось, тс", "см. в справке", Modifier.weight(1f),
-                            onClick = onOpenBlank, onHelp = { onSheet(BrakeSheet.Help("row")) },
+                            onClick = onOpenBlank, sunk = true, onHelp = { onSheet(BrakeSheet.Help("row")) },
                         )
-                        is PressureField.Single -> VuInput("Нажатие на ось, тс", pf.text, Modifier.weight(1f), onChange = vm::setPressureField, unit = "тс", placeholder = "0", error = low, onHelp = { onSheet(BrakeSheet.Help("row")) })
-                        PressureField.Empty -> VuInput("Нажатие на ось, тс", state.avgPressureText, Modifier.weight(1f), onChange = vm::setPressureField, unit = "тс", placeholder = "0", error = low, onHelp = { onSheet(BrakeSheet.Help("row")) })
+                        is PressureField.Single -> VuInput("Нажатие на ось, тс", pf.text, Modifier.weight(1f), onChange = vm::setPressureField, unit = "тс", placeholder = "0", error = low, sunk = true, onHelp = { onSheet(BrakeSheet.Help("row")) })
+                        PressureField.Empty -> VuInput("Нажатие на ось, тс", state.avgPressureText, Modifier.weight(1f), onChange = vm::setPressureField, unit = "тс", placeholder = "0", error = low, sunk = true, onHelp = { onSheet(BrakeSheet.Help("row")) })
                     }
-                    if (category.manualBrakesRequired) {
-                        VuInput(
-                            "Ручных на 100 тс веса", BrakeNorms.manualFieldText(state.manualInfo), Modifier.weight(1f),
-                            onClick = { onSheet(BrakeSheet.ManualNorm) }, onHelp = { onSheet(BrakeSheet.Help("manual_req")) },
-                        )
-                    } else Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.weight(1f))
                 }
                 if (state.rowsMode) AxleSumWarning(state, vm)
                 Box(Modifier.padding(start = 0.dp)) { VuBtn("Разное нажатие на вагонах ›", onClick = onOpenBlank, kind = VuBtnKind.Text, h = 40.dp) }
-                if (category.group != TrainGroup.PASSENGER) DensityFields(state, vm, onGroup = { onSheet(BrakeSheet.DensityGroup) }, onHelp = onSheet)
-                CompositeRow(state, vm, onHelp = { onSheet(BrakeSheet.Help("composite")) })
-                // Руководящий спуск
+            }
+            // 2. РАСЧЁТ ПЛОТНОСТИ
+            if (density) VuBlock("Расчёт плотности") {
+                DensityFields(state, vm, onGroup = { onSheet(BrakeSheet.DensityGroup) }, onHelp = onSheet)
+            }
+            // 3. РАСЧЁТ РТ
+            if (rt) VuBlock("Расчёт РТ") {
+                VuInput(
+                    "Ручных на 100 т веса", BrakeNorms.manualFieldText(state.manualInfo), Modifier.fillMaxWidth(), sunk = true,
+                    onClick = { onSheet(BrakeSheet.ManualNorm) }, onHelp = { onSheet(BrakeSheet.Help("manual_req")) },
+                )
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(Modifier.fillMaxWidth().heightIn(min = 24.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Руководящий спуск, ‰", Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = t.muted)
+                        Text("Руководящий уклон, ‰", Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = t.muted)
                         VuHelp({ onSheet(BrakeSheet.Help("grade")) }, touch = 32.dp)
                     }
                     val ab = category.vFlatAutoblock != null && (state.grade == GradeClass.UP_TO_006 || state.grade == GradeClass.OVER_006_TO_010)
@@ -351,12 +351,41 @@ private fun CalcTab(
                     }
                 }
             }
-            AutoblockRow(
-                state, applicable = category.vFlatAutoblock != null && (state.grade == GradeClass.UP_TO_006 || state.grade == GradeClass.OVER_006_TO_010),
-                onChange = vm::setAutoblock, onHelp = { onSheet(BrakeSheet.Help("autoblock")) },
-            )
+            // 4. ДОПОЛНИТЕЛЬНО
+            VuBlock("Дополнительно") {
+                CompositeRow(state, vm, onHelp = { onSheet(BrakeSheet.Help("composite")) })
+                if (!rt) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(Modifier.fillMaxWidth().heightIn(min = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Руководящий уклон, ‰", Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = t.muted)
+                            VuHelp({ onSheet(BrakeSheet.Help("grade")) }, touch = 32.dp)
+                        }
+                        val ab = category.vFlatAutoblock != null && (state.grade == GradeClass.UP_TO_006 || state.grade == GradeClass.OVER_006_TO_010)
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SlopeStep.values().forEach { step ->
+                                VuChip(step.slopeText.removePrefix("0,0").removePrefix("до ").let { if (step == SlopeStep.S006) "≤ 6" else it.trimStart('0') }, state.slope == step, { vm.setSlope(step) }, Modifier.widthIn(min = 56.dp))
+                            }
+                        }
+                    }
+                }
+                AutoblockRow(
+                    state, applicable = category.vFlatAutoblock != null && (state.grade == GradeClass.UP_TO_006 || state.grade == GradeClass.OVER_006_TO_010),
+                    onChange = vm::setAutoblock, onHelp = { onSheet(BrakeSheet.Help("autoblock")) },
+                )
+            }
             if (calculated) ResultCard(result, state, category, onOpenBlank)
             if (low && result != null && BrakeStatusResolver.resolve(result, true).level == StatusLevel.DANGER) DeficitBlock(result, category, onHelp = { onSheet(BrakeSheet.Help("deficit")) })
+        }
+    }
+}
+
+/** Блок «Расчёта»: заголовок моно-капслоком над карточкой (стиль групп «Настроек»), поля внутри карточки. */
+@Composable
+private fun VuBlock(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        VuTag(title, Modifier.padding(horizontal = 4.dp))
+        VuCard {
+            Column(Modifier.padding(horizontal = 14.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
         }
     }
 }
@@ -383,13 +412,13 @@ private fun CompositeRow(state: BrakeCertificateUiState, vm: BrakeCertificateVie
 @Composable
 private fun AutoblockRow(state: BrakeCertificateUiState, applicable: Boolean, onChange: (Boolean) -> Unit, onHelp: () -> Unit) {
     val t = vuColors()
-    VuCard {
+    run {
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp).alpha(if (applicable) 1f else 0.5f),
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 2.dp, end = 0.dp).alpha(if (applicable) 1f else 0.5f),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Автоблокировка", Modifier.weight(1f), fontSize = 16.sp, color = t.text)
-            VuHelp(onHelp, touch = 40.dp)
+            Text("Автоблокировка", Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = t.muted)
+            VuHelp(onHelp, touch = 32.dp)
             Switch(
                 checked = state.autoblock3, onCheckedChange = onChange, modifier = Modifier.padding(horizontal = 8.dp),
                 colors = SwitchDefaults.colors(
@@ -426,7 +455,7 @@ private fun CustomVolumeSheet(state: BrakeCertificateUiState, vm: BrakeCertifica
     }
 }
 
-/** Поля плотности тормозной сети в стиле «Вес состава»: зарядное давление | локомотивов (СМЕ), группа локомотива (объём ГР) и нормы II/IV (без карточки и заголовка). */
+/** Блок «Расчёт плотности»: [Зарядное давление | Кол-во локомотивов], «Объём ГР» на всю ширину, строки норм II и IV. */
 @Composable
 private fun DensityFields(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, onGroup: () -> Unit, onHelp: (BrakeSheet) -> Unit) {
     val group = state.effectiveDensityGroup()
@@ -434,14 +463,15 @@ private fun DensityFields(state: BrakeCertificateUiState, vm: BrakeCertificateVi
     val axles = axlesForNorm(state)
     val locoCount = state.locoCountText.trim().toIntOrNull() ?: 1
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        VuInput("Кол-во локомотивов", state.locoCountText, Modifier.weight(1f), onChange = vm::setLocoCount, keyboard = KeyboardType.Number, placeholder = "1", onHelp = { onHelp(BrakeSheet.Help("sme")) })
+        VuInput("Зарядное давление", state.chargePressureText, Modifier.weight(1f), onChange = vm::setChargePressure, unit = "кгс/см²", placeholder = "0", sunk = true, onHelp = { onHelp(BrakeSheet.Help("charge")) })
+        VuInput("Кол-во локомотивов", state.locoCountText, Modifier.weight(1f), onChange = vm::setLocoCount, keyboard = KeyboardType.Number, placeholder = "1", sunk = true, onHelp = { onHelp(BrakeSheet.Help("sme")) })
+    }
     VuInput(
         "Объём ГР",
         BrakeDensity.volumeFieldText(state.customVolumeText, group, manuallySelected = state.densityGroup != null),
-        onClick = onGroup, modifier = Modifier.weight(1f), onHelp = { onHelp(BrakeSheet.Help("group")) },
+        Modifier.fillMaxWidth(), sunk = true, onClick = onGroup, onHelp = { onHelp(BrakeSheet.Help("group")) },
     )
-    }
-    if (state.customVolumeText.isNotBlank() && group == null) VuHint(BrakeDensity.volumeCaption(state.customVolumeText), Modifier.padding(horizontal = 4.dp))
+    if (state.customVolumeText.isNotBlank() && group == null) VuNormLine(BrakeDensity.volumeCaption(state.customVolumeText))
     else BrakeDensity.normLines(group, axles, charge, locoCount).forEach { VuNormLine(it) }
 }
 

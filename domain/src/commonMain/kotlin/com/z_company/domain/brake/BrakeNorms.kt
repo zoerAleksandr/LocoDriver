@@ -8,7 +8,7 @@ package com.z_company.domain.brake
  * таблица соответствий и непроверенные места - docs/VU45_INSTRUCTION_ACTUALITY.md.
  */
 
-/** Крутизна руководящего спуска. */
+/** Крутизна руководящего уклона (по Правилам - «руководящий спуск»). */
 enum class GradeClass(val title: String) {
     UP_TO_006("до 0,006"),
     OVER_006_TO_010("круче 0,006 до 0,010"),

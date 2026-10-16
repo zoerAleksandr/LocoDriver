@@ -318,9 +318,9 @@ internal fun VuCard(modifier: Modifier = Modifier, content: @Composable () -> Un
 
 /** Подпись «тег» (ЗАГЛАВНЫЕ, mono, muted). */
 @Composable
-internal fun VuTag(text: String, color: Color? = null) {
+internal fun VuTag(text: String, modifier: Modifier = Modifier, color: Color? = null) {
     val t = vuColors()
-    Text(text.uppercase(), fontFamily = VuMono, fontSize = 11.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Medium, color = color ?: t.muted)
+    Text(text.uppercase(), modifier = modifier, fontFamily = VuMono, fontSize = 11.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Medium, color = color ?: t.muted)
 }
 
 /** Подсказка-абзац (13, muted). */
@@ -337,7 +337,7 @@ internal fun VuHint(text: String, modifier: Modifier = Modifier, color: Color? =
 @Composable
 internal fun VuNormLine(text: String, modifier: Modifier = Modifier) {
     val t = vuColors()
-    val m = Regex("""\d+(?:,\d+)?\s*(?:сек|с)\b""").find(text)
+    val m = Regex("""\d+(?:,\d+)?\s*(?:сек|тс|с)\b""").find(text)
     val annotated = androidx.compose.ui.text.buildAnnotatedString {
         if (m == null) append(text) else {
             append(text.substring(0, m.range.first))
