@@ -1363,8 +1363,8 @@ private fun MeasureTab(
         if (active == TimerKind.ROUTE && TurnaroundPlanner.applies(category)) {
             VuBtn("К отметкам оборота ›", onBackToTurnaround, kind = VuBtnKind.Text)
         }
-        if (!passenger) VuHint("Зарядное давление, число локомотивов (СМЕ) и группа локомотива (объём ГР) задаются на вкладке «Расчёт» - здесь они используются для нормы.", Modifier.padding(horizontal = 4.dp))
-        VuHint("Результаты замеров автоматически попадают во вкладку «Бланк». Хранятся только на экране. Экран не гаснет, пока идёт замер.", Modifier.padding(horizontal = 4.dp))
+        if (!passenger) VuHint("Зарядное давление, кол-во локомотивов и объём ГР задаются на вкладке «Расчёт» - здесь они используются для нормы.", Modifier.padding(horizontal = 4.dp))
+        VuHint("Результаты замеров автоматически попадают во вкладку «Бланк». Экран не гаснет, пока идёт замер.", Modifier.padding(horizontal = 4.dp))
     }
 }
 
