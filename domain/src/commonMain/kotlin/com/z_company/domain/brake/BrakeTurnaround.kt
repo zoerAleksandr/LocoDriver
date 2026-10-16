@@ -66,10 +66,25 @@ data class TurnaroundEntry(
     val departureMs: Long? = null,
     /** Плотность, с (замер секундомером или ввод). */
     val densitySec: Double? = null,
-    /** Время готовности (только стоянка более 30 мин), текст «ЧЧ:ММ». */
+    /** Время проведения опробования (графа 7 оборота ВУ-45: подпись и время), текст «ЧЧ:ММ». */
     val readinessTime: String = "",
-    /** Табельный номер вагонника (только стоянка более 30 мин). */
+    /** Подпись производившего опробование - табельный номер (графа 7 оборота ВУ-45). */
     val inspectorTab: String = "",
     /** true - запись создана автоматически по стоянке. */
     val auto: Boolean = false,
-)
+    /** Вид опробования (графа 2 оборота ВУ-45), по умолчанию «сокращённое». */
+    val testKind: String = DEFAULT_TEST_KIND,
+    /** Графы 3-6 оборота: заполняются только при изменении состава и веса (прицепка/отцепка вагонов), иначе прочерк: вес поезда, всего осей, нажатие требуемое и фактическое, тс. */
+    val newWeight: String = "",
+    val newAxles: String = "",
+    val newRequired: String = "",
+    val newActual: String = "",
+) {
+    /** Состав и вес поезда изменились: заполнены графы 3-6 оборота. */
+    val compositionChanged: Boolean get() = newWeight.isNotBlank() || newAxles.isNotBlank() || newRequired.isNotBlank() || newActual.isNotBlank()
+
+    companion object {
+        const val DEFAULT_TEST_KIND = "сокращённое"
+        val TEST_KINDS = listOf("сокращённое", "технологическое", "полное")
+    }
+}

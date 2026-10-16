@@ -1019,9 +1019,9 @@ private fun BackBody(state: BrakeCertificateUiState, vm: BrakeCertificateViewMod
     val t = vuColors()
     val line = t.borderStrong
     Column(Modifier.fillMaxWidth()) {
-        VuHint("Оборотная сторона справки. Записи создаются по стоянкам поезда: более 5 мин - станция и плотность; более 30 мин - ещё время готовности и табельный номер вагонника.", Modifier.padding(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 10.dp))
+        VuHint("Оборот справки: отметка об опробовании тормозов в пути (808-2022 ПКБ ЦВ, прил. М). Записи создаются по стоянкам поезда (более 5 мин - плотность по Прил. 3 п. 1; более 30 мин - сокращённое опробование): станция, вид опробования, при изменении состава - вес, оси и нажатие, подпись и время.", Modifier.padding(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 10.dp))
         Row(Modifier.fillMaxWidth().vuCellBorders(line, right = false, bottom = true).height(IntrinsicSize.Min)) {
-            listOf("Станция" to 1.2f, "Стоянка" to 1.1f, "Плотн., с" to 0.7f).forEachIndexed { i, (x, w) ->
+            listOf("Станция или место опробования" to 1.2f, "Стоянка" to 1.1f, "Плотн., с" to 0.7f).forEachIndexed { i, (x, w) ->
                 Box(Modifier.weight(w).fillMaxHeight().vuCellBorders(line, right = i < 2, bottom = false).padding(6.dp), contentAlignment = Alignment.Center) {
                     Text(x, fontSize = 11.sp, color = t.text, textAlign = TextAlign.Center)
                 }
@@ -1050,11 +1050,15 @@ private fun BackBody(state: BrakeCertificateUiState, vm: BrakeCertificateViewMod
                         Text(e.densitySec?.let { fmt(it) } ?: "замерить", fontFamily = if (e.densitySec != null) VuMono else null, fontSize = if (e.densitySec != null) 17.sp else 12.sp, fontWeight = if (e.densitySec != null) FontWeight.SemiBold else FontWeight.Normal, color = if (e.densitySec != null) t.accent else t.faint)
                     }
                 }
-                if (e.stopClass == StopClass.OVER_30) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
-                        Text("Готовность", fontSize = 11.sp, color = t.muted)
+                Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp).padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        "Вид: ${e.testKind} · " + (if (e.compositionChanged) "вес ${e.newWeight.ifBlank { "-" }}, осей ${e.newAxles.ifBlank { "-" }}, нажатие ${e.newRequired.ifBlank { "-" }} / ${e.newActual.ifBlank { "-" }} тс" else "состав не менялся (прочерк)"),
+                        fontSize = 12.sp, color = t.muted, lineHeight = 16.sp,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
+                        Text("Время", fontSize = 11.sp, color = t.muted)
                         Text(e.readinessTime.ifBlank { "—" }, fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (e.readinessTime.isBlank()) t.faint else t.accent)
-                        Text("Таб. № вагонника", fontSize = 11.sp, color = t.muted)
+                        Text("Подпись (таб. №)", fontSize = 11.sp, color = t.muted)
                         Text(e.inspectorTab.ifBlank { "—" }, fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (e.inspectorTab.isBlank()) t.faint else t.accent)
                     }
                 }
@@ -1111,11 +1115,26 @@ private fun TurnaroundSheet(
                 onChange = { v -> vm.updateTurnaround(entryId) { it.copy(densitySec = v.toFiniteDoubleOrNull()) } }, unit = "с", sunk = true,
             )
             VuBtn("Замерить секундомером", onMeasure, Modifier.fillMaxWidth(), kind = VuBtnKind.Tonal)
-            if (e.stopClass == StopClass.OVER_30) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    VuInput("Время готовности", e.readinessTime, Modifier.weight(1f), onChange = { v -> vm.updateTurnaround(entryId) { it.copy(readinessTime = v) } }, text = true, sunk = true, placeholder = "ЧЧ:ММ")
-                    VuInput("Таб. № вагонника", e.inspectorTab, Modifier.weight(1f), onChange = { v -> vm.updateTurnaround(entryId) { it.copy(inspectorTab = v) } }, keyboard = KeyboardType.Number, sunk = true)
+            VuTag("Вид опробования")
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TurnaroundEntry.TEST_KINDS.forEach { k ->
+                    VuChip(k, e.testKind == k, { vm.updateTurnaround(entryId) { it.copy(testKind = k) } })
                 }
+            }
+            VuTag("При изменении состава и веса поезда")
+            VuHint("Прицепка или отцепка вагонов: новый вес, число осей, потребное и фактическое нажатие. Если состав не менялся - оставьте пустым (в бланке прочерк).")
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                VuInput("Вес поезда, т", e.newWeight, Modifier.weight(1f), onChange = { v -> vm.updateTurnaround(entryId) { it.copy(newWeight = v) } }, unit = "т", sunk = true)
+                VuInput("Всего осей", e.newAxles, Modifier.weight(1f), onChange = { v -> vm.updateTurnaround(entryId) { it.copy(newAxles = v) } }, keyboard = KeyboardType.Number, sunk = true)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                VuInput("Нажатие требуемое, тс", e.newRequired, Modifier.weight(1f), onChange = { v -> vm.updateTurnaround(entryId) { it.copy(newRequired = v) } }, sunk = true)
+                VuInput("Нажатие фактическое, тс", e.newActual, Modifier.weight(1f), onChange = { v -> vm.updateTurnaround(entryId) { it.copy(newActual = v) } }, sunk = true)
+            }
+            VuTag("Подпись и время")
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                VuInput("Время опробования", e.readinessTime, Modifier.weight(1f), onChange = { v -> vm.updateTurnaround(entryId) { it.copy(readinessTime = v) } }, text = true, sunk = true, placeholder = "ЧЧ:ММ")
+                VuInput("Подпись (таб. №)", e.inspectorTab, Modifier.weight(1f), onChange = { v -> vm.updateTurnaround(entryId) { it.copy(inspectorTab = v) } }, keyboard = KeyboardType.Number, sunk = true)
             }
             Spacer(Modifier.height(2.dp))
             Text("", color = t.muted)
@@ -1147,7 +1166,7 @@ private fun OtherSheet(state: BrakeCertificateUiState, category: BrakeCategory, 
             vm.setCompositeShare(if (state.compositeShare == v) CompositeShare.NONE else v)
         }
         SheetLabel("Тормоза в составе", onHelp = { help = "flags" })
-        VuCircled(listOf("Г", "ЭПТ", "ЭПП", "ДТ", "МРТ", "П", "В10", "РИЦ"), state.flags) { vm.toggleFlag(it) }
+        VuCircled(listOf("Г", "ЭПТ", "ЭПП", "ДТ", "МРТ", "П", "В10", "РИЦ", "5 ХВ", "СТРП"), state.flags) { vm.toggleFlag(it) }
         Column(Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 VuInput("ТЦПВ, мм", state.tcpvText, Modifier.weight(1f), onChange = vm::setTcpv, sunk = true, onHelp = { help = "tcpv" })
@@ -1444,7 +1463,7 @@ private fun ReferenceTab(state: BrakeCertificateUiState, category: BrakeCategory
             }
         }
         VuHint(
-            "Расчёт по Правилам технического обслуживания тормозного оборудования и управления тормозами (СЖТ, протокол № 60 от 6-7.05.2014, с изменениями до 2017 г.), прил. 2. Форма ВУ-45 - Инструкция 808-2017 ПКБ ЦВ, прил. К. Справочный инструмент: официальной справкой ВУ-45 является документ, выданный осмотрщиком вагонов. Нормы могут меняться - сверяйте с действующими документами.",
+            "Расчёт по Правилам технического обслуживания тормозного оборудования и управления тормозами (СЖТ, протокол № 60 от 6-7.05.2014, с изменениями до 2017 г.), прил. 2. Форма ВУ-45 - Инструкция 808-2022 ПКБ ЦВ, прил. М. Справочный инструмент: официальной справкой ВУ-45 является документ, выданный осмотрщиком вагонов. Нормы могут меняться - сверяйте с действующими документами.",
             Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
         )
     }

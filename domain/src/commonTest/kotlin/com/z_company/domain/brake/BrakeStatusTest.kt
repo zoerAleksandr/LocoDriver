@@ -66,7 +66,7 @@ class BrakeStatusTest {
     }
 
     @Test fun blankAxlePressures_haveFormRows() {
-        // форма ВУ-45 (808-2017 прил. К): в том числе 7,5 и 9,5
+        // форма ВУ-45 (808-2022 прил. М): в том числе 7,5 и 9,5
         assertTrue(7.5 in BrakeNorms.blankAxlePressures && 9.5 in BrakeNorms.blankAxlePressures)
         assertEquals(27, BrakeNorms.blankAxlePressures.size)
     }
@@ -82,5 +82,17 @@ class BrakeStatusTest {
         assertTrue(BrakeStatusResolver.isCalculated(ok))
         // до расчёта плашка нейтральная, без прочерка
         assertEquals(StatusLevel.NONE, BrakeStatusResolver.resolve(noPressure, false).level)
+    }
+
+    @Test fun turnaroundEntry_808_2022_reverseColumns() {
+        val e = TurnaroundEntry("t")
+        assertEquals("сокращённое", e.testKind)
+        assertTrue(!e.compositionChanged) // графы 3-6 - прочерк, если состав не менялся
+        assertTrue(e.copy(newWeight = "3100").compositionChanged)
+        assertTrue(e.copy(newActual = "1010").compositionChanged)
+    }
+
+    @Test fun sourceRefs_point_to_808_2022() {
+        assertEquals("Инструкция 808-2022 ПКБ ЦВ, прил. М", InstructionRef.FORM_DOC)
     }
 }
