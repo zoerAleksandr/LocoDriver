@@ -72,7 +72,10 @@ data class TurnaroundEntry(
     val inspectorTab: String = "",
     /** true - запись создана автоматически по стоянке. */
     val auto: Boolean = false,
-    /** Вид опробования (графа 2 оборота ВУ-45), по умолчанию «сокращённое». */
+    /**
+     * Вид опробования (графа 2 оборота ВУ-45): [KIND_FULL] (ТП), [KIND_SHORT] (СП) или пусто - опробования не было, только замер плотности.
+     * Старые записи читаются как раньше (значение «сокращённое»/«технологическое» сохраняется; отсутствующее поле = пусто).
+     */
     val testKind: String = DEFAULT_TEST_KIND,
     /** Графы 3-6 оборота: заполняются только при изменении состава и веса (прицепка/отцепка вагонов), иначе прочерк: вес поезда, всего осей, нажатие требуемое и фактическое, тс. */
     val newWeight: String = "",
@@ -83,9 +86,32 @@ data class TurnaroundEntry(
     /** Состав и вес поезда изменились: заполнены графы 3-6 оборота. */
     val compositionChanged: Boolean get() = newWeight.isNotBlank() || newAxles.isNotBlank() || newRequired.isNotBlank() || newActual.isNotBlank()
 
+    /** Вторая строка записи при изменении состава: «Новый вес N т · Потребное X тс · Фактическое Y тс»; null - состав не менялся. Число осей не выводится. */
+    val compositionSummary: String?
+        get() {
+            val parts = buildList {
+                if (newWeight.isNotBlank()) add("Новый вес ${newWeight.trim()} т")
+                if (newRequired.isNotBlank()) add("Потребное ${newRequired.trim()} тс")
+                if (newActual.isNotBlank()) add("Фактическое ${newActual.trim()} тс")
+            }
+            return if (parts.isEmpty()) null else parts.joinToString(" · ")
+        }
+
+    /** Короткая подпись вида для таблицы: «ТП», «СП», пусто; устаревшее «технологическое» - «ТО» не вводим, показываем как есть («техн.»). */
+    val testKindShort: String
+        get() = when (testKind) {
+            KIND_FULL -> "ТП"
+            KIND_SHORT -> "СП"
+            "" -> ""
+            else -> "техн."
+        }
+
     companion object {
-        const val DEFAULT_TEST_KIND = "сокращённое"
-        val TEST_KINDS = listOf("сокращённое", "технологическое", "полное")
+        const val KIND_FULL = "полное"
+        const val KIND_SHORT = "сокращённое"
+        /** Вид по умолчанию - пусто (опробования не было). */
+        const val DEFAULT_TEST_KIND = ""
+        val TEST_KINDS = listOf(KIND_FULL, KIND_SHORT)
     }
 }
 
@@ -136,5 +162,25 @@ object TurnaroundTarget {
             nowMs <= dep -> 0L
             else -> nowMs - dep
         }
+    }
+}
+
+/**
+ * Контроль плотности на промежуточной стоянке (прил. 3, п. 1 Правил ТО тормозного оборудования):
+ * изменение плотности более чем на 20 % от указанной в справке ВУ-45 (в любую сторону) - сокращённое опробование.
+ * Эталон - замер II (поездного) положения на лицевой стороне справки; при его отсутствии оценки нет.
+ */
+object TurnaroundDensityCheck {
+    enum class Verdict { OK, EXCEEDED, NO_REFERENCE }
+
+    /** [deviationPct] - отклонение в % от эталона (минус - время падения давления меньше, плотность хуже); [lo]/[hi] - допуск, с. */
+    data class Result(val verdict: Verdict, val deviationPct: Double?, val lo: Double?, val hi: Double?)
+
+    fun check(densitySec: Double, referenceIISec: Double?): Result {
+        if (referenceIISec == null || referenceIISec <= 0.0) return Result(Verdict.NO_REFERENCE, null, null, null)
+        val lo = referenceIISec * 0.8
+        val hi = referenceIISec * 1.2
+        val ok = densitySec + 1e-9 >= lo && densitySec <= hi + 1e-9
+        return Result(if (ok) Verdict.OK else Verdict.EXCEEDED, (densitySec - referenceIISec) / referenceIISec * 100.0, lo, hi)
     }
 }

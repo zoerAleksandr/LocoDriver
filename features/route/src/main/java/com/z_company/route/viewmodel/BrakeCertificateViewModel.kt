@@ -617,7 +617,11 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         when (val pick = TurnaroundTarget.pick(st.turnaround, st.routeTargetEntryId, now, applies)) {
             TurnaroundPick.NotApplicable -> Unit
             is TurnaroundPick.Existing -> _state.update { s0 ->
-                s0.copy(turnaround = s0.turnaround.map { e -> if (e.id == pick.id) e.copy(densitySec = sec) else e }, routeTargetEntryId = null, routeWrittenEntryId = pick.id)
+                val hhmm = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+                s0.copy(
+                    turnaround = s0.turnaround.map { e -> if (e.id == pick.id) e.copy(densitySec = sec, readinessTime = e.readinessTime.ifBlank { hhmm }) else e },
+                    routeTargetEntryId = null, routeWrittenEntryId = pick.id,
+                )
             }
             TurnaroundPick.CreateNew -> _state.update { s0 ->
                 val id = newTurnaroundId()

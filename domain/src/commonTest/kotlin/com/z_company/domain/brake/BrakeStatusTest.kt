@@ -86,7 +86,7 @@ class BrakeStatusTest {
 
     @Test fun turnaroundEntry_808_2022_reverseColumns() {
         val e = TurnaroundEntry("t")
-        assertEquals("сокращённое", e.testKind)
+        assertEquals("", e.testKind) // вид по умолчанию пустой
         assertTrue(!e.compositionChanged) // графы 3-6 - прочерк, если состав не менялся
         assertTrue(e.copy(newWeight = "3100").compositionChanged)
         assertTrue(e.copy(newActual = "1010").compositionChanged)

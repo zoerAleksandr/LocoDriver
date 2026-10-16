@@ -88,6 +88,7 @@ import com.z_company.domain.brake.SlopeStep
 import com.z_company.domain.brake.SpeedLimit
 import com.z_company.domain.brake.StopClass
 import com.z_company.domain.brake.TrainGroup
+import com.z_company.domain.brake.TurnaroundDensityCheck
 import com.z_company.domain.brake.TurnaroundEntry
 import com.z_company.domain.brake.TurnaroundPick
 import com.z_company.domain.brake.TurnaroundPlanner
@@ -1091,63 +1092,74 @@ private fun LocoCard(state: BrakeCertificateUiState, category: BrakeCategory, vm
 private fun BackBody(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, onSheet: (BrakeSheet) -> Unit) {
     val t = vuColors()
     val line = t.borderStrong
+    // станции раздела «Поезд» перечитываются при открытии «Оборота» (ручные записи и введённые данные сохраняются)
+    LaunchedEffect(state.routeId) { if (state.routeId != null) vm.refreshStops() }
+    val reference = state.timerII.recordedSec
     Column(Modifier.fillMaxWidth()) {
-        VuHint("Оборот справки: отметка об опробовании тормозов в пути (808-2022 ПКБ ЦВ, прил. М). Записи создаются по стоянкам поезда (более 5 мин - плотность по Прил. 3 п. 1; более 30 мин - сокращённое опробование): станция, вид опробования, при изменении состава - вес, оси и нажатие, подпись и время.", Modifier.padding(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 10.dp))
         Row(Modifier.fillMaxWidth().vuCellBorders(line, right = false, bottom = true).height(IntrinsicSize.Min)) {
-            listOf("Станция или место опробования" to 1.2f, "Стоянка" to 1.1f, "Плотн., с" to 0.7f).forEachIndexed { i, (x, w) ->
-                Box(Modifier.weight(w).fillMaxHeight().vuCellBorders(line, right = i < 2, bottom = false).padding(6.dp), contentAlignment = Alignment.Center) {
+            listOf("Станция / место" to 1.25f, "Вид" to 0.55f, "Плотность" to 1.0f, "Время" to 0.7f).forEachIndexed { i, (x, w) ->
+                Box(Modifier.weight(w).fillMaxHeight().vuCellBorders(line, right = i < 3, bottom = false).padding(6.dp), contentAlignment = Alignment.Center) {
                     Text(x, fontSize = 11.sp, color = t.text, textAlign = TextAlign.Center)
                 }
             }
         }
         if (state.turnaround.isEmpty()) {
-            Text(
-                if (state.routeId == null) "Нет данных маршрута: добавьте отметку вручную." else "Стоянок дольше 5 минут пока нет. Отметка появится автоматически, когда на станции раздела «Поезд» стоянка превысит 5 минут.",
-                Modifier.padding(14.dp), fontSize = 13.sp, color = t.muted, lineHeight = 18.sp,
-            )
+            Text("Записей нет", Modifier.padding(14.dp), fontSize = 14.sp, color = t.muted)
         }
         state.turnaround.forEach { e ->
             Column(Modifier.fillMaxWidth().clickable { onSheet(BrakeSheet.Turnaround(e.id)) }.vuCellBorders(line, right = false, bottom = true)) {
                 Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-                    Box(Modifier.weight(1.2f).fillMaxHeight().vuCellBorders(line, right = true, bottom = false).padding(horizontal = 8.dp, vertical = 10.dp), contentAlignment = Alignment.CenterStart) {
-                        Text(e.stationName.ifBlank { "станция" }, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (e.stationName.isBlank()) t.faint else t.accent, lineHeight = 18.sp)
-                    }
-                    Box(Modifier.weight(1.1f).fillMaxHeight().vuCellBorders(line, right = true, bottom = false).padding(horizontal = 8.dp, vertical = 10.dp), contentAlignment = Alignment.CenterStart) {
-                        val period = if (e.arrivalMs != null) hhmm(e.arrivalMs!!) + "–" + (e.departureMs?.let { hhmm(it) } ?: "…") else ""
+                    Box(Modifier.weight(1.25f).fillMaxHeight().vuCellBorders(line, right = true, bottom = false).padding(horizontal = 8.dp, vertical = 10.dp), contentAlignment = Alignment.CenterStart) {
                         Column {
-                            Text(if (e.stopClass == StopClass.OVER_30) "> 30 мин" else "> 5 мин", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = t.text)
-                            if (period.isNotEmpty()) Text(period, fontFamily = VuMono, fontSize = 12.sp, color = t.muted)
+                            Text(e.stationName.ifBlank { "станция" }, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (e.stationName.isBlank()) t.faint else t.accent, lineHeight = 18.sp)
+                            val period = if (e.arrivalMs != null) hhmm(e.arrivalMs!!) + "–" + (e.departureMs?.let { hhmm(it) } ?: "…") else ""
+                            if (period.isNotEmpty()) Text((if (e.stopClass == StopClass.OVER_30) "> 30 мин · " else "> 5 мин · ") + period, fontFamily = VuMono, fontSize = 11.sp, color = t.muted)
                         }
                     }
-                    Box(Modifier.weight(0.7f).fillMaxHeight().padding(horizontal = 8.dp, vertical = 10.dp), contentAlignment = Alignment.CenterStart) {
-                        Text(e.densitySec?.let { fmt(it) } ?: "замерить", fontFamily = if (e.densitySec != null) VuMono else null, fontSize = if (e.densitySec != null) 17.sp else 12.sp, fontWeight = if (e.densitySec != null) FontWeight.SemiBold else FontWeight.Normal, color = if (e.densitySec != null) t.accent else t.faint)
+                    Box(Modifier.weight(0.55f).fillMaxHeight().vuCellBorders(line, right = true, bottom = false).padding(horizontal = 4.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+                        Text(e.testKindShort, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = t.accent)
+                    }
+                    Box(Modifier.weight(1.0f).fillMaxHeight().vuCellBorders(line, right = true, bottom = false).padding(horizontal = 8.dp, vertical = 8.dp), contentAlignment = Alignment.CenterStart) {
+                        val d = e.densitySec
+                        if (d == null) Text("замерить", fontSize = 12.sp, color = t.faint)
+                        else {
+                            val r = TurnaroundDensityCheck.check(d, reference)
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(fmt(d), fontFamily = VuMono, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = t.accent)
+                                    r.deviationPct?.let { Text(formatDeviation(it), fontFamily = VuMono, fontSize = 12.sp, color = t.muted) }
+                                }
+                                when (r.verdict) {
+                                    TurnaroundDensityCheck.Verdict.OK -> Text("✓ в норме", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = t.success)
+                                    TurnaroundDensityCheck.Verdict.EXCEEDED -> Text("! более 20 %", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = t.danger)
+                                    TurnaroundDensityCheck.Verdict.NO_REFERENCE -> Text("нет эталона", fontSize = 11.sp, color = t.muted)
+                                }
+                            }
+                        }
+                    }
+                    Box(Modifier.weight(0.7f).fillMaxHeight().padding(horizontal = 6.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+                        Text(e.readinessTime, fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = t.accent)
                     }
                 }
-                Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp).padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        "Вид: ${e.testKind} · " + (if (e.compositionChanged) "вес ${e.newWeight.ifBlank { "-" }}, осей ${e.newAxles.ifBlank { "-" }}, нажатие ${e.newRequired.ifBlank { "-" }} / ${e.newActual.ifBlank { "-" }} тс" else "состав не менялся (прочерк)"),
-                        fontSize = 12.sp, color = t.muted, lineHeight = 16.sp,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
-                        Text("Время", fontSize = 11.sp, color = t.muted)
-                        Text(e.readinessTime.ifBlank { "—" }, fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (e.readinessTime.isBlank()) t.faint else t.accent)
-                        Text("Подпись (таб. №)", fontSize = 11.sp, color = t.muted)
-                        Text(e.inspectorTab.ifBlank { "—" }, fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (e.inspectorTab.isBlank()) t.faint else t.accent)
-                    }
-                }
+                e.compositionSummary?.let { Text(it, Modifier.fillMaxWidth().padding(horizontal = 8.dp).padding(bottom = 8.dp), fontSize = 12.sp, color = t.muted, lineHeight = 16.sp) }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            VuBtn("+ Добавить опробование", {
+        if (state.turnaround.any { it.densitySec != null } && reference == null) {
+            VuHint("Нет эталона: запишите замер II на лицевой стороне справки.", Modifier.padding(start = 14.dp, end = 14.dp, top = 8.dp))
+        }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            VuBtn("+ Добавить отметку", {
                 val id = vm.newTurnaroundId()
                 vm.addTurnaround(StopClass.OVER_5, state.trainStationNames.lastOrNull().orEmpty(), id)
                 onSheet(BrakeSheet.Turnaround(id))
             }, kind = VuBtnKind.Text, h = 48.dp)
-            Spacer(Modifier.weight(1f))
-            if (state.routeId != null) VuBtn("Обновить по стоянкам", { vm.refreshStops() }, kind = VuBtnKind.Text, h = 48.dp)
         }
-        VuHint("«Плотность» можно ввести или замерить секундомером во вкладке «Замеры».", Modifier.padding(start = 14.dp, end = 14.dp, top = 2.dp, bottom = 14.dp))
     }
+}
+
+private fun formatDeviation(pct: Double): String {
+    val r = Math.round(pct).toInt()
+    return (if (r < 0) "\u2212" else if (r > 0) "+" else "") + kotlin.math.abs(r) + " %"
 }
 
 @Composable
@@ -1188,12 +1200,27 @@ private fun TurnaroundSheet(
                 onChange = { v -> vm.updateTurnaround(entryId) { it.copy(densitySec = v.toFiniteDoubleOrNull()) } }, unit = "с", sunk = true,
             )
             VuBtn("Замерить секундомером", onMeasure, Modifier.fillMaxWidth(), kind = VuBtnKind.Tonal)
-            VuTag("Вид опробования")
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TurnaroundEntry.TEST_KINDS.forEach { k ->
-                    VuChip(k, e.testKind == k, { vm.updateTurnaround(entryId) { it.copy(testKind = k) } })
+            run {
+                val reference = state.timerII.recordedSec
+                val r = e.densitySec?.let { TurnaroundDensityCheck.check(it, reference) }
+                val range = reference?.let { "допуск ${fmt(it * 0.8)}–${fmt(it * 1.2)} с" }
+                when {
+                    reference == null -> VuHint("Нет эталона: запишите замер II на лицевой стороне справки.")
+                    r == null -> VuHint("Эталон - замер II на лицевой стороне: ${fmt(reference)} с; $range (±20 %).")
+                    r.verdict == TurnaroundDensityCheck.Verdict.OK -> VuVerdict(true, "В норме: ${formatDeviation(r.deviationPct ?: 0.0)} от замера II; $range")
+                    else -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        VuVerdict(false, "Отклонение более 20 % (${formatDeviation(r.deviationPct ?: 0.0)}); $range")
+                        VuHint("По прил. 3, п. 1 ${InstructionRef.GENITIVE}: при изменении плотности более чем на 20 % от указанной в справке проводится сокращённое опробование тормозов - отметьте «СП».")
+                    }
                 }
             }
+            VuTag("Вид опробования")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                VuChip("—", e.testKind.isEmpty(), { vm.updateTurnaround(entryId) { it.copy(testKind = "") } }, Modifier.weight(1f))
+                VuChip("ТП", e.testKind == TurnaroundEntry.KIND_FULL, { vm.updateTurnaround(entryId) { it.copy(testKind = TurnaroundEntry.KIND_FULL) } }, Modifier.weight(1f))
+                VuChip("СП", e.testKind == TurnaroundEntry.KIND_SHORT, { vm.updateTurnaround(entryId) { it.copy(testKind = TurnaroundEntry.KIND_SHORT) } }, Modifier.weight(1f))
+            }
+            VuHint("ТП - полное опробование, СП - сокращённое. «—» - опробования не было, только замер плотности.")
             VuTag("При изменении состава и веса поезда")
             VuHint("Прицепка или отцепка вагонов: новый вес, число осей, потребное и фактическое нажатие. Если состав не менялся - оставьте пустым (в бланке прочерк).")
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
