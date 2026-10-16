@@ -330,6 +330,31 @@ internal fun VuHint(text: String, modifier: Modifier = Modifier, color: Color? =
     Text(InstructionRef.annotate(text), modifier = modifier, fontSize = 13.sp, lineHeight = 18.sp, color = color ?: t.muted)
 }
 
+/**
+ * Строка нормы/результата («Норма плотности во II-м: не менее 68 сек»): пояснительный текст, не поле ввода - 12 sp, приглушённый цвет,
+ * число с «сек» моно-шрифтом акцентным цветом, слева тонкий значок «i» в кружке; без «?», рамки и карточки.
+ */
+@Composable
+internal fun VuNormLine(text: String, modifier: Modifier = Modifier) {
+    val t = vuColors()
+    val m = Regex("""\d+(?:,\d+)?\s*(?:сек|с)\b""").find(text)
+    val annotated = androidx.compose.ui.text.buildAnnotatedString {
+        if (m == null) append(text) else {
+            append(text.substring(0, m.range.first))
+            pushStyle(androidx.compose.ui.text.SpanStyle(fontFamily = VuMono, fontWeight = FontWeight.SemiBold, color = t.accent))
+            append(text.substring(m.range.first, m.range.last + 1))
+            pop()
+            append(text.substring(m.range.last + 1))
+        }
+    }
+    Row(modifier.padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(Modifier.padding(top = 2.dp).size(14.dp).border(1.dp, t.faint, CircleShape), contentAlignment = Alignment.Center) {
+            Text("i", fontFamily = VuMono, fontSize = 9.sp, fontWeight = FontWeight.Medium, color = t.faint)
+        }
+        Text(annotated, fontSize = 12.sp, lineHeight = 17.sp, color = t.muted)
+    }
+}
+
 /** Нижняя шторка M3 (r28, грэббер, заголовок 22/500, подзаголовок, кнопка «закрыть», опциональный footer). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

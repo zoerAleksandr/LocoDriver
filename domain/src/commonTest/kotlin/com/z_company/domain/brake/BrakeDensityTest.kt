@@ -321,44 +321,57 @@ class BrakeTurnaroundTest {
 
     @Test
     fun fillFromRoute_seriesChanged_regroupsAutomatically() {
-        // первая подстановка: ЭП1 -> 1000 л
-        val first = BrakeFillResolver.resolveLoco("ЭП1", "123", "", "", manualGroup = null, force = false)
+        val first = BrakeFillResolver.resolveLoco("ЭП1", "123", "", "", manualGroup = null)
         assertEquals("ЭП1", first.series)
         assertEquals(DensityLocoGroup.G1, first.effectiveGroup)
-        // в маршруте серия сменилась (ВЛ80С): кнопка берёт актуальные данные, группа определяется заново (1800 л)
-        val second = BrakeFillResolver.resolveLoco("ВЛ80С", "2345", first.series, "123", first.manualGroup, force = false)
+        // в маршруте серия сменилась (ВЛ80С): актуальные данные берутся сразу, группа определяется заново (1800 л)
+        val second = BrakeFillResolver.resolveLoco("ВЛ80С", "2345", first.series, "123", first.manualGroup)
         assertEquals("ВЛ80С", second.series)
         assertEquals("2345", second.number)
         assertEquals(DensityLocoGroup.G4, second.effectiveGroup)
-        assertTrue(!second.manualGroupKept)
         // ВЛ10: группа по номеру из маршрута
-        assertEquals(DensityLocoGroup.G4, BrakeFillResolver.resolveLoco("ВЛ10", "17", "", "", null, false).effectiveGroup)
-        assertEquals(DensityLocoGroup.G3, BrakeFillResolver.resolveLoco("ВЛ10", "20", "", "", null, false).effectiveGroup)
+        assertEquals(DensityLocoGroup.G4, BrakeFillResolver.resolveLoco("ВЛ10", "17", "", "", null).effectiveGroup)
+        assertEquals(DensityLocoGroup.G3, BrakeFillResolver.resolveLoco("ВЛ10", "20", "", "", null).effectiveGroup)
     }
 
     @Test
-    fun fillFromRoute_manualGroup_keptUnlessConfirmed() {
-        val kept = BrakeFillResolver.resolveLoco("ВЛ80С", "1", "ЭП1", "9", manualGroup = DensityLocoGroup.G6, force = false)
-        assertEquals("ВЛ80С", kept.series) // серия и номер - всегда актуальные
-        assertTrue(kept.manualGroupKept)
-        assertEquals(DensityLocoGroup.G6, kept.effectiveGroup)
-        val forced = BrakeFillResolver.resolveLoco("ВЛ80С", "1", "ЭП1", "9", manualGroup = DensityLocoGroup.G6, force = true)
-        assertTrue(!forced.manualGroupKept)
-        assertEquals(DensityLocoGroup.G4, forced.effectiveGroup)
-        // в маршруте нет локомотива - значения остаются
-        val none = BrakeFillResolver.resolveLoco(null, null, "ЭП1", "9", null, false)
+    fun fillFromRoute_resetsManualGroupAndCustomVolume_onlyWhenRouteSeriesDeterminesGroup() {
+        // серия из маршрута определяет группу -> ручная группа и свой объём сбрасываются
+        val a = BrakeFillResolver.resolveLoco("ВЛ80С", "1", "ЭП1", "9", manualGroup = DensityLocoGroup.G6, customVolume = "")
+        assertEquals("ВЛ80С", a.series)
+        assertEquals(null, a.manualGroup)
+        assertEquals(DensityLocoGroup.G4, a.effectiveGroup)
+        assertTrue(a.groupReset)
+        val b = BrakeFillResolver.resolveLoco("ВЛ80С", "1", "ЭП1", "9", manualGroup = null, customVolume = "1450")
+        assertEquals("", b.customVolume)
+        assertEquals(DensityLocoGroup.G4, b.effectiveGroup)
+        // серия не определяет группу (2ЭС5К) -> группа и свой объём не трогаются, серия и номер заменяются
+        val c = BrakeFillResolver.resolveLoco("2ЭС5К", "77", "ЭП1", "9", manualGroup = DensityLocoGroup.G6, customVolume = "")
+        assertEquals("2ЭС5К", c.series)
+        assertEquals("77", c.number)
+        assertEquals(DensityLocoGroup.G6, c.manualGroup)
+        assertTrue(!c.groupReset)
+        val d = BrakeFillResolver.resolveLoco("2ЭС5К", "77", "ЭП1", "9", manualGroup = null, customVolume = "1700")
+        assertEquals("1700", d.customVolume)
+        assertEquals(DensityLocoGroup.G3, d.effectiveGroup)
+        // ВЛ10 без разбираемого номера: группа не определяется -> ручная остаётся
+        val e = BrakeFillResolver.resolveLoco("ВЛ10", "", "", "", manualGroup = DensityLocoGroup.G6)
+        assertEquals(DensityLocoGroup.G6, e.manualGroup)
+        // в маршруте нет локомотива: всё остаётся, как введено
+        val none = BrakeFillResolver.resolveLoco(null, null, "ЭП1", "9", DensityLocoGroup.G6, "")
         assertEquals("ЭП1", none.series)
         assertEquals("9", none.number)
+        assertEquals(DensityLocoGroup.G6, none.manualGroup)
     }
 
     @Test
-    fun fillFromRoute_staleAutoFilledValuesAreReplaced() {
-        // старое значение - прошлая автоподстановка (не правленая) -> заменяется актуальным
-        assertTrue(BrakeFillResolver.shouldReplace("3000", "3100", lastAutoFilled = "3000", force = false))
-        // пользователь поправил вручную -> не затираем
-        assertTrue(!BrakeFillResolver.shouldReplace("2900", "3100", lastAutoFilled = "3000", force = false))
-        assertTrue(BrakeFillResolver.shouldReplace("2900", "3100", lastAutoFilled = "3000", force = true))
-        assertTrue(BrakeFillResolver.shouldReplace("", "3100", null, false))
+    fun fillFromRoute_routeValuesReplaceInput_emptyRouteValuesDoNot() {
+        assertEquals("3100", BrakeFillResolver.pickRouteValue("2900", "3100")) // введённое заменяется
+        assertEquals("2900", BrakeFillResolver.pickRouteValue("2900", null)) // пустое поле маршрута не затирает
+        assertEquals("2900", BrakeFillResolver.pickRouteValue("2900", ""))
+        // при открытии экрана - только пустые поля
+        assertEquals("2900", BrakeFillResolver.pickOnOpen("2900", "3100"))
+        assertEquals("3100", BrakeFillResolver.pickOnOpen("", "3100"))
     }
 
     @Test
@@ -384,16 +397,16 @@ class BrakeTurnaroundTest {
     fun normLines_iiAndIv_orHints() {
         // группа 1200 л, 230 осей (201-250): 29 с -> IV не менее 26,1
         val lines = BrakeDensity.normLines(DensityLocoGroup.G2, 230, null)
-        assertEquals("Норма плотности во II положении: 29 сек", lines[0])
-        assertEquals("Норма плотности в IV положении: не менее 27 сек", lines[1])
+        assertEquals("Норма плотности во II-м: не менее 29 сек", lines[0])
+        assertEquals("Норма плотности в IV-м: не менее 27 сек", lines[1])
         // 1200 л, до 100 осей: 69 -> 62,1
-        assertEquals("Норма плотности в IV положении: не менее 63 сек", BrakeDensity.normLines(DensityLocoGroup.G2, 100, null)[1])
+        assertEquals("Норма плотности в IV-м: не менее 63 сек", BrakeDensity.normLines(DensityLocoGroup.G2, 100, null)[1])
         // поправка -10 % при 5,4: II = 69*0.9 = 62,1; IV = 55,89 -> 56
         val corr = BrakeDensity.normLines(DensityLocoGroup.G2, 100, 5.4)
-        assertEquals("Норма плотности во II положении: 62,1 сек", corr[0])
-        assertEquals("Норма плотности в IV положении: не менее 56 сек", corr[1])
-        assertEquals(listOf("Норма плотности во II положении: укажите группу"), BrakeDensity.normLines(null, 100, null))
-        assertEquals(listOf("Норма плотности во II положении: укажите число осей"), BrakeDensity.normLines(DensityLocoGroup.G2, 0, null))
+        assertEquals("Норма плотности во II-м: не менее 62,1 сек", corr[0])
+        assertEquals("Норма плотности в IV-м: не менее 56 сек", corr[1])
+        assertEquals(listOf("Норма плотности во II-м: укажите объём ГР"), BrakeDensity.normLines(null, 100, null))
+        assertEquals(listOf("Норма плотности во II-м: укажите число осей"), BrakeDensity.normLines(DensityLocoGroup.G2, 0, null))
         assertEquals(1, BrakeDensity.normLines(DensityLocoGroup.G2, 600, null).size)
     }
 }

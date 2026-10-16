@@ -39,4 +39,34 @@ class BrakeCertificateMappingTest {
         assertEquals(com.z_company.domain.brake.CompositeShare.P100, BrakeCertificateUiState().compositeShare)
         assertEquals(false, BrakeCertificateViewModel.DEFAULT_AUTOBLOCK)
     }
+
+    private fun st(rows: List<Pair<String, String>>, mode: Boolean = true, avg: String = "") = BrakeCertificateUiState(
+        rowsMode = mode, avgPressureText = avg,
+        rows = rows.mapIndexed { i, (p, a) -> BrakeRowUi(id = i, pressureText = p, axlesText = a) }, nextRowId = rows.size,
+    )
+
+    @Test
+    fun pressureField_singleRow_oneValue() {
+        val s = st(listOf("8,5" to "128"))
+        assertEquals(PressureField.Single("8,5"), s.pressureField())
+    }
+
+    @Test
+    fun pressureField_severalSameRows_single() {
+        val s = st(listOf("7" to "100", "7,0" to "28"))
+        assertTrue(s.pressureField() is PressureField.Single)
+    }
+
+    @Test
+    fun pressureField_differentValues_multiple() {
+        assertEquals(PressureField.Multiple, st(listOf("7" to "100", "3,5" to "28")).pressureField())
+    }
+
+    @Test
+    fun pressureField_emptyTable_plainField() {
+        assertEquals(PressureField.Empty, st(emptyList()).pressureField())
+        assertEquals(PressureField.Empty, st(listOf("" to "")).pressureField())
+        assertEquals(PressureField.Empty, st(listOf("8" to ""), mode = false, avg = "8").pressureField())
+        assertEquals(PressureField.Empty, st(listOf("8" to ""), mode = true).pressureField()) // нет полностью заполненной строки
+    }
 }

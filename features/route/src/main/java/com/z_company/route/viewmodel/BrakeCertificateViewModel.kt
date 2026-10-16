@@ -140,24 +140,9 @@ data class BrakeCertificateUiState(
 val BrakeCertificateUiState.grade: GradeClass get() = slope.grade
 val BrakeCertificateUiState.manualInfo: BrakeNorms.ManualInfo get() = BrakeNorms.manualInfo(slope, manualOverride)
 
-/** Итог «Заполнить из маршрута»: что подставлено и чего не нашлось. */
-data class FillReport(val filled: List<String>, val missing: List<String>, val note: String? = null, val conflicts: List<String> = emptyList()) {
-    val text: String
-        get() = buildString {
-            if (filled.isNotEmpty()) append("Подставлено: ").append(filled.joinToString(", "))
-            if (missing.isNotEmpty()) {
-                if (isNotEmpty()) append(". ")
-                append("Не нашлось: ").append(missing.joinToString(", "))
-            }
-            if (conflicts.isNotEmpty()) {
-                if (isNotEmpty()) append(". ")
-                append("Не заменено (уже введено): ").append(conflicts.joinToString(", "))
-            }
-            if (note != null) {
-                if (isNotEmpty()) append(". ")
-                append(note)
-            }
-        }
+/** «Заполнить из маршрута»: итог подстановки не показывается, только короткая ошибка ([note]). */
+data class FillReport(val note: String? = null) {
+    val text: String get() = note.orEmpty()
 }
 
 /** Экран-калькулятор «Справка ВУ-45»: данные не сохраняются (кроме выбранной нормы ручных тормозов). */
@@ -169,8 +154,6 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     private var storedId: String = ""
     private var lastSavedKey: BrakeCertificateData? = null
     private var persistStarted = false
-    /** Что подставила кнопка «Заполнить из маршрута» в прошлый раз (по названию поля): такое значение без правок пользователя можно перезаписать актуальным. */
-    private val lastAutoFilled = mutableMapOf<String, String>()
     private val prefs = application.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     private val _state = MutableStateFlow(
@@ -212,25 +195,28 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         setLocoSeries(q.locoSeries.orEmpty())
         viewModelScope.launch {
             loadStored()
-            if (q.routeId != null) fillFromRoute(silentWhenNoData = true)
+            if (q.routeId != null) fillFromRoute(onOpen = true)
             startPersisting()
         }
     }
 
-    /** «Заполнить из маршрута»: вес, оси, номер поезда - из раздела «Поезд»; серия и номер - из раздела «Локомотив». */
-    fun fillFromRoute(silentWhenNoData: Boolean = false, force: Boolean = false) {
+    /**
+     * «Заполнить из маршрута»: вес, оси, номер поезда - из раздела «Поезд»; серия и номер - из последнего локомотива маршрута. Нажатие СРАЗУ заменяет значения
+     * актуальными данными маршрута (в т.ч. введённые вручную); пустые и нулевые поля маршрута введённое не затирают. Объём ГР определяется заново
+     * по серии (ВЛ10 - по номеру); ручная группа и свой объём сбрасываются, только если маршрут содержит серию, по которой группа определяется.
+     * [onOpen] - автозаполнение при открытии экрана: только пустые поля, ничего не заменяется.
+     */
+    fun fillFromRoute(onOpen: Boolean = false) {
         val rid = _state.value.routeId
         if (rid == null) {
-            if (!silentWhenNoData) {
-                _state.update { it.copy(fillReport = FillReport(emptyList(), emptyList(), "Нет данных маршрута: экран открыт без маршрута")) }
-            }
+            if (!onOpen) _state.update { it.copy(fillReport = FillReport("Нет данных маршрута")) }
             return
         }
         viewModelScope.launch {
-            _state.update { it.copy(filling = true) }
+            _state.update { it.copy(filling = true, fillReport = null) }
             val route = loadRoute(rid)
             if (route == null) {
-                _state.update { it.copy(filling = false, fillReport = FillReport(emptyList(), emptyList(), "Маршрут не найден")) }
+                _state.update { it.copy(filling = false, fillReport = FillReport("Маршрут не найден")) }
                 return@launch
             }
             val wantedTrain = _state.value.trainId
@@ -240,48 +226,28 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
                 weight = train?.weight, axles = train?.axle, trainNumber = train?.number,
                 locoSeries = loco?.series, locoNumber = loco?.number,
             ).sanitized()
-            val filled = mutableListOf<String>()
-            val missing = mutableListOf<String>()
-            val conflicts = mutableListOf<String>()
             val cur = _state.value
-            // Введённое не затираем без подтверждения: пустое, совпадающее, прежняя автоподстановка (не правленая) или force - подставляем, иное - в «не заменено».
-            fun pick(label: String, new: String?, old: String, same: (String, String) -> Boolean = { a, b -> a.trim() == b.trim() }): String {
-                if (new == null) { missing += label; return old }
-                return if (BrakeFillResolver.shouldReplace(old, new, lastAutoFilled[label], force, same)) {
-                    filled += label; lastAutoFilled[label] = new; new
-                } else { conflicts += label; old }
-            }
-            val num = { a: String, b: String -> a.toFiniteDoubleOrNull() == b.toFiniteDoubleOrNull() }
-            val weight = pick("вес", q.weight, cur.weightText, num)
-            val axles = pick("оси", q.axles, cur.totalAxlesText, num)
-            val trainNo = pick("поезд №", q.trainNumber, cur.trainNumberText)
-            // Серия и номер локомотива - всегда из актуальных данных маршрута (последний локомотив), группа ГР - заново по серии и номеру
-            val lf = BrakeFillResolver.resolveLoco(q.locoSeries, q.locoNumber, cur.locoSeriesText, cur.locoNumberText, cur.densityGroup.takeIf { cur.customVolumeText.isBlank() }, force)
-            if (q.locoSeries == null && q.locoNumber == null) missing += "локомотив"
-            else {
-                if (q.locoSeries != null) filled += "серия ${lf.series}"
-                if (q.locoNumber != null) filled += "локомотив № ${lf.number}"
+            val pick: (String, String?) -> String = if (onOpen) BrakeFillResolver::pickOnOpen else BrakeFillResolver::pickRouteValue
+            val lf = if (onOpen) {
+                // при открытии: серия/номер/группа не перетираются, только пустые подставляются
+                BrakeFillResolver.resolveLoco(null, null, cur.locoSeriesText.ifBlank { q.locoSeries.orEmpty() }, cur.locoNumberText.ifBlank { q.locoNumber.orEmpty() }, cur.densityGroup, cur.customVolumeText)
+            } else {
+                BrakeFillResolver.resolveLoco(q.locoSeries, q.locoNumber, cur.locoSeriesText, cur.locoNumberText, cur.densityGroup, cur.customVolumeText)
             }
             _state.update {
                 it.copy(
-                    weightText = weight,
-                    totalAxlesText = axles,
-                    trainNumberText = trainNo,
+                    weightText = pick(cur.weightText, q.weight),
+                    totalAxlesText = pick(cur.totalAxlesText, q.axles),
+                    trainNumberText = pick(cur.trainNumberText, q.trainNumber),
                     locoNumberText = lf.number,
-                    densityGroup = if (cur.customVolumeText.isNotBlank() && !force) it.densityGroup else lf.manualGroup,
-                    customVolumeText = if (force) "" else it.customVolumeText,
+                    densityGroup = lf.manualGroup,
+                    customVolumeText = lf.customVolume,
                     trainId = train?.trainId ?: it.trainId,
                     filling = false,
+                    fillReport = null,
                 )
             }
-            if (q.locoSeries != null) setLocoSeries(lf.series)
-            val st = _state.value
-            val grp = st.effectiveDensityGroup()
-            if (st.customVolumeText.isNotBlank()) conflicts += "группа (свой объём ГР ${st.customVolumeText} л)"
-            else if (lf.manualGroupKept) conflicts += "группа (выбрана вручную: ${grp?.title ?: "не выбрана"})"
-            else if (grp != null) filled += "группа ${grp.title}"
-            else if (q.locoSeries != null || q.locoNumber != null) missing += "группа (серия не определяет объём ГР - выберите вручную)"
-            _state.update { it.copy(fillReport = FillReport(filled.distinct(), missing.distinct(), conflicts = conflicts.distinct())) }
+            setLocoSeries(lf.series)
             applyStopCandidates(train?.stations.orEmpty())
         }
     }
@@ -471,6 +437,25 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
 
     // ── Нажатие ──
     fun setAvgPressure(v: String) = _state.update { it.copy(avgPressureText = v) }
+
+    /**
+     * Ввод в поле «Нажатие на ось» на «Расчёте»: одно значение в таблице - обновляет все заполненные строки (число осей не меняется);
+     * разные значения - ввод недоступен; пустая таблица - обычное поле (если строки таблицы полностью пусты, возвращаемся к режиму «одно среднее»).
+     */
+    fun setPressureField(v: String) = _state.update { st ->
+        when (st.pressureField()) {
+            PressureField.Multiple -> st
+            is PressureField.Single -> st.copy(avgPressureText = v, rows = st.rows.map { r -> if (r.isFilled()) r.copy(pressureText = v) else r })
+            PressureField.Empty ->
+                if (st.rowsMode && st.rows.all { it.pressureText.isBlank() && it.axlesText.isBlank() }) st.copy(avgPressureText = v, rowsMode = false)
+                else if (st.rowsMode) st.copy(
+                    avgPressureText = v,
+                    // строки с числом осей, но без нажатия, получают введённое значение - таблица и поле остаются согласованными
+                    rows = st.rows.map { r -> if ((r.axlesText.trim().toIntOrNull() ?: 0) > 0 && (r.pressureText.toFiniteDoubleOrNull() ?: 0.0) <= 0) r.copy(pressureText = v) else r },
+                )
+                else st.copy(avgPressureText = v)
+        }
+    }
 
     /** Переключает ввод «одно среднее нажатие» / «оси по типам»; при переходе в таблицу первая строка берётся из среднего. */
     fun setRowsMode(on: Boolean) = _state.update {
@@ -673,6 +658,31 @@ fun BrakeCertificateUiState.toInput(): BrakeCertificateInput? {
         actualManualAxles = manualHaveText.trim().toIntOrNull(),
         declaredAxles = if (rowsMode) totalAxlesText.trim().toIntOrNull() else null,
     )
+}
+
+/** Состояние поля «Нажатие на ось» на «Расчёте» по таблице справки. */
+sealed interface PressureField {
+    /** Таблица пуста (или нет полностью заполненных строк): обычное поле ввода. */
+    data object Empty : PressureField
+
+    /** Одно значение нажатия на всех заполненных строках: показывается в поле, правка меняет все эти строки. */
+    data class Single(val text: String) : PressureField
+
+    /** Две и более разных значения: «см. в справке», поле недоступно для ввода. */
+    data object Multiple : PressureField
+}
+
+private fun BrakeRowUi.isFilled(): Boolean = (pressureText.toFiniteDoubleOrNull() ?: 0.0) > 0 && (axlesText.trim().toIntOrNull() ?: 0) > 0
+
+fun BrakeCertificateUiState.pressureField(): PressureField {
+    if (!rowsMode) return PressureField.Empty
+    val filled = rows.filter { it.isFilled() }
+    val distinct = filled.map { it.pressureText.toFiniteDoubleOrNull() }.distinct()
+    return when {
+        filled.isEmpty() -> PressureField.Empty
+        distinct.size == 1 -> PressureField.Single(filled.first().pressureText)
+        else -> PressureField.Multiple
+    }
 }
 
 /** Строки таблицы нажатий «как в бланке»: в режиме таблицы - введённые строки, иначе одна строка из среднего нажатия. */

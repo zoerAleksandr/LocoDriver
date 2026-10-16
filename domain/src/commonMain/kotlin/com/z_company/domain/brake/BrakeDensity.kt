@@ -198,16 +198,16 @@ object BrakeDensity {
     }
 
     /**
-     * Две строки норм для показа: «Норма плотности во II положении: 69 сек» и «Норма плотности в IV положении: не менее 62,1 сек».
+     * Две строки норм для показа: «Норма плотности во II-м: не менее 69 сек» и «Норма плотности в IV-м: не менее 63 сек» (норма II - «наименьшее допустимое время», т.е. «не менее»).
      * Нет группы или числа осей - подпись «укажите группу» / «укажите число осей» (одна строка). Вне таблицы (больше 530 осей) - «число осей вне таблицы».
      */
     fun normLines(group: DensityLocoGroup?, axles: Int, chargePressure: Double?, locoCount: Int = 1): List<String> {
-        if (group == null) return listOf("Норма плотности во II положении: укажите группу")
-        if (axles <= 0) return listOf("Норма плотности во II положении: укажите число осей")
-        val t = minTimeSeconds(group, axles, chargePressure, locoCount) ?: return listOf("Норма плотности во II положении: число осей вне таблицы (1-530)")
+        if (group == null) return listOf("Норма плотности во II-м: укажите объём ГР")
+        if (axles <= 0) return listOf("Норма плотности во II-м: укажите число осей")
+        val t = minTimeSeconds(group, axles, chargePressure, locoCount) ?: return listOf("Норма плотности во II-м: число осей вне таблицы (1-530)")
         return listOf(
-            "Норма плотности во II положении: ${formatNormSeconds(t)} сек",
-            "Норма плотности в IV положении: не менее ${formatNormSeconds(normIvSeconds(t))} сек",
+            "Норма плотности во II-м: не менее ${formatNormSeconds(t)} сек",
+            "Норма плотности в IV-м: не менее ${formatNormSeconds(normIvSeconds(t))} сек",
         )
     }
 

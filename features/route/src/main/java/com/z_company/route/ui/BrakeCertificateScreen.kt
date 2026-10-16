@@ -94,7 +94,9 @@ import com.z_company.route.ui.settings.SettingsPickerOption
 import com.z_company.route.ui.settings.SettingsPickerSheet
 import com.z_company.route.viewmodel.BrakeCertificateUiState
 import com.z_company.route.viewmodel.BrakeCertificateViewModel
+import com.z_company.route.viewmodel.PressureField
 import com.z_company.route.viewmodel.effectiveDensityGroup
+import com.z_company.route.viewmodel.pressureField
 import com.z_company.route.viewmodel.DensityTimerState
 import com.z_company.route.viewmodel.TimerKind
 import com.z_company.route.viewmodel.effectiveRows
@@ -242,7 +244,7 @@ fun BrakeCertificateScreen(
             },
         )
         BrakeSheet.DensityGroup -> SettingsPickerSheet(
-            title = "Группа локомотива по объёму ГР",
+            title = "Объём ГР",
             hint = "Строка табл. IV.1 по общему объёму главных резервуаров локомотива",
             onDismiss = { sheet = if (openCustomVolume) BrakeSheet.CustomVolume else null; openCustomVolume = false },
             options = buildList {
@@ -299,23 +301,30 @@ private fun CalcTab(
         ) {
             FillFromRoute(state, vm)
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                VuInput(
-                    "Категория поезда", "${category.title.substringBefore(" / ").substringBefore(" (")} · ${category.norm} тс на 100 тс веса",
-                    onClick = { onSheet(BrakeSheet.Category) }, onHelp = { onSheet(BrakeSheet.Help("category")) },
-                )
+                val categoryField: @Composable (Modifier) -> Unit = { m ->
+                    VuInput(
+                        "Категория поезда", category.title.substringBefore(" / ").substringBefore(" ("), m,
+                        onClick = { onSheet(BrakeSheet.Category) }, onHelp = { onSheet(BrakeSheet.Help("category")) },
+                    )
+                }
+                if (category.group != TrainGroup.PASSENGER) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        categoryField(Modifier.weight(1f))
+                        VuInput("Зарядное давление", state.chargePressureText, Modifier.weight(1f), onChange = vm::setChargePressure, unit = "кгс/см²", placeholder = "0", onHelp = { onSheet(BrakeSheet.Help("charge")) })
+                    }
+                } else categoryField(Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     VuInput("Вес состава, т", state.weightText, Modifier.weight(1f), onChange = vm::setWeight, unit = "т", placeholder = "0", onHelp = { onSheet(BrakeSheet.Help("weight")) })
                     VuInput("Всего осей", state.totalAxlesText, Modifier.weight(1f), onChange = vm::setTotalAxles, unit = "осей", placeholder = "0", keyboard = KeyboardType.Number, onHelp = { onSheet(BrakeSheet.Help("axles")) })
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (state.rowsMode) {
-                        val rows = state.effectiveRows()
-                        VuInput(
-                            "Нажатие на ось, тс", "по типам · ${rows.size} стр.", Modifier.weight(1f),
+                    when (val pf = state.pressureField()) {
+                        PressureField.Multiple -> VuInput(
+                            "Нажатие на ось, тс", "см. в справке", Modifier.weight(1f),
                             onClick = onOpenBlank, onHelp = { onSheet(BrakeSheet.Help("row")) },
                         )
-                    } else {
-                        VuInput("Нажатие на ось, тс", state.avgPressureText, Modifier.weight(1f), onChange = vm::setAvgPressure, unit = "тс", placeholder = "0", error = low, onHelp = { onSheet(BrakeSheet.Help("row")) })
+                        is PressureField.Single -> VuInput("Нажатие на ось, тс", pf.text, Modifier.weight(1f), onChange = vm::setPressureField, unit = "тс", placeholder = "0", error = low, onHelp = { onSheet(BrakeSheet.Help("row")) })
+                        PressureField.Empty -> VuInput("Нажатие на ось, тс", state.avgPressureText, Modifier.weight(1f), onChange = vm::setPressureField, unit = "тс", placeholder = "0", error = low, onHelp = { onSheet(BrakeSheet.Help("row")) })
                     }
                     if (category.manualBrakesRequired) {
                         VuInput(
@@ -325,7 +334,7 @@ private fun CalcTab(
                     } else Spacer(Modifier.weight(1f))
                 }
                 if (state.rowsMode) AxleSumWarning(state, vm)
-                Box(Modifier.padding(start = 0.dp)) { VuBtn("Оси по типам вагонов ›", onClick = onOpenBlank, kind = VuBtnKind.Text, h = 40.dp) }
+                Box(Modifier.padding(start = 0.dp)) { VuBtn("Разное нажатие на вагонах ›", onClick = onOpenBlank, kind = VuBtnKind.Text, h = 40.dp) }
                 if (category.group != TrainGroup.PASSENGER) DensityFields(state, vm, onGroup = { onSheet(BrakeSheet.DensityGroup) }, onHelp = onSheet)
                 CompositeRow(state, vm, onHelp = { onSheet(BrakeSheet.Help("composite")) })
                 // Руководящий спуск
@@ -412,7 +421,7 @@ private fun CustomVolumeSheet(state: BrakeCertificateUiState, vm: BrakeCertifica
             val g = (result as? BrakeDensity.VolumeGroup.Found)?.group
             if (g != null) BrakeDensity.normLines(
                 g, axlesForNorm(state), state.chargePressureText.toFiniteDoubleOrNull(), state.locoCountText.trim().toIntOrNull() ?: 1,
-            ).forEach { VuHint(it) }
+            ).forEach { VuNormLine(it) }
         }
     }
 }
@@ -425,23 +434,22 @@ private fun DensityFields(state: BrakeCertificateUiState, vm: BrakeCertificateVi
     val axles = axlesForNorm(state)
     val locoCount = state.locoCountText.trim().toIntOrNull() ?: 1
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        VuInput("Зарядное давление", state.chargePressureText, Modifier.weight(1f), onChange = vm::setChargePressure, unit = "кгс/см²", placeholder = "0", onHelp = { onHelp(BrakeSheet.Help("charge")) })
-        VuInput("Локомотивов (СМЕ)", state.locoCountText, Modifier.weight(1f), onChange = vm::setLocoCount, keyboard = KeyboardType.Number, placeholder = "1", onHelp = { onHelp(BrakeSheet.Help("sme")) })
-    }
+        VuInput("Кол-во локомотивов", state.locoCountText, Modifier.weight(1f), onChange = vm::setLocoCount, keyboard = KeyboardType.Number, placeholder = "1", onHelp = { onHelp(BrakeSheet.Help("sme")) })
     VuInput(
-        "Группа локомотива (объём ГР)",
+        "Объём ГР",
         when {
             state.customVolumeText.isNotBlank() -> BrakeDensity.volumeCaption(state.customVolumeText)
             group != null -> group.title + (if (state.densityGroup == null) " · по серии" else "")
             else -> "Не выбрана"
         },
-        onClick = onGroup, onHelp = { onHelp(BrakeSheet.Help("group")) },
+        onClick = onGroup, modifier = Modifier.weight(1f), onHelp = { onHelp(BrakeSheet.Help("group")) },
     )
+    }
     if (state.customVolumeText.isNotBlank() && group == null) VuHint(BrakeDensity.volumeCaption(state.customVolumeText), Modifier.padding(horizontal = 4.dp))
-    else BrakeDensity.normLines(group, axles, charge, locoCount).forEach { VuHint(it, Modifier.padding(horizontal = 4.dp)) }
+    else BrakeDensity.normLines(group, axles, charge, locoCount).forEach { VuNormLine(it) }
 }
 
-/** «Заполнить из маршрута»: итог подстановки не показывается; только короткая ошибка (нет маршрута, маршрут не найден) и кнопка замены при расхождении с введённым. */
+/** «Заполнить из маршрута»: нажатие сразу заменяет значения актуальными данными маршрута; итог не показывается, только короткая ошибка (нет маршрута, маршрут не найден). */
 @Composable
 private fun FillFromRoute(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel) {
     val t = vuColors()
@@ -453,9 +461,6 @@ private fun FillFromRoute(state: BrakeCertificateUiState, vm: BrakeCertificateVi
         val error = state.fillReport?.note
         if (error != null) VuHint(error, Modifier.padding(horizontal = 4.dp), color = t.danger)
         else if (state.routeId == null) VuHint("Нет маршрута: введите данные вручную.", Modifier.padding(horizontal = 4.dp))
-        if (state.fillReport?.conflicts?.isNotEmpty() == true) {
-            VuBtn("Заменить введённое данными маршрута", { vm.fillFromRoute(force = true) }, Modifier.fillMaxWidth(), kind = VuBtnKind.Text, h = 44.dp)
-        }
     }
 }
 
@@ -922,7 +927,7 @@ private fun AxleSumWarning(state: BrakeCertificateUiState, vm: BrakeCertificateV
     val check = AxleCheck.compare(state.totalAxlesText.trim().toIntOrNull(), sum)
     if (!state.rowsMode) return
     when (check) {
-        is AxleSumCheck.Equal -> Text("✓ осей сходится: ${check.total}", modifier.padding(horizontal = 14.dp, vertical = 6.dp), fontFamily = VuMono, fontSize = 13.sp, color = t.success)
+        is AxleSumCheck.Equal -> Unit
         AxleSumCheck.NoTable -> Unit
         else -> {
             val msg = AxleCheck.message(check) ?: return
@@ -1345,9 +1350,9 @@ private fun MeasureTab(
                 else -> null
             },
             normText = when (active) {
-                TimerKind.II -> if (!passenger && minTime != null) "Норма: не менее ${BrakeDensity.formatNormSeconds(minTime)} с" else null
-                TimerKind.IV -> state.timerII.recordedSec?.let { "Допуск: не менее ${BrakeDensity.formatNormSeconds(BrakeDensity.normIvSeconds(it))} с (90 % от II)" }
-                    ?: minTime?.let { "Норма: не менее ${BrakeDensity.formatNormSeconds(BrakeDensity.normIvSeconds(it))} с" }
+                TimerKind.II -> if (!passenger && minTime != null) "Норма плотности во II-м: не менее ${BrakeDensity.formatNormSeconds(minTime)} сек" else null
+                TimerKind.IV -> state.timerII.recordedSec?.let { "Норма плотности в IV-м: не менее ${BrakeDensity.formatNormSeconds(BrakeDensity.normIvSeconds(it))} сек (90 % от замера II)" }
+                    ?: minTime?.let { "Норма плотности в IV-м: не менее ${BrakeDensity.formatNormSeconds(BrakeDensity.normIvSeconds(it))} сек" }
                 TimerKind.ROUTE -> state.timerII.recordedSec?.let { "Допуск ±20 %: ${fmt(it * 0.8)}–${fmt(it * 1.2)} с" }
             },
             assess = { sec ->
@@ -1423,13 +1428,12 @@ private fun TimerCard(
                         BrakeDensity.Verdict.NO_NORM -> Text("Записано: ${fmt(rec)} с — оценка недоступна", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = t.muted)
                     }
                     val left = if (a.verdict == BrakeDensity.Verdict.NO_NORM) 0.dp else 28.dp
-                    VuHint(
-                        when (a.verdict) {
-                            BrakeDensity.Verdict.NO_NORM -> a.text.replaceFirstChar { it.uppercase() }.let { if (a.text.startsWith("Выберите")) "$it — появится норма" else it }
-                            else -> (normText ?: a.text) + (transferred?.let { " · $it" } ?: "")
-                        },
-                        Modifier.padding(start = left),
-                    )
+                    val noteText = when (a.verdict) {
+                        BrakeDensity.Verdict.NO_NORM -> a.text.replaceFirstChar { it.uppercase() }.let { if (a.text.startsWith("Выберите")) "$it — появится норма" else it }
+                        else -> (normText ?: a.text) + (transferred?.let { " · $it" } ?: "")
+                    }
+                    if (a.verdict == BrakeDensity.Verdict.NO_NORM) VuHint(noteText, Modifier.padding(start = left))
+                    else VuNormLine(noteText, Modifier.padding(start = left))
                 }
             }
             if (passenger) {
