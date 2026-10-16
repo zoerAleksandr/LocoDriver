@@ -159,6 +159,7 @@ fun BrakeCertificateScreen(
     var side by rememberSaveable { mutableIntStateOf(0) }
     var measureKind by rememberSaveable { mutableStateOf(TimerKind.II.name) }
     var sheet by remember { mutableStateOf<BrakeSheet?>(null) }
+    var openCustomVolume by remember { mutableStateOf(false) }
     val now by viewModel.nowMs.collectAsState()
     val t = vuColors()
 
@@ -243,12 +244,12 @@ fun BrakeCertificateScreen(
         BrakeSheet.DensityGroup -> SettingsPickerSheet(
             title = "Группа локомотива по объёму ГР",
             hint = "Строка табл. IV.1 по общему объёму главных резервуаров локомотива",
-            onDismiss = { sheet = null },
+            onDismiss = { sheet = if (openCustomVolume) BrakeSheet.CustomVolume else null; openCustomVolume = false },
             options = buildList {
                 DensityLocoGroup.values().forEach { g ->
                     add(SettingsPickerOption(label = g.title, sub = g.examplesText.ifBlank { null }, selected = state.customVolumeText.isBlank() && g == state.densityGroup, onSelect = { viewModel.setDensityGroup(g) }))
                 }
-                add(SettingsPickerOption(label = "Свой объём, л", sub = if (state.customVolumeText.isNotBlank()) BrakeDensity.volumeCaption(state.customVolumeText) else null, selected = state.customVolumeText.isNotBlank(), onSelect = { sheet = BrakeSheet.CustomVolume }))
+                add(SettingsPickerOption(label = "Свой объём, л", sub = if (state.customVolumeText.isNotBlank()) BrakeDensity.volumeCaption(state.customVolumeText) else null, selected = state.customVolumeText.isNotBlank(), onSelect = { openCustomVolume = true }))
                 add(SettingsPickerOption(label = "Не выбрана", selected = state.densityGroup == null && state.customVolumeText.isBlank(), onSelect = { viewModel.setDensityGroup(null) }))
             },
         )
