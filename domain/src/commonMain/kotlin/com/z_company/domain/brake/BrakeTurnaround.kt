@@ -199,6 +199,37 @@ object TimeOfDayInput {
         return if (!kept.contains(':') && kept.length == 4) kept.substring(0, 2) + ":" + kept.substring(2) else kept
     }
 
+    /**
+     * Жёсткая маска ввода «ЧЧ:ММ». Из [raw] берутся только цифры по порядку; первая цифра, делающая значение заведомо недопустимым, и всё после неё
+     * отбрасываются: часы 0-2, при первой 2 вторая не больше 3, десятки минут 0-5; не более 4 цифр. Двоеточие подставляется само
+     * (после второй цифры при наборе вперёд, при стирании - нет, чтобы не мешать удалению). [prev] - предыдущее значение поля.
+     */
+    fun mask(prev: String, raw: String): String {
+        val digits = StringBuilder()
+        for (c in raw) {
+            if (c !in '0'..'9') continue
+            val d = c - '0'
+            val ok = when (digits.length) {
+                0 -> d <= 2
+                1 -> digits[0] != '2' || d <= 3
+                2 -> d <= 5
+                3 -> true
+                else -> false
+            }
+            if (!ok) break
+            digits.append(c)
+        }
+        val grow = raw.length > prev.length
+        return when {
+            digits.length < 2 -> digits.toString()
+            digits.length == 2 -> digits.toString() + if (grow || raw.contains(':')) ":" else ""
+            else -> digits.substring(0, 2) + ":" + digits.substring(2)
+        }
+    }
+
+    /** Значение для записи: пусто или полное корректное «ЧЧ:ММ»; неполное - null (не сохраняется). */
+    fun committable(masked: String): String? = if (masked.isEmpty()) "" else if (masked.length == 5) normalize(masked) else null
+
     /** Нормализованное «ЧЧ:ММ» (часы 0-23, минуты 0-59) для «9:05», «905», «1245», «12:45»; иначе null. */
     fun normalize(s: String): String? {
         val t = s.trim()

@@ -42,7 +42,10 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextStyle
+import com.z_company.domain.brake.TimeOfDayInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -532,3 +535,69 @@ internal fun VuRowDivider() {
 
 @Suppress("unused")
 private val keepWidth = Modifier.width(0.dp)
+
+/**
+ * Единое поле времени «ЧЧ:ММ» для всего ВУ-45 (оборот и лицевая): цифровая клавиатура, жёсткая маска ([TimeOfDayInput.mask]),
+ * курсор всегда в конце, в запись уходит только пустое или полное корректное значение ([onCommit]).
+ * [ink] - стиль «от руки» на бланке; иначе поле шторки с подписью [label].
+ */
+@Composable
+internal fun VuTimeField(
+    stored: String,
+    onCommit: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    label: String = "",
+    ink: Boolean = false,
+) {
+    val t = vuColors()
+    var text by remember(stored) { mutableStateOf(TimeOfDayInput.mask("", TimeOfDayInput.display(stored))) }
+    var focused by remember { mutableStateOf(false) }
+    val partial = text.isNotEmpty() && text.length < 5
+    val style = if (ink) TextStyle(fontFamily = VuMono, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = t.accent, textAlign = TextAlign.Center)
+    else TextStyle(fontFamily = VuMono, fontSize = 20.sp, fontWeight = FontWeight.Medium, color = t.text)
+    val field = @Composable { mod: Modifier ->
+        BasicTextField(
+            value = TextFieldValue(text, TextRange(text.length)),
+            onValueChange = { tv ->
+                val m = TimeOfDayInput.mask(text, tv.text)
+                text = m
+                TimeOfDayInput.committable(m)?.let { if (it != stored) onCommit(it) }
+            },
+            modifier = mod.onFocusChanged { focused = it.isFocused },
+            singleLine = true,
+            textStyle = style,
+            cursorBrush = SolidColor(t.accent),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            decorationBox = { inner ->
+                Box(contentAlignment = if (ink) Alignment.Center else Alignment.CenterStart) {
+                    if (text.isEmpty()) Text("ЧЧ:ММ", style = style.copy(color = t.faint, fontSize = if (ink) 13.sp else 20.sp, fontWeight = FontWeight.Normal))
+                    inner()
+                }
+            },
+        )
+    }
+    if (ink) {
+        Box(
+            modifier = modifier
+                .heightIn(min = 30.dp)
+                .background(if (focused) t.accentSoft else Color.Transparent)
+                .drawBehind {
+                    val w = 1.5.dp.toPx()
+                    drawLine(if (partial && !focused) t.danger else if (focused) t.accent else t.faint, Offset(0f, size.height - w / 2), Offset(size.width, size.height - w / 2), w)
+                }
+                .padding(horizontal = 4.dp, vertical = 2.dp),
+            contentAlignment = Alignment.BottomCenter,
+        ) { field(Modifier.fillMaxWidth()) }
+    } else {
+        Column(modifier.widthIn(min = 0.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, Modifier.heightIn(min = 24.dp), maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = if (focused) t.accent else t.muted)
+            val shape = RoundedCornerShape(12.dp)
+            Row(
+                Modifier.fillMaxWidth().height(56.dp).background(t.bgSubtle, shape)
+                    .border(2.dp, if (partial && !focused) t.danger else if (focused) t.accent else Color.Transparent, shape)
+                    .padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) { field(Modifier.weight(1f)) }
+        }
+    }
+}

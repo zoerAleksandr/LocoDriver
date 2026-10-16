@@ -752,8 +752,6 @@ private fun PaperHeader(
     onHelp: (String) -> Unit,
 ) {
     val t = vuColors()
-    val hh = state.issueTimeText.substringBefore(':', state.issueTimeText)
-    val mm = if (state.issueTimeText.contains(':')) state.issueTimeText.substringAfter(':') else ""
     Column(Modifier.padding(top = 10.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Column(Modifier.weight(1f)) {
@@ -774,10 +772,7 @@ private fun PaperHeader(
                 if (open && !side) {
                     Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         VuPrint("Время выдачи", 12)
-                        VuInk(hh, Modifier.width(38.dp), onChange = { vm.setIssueTime(it.take(2) + ":" + mm) }, align = TextAlign.End, keyboard = KeyboardType.Number, maxLen = 2)
-                        VuPrint("ч.", 12)
-                        VuInk(mm, Modifier.width(38.dp), onChange = { vm.setIssueTime(hh + ":" + it.take(2)) }, align = TextAlign.End, keyboard = KeyboardType.Number, maxLen = 2)
-                        VuPrint("м.", 12)
+                        VuTimeField(state.issueTimeText, vm::setIssueTime, Modifier.width(72.dp), ink = true)
                     }
                 }
             }
@@ -1234,15 +1229,7 @@ private fun TurnaroundSheet(
             }
             VuTag("Подпись и время")
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                var timeText by remember(entryId) { mutableStateOf(TimeOfDayInput.display(e.readinessTime)) }
-                val timeBad = timeText.isNotEmpty() && TimeOfDayInput.normalize(timeText) == null
-                VuInput("Время опробования", timeText, Modifier.weight(1f), onChange = { v ->
-                    val f = TimeOfDayInput.filter(v)
-                    timeText = f
-                    // сохраняется только пустое или корректное «ЧЧ:ММ»
-                    if (f.isEmpty()) vm.updateTurnaround(entryId) { it.copy(readinessTime = "") }
-                    else TimeOfDayInput.normalize(f)?.takeIf { f.length >= 4 }?.let { n -> vm.updateTurnaround(entryId) { it.copy(readinessTime = n) } }
-                }, text = true, sunk = true, placeholder = "ЧЧ:ММ", keyboard = KeyboardType.Number, error = timeBad)
+VuTimeField(e.readinessTime, { v -> vm.updateTurnaround(entryId) { it.copy(readinessTime = v) } }, Modifier.weight(1f), label = "Время опробования")
                 VuInput("Подпись (таб. №)", e.inspectorTab, Modifier.weight(1f), onChange = { v -> vm.updateTurnaround(entryId) { it.copy(inspectorTab = v) } }, keyboard = KeyboardType.Number, sunk = true)
             }
             Spacer(Modifier.height(2.dp))
