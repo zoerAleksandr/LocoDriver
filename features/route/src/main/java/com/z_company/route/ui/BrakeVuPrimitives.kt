@@ -42,6 +42,10 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.window.PopupProperties
+import com.z_company.domain.brake.BrakeStations
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextStyle
@@ -598,6 +602,43 @@ internal fun VuTimeField(
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) { field(Modifier.weight(1f)) }
+        }
+    }
+}
+
+/**
+ * Подсказки станций под полем: список фильтруется по набранному (без учёта регистра), показывается, пока поле в фокусе
+ * и набранное не совпало с вариантом целиком. [content] - само поле; выбор из списка или своё значение.
+ */
+@Composable
+internal fun VuStationSuggest(
+    value: String,
+    suggestions: List<String>,
+    onPick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val t = vuColors()
+    var focused by remember { mutableStateOf(false) }
+    var dismissed by remember(value) { mutableStateOf(false) }
+    val items = remember(value, suggestions) { BrakeStations.filter(suggestions, value) }
+    Box(modifier.onFocusChanged { focused = it.hasFocus; if (focused) dismissed = false }) {
+        content()
+        if (focused && !dismissed && items.isNotEmpty() && !BrakeStations.isExact(suggestions, value)) {
+            DropdownMenu(
+                expanded = true,
+                onDismissRequest = { dismissed = true },
+                properties = PopupProperties(focusable = false),
+                modifier = Modifier.heightIn(max = 240.dp),
+                containerColor = t.surface,
+            ) {
+                items.forEach { n ->
+                    DropdownMenuItem(
+                        text = { Text(n, fontSize = 16.sp, fontWeight = FontWeight.Medium, color = t.accent, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        onClick = { dismissed = true; onPick(n) },
+                    )
+                }
+            }
         }
     }
 }

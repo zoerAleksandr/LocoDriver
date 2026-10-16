@@ -138,6 +138,8 @@ data class BrakeCertificateUiState(
     val filling: Boolean = false,
     /** Названия станций раздела «Поезд» (для выбора станции в отметке оборота). */
     val trainStationNames: List<String> = emptyList(),
+    /** Все известные станции пользователя (список настроек + справочник станций) для подсказок. */
+    val knownStationNames: List<String> = emptyList(),
 )
 
 val BrakeCertificateUiState.grade: GradeClass get() = slope.grade
@@ -152,6 +154,8 @@ data class FillReport(val note: String? = null) {
 class BrakeCertificateViewModel(application: Application) : AndroidViewModel(application), KoinComponent {
     private val routeUseCase: RouteUseCase by inject()
     private val certificates: BrakeCertificateUseCase by inject()
+    private val settingsUseCase: com.z_company.domain.use_cases.SettingsUseCase by inject()
+    private val stationDirectory: com.z_company.domain.use_cases.StationDirectoryUseCase by inject()
     /** Запись справки после выхода с экрана не должна отменяться вместе с viewModelScope. */
     private val persistScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var storedId: String = ""
@@ -170,6 +174,18 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         ),
     )
     val state: StateFlow<BrakeCertificateUiState> = _state.asStateFlow()
+
+    init {
+        // станции пользователя для подсказок: список из настроек (то, что вводилось в формах) + справочник станций
+        viewModelScope.launch {
+            val names = withContext(Dispatchers.IO) {
+                val saved = runCatching { settingsUseCase.getUserSettingFlow().first().stationList }.getOrDefault(emptyList())
+                val dir = runCatching { stationDirectory.stations().map { it.name } }.getOrDefault(emptyList())
+                saved + dir
+            }
+            _state.update { it.copy(knownStationNames = names) }
+        }
+    }
 
     /** Монотонное «сейчас» для отображения идущих секундомеров (обновляется, пока хоть один идёт). */
     private val _nowMs = MutableStateFlow(SystemClock.elapsedRealtime())

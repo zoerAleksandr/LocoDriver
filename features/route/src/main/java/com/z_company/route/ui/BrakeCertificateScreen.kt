@@ -88,6 +88,7 @@ import com.z_company.domain.brake.SlopeStep
 import com.z_company.domain.brake.SpeedLimit
 import com.z_company.domain.brake.StopClass
 import com.z_company.domain.brake.TrainGroup
+import com.z_company.domain.brake.BrakeStations
 import com.z_company.domain.brake.TimeOfDayInput
 import com.z_company.domain.brake.TurnaroundDensityCheck
 import com.z_company.domain.brake.TurnaroundEntry
@@ -758,7 +759,9 @@ private fun PaperHeader(
                 VuPrint("Штемпель станции", 12)
                 if (open) {
                     DashedBox(Modifier.padding(top = 6.dp).width(112.dp).height(62.dp)) {
-                        VuInk(state.stationText, Modifier.padding(horizontal = 4.dp), onChange = vm::setStation, placeholder = "станция", align = TextAlign.Center)
+                        VuStationSuggest(state.stationText, remember(state.trainStationNames, state.knownStationNames) { BrakeStations.merge(state.trainStationNames, state.knownStationNames) }, onPick = vm::setStation) {
+                            VuInk(state.stationText, Modifier.padding(horizontal = 4.dp), onChange = vm::setStation, placeholder = "станция", align = TextAlign.Center)
+                        }
                     }
                 }
             }
@@ -1185,11 +1188,9 @@ private fun TurnaroundSheet(
                 VuChip("более 30 мин", e.stopClass == StopClass.OVER_30, { vm.updateTurnaround(entryId) { it.copy(stopClass = StopClass.OVER_30) } }, Modifier.weight(1f))
             }
             if (e.arrivalMs != null) VuHint("Стоянка: ${hhmm(e.arrivalMs!!)} – ${e.departureMs?.let { hhmm(it) } ?: "идёт"}")
-            VuInput("Станция", e.stationName, onChange = { v -> vm.updateTurnaround(entryId) { it.copy(stationName = v) } }, text = true, sunk = true)
-            if (state.trainStationNames.isNotEmpty()) {
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    state.trainStationNames.forEach { n -> VuChip(n, e.stationName == n, { vm.updateTurnaround(entryId) { it.copy(stationName = n) } }, small = true) }
-                }
+            val suggestions = remember(state.trainStationNames, state.knownStationNames) { BrakeStations.merge(state.trainStationNames, state.knownStationNames) }
+            VuStationSuggest(e.stationName, suggestions, onPick = { n -> vm.updateTurnaround(entryId) { it.copy(stationName = n) } }) {
+                VuInput("Станция", e.stationName, onChange = { v -> vm.updateTurnaround(entryId) { it.copy(stationName = v) } }, text = true, sunk = true)
             }
             VuInput(
                 "Плотность, с", e.densitySec?.let { fmt(it) } ?: "",
