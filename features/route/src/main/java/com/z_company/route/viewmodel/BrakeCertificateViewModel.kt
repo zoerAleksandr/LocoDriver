@@ -21,6 +21,8 @@ import com.z_company.domain.brake.BrakeCertificateData
 import com.z_company.domain.brake.DensityMeasurementData
 import com.z_company.domain.brake.StopClass
 import com.z_company.domain.brake.TurnaroundEntry
+import com.z_company.domain.brake.TurnaroundPick
+import com.z_company.domain.brake.TurnaroundTarget
 import com.z_company.domain.brake.TurnaroundPlanner
 import com.z_company.domain.use_cases.RouteUseCase
 import org.koin.core.component.KoinComponent
@@ -127,6 +129,8 @@ data class BrakeCertificateUiState(
     val turnaround: List<TurnaroundEntry> = emptyList(),
     /** Запись оборота, в которую попадёт результат ближайшего замера «В пути». */
     val routeTargetEntryId: String? = null,
+    /** Запись оборота, в которую записан последний замер «В пути» (для «Записано в оборот: …»). */
+    val routeWrittenEntryId: String? = null,
     // Источник данных для «Заполнить из маршрута»
     val routeId: String? = null,
     val trainId: String? = null,
@@ -583,6 +587,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     fun startTimer(k: TimerKind) {
         val now = SystemClock.elapsedRealtime()
         updateTimer(k) { it.copy(running = true, startedAtMs = now, accumulatedMs = 0L, recordedSec = null) }
+        if (k == TimerKind.ROUTE) _state.update { it.copy(routeWrittenEntryId = null) }
         ensureTicker()
     }
 
@@ -595,24 +600,34 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
                 it.copy(running = false, accumulatedMs = total, recordedSec = Math.round(total / 100.0) / 10.0)
             }
         }
-        if (k == TimerKind.ROUTE) {
-            val st = _state.value
-            val target = st.routeTargetEntryId
-            val sec = st.timerRoute.recordedSec
-            if (target != null && sec != null) {
-                _state.update { s0 ->
-                    s0.copy(
-                        turnaround = s0.turnaround.map { e -> if (e.id == target) e.copy(densitySec = sec) else e },
-                        routeTargetEntryId = null,
-                    )
-                }
-            }
-        }
         _nowMs.value = now
     }
 
-    fun resetTimer(k: TimerKind) = updateTimer(k) {
-        DensityTimerState(dropText = it.dropText)
+    fun resetTimer(k: TimerKind) {
+        updateTimer(k) { DensityTimerState(dropText = it.dropText) }
+        if (k == TimerKind.ROUTE) _state.update { it.copy(routeWrittenEntryId = null) }
+    }
+
+    /** Запись замера «В пути» в оборот (по кнопке «Записать» после «Стоп»): выбранная запись, иначе ближайшая без плотности, иначе новая; пассажирские - без записи. */
+    fun writeRouteMeasurement() {
+        val st = _state.value
+        val sec = st.timerRoute.recordedSec ?: return
+        val applies = BrakeNorms.category(st.categoryId)?.let { TurnaroundPlanner.applies(it) } ?: false
+        val now = System.currentTimeMillis()
+        when (val pick = TurnaroundTarget.pick(st.turnaround, st.routeTargetEntryId, now, applies)) {
+            TurnaroundPick.NotApplicable -> Unit
+            is TurnaroundPick.Existing -> _state.update { s0 ->
+                s0.copy(turnaround = s0.turnaround.map { e -> if (e.id == pick.id) e.copy(densitySec = sec) else e }, routeTargetEntryId = null, routeWrittenEntryId = pick.id)
+            }
+            TurnaroundPick.CreateNew -> _state.update { s0 ->
+                val id = newTurnaroundId()
+                val hhmm = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+                s0.copy(
+                    turnaround = s0.turnaround + TurnaroundEntry(id = id, stationName = "", stopClass = StopClass.OVER_5, densitySec = sec, readinessTime = hhmm),
+                    routeTargetEntryId = null, routeWrittenEntryId = id,
+                )
+            }
+        }
     }
 
     fun setDrop(k: TimerKind, v: String) = updateTimer(k) { it.copy(dropText = v) }

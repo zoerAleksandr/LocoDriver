@@ -88,3 +88,53 @@ data class TurnaroundEntry(
         val TEST_KINDS = listOf("сокращённое", "технологическое", "полное")
     }
 }
+
+/** Куда записать замер «В пути» (плотность) на обороте справки. */
+sealed interface TurnaroundPick {
+    /** Записать в существующую запись [id] (без плотности). */
+    data class Existing(val id: String) : TurnaroundPick
+
+    /** Подходящей записи нет: создать новую (класс «более 5 мин», станция пустая, время замера = сейчас). */
+    data object CreateNew : TurnaroundPick
+
+    /** Оборот не ведётся (пассажирские категории): замер никуда не пишется. */
+    data object NotApplicable : TurnaroundPick
+}
+
+object TurnaroundTarget {
+    /**
+     * Выбор записи оборота для плотности «В пути»:
+     * 1) оборот не ведётся ([applies] = false) -> [TurnaroundPick.NotApplicable];
+     * 2) явно выбранная запись [targetId], если она есть и в ней ещё нет плотности;
+     * 3) иначе запись БЕЗ плотности, ближайшая по времени к [nowMs] (стоянка, на которой поезд стоит сейчас, или последняя прошедшая;
+     *    записи без времён - после записей со временем, из них последняя добавленная);
+     * 4) иначе создать новую запись. Существующая плотность молча не затирается.
+     */
+    fun pick(entries: List<TurnaroundEntry>, targetId: String?, nowMs: Long, applies: Boolean): TurnaroundPick {
+        if (!applies) return TurnaroundPick.NotApplicable
+        if (targetId != null) {
+            val t = entries.firstOrNull { it.id == targetId }
+            if (t != null && t.densitySec == null) return TurnaroundPick.Existing(t.id)
+        }
+        val candidates = entries.withIndex().filter { it.value.densitySec == null }
+        if (candidates.isEmpty()) return TurnaroundPick.CreateNew
+        val best = candidates.minWithOrNull(
+            compareBy<IndexedValue<TurnaroundEntry>> { distanceMs(it.value, nowMs) }
+                .thenByDescending { it.value.arrivalMs ?: Long.MIN_VALUE }
+                .thenByDescending { it.index },
+        )!!
+        return TurnaroundPick.Existing(best.value.id)
+    }
+
+    /** Расстояние от [nowMs] до стоянки записи: 0 внутри стоянки (идущая стоянка без отправления - с момента прибытия); без времён - «очень далеко». */
+    fun distanceMs(e: TurnaroundEntry, nowMs: Long): Long {
+        val arr = e.arrivalMs ?: e.departureMs ?: return Long.MAX_VALUE / 2
+        val dep = e.departureMs
+        return when {
+            nowMs < arr -> arr - nowMs
+            dep == null -> 0L
+            nowMs <= dep -> 0L
+            else -> nowMs - dep
+        }
+    }
+}

@@ -89,7 +89,9 @@ import com.z_company.domain.brake.SpeedLimit
 import com.z_company.domain.brake.StopClass
 import com.z_company.domain.brake.TrainGroup
 import com.z_company.domain.brake.TurnaroundEntry
+import com.z_company.domain.brake.TurnaroundPick
 import com.z_company.domain.brake.TurnaroundPlanner
+import com.z_company.domain.brake.TurnaroundTarget
 import com.z_company.domain.util.toFiniteDoubleOrNull
 import com.z_company.route.ui.settings.SettingsPickerOption
 import com.z_company.route.ui.settings.SettingsPickerSheet
@@ -1364,14 +1366,34 @@ private fun MeasureTab(
                 (state.timerOf(k).let { tm -> if (tm.running) " · идёт" else tm.recordedSec?.let { " · ${fmt(it)} с" } ?: "" })
         }
         VuTabs(labels, kinds.indexOf(active), { onKind(kinds[it]) }, mono = true)
-        if (active == TimerKind.ROUTE && state.routeTargetEntryId != null) {
-            val target = state.turnaround.firstOrNull { it.id == state.routeTargetEntryId }
+        val turnApplies = TurnaroundPlanner.applies(category)
+        var pickSheet by remember { mutableStateOf(false) }
+        val written = state.routeWrittenEntryId?.let { id -> state.turnaround.firstOrNull { it.id == id } }
+        if (active == TimerKind.ROUTE && turnApplies && written == null) {
+            val pick = TurnaroundTarget.pick(state.turnaround, state.routeTargetEntryId, System.currentTimeMillis(), true)
+            val label = when (pick) {
+                is TurnaroundPick.Existing -> state.turnaround.firstOrNull { it.id == pick.id }?.let { turnaroundLabel(it) } ?: "новая запись"
+                else -> "новая запись"
+            }
             Row(
-                Modifier.fillMaxWidth().background(t.accentSoft, RoundedCornerShape(12.dp)).padding(horizontal = 14.dp, vertical = 10.dp),
+                Modifier.fillMaxWidth().background(t.accentSoft, RoundedCornerShape(12.dp)).padding(start = 14.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Результат запишется в отметку оборота: ${target?.stationName?.ifBlank { "станция" } ?: ""}", Modifier.weight(1f), fontSize = 13.sp, color = t.text)
-                Text("Отмена", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, modifier = Modifier.clickable { vm.setRouteTarget(null) }.padding(8.dp))
+                Text("Запишется в оборот: $label", Modifier.weight(1f), fontSize = 13.sp, color = t.text)
+                Text("Выбрать", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, modifier = Modifier.heightIn(min = 48.dp).clickable { pickSheet = true }.padding(horizontal = 12.dp, vertical = 14.dp))
+            }
+        }
+        if (pickSheet) {
+            VuSheet(title = "Запись оборота", sub = "Куда записать замер «В пути»", onDismiss = { pickSheet = false }) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    VuBtn("Автоматически", { vm.setRouteTarget(null); pickSheet = false }, Modifier.fillMaxWidth(), kind = VuBtnKind.Tonal, h = 52.dp)
+                    val free = state.turnaround.filter { it.densitySec == null }
+                    if (free.isEmpty()) VuHint("Свободных записей нет: будет создана новая.")
+                    free.forEach { e ->
+                        VuBtn(turnaroundLabel(e), { vm.setRouteTarget(e.id); pickSheet = false }, Modifier.fillMaxWidth(), kind = VuBtnKind.Text, h = 52.dp)
+                    }
+                    VuBtn("К отметкам оборота ›", { pickSheet = false; onBackToTurnaround() }, Modifier.fillMaxWidth(), kind = VuBtnKind.Text, h = 52.dp)
+                }
             }
         }
         TimerCard(
@@ -1405,10 +1427,10 @@ private fun MeasureTab(
                 }
             },
             onHelp = { onHelp("density") },
+            onWrite = if (active == TimerKind.ROUTE && turnApplies) ({ vm.writeRouteMeasurement() }) else null,
+            writtenLabel = if (active == TimerKind.ROUTE && turnApplies) written?.let { turnaroundLabel(it) } else null,
+            onToTurnaround = onBackToTurnaround,
         )
-        if (active == TimerKind.ROUTE && TurnaroundPlanner.applies(category)) {
-            VuBtn("К отметкам оборота ›", onBackToTurnaround, kind = VuBtnKind.Text)
-        }
         VuHint("Результаты замеров автоматически попадают во вкладку «Бланк». Экран не гаснет, пока идёт замер.", Modifier.padding(horizontal = 4.dp))
     }
 }
@@ -1426,6 +1448,9 @@ private fun TimerCard(
     transferred: String?,
     normText: String?,
     onHelp: () -> Unit,
+    onWrite: (() -> Unit)? = null,
+    writtenLabel: String? = null,
+    onToTurnaround: () -> Unit = {},
 ) {
     val t = vuColors()
     val elapsed = timer.elapsedMs(now)
@@ -1448,7 +1473,10 @@ private fun TimerCard(
                 fontFamily = VuMono, fontSize = 72.sp, fontWeight = FontWeight.Bold, letterSpacing = (-3).sp,
                 color = if (timer.running) t.accent else if (!done && elapsed == 0L) t.faint else t.text, maxLines = 1,
             )
-            Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (done && !timer.running && onWrite != null && writtenLabel == null) {
+                VuBtn("Записать", onWrite, Modifier.fillMaxWidth().padding(top = 18.dp), h = 64.dp)
+            }
+            Row(Modifier.fillMaxWidth().padding(top = if (done && onWrite != null && writtenLabel == null) 8.dp else 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 when {
                     timer.running -> VuBtn("Стоп", { vm.stopTimer(kind) }, Modifier.fillMaxWidth(), kind = VuBtnKind.Cta, h = 64.dp)
                     done -> {
@@ -1458,13 +1486,19 @@ private fun TimerCard(
                     else -> VuBtn("Старт", { vm.startTimer(kind) }, Modifier.fillMaxWidth(), h = 64.dp)
                 }
             }
+            if (writtenLabel != null && done) {
+                Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Записано в оборот: $writtenLabel", Modifier.weight(1f), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.text)
+                    VuBtn("К отметкам оборота ›", onToTurnaround, kind = VuBtnKind.Text, h = 48.dp)
+                }
+            }
             timer.recordedSec?.let { rec ->
                 val a = assess(rec)
                 Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     when (a.verdict) {
-                        BrakeDensity.Verdict.OK -> VuVerdict(true, "Записано: ${fmt(rec)} с — норма", 16)
-                        BrakeDensity.Verdict.FAIL -> VuVerdict(false, "Записано: ${fmt(rec)} с — " + (if (kind == TimerKind.ROUTE && !passenger) "отличается от записанного более чем на 20 %" else "недостаточно"), 16)
-                        BrakeDensity.Verdict.NO_NORM -> Text("Записано: ${fmt(rec)} с — оценка недоступна", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = t.muted)
+                        BrakeDensity.Verdict.OK -> VuVerdict(true, "Замер: ${fmt(rec)} с — норма", 16)
+                        BrakeDensity.Verdict.FAIL -> VuVerdict(false, "Замер: ${fmt(rec)} с — " + (if (kind == TimerKind.ROUTE && !passenger) "отличается от записанного более чем на 20 %" else "недостаточно"), 16)
+                        BrakeDensity.Verdict.NO_NORM -> Text("Замер: ${fmt(rec)} с — оценка недоступна", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = t.muted)
                     }
                     val left = if (a.verdict == BrakeDensity.Verdict.NO_NORM) 0.dp else 28.dp
                     val noteText = when (a.verdict) {
@@ -1523,4 +1557,10 @@ private fun ReferenceTab(state: BrakeCertificateUiState, category: BrakeCategory
             Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
         )
     }
+}
+
+/** Подпись записи оборота: станция (или «станция не указана») и время. */
+private fun turnaroundLabel(e: TurnaroundEntry): String {
+    val name = e.stationName.ifBlank { "станция не указана" }
+    return if (e.readinessTime.isNotBlank()) "$name, ${e.readinessTime}" else name
 }
