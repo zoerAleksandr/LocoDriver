@@ -135,6 +135,8 @@ data class BrakeCertificateUiState(
     val routeId: String? = null,
     val trainId: String? = null,
     val fillReport: FillReport? = null,
+    /** Пояснение к подбору категории по номеру поезда (после «Заполнить из маршрута»). */
+    val categoryNote: String? = null,
     val filling: Boolean = false,
     /** Названия станций раздела «Поезд» (для выбора станции в отметке оборота). */
     val trainStationNames: List<String> = emptyList(),
@@ -272,7 +274,9 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
             if (!onOpen) {
                 // категория по номеру поезда из маршрута - только если номер определяет её однозначно (иначе текущая остаётся)
                 val st = _state.value
-                BrakeCategory.byTrainNumber(q.trainNumber, st.totalAxlesText.trim().toIntOrNull())?.let { applyCategory(it.id) }
+                val sug = BrakeCategory.suggestByTrainNumber(q.trainNumber, st.totalAxlesText.trim().toIntOrNull(), st.categoryId)
+                sug.categoryId?.let { applyCategory(it) }
+                _state.update { it.copy(categoryNote = sug.note) }
                 // «Учитывать локомотив» следует категории: в пассажирских и грузопассажирских включено, в грузовых выключено (ручная правка действует до следующего заполнения)
                 val cat = BrakeNorms.category(_state.value.categoryId)
                 if (cat != null) _state.update { it.copy(locoEnabled = cat.locoCountedByDefault) }

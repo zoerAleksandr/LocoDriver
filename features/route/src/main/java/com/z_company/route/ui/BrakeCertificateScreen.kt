@@ -492,6 +492,7 @@ private fun FillFromRoute(state: BrakeCertificateUiState, vm: BrakeCertificateVi
         )
         val error = state.fillReport?.note
         if (error != null) VuHint(error, Modifier.padding(horizontal = 4.dp), color = t.danger)
+        else if (state.categoryNote != null) VuHint(state.categoryNote, Modifier.padding(horizontal = 4.dp))
         else if (state.routeId == null) VuHint("Нет маршрута: введите данные вручную.", Modifier.padding(horizontal = 4.dp))
     }
 }

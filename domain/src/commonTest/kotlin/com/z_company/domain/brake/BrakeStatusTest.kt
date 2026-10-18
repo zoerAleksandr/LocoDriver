@@ -117,7 +117,7 @@ class BrakeStatusTest {
     }
 
     @Test fun byTrainNumber_notDetermined() {
-        for (n in listOf("2604", "3001", "3405", "3501", "3601", "1001", "9201", "9501", "101", "301", "701", "6001", "7101", "8201")) {
+        for (n in listOf("2604", "3001", "3405", "3501", "3601", "1001", "9201", "9501", "701", "6001", "7101", "8201")) {
             assertEquals(null, BrakeCategory.byTrainNumber(n, axles = 400), n)
         }
     }
@@ -157,5 +157,32 @@ class BrakeStatusTest {
         }
         assertTrue(BrakeCategory.byTrainNumber("965")!!.locoCountedByDefault)
         assertTrue(!BrakeCategory.byTrainNumber("9310")!!.locoCountedByDefault)
+    }
+
+    @Test fun suggestByTrainNumber_passenger22() {
+        // 22 - пассажирский скорый (859р, диапазон 1-150): из груженого грузового выбирается пассажирская категория по умолчанию
+        val r = BrakeCategory.suggestByTrainNumber("22", null, "FREIGHT_LOADED")
+        assertEquals("PASS_120", r.categoryId)
+        assertTrue(r.note != null)
+        assertTrue(!BrakeNorms.category(r.categoryId!!)!!.let { !it.locoCountedByDefault })
+        // уже выбранная пассажирская категория не меняется
+        assertEquals(null, BrakeCategory.suggestByTrainNumber("22", null, "PASS_140").categoryId)
+        assertEquals(null, BrakeCategory.suggestByTrainNumber("22", null, "PASS_140").note)
+        // границы пассажирских диапазонов
+        assertEquals("PASS_120", BrakeCategory.suggestByTrainNumber("298", null, "FREIGHT_LOADED").categoryId)
+        assertEquals(null, BrakeCategory.suggestByTrainNumber("299", null, "FREIGHT_LOADED").categoryId)
+        assertEquals("PASS_120", BrakeCategory.suggestByTrainNumber("301", null, "FREIGHT_LOADED").categoryId)
+        assertEquals("PASS_120", BrakeCategory.suggestByTrainNumber("698", null, "FREIGHT_LOADED").categoryId)
+        assertEquals(null, BrakeCategory.suggestByTrainNumber("699", null, "FREIGHT_LOADED").categoryId)
+    }
+
+    @Test fun suggestByTrainNumber_unambiguousOverridesRemembered_otherKeeps() {
+        assertEquals("FREIGHT_PASS", BrakeCategory.suggestByTrainNumber("965", null, "PASS_120").categoryId)
+        assertEquals("EMPTY_350", BrakeCategory.suggestByTrainNumber("9310", null, "FREIGHT_LOADED").categoryId)
+        val amb = BrakeCategory.suggestByTrainNumber("2604", null, "FREIGHT_LOADED")
+        assertEquals(null, amb.categoryId)
+        assertTrue(amb.note!!.contains("не определяется"))
+        assertEquals(null, BrakeCategory.suggestByTrainNumber("", null, "FREIGHT_LOADED").note)
+        assertEquals(null, BrakeCategory.suggestByTrainNumber(null, null, "FREIGHT_LOADED").categoryId)
     }
 }
