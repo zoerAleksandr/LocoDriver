@@ -244,6 +244,29 @@ object BrakeDensity {
         return group.minTimes[col] * chargeFactor(chargePressure) * locoCount.coerceAtLeast(1)
     }
 
+    /** Результат сверки давления в начале и в конце замера: [diff] - снижение, кгс/см2; [ok] - null, если нормы нет (только показ разницы). */
+    data class PressureCheck(val diff: Double?, val ok: Boolean?, val text: String)
+
+    /**
+     * Давление в ГР (II, IV) в начале и в конце замера. Норматив найден только для II положения грузового поезда: п. 48 прил. 2 Правил ТО тормозного оборудования -
+     * после снижения давления на 0,04-0,05 МПа от предельного замеряется время дальнейшего снижения на 0,05 МПа (0,5 кгс/см2); допуск на эту разность в тексте не приведён,
+     * поэтому сравнение идёт с точностью записи (0,01). Для IV положения и для пассажирских поездов (там норма задана падением в ТМ за время, п. 50) - только показ разницы.
+     */
+    fun checkPressure(kind: String, startText: String, endText: String, passenger: Boolean): PressureCheck? {
+        val st = startText.trim().replace(',', '.').toDoubleOrNull()
+        val en = endText.trim().replace(',', '.').toDoubleOrNull()
+        if (st == null || en == null) return null
+        val diff = kotlin.math.round((st - en) * 100) / 100.0
+        val d = fmtL(kotlin.math.abs(diff))
+        if (diff < 0) return PressureCheck(diff, false, "Давление в конце ($endText) выше, чем в начале ($startText): проверьте ввод")
+        if (kind == "II" && !passenger) {
+            val ok = kotlin.math.abs(diff - 0.5) < 0.005
+            return PressureCheck(diff, ok, if (ok) "Снижение $d кгс/см²: соответствует интервалу замера 0,5 кгс/см² (0,05 МПа, п. 48 прил. 2 Правил ТО тормозного оборудования)"
+            else "Снижение $d кгс/см²: по п. 48 прил. 2 Правил ТО тормозного оборудования время замеряется при снижении на 0,5 кгс/см² (0,05 МПа)")
+        }
+        return PressureCheck(diff, null, "Снижение давления: $d кгс/см²")
+    }
+
     /** Ручной ввод времени плотности, с: положительное число до 3600, округляется до 0,1 с; иначе null. */
     fun parseManualSeconds(text: String): Double? {
         val v = text.trim().replace(',', '.').toDoubleOrNull() ?: return null

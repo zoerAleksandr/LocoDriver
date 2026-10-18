@@ -1072,12 +1072,12 @@ private fun OtherColumn(state: BrakeCertificateUiState, onEdit: () -> Unit) {
         // Каждый параметр - строка «подпись значение» (как в бланке), параметры между собой - столбцом
         items.forEach { (k, v) ->
             Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(k, fontSize = 12.sp, color = t.muted, lineHeight = 17.sp)
-                Text(v, Modifier.weight(1f, fill = false), fontFamily = VuMono, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, lineHeight = 17.sp)
+                Text(k, Modifier.alignByBaseline(), fontSize = 12.sp, color = t.muted)
+                Text(v, Modifier.weight(1f, fill = false).alignByBaseline(), fontFamily = VuMono, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, lineHeight = 17.sp)
             }
         }
         Text(
-            (if (items.isEmpty()) "+ Заполнить" else "+ Изменить"), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = t.accent,
+            "Редактировать", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = t.accent,
             modifier = Modifier.clickable(onClick = onEdit).heightIn(min = 44.dp).padding(vertical = 12.dp),
         )
     }
@@ -1777,6 +1777,21 @@ private fun ManualDensitySheet(state: BrakeCertificateUiState, kind0: TimerKind,
             }
             VuInput("Время падения давления, с", text, onChange = { text = it }, unit = "с", sunk = true, error = text.isNotBlank() && parsed == null)
             if (cur.manual) VuHint("Сейчас значение введено вручную.")
+            VuTag("Давление в ГР, кгс/см²")
+            var pStart by remember(kind) { mutableStateOf(cur.grStartText) }
+            var pEnd by remember(kind) { mutableStateOf(cur.grEndText) }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                VuInput("В начале замера", pStart, Modifier.weight(1f), onChange = { pStart = it; vm.setPressures(kind, it, pEnd) }, sunk = true)
+                VuInput("В конце замера", pEnd, Modifier.weight(1f), onChange = { pEnd = it; vm.setPressures(kind, pStart, it) }, sunk = true)
+            }
+            val passenger = BrakeNorms.category(state.categoryId)?.group == TrainGroup.PASSENGER
+            BrakeDensity.checkPressure(kind.name, pStart, pEnd, passenger)?.let { c ->
+                when (c.ok) {
+                    true -> VuVerdict(true, c.text, 14)
+                    false -> VuVerdict(false, c.text, 14)
+                    null -> VuHint(c.text)
+                }
+            }
         }
     }
 }

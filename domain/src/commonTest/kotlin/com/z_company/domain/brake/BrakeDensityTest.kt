@@ -470,4 +470,16 @@ class BrakeTurnaroundTest {
         assertEquals(false, j.decodeFromString<DensityMeasurementData>("""{"kind":"II","seconds":50.0}""").manual)
         assertEquals(true, j.decodeFromString<DensityMeasurementData>("""{"kind":"II","seconds":50.0,"manual":true}""").manual)
     }
+
+    @Test
+    fun pressureCheck() {
+        assertNull(BrakeDensity.checkPressure("II", "", "4,5", false))
+        val ok = BrakeDensity.checkPressure("II", "5,2", "4,7", false)!!
+        assertEquals(true, ok.ok); assertEquals(0.5, ok.diff!!, 1e-9)
+        assertEquals(false, BrakeDensity.checkPressure("II", "5,2", "4,5", false)!!.ok)
+        assertEquals(false, BrakeDensity.checkPressure("II", "4,5", "5,0", false)!!.ok) // конец выше начала
+        assertNull(BrakeDensity.checkPressure("IV", "5,2", "4,9", false)!!.ok) // норматива нет - только разница
+        assertNull(BrakeDensity.checkPressure("II", "5,2", "5,0", true)!!.ok) // пассажирский: падение в ТМ
+        assertEquals(0.2, BrakeDensity.checkPressure("II", "5,2", "5,0", true)!!.diff!!, 1e-9)
+    }
 }

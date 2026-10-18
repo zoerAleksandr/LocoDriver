@@ -73,10 +73,8 @@ data class AxleRowData(val pressure: String = "", val axles: String = "")
 data class DensityMeasurementData(
     val kind: String,
     val seconds: Double? = null,
-    /** Устарело (давление ГР в начале/в конце убрано из UI и расчётов): поля остаются необязательными, чтобы старые сохранённые справки и синхронизация не ломались. */
-    @Deprecated("Не используется: поле убрано из UI")
+    /** Давление в начале и в конце замера, кгс/см2 (текстом; ввод в шторке плотности бланка). Необязательные поля, у старых справок пусто. */
     val grStart: String = "",
-    @Deprecated("Не используется: поле убрано из UI")
     val grEnd: String = "",
     val drop: String = "",
     /** Значение введено вручную (не замером секундомером); у старых записей false. */
