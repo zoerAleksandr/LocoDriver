@@ -886,17 +886,18 @@ private fun FrontBody(
     // Плотность из «Замеров»
     val ii = state.timerII.recordedSec
     val iv = state.timerIV.recordedSec
-    val dens = listOfNotNull(ii?.let { "II ${fmt(it)} с" }, iv?.let { "IV ${fmt(it)} с" }).joinToString(" · ")
+    // II и IV - каждое значение в своей строке (без обрезки при крупном шрифте)
     VuFillRow(Modifier.clickable(onClick = onOpenMeasure)) {
         Text("Плотность тормозной сети поезда", Modifier.weight(1f), fontSize = 14.sp, color = t.text, lineHeight = 18.sp)
-        VuInk(dens, Modifier.width(132.dp), calc = false, placeholder = "замерить ›", align = TextAlign.End)
+        if (ii == null && iv == null) VuInk("", Modifier.width(132.dp), calc = false, placeholder = "замерить ›", align = TextAlign.End)
         VuMiniHelp { help("density") }
     }
-    if (dens.isNotEmpty()) {
-        Text(
-            "из «Замеров»" + if (iv == null) " · IV не замерено" else "",
-            Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp).padding(top = 0.dp, bottom = 8.dp), fontSize = 12.sp, color = t.accent, textAlign = TextAlign.End,
-        )
+    if (ii != null || iv != null) {
+        Column(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp).padding(bottom = 8.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            ii?.let { Text("II  ${fmt(it)} с", fontFamily = VuMono, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = t.accent, softWrap = true, textAlign = TextAlign.End) }
+            iv?.let { Text("IV  ${fmt(it)} с", fontFamily = VuMono, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = t.accent, softWrap = true, textAlign = TextAlign.End) }
+            Text("из «Замеров»" + if (iv == null) " · IV не замерено" else "", fontSize = 12.sp, color = t.accent, textAlign = TextAlign.End)
+        }
     }
     VuFillRow {
         VuPrint("Хвостовой вагон №")
@@ -1038,13 +1039,11 @@ private fun OtherColumn(state: BrakeCertificateUiState, onEdit: () -> Unit) {
         if (state.feedDensityText.isNotBlank()) add("Пит." to state.feedDensityText)
     }
     Column(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        // Пары «подпись - значение» в строку, если помещаются по ширине графы и размеру шрифта; иначе переносятся (пара не разрывается)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            items.forEach { (k, v) ->
-                Column(Modifier.padding(bottom = 4.dp)) {
-                    Text(k, fontSize = 11.sp, color = t.muted, lineHeight = 13.sp, softWrap = false)
-                    Text(v, fontFamily = VuMono, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, lineHeight = 17.sp, softWrap = false)
-                }
+        // Каждый параметр - строка «подпись значение» (как в бланке), параметры между собой - столбцом
+        items.forEach { (k, v) ->
+            Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(k, fontSize = 12.sp, color = t.muted, lineHeight = 17.sp)
+                Text(v, Modifier.weight(1f, fill = false), fontFamily = VuMono, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, lineHeight = 17.sp)
             }
         }
         Text(
