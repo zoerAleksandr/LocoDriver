@@ -38,4 +38,11 @@ class TurnaroundTargetTest {
     fun passenger_notApplicable() {
         assertEquals(TurnaroundPick.NotApplicable, TurnaroundTarget.pick(listOf(e("a", 0, 10)), "a", 1, false))
     }
+
+    @Test
+    fun explicitNewEntry() {
+        val l = listOf(e("a", 0, 10), e("b", 100, 200))
+        assertEquals(TurnaroundPick.CreateNew, TurnaroundTarget.pick(l, TurnaroundTarget.NEW_ENTRY, 150, true))
+        assertEquals(TurnaroundPick.NotApplicable, TurnaroundTarget.pick(l, TurnaroundTarget.NEW_ENTRY, 150, false))
+    }
 }

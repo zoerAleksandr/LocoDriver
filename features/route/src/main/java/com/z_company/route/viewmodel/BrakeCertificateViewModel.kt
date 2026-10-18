@@ -133,6 +133,8 @@ data class BrakeCertificateUiState(
     val routeTargetEntryId: String? = null,
     /** Запись оборота, в которую записан последний замер «В пути» (для «Записано в оборот: …»). */
     val routeWrittenEntryId: String? = null,
+    /** Одноразовое уведомление «Записано в оборот» (снекбар), [nonce] отличает повторные записи. */
+    val writtenNotice: WrittenNotice? = null,
     // Источник данных для «Заполнить из маршрута»
     val routeId: String? = null,
     val trainId: String? = null,
@@ -155,6 +157,8 @@ val BrakeCertificateUiState.manualInfo: BrakeNorms.ManualInfo get() = BrakeNorms
 
 /** «Заполнить из маршрута»: итог подстановки не показывается, только короткая ошибка ([note]). */
 /** Запрос выбора при «Заполнить из маршрута»: поезда или локомотивы маршрута [routeId]. */
+data class WrittenNotice(val label: String, val nonce: Long)
+
 data class FillPick(
     val kind: Kind,
     val trains: List<com.z_company.domain.entities.route.Train> = emptyList(),
@@ -759,25 +763,29 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         val sec = st.timerRoute.recordedSec ?: return
         val applies = BrakeNorms.category(st.categoryId)?.let { TurnaroundPlanner.applies(it) } ?: false
         val now = System.currentTimeMillis()
-        when (val pick = TurnaroundTarget.pick(st.turnaround, st.routeTargetEntryId, now, applies)) {
-            TurnaroundPick.NotApplicable -> Unit
-            is TurnaroundPick.Existing -> _state.update { s0 ->
-                val hhmm = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
-                s0.copy(
-                    turnaround = s0.turnaround.map { e -> if (e.id == pick.id) e.copy(densitySec = sec, readinessTime = e.readinessTime.ifBlank { hhmm }) else e },
-                    routeTargetEntryId = null, routeWrittenEntryId = pick.id,
-                )
+        val hhmm = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+        val pick = TurnaroundTarget.pick(st.turnaround, st.routeTargetEntryId, now, applies)
+        if (pick == TurnaroundPick.NotApplicable) return
+        val newId = newTurnaroundId()
+        var label = ""
+        _state.update { s0 ->
+            val list = when (pick) {
+                is TurnaroundPick.Existing -> s0.turnaround.map { e ->
+                    if (e.id == pick.id) e.copy(densitySec = sec, readinessTime = e.readinessTime.ifBlank { hhmm }).also { label = BrakeCertificateViewModel.entryLabel(it) } else e
+                }
+                else -> TurnaroundEntry(id = newId, stationName = "", stopClass = StopClass.OVER_5, densitySec = sec, readinessTime = hhmm)
+                    .also { label = BrakeCertificateViewModel.entryLabel(it) }.let { s0.turnaround + it }
             }
-            TurnaroundPick.CreateNew -> _state.update { s0 ->
-                val id = newTurnaroundId()
-                val hhmm = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
-                s0.copy(
-                    turnaround = s0.turnaround + TurnaroundEntry(id = id, stationName = "", stopClass = StopClass.OVER_5, densitySec = sec, readinessTime = hhmm),
-                    routeTargetEntryId = null, routeWrittenEntryId = id,
-                )
-            }
+            // после записи замер «В пути» возвращается к началу («Старт»); запись в оборот остаётся
+            s0.copy(
+                turnaround = list, routeTargetEntryId = null, routeWrittenEntryId = null,
+                timerRoute = DensityTimerState(dropText = s0.timerRoute.dropText),
+                writtenNotice = WrittenNotice(label, System.nanoTime()),
+            )
         }
     }
+
+    fun consumeWrittenNotice() = _state.update { it.copy(writtenNotice = null) }
 
     /** Ручной ввод плотности, с (дробные). Некорректное значение игнорируется; true - принято. Участвует в оценке как замер. */
     fun setManualDensity(k: TimerKind, text: String): Boolean {
@@ -802,6 +810,13 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     }
 
     companion object {
+        /** Подпись записи оборота: «станция, время» (станция не указана - так и пишется). */
+        fun entryLabel(e: TurnaroundEntry): String {
+            val name = e.stationName.ifBlank { "станция не указана" }
+            val time = com.z_company.domain.brake.TimeOfDayInput.display(e.readinessTime)
+            return if (time.isNotBlank()) "$name, $time" else name
+        }
+
         private const val PREFS = "brake_certificate_prefs"
         private const val KEY_MANUAL_NORM = "manual_norm"
         private const val KEY_AUTOBLOCK = "autoblock3"

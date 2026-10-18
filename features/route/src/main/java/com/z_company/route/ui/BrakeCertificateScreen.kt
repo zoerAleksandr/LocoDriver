@@ -26,7 +26,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -188,8 +193,17 @@ fun BrakeCertificateScreen(
         onDispose { view.keepScreenOn = false }
     }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    // «Записано в оборот: …» с действием «К отметкам оборота»
+    LaunchedEffect(state.writtenNotice) {
+        val n = state.writtenNotice ?: return@LaunchedEffect
+        val r = snackbarHostState.showSnackbar(message = "Записано в оборот: ${n.label}", actionLabel = "К отметкам оборота", duration = androidx.compose.material3.SnackbarDuration.Long)
+        viewModel.consumeWrittenNotice()
+        if (r == SnackbarResult.ActionPerformed) { tab = 1; side = 1 }
+    }
     Scaffold(
         containerColor = t.bg,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Справка ВУ-45", style = MaterialTheme.typography.titleMedium, color = t.text) },
@@ -1445,29 +1459,31 @@ private fun MeasureTab(
         VuTabs(labels, kinds.indexOf(active), { onKind(kinds[it]) }, mono = true)
         val turnApplies = TurnaroundPlanner.applies(category)
         var pickSheet by remember { mutableStateOf(false) }
-        val written = state.routeWrittenEntryId?.let { id -> state.turnaround.firstOrNull { it.id == id } }
-        if (active == TimerKind.ROUTE && turnApplies && written == null) {
-            val pick = TurnaroundTarget.pick(state.turnaround, state.routeTargetEntryId, System.currentTimeMillis(), true)
-            val label = when (pick) {
-                is TurnaroundPick.Existing -> state.turnaround.firstOrNull { it.id == pick.id }?.let { turnaroundLabel(it) } ?: "новая запись"
-                else -> "новая запись"
-            }
+        val pick = TurnaroundTarget.pick(state.turnaround, state.routeTargetEntryId, System.currentTimeMillis(), true)
+        val pickedId = (pick as? TurnaroundPick.Existing)?.id
+        if (active == TimerKind.ROUTE && turnApplies) {
+            val label = pickedId?.let { id -> state.turnaround.firstOrNull { it.id == id } }?.let { turnaroundLabel(it) }
             Row(
                 Modifier.fillMaxWidth().background(t.accentSoft, RoundedCornerShape(12.dp)).padding(start = 14.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Запишется в оборот: $label", Modifier.weight(1f), fontSize = 13.sp, color = t.text)
+                Text(if (label != null) "Запишется в оборот: $label" else "Запишется в новую запись", Modifier.weight(1f), fontSize = 13.sp, color = t.text)
                 Text("Выбрать", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, modifier = Modifier.heightIn(min = 48.dp).clickable { pickSheet = true }.padding(horizontal = 12.dp, vertical = 14.dp))
             }
         }
         if (pickSheet) {
-            VuSheet(title = "Запись оборота", sub = "Куда записать замер «В пути»", onDismiss = { pickSheet = false }) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    VuBtn("Автоматически", { vm.setRouteTarget(null); pickSheet = false }, Modifier.fillMaxWidth(), kind = VuBtnKind.Tonal, h = 52.dp)
-                    val free = state.turnaround.filter { it.densitySec == null }
-                    if (free.isEmpty()) VuHint("Свободных записей нет: будет создана новая.")
-                    free.forEach { e ->
-                        VuBtn(turnaroundLabel(e), { vm.setRouteTarget(e.id); pickSheet = false }, Modifier.fillMaxWidth(), kind = VuBtnKind.Text, h = 52.dp)
+            VuSheet(title = "Куда записать замер", sub = "Запись оборота для плотности «В пути»", onDismiss = { pickSheet = false }) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    state.turnaround.forEach { e ->
+                        val taken = e.densitySec != null
+                        TargetRow(
+                            title = turnaroundLabel(e),
+                            sub = if (taken) "плотность уже записана: ${fmt(e.densitySec!!)} с" else null,
+                            selected = e.id == pickedId, enabled = !taken,
+                        ) { vm.setRouteTarget(e.id); pickSheet = false }
+                    }
+                    TargetRow(title = "Новая запись", sub = null, selected = pick == TurnaroundPick.CreateNew, enabled = true) {
+                        vm.setRouteTarget(TurnaroundTarget.NEW_ENTRY); pickSheet = false
                     }
                     VuBtn("К отметкам оборота ›", { pickSheet = false; onBackToTurnaround() }, Modifier.fillMaxWidth(), kind = VuBtnKind.Text, h = 52.dp)
                 }
@@ -1516,8 +1532,6 @@ private fun MeasureTab(
             },
             onHelp = { onHelp("density") },
             onWrite = if (active == TimerKind.ROUTE && turnApplies) ({ vm.writeRouteMeasurement() }) else null,
-            writtenLabel = if (active == TimerKind.ROUTE && turnApplies) written?.let { turnaroundLabel(it) } else null,
-            onToTurnaround = onBackToTurnaround,
         )
         VuHint("Результаты замеров автоматически попадают во вкладку «Бланк». Экран не гаснет, пока идёт замер.", Modifier.padding(horizontal = 4.dp))
     }
@@ -1538,8 +1552,6 @@ private fun TimerCard(
     normMissing: String? = null,
     onHelp: () -> Unit,
     onWrite: (() -> Unit)? = null,
-    writtenLabel: String? = null,
-    onToTurnaround: () -> Unit = {},
 ) {
     val t = vuColors()
     val elapsed = timer.elapsedMs(now)
@@ -1566,10 +1578,10 @@ private fun TimerCard(
                 fontFamily = VuMono, fontSize = 72.sp, fontWeight = FontWeight.Bold, letterSpacing = (-3).sp,
                 color = if (timer.running) t.accent else if (!done && elapsed == 0L) t.faint else t.text, maxLines = 1,
             )
-            if (done && !timer.running && onWrite != null && writtenLabel == null) {
+            if (done && !timer.running && onWrite != null) {
                 VuBtn("Записать", onWrite, Modifier.fillMaxWidth().padding(top = 18.dp), h = 64.dp)
             }
-            Row(Modifier.fillMaxWidth().padding(top = if (done && onWrite != null && writtenLabel == null) 8.dp else 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(top = if (done && onWrite != null) 8.dp else 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 when {
                     timer.running -> VuBtn("Стоп", { vm.stopTimer(kind) }, Modifier.fillMaxWidth(), kind = VuBtnKind.Cta, h = 64.dp)
                     done -> {
@@ -1577,12 +1589,6 @@ private fun TimerCard(
                         VuBtn("Сбросить", { vm.resetTimer(kind) }, kind = VuBtnKind.Text, h = 64.dp)
                     }
                     else -> VuBtn("Старт", { vm.startTimer(kind) }, Modifier.fillMaxWidth(), h = 64.dp)
-                }
-            }
-            if (writtenLabel != null && done) {
-                Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Записано в оборот: $writtenLabel", Modifier.weight(1f), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.text)
-                    VuBtn("К отметкам оборота ›", onToTurnaround, kind = VuBtnKind.Text, h = 48.dp)
                 }
             }
             if (!timer.running) {
@@ -1760,6 +1766,24 @@ private fun ManualDensitySheet(state: BrakeCertificateUiState, kind0: TimerKind,
             }
             VuInput("Время падения давления, с", text, onChange = { text = it }, unit = "с", sunk = true, error = text.isNotBlank() && parsed == null)
             if (cur.manual) VuHint("Сейчас значение введено вручную.")
+        }
+    }
+}
+
+/** Строка выбора записи оборота: радио-метка слева, подпись, пометка; недоступна, если плотность уже записана. */
+@Composable
+private fun TargetRow(title: String, sub: String?, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    val t = vuColors()
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 4.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Box(Modifier.size(24.dp).border(2.dp, if (selected) t.accent else t.borderStrong, CircleShape), contentAlignment = Alignment.Center) {
+            if (selected) Box(Modifier.size(12.dp).background(t.accent, CircleShape))
+        }
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = if (enabled) t.text else t.faint)
+            if (sub != null) Text(sub, fontSize = 12.sp, color = t.muted)
         }
     }
 }

@@ -144,6 +144,9 @@ sealed interface TurnaroundPick {
 }
 
 object TurnaroundTarget {
+    /** Значение цели «новая запись» (выбор пользователя в шторке). */
+    const val NEW_ENTRY = "__new__"
+
     /**
      * Выбор записи оборота для плотности «В пути»:
      * 1) оборот не ведётся ([applies] = false) -> [TurnaroundPick.NotApplicable];
@@ -154,6 +157,7 @@ object TurnaroundTarget {
      */
     fun pick(entries: List<TurnaroundEntry>, targetId: String?, nowMs: Long, applies: Boolean): TurnaroundPick {
         if (!applies) return TurnaroundPick.NotApplicable
+        if (targetId == NEW_ENTRY) return TurnaroundPick.CreateNew
         if (targetId != null) {
             val t = entries.firstOrNull { it.id == targetId }
             if (t != null && t.densitySec == null) return TurnaroundPick.Existing(t.id)
