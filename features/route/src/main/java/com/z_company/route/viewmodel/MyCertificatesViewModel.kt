@@ -4,10 +4,6 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
-import com.z_company.domain.brake.BrakeCertificateCalculator
-import com.z_company.domain.brake.BrakeStatusResolver
-import com.z_company.domain.brake.SpeedLimit
-import com.z_company.domain.brake.StatusLevel
 import com.z_company.domain.brake.storage.BrakeCertificateUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import kotlinx.coroutines.Dispatchers
@@ -31,13 +27,12 @@ data class CertificateItem(
     val trainId: String?,
     val updatedAt: Long,
     val savedAt: String,
-    /** Рейс: «дата начала работы» или «рейс не найден». */
+    /** Маршрут: «маршрут от <дата начала>» или «маршрут не найден». */
     val routeLabel: String,
     val trainNumber: String,
     val loco: String,
-    /** Скорость и вердикт («90 км/ч · нажатие достаточно»). */
-    val verdict: String,
-    val level: StatusLevel,
+    /** Станция выдачи справки (штемпель); пусто - не указана. */
+    val station: String,
 )
 
 data class MyCertificatesUiState(
@@ -71,25 +66,20 @@ class MyCertificatesViewModel(application: Application) : AndroidViewModel(appli
         val fmtDay = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
         return certificates.listAll().mapNotNull { stored ->
             val data = certificates.decode(stored) ?: return@mapNotNull null
-            val st = data.toUiState(BrakeCertificateUiState())
-            val result = st.toInput()?.let(BrakeCertificateCalculator::calculate)
-            val has = result != null && result.actualPressure > 0
-            val status = BrakeStatusResolver.resolve(result, has)
-            val speed = BrakeStatusResolver.speedKmh(result)
-            val verdict = if (!has) "расчёт не выполнен" else (speed?.let { "$it км/ч · " } ?: "") + status.headline.replaceFirstChar { c -> c.lowercase() }
             val route = routes[stored.routeId]
             CertificateItem(
                 id = stored.certificateId, routeId = stored.routeId, trainId = stored.trainId, updatedAt = stored.updatedAt,
                 savedAt = fmt.format(Date(stored.updatedAt)),
-                routeLabel = route?.basicData?.timeStartWork?.let { "рейс от " + fmtDay.format(Date(it)) } ?: "рейс не найден",
+                routeLabel = route?.basicData?.timeStartWork?.let { "маршрут от " + fmtDay.format(Date(it)) } ?: "маршрут не найден",
                 trainNumber = data.trainNumber.trim().ifBlank { "—" },
                 loco = (data.locoSeries.trim() + (if (data.locoNumber.isNotBlank()) "-" + data.locoNumber.trim() else "")).ifBlank { "—" },
-                verdict = verdict, level = status.level,
+                station = data.station.trim(),
             )
         }
     }
 
     fun toggleSelectionMode() = _state.update { it.copy(selectionMode = !it.selectionMode, selected = emptySet()) }
+    fun clearSelection() = _state.update { it.copy(selected = emptySet()) }
     fun toggleSelected(id: String) = _state.update { it.copy(selected = if (id in it.selected) it.selected - id else it.selected + id) }
     fun selectAll() = _state.update { it.copy(selected = it.items.map { i -> i.id }.toSet()) }
     fun askDelete(ids: Set<String>) = _state.update { it.copy(confirmDelete = ids) }

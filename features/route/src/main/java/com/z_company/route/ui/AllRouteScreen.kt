@@ -1138,49 +1138,33 @@ private fun SelectionBottomAppBar(
     modifier: Modifier = Modifier,
 ) {
     val disabledTint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
-    Column(modifier = modifier.fillMaxWidth()) {
-        HorizontalDivider(
-            thickness = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
-                .navigationBarsPadding()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onFavoriteClick, enabled = isEnabled) {
-                Icon(
-                    painter = painterResource(
-                        if (isAllFavorite) R.drawable.favorite_fill_24px
-                        else R.drawable.favorite_24px
-                    ),
-                    contentDescription = if (isAllFavorite) "Убрать из избранного"
-                    else "В избранное",
-                    tint = when {
-                        !isEnabled -> disabledTint
-                        isAllFavorite -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.primary
-                    }
-                )
-            }
-            IconButton(onClick = onShareClick, enabled = isEnabled) {
-                Icon(
-                    painter = painterResource(R.drawable.share_24px),
-                    contentDescription = "Поделиться",
-                    tint = if (isEnabled) MaterialTheme.colorScheme.primary else disabledTint
-                )
-            }
-            Spacer(modifier = Modifier.weight(1f))
-            IconButton(onClick = onDeleteClick, enabled = isEnabled) {
-                Icon(
-                    painter = painterResource(R.drawable.delete_24px),
-                    contentDescription = "Удалить выбранные маршруты",
-                    tint = if (isEnabled) MaterialTheme.colorScheme.error else disabledTint
-                )
-            }
+    com.z_company.route.component.SelectionBottomBar(
+        isEnabled = isEnabled,
+        onDeleteClick = onDeleteClick,
+        deleteContentDescription = "Удалить выбранные маршруты",
+        modifier = modifier,
+    ) {
+        IconButton(onClick = onFavoriteClick, enabled = isEnabled) {
+            Icon(
+                painter = painterResource(
+                    if (isAllFavorite) R.drawable.favorite_fill_24px
+                    else R.drawable.favorite_24px
+                ),
+                contentDescription = if (isAllFavorite) "Убрать из избранного"
+                else "В избранное",
+                tint = when {
+                    !isEnabled -> disabledTint
+                    isAllFavorite -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.primary
+                }
+            )
+        }
+        IconButton(onClick = onShareClick, enabled = isEnabled) {
+            Icon(
+                painter = painterResource(R.drawable.share_24px),
+                contentDescription = "Поделиться",
+                tint = if (isEnabled) MaterialTheme.colorScheme.primary else disabledTint
+            )
         }
     }
 }

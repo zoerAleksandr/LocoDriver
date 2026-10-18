@@ -1,27 +1,31 @@
 package com.z_company.route.ui
 
-import androidx.compose.foundation.background
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -30,25 +34,23 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import com.z_company.core.ui.theme.MonoFont
-import com.z_company.route.R
-import com.z_company.domain.brake.StatusLevel
 import com.z_company.route.component.AppBottomSheet
 import com.z_company.route.component.BottomSheetAction
+import com.z_company.route.component.SelectionBottomBar
+import com.z_company.route.component.SelectionMarker
+import com.z_company.route.component.SwipeToRevealDelete
 import com.z_company.route.viewmodel.CertificateItem
 import com.z_company.route.viewmodel.MyCertificatesViewModel
 
-/** «Мои справки ВУ-45» (SCREEN_SPECS §26.10): список сохранённых справок, удаление по одной и пачкой. */
+/**
+ * «Мои справки ВУ-45» (SCREEN_SPECS §26.10). Режим выбора, карточки, свайп-удаление и панель действий повторяют «Все маршруты»
+ * (`AllRouteScreen`): те же `SelectionMarker`, `SwipeToRevealDelete`, `SelectionBottomBar`, шторка подтверждения.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyCertificatesScreen(
@@ -58,40 +60,56 @@ fun MyCertificatesScreen(
 ) {
     val state by viewModel.state.collectAsState()
     LaunchedEffect(Unit) { viewModel.reload() }
+    val isSelectionMode = state.selectionMode
+    val selectedIds = state.selected
+    val isAllSelected = state.items.isNotEmpty() && selectedIds.containsAll(state.items.map { it.id })
+    // Системная «назад» в режиме выбора выходит из него, а не с экрана.
+    BackHandler(enabled = isSelectionMode) { viewModel.toggleSelectionMode() }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = { Text(if (state.selectionMode) "Выбрано: ${state.selected.size}" else "Мои справки ВУ-45", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary) },
+            CenterAlignedTopAppBar(
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back), contentDescription = "Назад", tint = MaterialTheme.colorScheme.primary)
-                    }
-                },
-                actions = {
-                    if (state.items.isNotEmpty()) {
-                        if (state.selectionMode) TextButton(onClick = viewModel::selectAll) { Text("Все", color = MaterialTheme.colorScheme.tertiary) }
-                        TextButton(onClick = viewModel::toggleSelectionMode) {
-                            Text(if (state.selectionMode) "Готово" else "Выбрать", color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.SemiBold)
+                    if (isSelectionMode) {
+                        TextButton(onClick = { if (isAllSelected) viewModel.clearSelection() else viewModel.selectAll() }) {
+                            Text(
+                                text = if (isAllSelected) "Снять" else "Все",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            )
+                        }
+                    } else {
+                        IconButton(onClick = onBack) {
+                            Text("‹", style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                title = {
+                    Text(
+                        text = if (isSelectionMode) "Выбрано: ${selectedIds.size}" else "Мои справки ВУ-45",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                },
+                actions = {
+                    TextButton(onClick = viewModel::toggleSelectionMode) {
+                        Text(
+                            text = if (isSelectionMode) "Готово" else "Выбрать",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        )
+                    }
+                },
             )
         },
         bottomBar = {
-            if (state.selectionMode) {
-                Row(
-                    Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.secondary).padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TextButton(
-                        onClick = { viewModel.askDelete(state.selected) }, enabled = state.selected.isNotEmpty(),
-                        modifier = Modifier.heightIn(min = 48.dp),
-                    ) {
-                        Text("Удалить (${state.selected.size})", color = if (state.selected.isNotEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
-                    }
-                }
+            if (isSelectionMode) {
+                SelectionBottomBar(
+                    isEnabled = selectedIds.isNotEmpty(),
+                    onDeleteClick = { viewModel.askDelete(selectedIds) },
+                    deleteContentDescription = "Удалить выбранные справки",
+                )
             }
         },
     ) { padding ->
@@ -107,25 +125,33 @@ fun MyCertificatesScreen(
                 }
             }
         } else {
-            LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)) {
                 items(state.items, key = { it.id }) { item ->
                     CertificateCard(
-                        item, selectionMode = state.selectionMode, selected = item.id in state.selected,
-                        onClick = { if (state.selectionMode) viewModel.toggleSelected(item.id) else onOpen(item) },
-                        onDelete = { viewModel.askDelete(setOf(item.id)) },
+                        item, selectionMode = isSelectionMode, isSelected = item.id in selectedIds,
+                        onClick = { if (isSelectionMode) viewModel.toggleSelected(item.id) else onOpen(item) },
+                        onRequestDelete = { viewModel.askDelete(setOf(item.id)) },
                     )
+                    Spacer(Modifier.height(12.dp))
                 }
             }
         }
     }
     state.confirmDelete?.let { ids ->
+        // подтверждение удаления - та же шторка, что в «Все маршруты»
         AppBottomSheet(
             onDismissRequest = viewModel::dismissDelete,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             headerContent = {
                 Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(if (ids.size == 1) "Удалить справку?" else "Удалить справки (${ids.size})?", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center)
-                    Text("Справки будут удалены с этого устройства и с сервера", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp, start = 16.dp, end = 16.dp))
+                    Text(
+                        text = if (ids.size == 1) "Удалить справку?" else "Удалить справки?",
+                        style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = "Выбрано: ${ids.size}", fontFamily = MonoFont, style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp),
+                    )
                 }
             },
             actions = listOf(BottomSheetAction(text = "Да, удалить") { viewModel.confirmDelete(ids) }),
@@ -133,25 +159,50 @@ fun MyCertificatesScreen(
     }
 }
 
+/** Карточка справки: оформление и поведение как у карточки маршрута («Все маршруты»): свайп-удаление, в режиме выбора - маркер и акцентная рамка. */
 @Composable
-private fun CertificateCard(item: CertificateItem, selectionMode: Boolean, selected: Boolean, onClick: () -> Unit, onDelete: () -> Unit) {
+private fun CertificateCard(
+    item: CertificateItem,
+    selectionMode: Boolean,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    onRequestDelete: () -> Unit,
+) {
     val c = MaterialTheme.colorScheme
-    val verdictColor = when (item.level) { StatusLevel.DANGER -> c.error; StatusLevel.OK -> c.tertiary; else -> c.onSurfaceVariant }
-    Row(
-        Modifier.fillMaxWidth().shadow(1.dp, RoundedCornerShape(14.dp)).background(c.secondary, RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 6.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        if (selectionMode) Checkbox(checked = selected, onCheckedChange = { onClick() })
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(item.savedAt, fontFamily = MonoFont, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = c.primary)
-            Text(item.routeLabel, fontSize = 13.sp, color = c.onSurfaceVariant)
-            Text("Поезд ${item.trainNumber} · локомотив ${item.loco}", fontSize = 13.sp, color = c.primary)
-            Text(item.verdict, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = verdictColor)
-        }
-        if (!selectionMode) {
-            IconButton(onClick = onDelete) {
-                Icon(painter = painterResource(R.drawable.delete_24px), contentDescription = "Удалить справку", tint = c.onSurfaceVariant)
+    val cardContent: @Composable () -> Unit = {
+        Card(
+            modifier = Modifier.fillMaxWidth().wrapContentHeight().defaultMinSize(minHeight = 65.dp),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+            colors = CardDefaults.cardColors(containerColor = c.secondary, contentColor = c.primary),
+            border = if (selectionMode && isSelected) BorderStroke(2.dp, c.surfaceContainerLow) else null,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (selectionMode) SelectionMarker(isSelected = isSelected, modifier = Modifier.padding(start = 12.dp))
+                Column(
+                    modifier = Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
+                ) {
+                    Text(item.savedAt, style = MaterialTheme.typography.bodyLarge.copy(fontFamily = MonoFont, fontWeight = FontWeight.Medium), color = c.primary)
+                    Text(item.routeLabel, style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant)
+                    Text("Поезд ${item.trainNumber} · локомотив ${item.loco}", style = MaterialTheme.typography.bodyMedium, color = c.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (item.station.isNotBlank()) Text("Станция: ${item.station}", style = MaterialTheme.typography.bodyMedium, color = c.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    else Text("Станция не указана", style = MaterialTheme.typography.bodyMedium, color = c.onSurfaceVariant)
+                }
             }
         }
+    }
+    if (selectionMode) {
+        // В режиме выбора свайп-удаление выключено, тап по карточке - выделение.
+        Box(Modifier.fillMaxWidth().padding(horizontal = 8.dp).defaultMinSize(minHeight = 65.dp).clickable { onClick() }) { cardContent() }
+    } else {
+        SwipeToRevealDelete(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp).defaultMinSize(minHeight = 65.dp),
+            onDeleteClick = onRequestDelete,
+            onContentClick = onClick,
+            // долгое нажатие: у карточки справки контекстного меню нет (в «Все маршруты» оно открывает быстрый просмотр маршрута)
+            onContentLongClick = {},
+            backgroundVerticalPadding = 0.dp,
+            itemKey = item.id,
+        ) { _ -> cardContent() }
     }
 }
