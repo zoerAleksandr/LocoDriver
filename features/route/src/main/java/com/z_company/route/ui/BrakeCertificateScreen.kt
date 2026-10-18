@@ -440,12 +440,13 @@ private fun CompositeRow(state: BrakeCertificateUiState, vm: BrakeCertificateVie
 @Composable
 private fun AutoblockRow(state: BrakeCertificateUiState, applicable: Boolean, onChange: (Boolean) -> Unit, onHelp: () -> Unit) {
     val t = vuColors()
-    run {
+    Column {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 2.dp, end = 0.dp).alpha(if (applicable) 1f else 0.5f),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Автоблокировка", Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = t.muted)
+            // доступный переключатель - обычные цвета (текст text, дорожка accent); приглушён только когда для категории нет значения в скобках
+            Text("Автоблокировка", Modifier.weight(1f), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = t.text)
             VuHelp(onHelp, touch = 32.dp)
             Switch(
                 checked = state.autoblock3, onCheckedChange = onChange, modifier = Modifier.padding(horizontal = 8.dp),
@@ -455,6 +456,7 @@ private fun AutoblockRow(state: BrakeCertificateUiState, applicable: Boolean, on
                 ),
             )
         }
+        if (!applicable) VuHint("Для этой категории и уклона значения в скобках табл. III.1 нет - переключатель не влияет на скорость.", Modifier.padding(start = 2.dp, bottom = 4.dp))
     }
 }
 
@@ -730,7 +732,6 @@ private fun BlankTab(
     onSheet: (BrakeSheet) -> Unit,
     onOpenMeasure: () -> Unit,
 ) {
-    var rekv by rememberSaveable { mutableStateOf(false) }
     val effSide = if (turnaroundApplies) side else 0
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) { VuSpeedBar(result) }
@@ -749,7 +750,7 @@ private fun BlankTab(
             }
             FillFromRoute(state, vm)
             VuPaper {
-                PaperHeader(state, vm, open = rekv, onToggle = { rekv = !rekv }, side = effSide == 1, onHelp = { onSheet(BrakeSheet.Help(it)) })
+                PaperHeader(state, vm, open = true, onToggle = {}, side = effSide == 1, onHelp = { onSheet(BrakeSheet.Help(it)) })
                 if (effSide == 0) {
                     FrontBody(state, category, result, vm, onSheet, onOpenMeasure)
                 } else {
@@ -833,29 +834,6 @@ private fun PaperHeader(
                 VuFillRow {
                     VuPrint("Поезд №")
                     VuInk(state.trainNumberText, Modifier.width(100.dp), onChange = vm::setTrainNumber, maxLen = 10)
-                    Spacer(Modifier.weight(1f))
-                    Text("Свернуть ▴", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, modifier = Modifier.clickable(onClick = onToggle).heightIn(min = 40.dp).padding(horizontal = 4.dp))
-                }
-            } else {
-                val summary = listOf(
-                    (state.locoSeriesText + (if (state.locoNumberText.isNotBlank()) "-" + state.locoNumberText else "")).trim().takeIf { it.isNotBlank() },
-                    state.trainNumberText.takeIf { it.isNotBlank() }?.let { "поезд $it" },
-                    state.dateText.takeIf { it.isNotBlank() },
-                    state.issueTimeText.takeIf { it.length > 1 },
-                ).filterNotNull().joinToString(" · ")
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 6.dp)
-                        .drawBehind {
-                            val w = 1.dp.toPx()
-                            val dash = PathEffect.dashPathEffect(floatArrayOf(8f, 6f))
-                            drawLine(t.borderStrong, androidx.compose.ui.geometry.Offset(0f, 0f), androidx.compose.ui.geometry.Offset(size.width, 0f), w, pathEffect = dash)
-                            drawLine(t.borderStrong, androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), w, pathEffect = dash)
-                        }
-                        .clickable(onClick = onToggle).heightIn(min = 48.dp).padding(start = 14.dp, end = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(summary.ifBlank { "Штемпель, время, дата, локомотив, поезд — необязательно" }, Modifier.weight(1f), fontSize = 12.sp, color = t.muted, lineHeight = 16.sp)
-                    Text(if (summary.isBlank()) "Заполнить ▾" else "Показать ▾", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, modifier = Modifier.padding(horizontal = 8.dp))
                 }
             }
         }
@@ -968,9 +946,9 @@ private fun AxleTable(state: BrakeCertificateUiState, vm: BrakeCertificateViewMo
             }
             // Всего
             Row(Modifier.height(IntrinsicSize.Min)) {
-                Box(Modifier.weight(1f).heightIn(min = 40.dp).vuCellBorders(lineColor), contentAlignment = Alignment.Center) { VuPrint("Всего", bold = true) }
-                Box(Modifier.weight(1f).heightIn(min = 40.dp).vuCellBorders(lineColor), contentAlignment = Alignment.Center) { VuInk(if (totalAxles > 0) "$totalAxles" else "", calc = true, align = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
-                Box(Modifier.weight(1f).heightIn(min = 40.dp).vuCellBorders(lineColor), contentAlignment = Alignment.Center) {
+                Box(Modifier.weight(1f).heightIn(min = 32.dp).vuCellBorders(lineColor), contentAlignment = Alignment.Center) { VuPrint("Всего", bold = true) }
+                Box(Modifier.weight(1f).heightIn(min = 32.dp).vuCellBorders(lineColor), contentAlignment = Alignment.Center) { VuInk(if (totalAxles > 0) "$totalAxles" else "", calc = true, align = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
+                Box(Modifier.weight(1f).heightIn(min = 32.dp).vuCellBorders(lineColor), contentAlignment = Alignment.Center) {
                     Text(if (totalPressure > 0) fmt(totalPressure) else "", fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (low) t.danger else t.text, maxLines = 1)
                 }
             }
@@ -1025,12 +1003,12 @@ private fun AxleRowCells(label: String, axles: String, product: String, filled: 
     val line = t.borderStrong
     val bg = if (filled) t.accentSoft else Color.Transparent
     var focused by remember { mutableStateOf(false) }
-    Row(Modifier.height(40.dp)) {
-        Box(Modifier.weight(1f).height(40.dp).background(bg).vuCellBorders(line), contentAlignment = Alignment.Center) {
+    Row(Modifier.height(32.dp)) {
+        Box(Modifier.weight(1f).height(32.dp).background(bg).vuCellBorders(line), contentAlignment = Alignment.Center) {
             Text(label, fontSize = 14.sp, fontWeight = if (filled) FontWeight.Bold else FontWeight.Normal, color = t.text)
         }
         Box(
-            Modifier.weight(1f).height(40.dp).background(bg).vuCellBorders(line)
+            Modifier.weight(1f).height(32.dp).background(bg).vuCellBorders(line)
                 .then(if (focused) Modifier.border(2.dp, t.accent) else Modifier),
             contentAlignment = Alignment.Center,
         ) {
@@ -1044,7 +1022,7 @@ private fun AxleRowCells(label: String, axles: String, product: String, filled: 
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             )
         }
-        Box(Modifier.weight(1f).height(40.dp).background(bg).vuCellBorders(line), contentAlignment = Alignment.Center) {
+        Box(Modifier.weight(1f).height(32.dp).background(bg).vuCellBorders(line), contentAlignment = Alignment.Center) {
             Text(product, fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = t.text, maxLines = 1)
         }
     }
@@ -1257,12 +1235,20 @@ private fun TurnaroundSheet(
                 VuChip("СП", e.testKind == TurnaroundEntry.KIND_SHORT, { vm.updateTurnaround(entryId) { it.copy(testKind = TurnaroundEntry.KIND_SHORT) } }, Modifier.weight(1f))
             }
             VuHint("ТП - полное опробование, СП - сокращённое. «—» - опробования не было, только замер плотности.")
+            VuTag("Подпись и время")
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+VuTimeField(e.readinessTime, { v -> vm.updateTurnaround(entryId) { it.copy(readinessTime = v) } }, Modifier.weight(1f), label = "Время опробования")
+                VuInput("Подпись (таб. №)", e.inspectorTab, Modifier.weight(1f), onChange = { v -> vm.updateTurnaround(entryId) { it.copy(inspectorTab = v) } }, keyboard = KeyboardType.Number, sunk = true)
+            }
             var compHelp by remember { mutableStateOf(false) }
+            var compOpen by remember(entryId) { mutableStateOf(e.changes.isNotEmpty() || e.newWeight.isNotBlank() || e.newAxles.isNotBlank() || e.newRequired.isNotBlank() || e.newActual.isNotBlank()) }
             if (compHelp) CompositionHelpSheet(onDismiss = { compHelp = false })
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { compOpen = !compOpen }, verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) { VuTag("При изменении состава и веса поезда") }
                 VuHelp({ compHelp = true }, touch = 32.dp)
+                Text(if (compOpen) "▴" else "▾", Modifier.padding(horizontal = 12.dp), fontSize = 14.sp, color = t.muted)
             }
+            if (compOpen) {
             VuHint("Прицепка или отцепка вагонов: введите новый вес и добавьте строки изменений (сколько осей с каким нажатием отцеплено или прицеплено) - число осей, потребное и фактическое нажатие рассчитаются сами (можно поправить). Если состав не менялся - оставьте пустым.")
             val calc = remember(state, e.newWeight, e.newAxles, e.changes) {
                 TurnaroundComposition.compute(state.toInput(), e.newWeight.toFiniteDoubleOrNull(), e.newAxles.trim().toIntOrNull(), e.changes)
@@ -1307,10 +1293,6 @@ private fun TurnaroundSheet(
             } else if (e.newWeight.isNotBlank() || e.newAxles.isNotBlank() || e.changes.isNotEmpty()) {
                 VuHint("Заполните вес и нажатия на лицевой стороне - тогда нажатие рассчитается автоматически; пока можно ввести значения вручную.")
             }
-            VuTag("Подпись и время")
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-VuTimeField(e.readinessTime, { v -> vm.updateTurnaround(entryId) { it.copy(readinessTime = v) } }, Modifier.weight(1f), label = "Время опробования")
-                VuInput("Подпись (таб. №)", e.inspectorTab, Modifier.weight(1f), onChange = { v -> vm.updateTurnaround(entryId) { it.copy(inspectorTab = v) } }, keyboard = KeyboardType.Number, sunk = true)
             }
             Spacer(Modifier.height(2.dp))
             Text("", color = t.muted)
