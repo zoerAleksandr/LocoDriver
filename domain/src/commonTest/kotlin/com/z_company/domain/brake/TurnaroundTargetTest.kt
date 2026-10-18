@@ -24,7 +24,8 @@ class TurnaroundTargetTest {
     @Test
     fun existingDensityIsNotOverwritten() {
         val l = listOf(e("a", 0, 10), e("b", 100, 200, d = 40.0))
-        assertEquals(TurnaroundPick.Existing("a"), TurnaroundTarget.pick(l, "b", 150, true))
+        // явный выбор записи с плотностью допустим (повторный замер, замену подтверждает UI); автоподбор её не берёт
+        assertEquals(TurnaroundPick.Existing("b"), TurnaroundTarget.pick(l, "b", 150, true))
         assertEquals(TurnaroundPick.Existing("a"), TurnaroundTarget.pick(l, null, 150, true))
     }
 

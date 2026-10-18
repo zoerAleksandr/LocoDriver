@@ -139,6 +139,8 @@ data class BrakeCertificateUiState(
     val routeWrittenEntryId: String? = null,
     /** Одноразовое уведомление «Записано в оборот» (снекбар), [nonce] отличает повторные записи. */
     val writtenNotice: WrittenNotice? = null,
+    /** Запрос подтверждения замены плотности в записи оборота при повторном замере. */
+    val replaceConfirm: ReplaceConfirm? = null,
     // Источник данных для «Заполнить из маршрута»
     val routeId: String? = null,
     val trainId: String? = null,
@@ -161,6 +163,8 @@ val BrakeCertificateUiState.manualInfo: BrakeNorms.ManualInfo get() = BrakeNorms
 
 /** «Заполнить из маршрута»: итог подстановки не показывается, только короткая ошибка ([note]). */
 /** Запрос выбора при «Заполнить из маршрута»: поезда или локомотивы маршрута [routeId]. */
+data class ReplaceConfirm(val label: String, val oldSec: Double, val newSec: Double)
+
 data class WrittenNotice(val label: String, val nonce: Long)
 
 data class FillPick(
@@ -762,7 +766,9 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     }
 
     /** Запись замера «В пути» в оборот (по кнопке «Записать» после «Стоп»): выбранная запись, иначе ближайшая без плотности, иначе новая; пассажирские - без записи. */
-    fun writeRouteMeasurement() {
+    fun dismissReplaceConfirm() = _state.update { it.copy(replaceConfirm = null) }
+
+    fun writeRouteMeasurement(confirmed: Boolean = false) {
         val st = _state.value
         val sec = st.timerRoute.recordedSec ?: return
         val applies = BrakeNorms.category(st.categoryId)?.let { TurnaroundPlanner.applies(it) } ?: false
@@ -770,12 +776,21 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         val hhmm = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
         val pick = TurnaroundTarget.pick(st.turnaround, st.routeTargetEntryId, now, applies)
         if (pick == TurnaroundPick.NotApplicable) return
+        if (pick is TurnaroundPick.Existing) {
+            val target = st.turnaround.firstOrNull { it.id == pick.id }
+            val old = target?.densitySec
+            if (old != null && !confirmed) {
+                _state.update { it.copy(replaceConfirm = ReplaceConfirm(entryLabel(target), old, sec)) }
+                return
+            }
+        }
+        _state.update { it.copy(replaceConfirm = null) }
         val newId = newTurnaroundId()
         var label = ""
         _state.update { s0 ->
             val list = when (pick) {
                 is TurnaroundPick.Existing -> s0.turnaround.map { e ->
-                    if (e.id == pick.id) e.copy(densitySec = sec, readinessTime = e.readinessTime.ifBlank { hhmm }).also { label = BrakeCertificateViewModel.entryLabel(it) } else e
+                    if (e.id == pick.id) e.copy(densitySec = sec, readinessTime = if (e.densitySec != null) hhmm else e.readinessTime.ifBlank { hhmm }).also { label = BrakeCertificateViewModel.entryLabel(it) } else e
                 }
                 else -> TurnaroundEntry(id = newId, stationName = "", stopClass = StopClass.OVER_5, densitySec = sec, readinessTime = hhmm)
                     .also { label = BrakeCertificateViewModel.entryLabel(it) }.let { s0.turnaround + it }
@@ -794,7 +809,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     /** Ручной ввод плотности, с (дробные). Некорректное значение игнорируется; true - принято. Участвует в оценке как замер. */
     fun setManualDensity(k: TimerKind, text: String): Boolean {
         val v = BrakeDensity.parseManualSeconds(text) ?: return false
-        updateTimer(k) { it.copy(running = false, accumulatedMs = (v * 1000).toLong(), recordedSec = v, manual = true) }
+        updateTimer(k) { it.copy(running = false, accumulatedMs = 0L, startedAtMs = 0L, recordedSec = v, manual = true) }
         if (k == TimerKind.ROUTE) _state.update { it.copy(routeWrittenEntryId = null) }
         return true
     }
@@ -935,7 +950,7 @@ fun BrakeCertificateData.toUiState(base: BrakeCertificateUiState): BrakeCertific
     fun timer(kind: TimerKind): DensityTimerState {
         val m = measurements.firstOrNull { it.kind == kind.name } ?: return DensityTimerState()
         return DensityTimerState(
-            accumulatedMs = ((m.seconds ?: 0.0) * 1000).toLong(), recordedSec = m.seconds,
+            accumulatedMs = if (m.manual) 0L else ((m.seconds ?: 0.0) * 1000).toLong(), recordedSec = m.seconds,
             dropText = m.drop, manual = m.manual, grStartText = m.grStart, grEndText = m.grEnd,
         )
     }

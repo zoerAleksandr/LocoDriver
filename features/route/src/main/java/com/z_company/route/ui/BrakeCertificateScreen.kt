@@ -148,9 +148,10 @@ private fun fmt(v: Double, digits: Int = 2): String {
 
 private fun fmtP(p: Double): String = BrakeCertificateViewModel.formatPressure(p)
 
+/** Секундомер плотности - только секунды с десятыми («75,3»), без минут. */
 private fun formatTimer(ms: Long): String {
     val tenths = ms / 100
-    return "%02d:%02d.%d".format(tenths / 600, (tenths % 600) / 10, tenths % 10)
+    return "%d,%d".format(tenths / 10, tenths % 10)
 }
 
 private fun hhmm(ms: Long): String = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(ms))
@@ -1470,6 +1471,15 @@ private fun MeasureTab(
         VuTabs(labels, kinds.indexOf(active), { onKind(kinds[it]) }, mono = true)
         val turnApplies = TurnaroundPlanner.applies(category)
         var pickSheet by remember { mutableStateOf(false) }
+        state.replaceConfirm?.let { rc ->
+            com.z_company.route.component.AppAlertDialog(
+                onDismissRequest = vm::dismissReplaceConfirm,
+                title = "Заменить плотность?",
+                text = "В записи «${rc.label}» уже есть плотность. Заменить ${fmt(rc.oldSec)} на ${fmt(rc.newSec)} с?",
+                confirmText = "Заменить", onConfirm = { vm.writeRouteMeasurement(confirmed = true) },
+                dismissText = "Отмена", onDismiss = vm::dismissReplaceConfirm,
+            )
+        }
         val pick = TurnaroundTarget.pick(state.turnaround, state.routeTargetEntryId, System.currentTimeMillis(), true)
         val pickedId = (pick as? TurnaroundPick.Existing)?.id
         if (active == TimerKind.ROUTE && turnApplies) {
@@ -1486,11 +1496,10 @@ private fun MeasureTab(
             VuSheet(title = "Куда записать замер", sub = "Запись оборота для плотности «В пути»", onDismiss = { pickSheet = false }) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     state.turnaround.forEach { e ->
-                        val taken = e.densitySec != null
                         TargetRow(
                             title = turnaroundLabel(e),
-                            sub = if (taken) "плотность уже записана: ${fmt(e.densitySec!!)} с" else null,
-                            selected = e.id == pickedId, enabled = !taken,
+                            sub = e.densitySec?.let { "плотность уже записана: ${fmt(it)} с" },
+                            selected = e.id == pickedId, enabled = true,
                         ) { vm.setRouteTarget(e.id); pickSheet = false }
                     }
                     TargetRow(title = "Новая запись", sub = null, selected = pick == TurnaroundPick.CreateNew, enabled = true) {
@@ -1566,7 +1575,9 @@ private fun TimerCard(
 ) {
     val t = vuColors()
     val elapsed = timer.elapsedMs(now)
-    val done = timer.recordedSec != null
+    val hasValue = timer.recordedSec != null
+    // «done» - есть результат замера секундомером; ручной ввод секундомер не трогает (0,0 и «Старт»)
+    val done = hasValue && !timer.manual
     VuCard {
         Column(Modifier.padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1589,10 +1600,10 @@ private fun TimerCard(
                 fontFamily = VuMono, fontSize = 72.sp, fontWeight = FontWeight.Bold, letterSpacing = (-3).sp,
                 color = if (timer.running) t.accent else if (!done && elapsed == 0L) t.faint else t.text, maxLines = 1,
             )
-            if (done && !timer.running && onWrite != null) {
+            if (hasValue && !timer.running && onWrite != null) {
                 VuBtn("Записать", onWrite, Modifier.fillMaxWidth().padding(top = 18.dp), h = 64.dp)
             }
-            Row(Modifier.fillMaxWidth().padding(top = if (done && onWrite != null) 8.dp else 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(top = if (hasValue && onWrite != null) 8.dp else 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 when {
                     timer.running -> VuBtn("Стоп", { vm.stopTimer(kind) }, Modifier.fillMaxWidth(), kind = VuBtnKind.Cta, h = 64.dp)
                     done -> {
@@ -1612,12 +1623,13 @@ private fun TimerCard(
             }
             timer.recordedSec?.let { rec ->
                 val a = assess(rec)
+                val what = if (timer.manual) "введено вручную" else "Замер"
                 Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    if (timer.manual) VuTag("введено вручную")
+                    if (timer.manual) Text("Убрать значение", Modifier.clickable { vm.resetTimer(kind) }.heightIn(min = 40.dp).padding(vertical = 10.dp), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = t.accent)
                     when (a.verdict) {
-                        BrakeDensity.Verdict.OK -> VuVerdict(true, "Замер: ${fmt(rec)} с — норма", 16)
-                        BrakeDensity.Verdict.FAIL -> VuVerdict(false, "Замер: ${fmt(rec)} с — " + (if (kind == TimerKind.ROUTE && !passenger) "отличается от записанного более чем на 20 %" else "недостаточно"), 16)
-                        BrakeDensity.Verdict.NO_NORM -> Text("Замер: ${fmt(rec)} с — оценка недоступна", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = t.muted)
+                        BrakeDensity.Verdict.OK -> VuVerdict(true, "$what: ${fmt(rec)} с — норма", 16)
+                        BrakeDensity.Verdict.FAIL -> VuVerdict(false, "$what: ${fmt(rec)} с — " + (if (kind == TimerKind.ROUTE && !passenger) "отличается от записанного более чем на 20 %" else "недостаточно"), 16)
+                        BrakeDensity.Verdict.NO_NORM -> Text("$what: ${fmt(rec)} с — оценка недоступна", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = t.muted)
                     }
                     val left = if (a.verdict == BrakeDensity.Verdict.NO_NORM) 0.dp else 28.dp
                     val noteText = when (a.verdict) {

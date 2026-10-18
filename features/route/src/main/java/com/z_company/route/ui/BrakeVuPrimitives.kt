@@ -344,7 +344,8 @@ internal fun VuHint(text: String, modifier: Modifier = Modifier, color: Color? =
 @Composable
 internal fun VuNormLine(text: String, modifier: Modifier = Modifier) {
     val t = vuColors()
-    val m = Regex("""\d+(?:,\d+)?\s*(?:сек|тс|с)\b""").find(text)
+    // число (или диапазон «a–b») с единицей - целиком одним акцентным цветом
+    val m = Regex("""\d+(?:,\d+)?(?:\s*[–-]\s*\d+(?:,\d+)?)?\s*(?:сек|тс|с)\b""").find(text)
     val annotated = androidx.compose.ui.text.buildAnnotatedString {
         if (m == null) append(text) else {
             append(text.substring(0, m.range.first))

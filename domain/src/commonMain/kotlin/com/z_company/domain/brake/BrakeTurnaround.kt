@@ -150,7 +150,7 @@ object TurnaroundTarget {
     /**
      * Выбор записи оборота для плотности «В пути»:
      * 1) оборот не ведётся ([applies] = false) -> [TurnaroundPick.NotApplicable];
-     * 2) явно выбранная запись [targetId], если она есть и в ней ещё нет плотности;
+     * 2) явно выбранная запись [targetId], если она есть (в т.ч. с плотностью: повторный замер, замену подтверждает пользователь);
      * 3) иначе запись БЕЗ плотности, ближайшая по времени к [nowMs] (стоянка, на которой поезд стоит сейчас, или последняя прошедшая;
      *    записи без времён - после записей со временем, из них последняя добавленная);
      * 4) иначе создать новую запись. Существующая плотность молча не затирается.
@@ -159,8 +159,9 @@ object TurnaroundTarget {
         if (!applies) return TurnaroundPick.NotApplicable
         if (targetId == NEW_ENTRY) return TurnaroundPick.CreateNew
         if (targetId != null) {
+            // явный выбор пользователя уважается и для записи с плотностью (повторный замер): замену подтверждает интерфейс
             val t = entries.firstOrNull { it.id == targetId }
-            if (t != null && t.densitySec == null) return TurnaroundPick.Existing(t.id)
+            if (t != null) return TurnaroundPick.Existing(t.id)
         }
         val candidates = entries.withIndex().filter { it.value.densitySec == null }
         if (candidates.isEmpty()) return TurnaroundPick.CreateNew
