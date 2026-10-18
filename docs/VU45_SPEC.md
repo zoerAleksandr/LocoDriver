@@ -250,3 +250,6 @@
 
 ## Ручной ввод плотности
 `BrakeDensity.parseManualSeconds`: положительное число до 3600 с, округление до 0,1. `DensityTimerState.manual` / `DensityMeasurementData.manual` (по умолчанию false, обратно совместимо). Участвует в оценках как замер. Тесты: `BrakeDensityTest.manualSecondsParsing`.
+
+## Норма на «Замерах»
+Строка нормы всегда видна на карточке замера; при нехватке данных вместо неё - причина (группа ГР, оси, замер II).

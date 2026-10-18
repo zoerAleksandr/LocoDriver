@@ -1491,10 +1491,21 @@ private fun MeasureTab(
                 else -> null
             },
             normText = when (active) {
-                TimerKind.II -> if (!passenger && minTime != null) "Норма плотности во II-м: не менее ${BrakeDensity.formatNormSeconds(minTime)} сек" else null
+                TimerKind.II -> if (!passenger && minTime != null) "Норма плотности во II-м: не менее ${BrakeDensity.formatNormSeconds(minTime)} сек"
+                    else if (passenger) "Норма: падение давления в ТМ не более 0,2 кгс/см² за 1 мин (п. 50 прил. 2)" else null
                 TimerKind.IV -> state.timerII.recordedSec?.let { "Норма плотности в IV-м: не менее ${BrakeDensity.formatNormSeconds(BrakeDensity.normIvSeconds(it))} сек (90 % от замера II)" }
                     ?: minTime?.let { "Норма плотности в IV-м: не менее ${BrakeDensity.formatNormSeconds(BrakeDensity.normIvSeconds(it))} сек" }
-                TimerKind.ROUTE -> state.timerII.recordedSec?.let { "Допуск ±20 %: ${fmt(it * 0.8)}–${fmt(it * 1.2)} с" }
+                TimerKind.ROUTE -> state.timerII.recordedSec?.let { "Допуск ±20 % от замера II: ${fmt(it * 0.8)}–${fmt(it * 1.2)} с" }
+            },
+            normMissing = when (active) {
+                TimerKind.II -> if (passenger) null else when {
+                    group == null -> "Нормы нет: выберите группу локомотива (или объём ГР) на «Расчёте»"
+                    axles <= 0 -> "Нормы нет: укажите число осей на «Расчёте»"
+                    else -> null
+                }
+                TimerKind.IV -> if (state.timerII.recordedSec != null || minTime != null) null else
+                    if (group == null) "Нормы нет: нужен замер II или группа локомотива" else "Нормы нет: нужен замер II или число осей"
+                TimerKind.ROUTE -> if (state.timerII.recordedSec != null) null else "Допуска нет: нужен замер II"
             },
             assess = { sec ->
                 when (active) {
@@ -1524,6 +1535,7 @@ private fun TimerCard(
     assess: (Double) -> BrakeDensity.Assessment,
     transferred: String?,
     normText: String?,
+    normMissing: String? = null,
     onHelp: () -> Unit,
     onWrite: (() -> Unit)? = null,
     writtenLabel: String? = null,
@@ -1539,6 +1551,10 @@ private fun TimerCard(
                 VuHelp(onHelp)
             }
             VuHint(subtitle, Modifier.padding(top = 4.dp))
+            // норма показывается всегда: до старта, во время замера и после
+            Box(Modifier.padding(top = 8.dp)) {
+                if (normText != null) VuNormLine(normText) else if (normMissing != null) VuHint(normMissing)
+            }
             Row(Modifier.fillMaxWidth().padding(top = 14.dp).height(20.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 if (timer.running) {
                     Box(Modifier.width(8.dp).height(8.dp).background(t.accent, RoundedCornerShape(4.dp)))
@@ -1589,10 +1605,11 @@ private fun TimerCard(
                     val left = if (a.verdict == BrakeDensity.Verdict.NO_NORM) 0.dp else 28.dp
                     val noteText = when (a.verdict) {
                         BrakeDensity.Verdict.NO_NORM -> a.text.replaceFirstChar { it.uppercase() }.let { if (a.text.startsWith("Выберите")) "$it — появится норма" else it }
-                        else -> (normText ?: a.text) + (transferred?.let { " · $it" } ?: "")
+                        else -> a.text + (transferred?.let { " · $it" } ?: "")
                     }
                     if (a.verdict == BrakeDensity.Verdict.NO_NORM) VuHint(noteText, Modifier.padding(start = left))
-                    else VuNormLine(noteText, Modifier.padding(start = left))
+                    else if (a.verdict == BrakeDensity.Verdict.FAIL || normText == null) VuNormLine(noteText, Modifier.padding(start = left))
+                    else transferred?.let { VuHint(it, Modifier.padding(start = left)) }
                 }
             }
             if (passenger) {
