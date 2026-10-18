@@ -124,6 +124,7 @@ private sealed interface BrakeSheet {
     data object Other : BrakeSheet
     data object RowPressure : BrakeSheet
     data class Turnaround(val entryId: String) : BrakeSheet
+    data class ManualDensity(val kind: TimerKind) : BrakeSheet
     data class Help(val key: String) : BrakeSheet
 }
 
@@ -267,6 +268,10 @@ fun BrakeCertificateScreen(
         BrakeSheet.CustomVolume -> CustomVolumeSheet(state, viewModel, onDismiss = { sheet = null })
         BrakeSheet.Other -> OtherSheet(state, category, viewModel, onDismiss = { sheet = null })
         BrakeSheet.RowPressure -> RowSheet(state, viewModel, onDismiss = { sheet = null })
+        is BrakeSheet.ManualDensity -> ManualDensitySheet(
+            state, s.kind, viewModel, onDismiss = { sheet = null },
+            onOpenMeasure = { measureKind = it.name; tab = 2; sheet = null },
+        )
         is BrakeSheet.Turnaround -> TurnaroundSheet(
             state, s.entryId, viewModel,
             onDismiss = { sheet = null },
@@ -887,16 +892,16 @@ private fun FrontBody(
     val ii = state.timerII.recordedSec
     val iv = state.timerIV.recordedSec
     // II и IV - каждое значение в своей строке (без обрезки при крупном шрифте)
-    VuFillRow(Modifier.clickable(onClick = onOpenMeasure)) {
+    VuFillRow(Modifier.clickable(onClick = { onSheet(BrakeSheet.ManualDensity(if (ii == null) TimerKind.II else TimerKind.IV)) })) {
         Text("Плотность тормозной сети поезда", Modifier.weight(1f), fontSize = 14.sp, color = t.text, lineHeight = 18.sp)
-        if (ii == null && iv == null) VuInk("", Modifier.width(132.dp), calc = false, placeholder = "замерить ›", align = TextAlign.End)
+        if (ii == null && iv == null) VuInk("", Modifier.width(132.dp), calc = false, placeholder = "ввести ›", align = TextAlign.End)
         VuMiniHelp { help("density") }
     }
     if (ii != null || iv != null) {
         Column(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp).padding(bottom = 8.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            ii?.let { Text("II  ${fmt(it)} с", fontFamily = VuMono, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = t.accent, softWrap = true, textAlign = TextAlign.End) }
-            iv?.let { Text("IV  ${fmt(it)} с", fontFamily = VuMono, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = t.accent, softWrap = true, textAlign = TextAlign.End) }
-            Text("из «Замеров»" + if (iv == null) " · IV не замерено" else "", fontSize = 12.sp, color = t.accent, textAlign = TextAlign.End)
+            ii?.let { Text("II  ${fmt(it)} с" + if (state.timerII.manual) " · вручную" else "", Modifier.clickable { onSheet(BrakeSheet.ManualDensity(TimerKind.II)) }.heightIn(min = 32.dp), fontFamily = VuMono, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = t.accent, softWrap = true, textAlign = TextAlign.End) }
+            iv?.let { Text("IV  ${fmt(it)} с" + if (state.timerIV.manual) " · вручную" else "", Modifier.clickable { onSheet(BrakeSheet.ManualDensity(TimerKind.IV)) }.heightIn(min = 32.dp), fontFamily = VuMono, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = t.accent, softWrap = true, textAlign = TextAlign.End) }
+            Text("из «Замеров» · нажмите, чтобы ввести вручную" + if (iv == null) " · IV не замерено" else "", fontSize = 12.sp, color = t.accent, textAlign = TextAlign.End)
         }
     }
     VuFillRow {
@@ -1435,7 +1440,7 @@ private fun MeasureTab(
     ) {
         val labels = kinds.map { k ->
             (when (k) { TimerKind.II -> "II"; TimerKind.IV -> "IV"; TimerKind.ROUTE -> "В пути" }) +
-                (state.timerOf(k).let { tm -> if (tm.running) " · идёт" else tm.recordedSec?.let { " · ${fmt(it)} с" } ?: "" })
+                (state.timerOf(k).let { tm -> if (tm.running) " · идёт" else tm.recordedSec?.let { " · ${fmt(it)} с" + if (tm.manual) "*" else "" } ?: "" })
         }
         VuTabs(labels, kinds.indexOf(active), { onKind(kinds[it]) }, mono = true)
         val turnApplies = TurnaroundPlanner.applies(category)
@@ -1564,9 +1569,18 @@ private fun TimerCard(
                     VuBtn("К отметкам оборота ›", onToTurnaround, kind = VuBtnKind.Text, h = 48.dp)
                 }
             }
+            if (!timer.running) {
+                var manualText by remember(kind) { mutableStateOf("") }
+                val parsed = BrakeDensity.parseManualSeconds(manualText)
+                Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
+                    VuInput("или введите вручную, с", manualText, Modifier.weight(1f), onChange = { manualText = it }, unit = "с", sunk = true, error = manualText.isNotBlank() && parsed == null)
+                    VuBtn("Принять", { if (vm.setManualDensity(kind, manualText)) manualText = "" }, kind = VuBtnKind.Tonal, h = 56.dp, enabled = parsed != null)
+                }
+            }
             timer.recordedSec?.let { rec ->
                 val a = assess(rec)
                 Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (timer.manual) VuTag("введено вручную")
                     when (a.verdict) {
                         BrakeDensity.Verdict.OK -> VuVerdict(true, "Замер: ${fmt(rec)} с — норма", 16)
                         BrakeDensity.Verdict.FAIL -> VuVerdict(false, "Замер: ${fmt(rec)} с — " + (if (kind == TimerKind.ROUTE && !passenger) "отличается от записанного более чем на 20 %" else "недостаточно"), 16)
@@ -1702,6 +1716,33 @@ private fun FillPickSheet(pick: FillPick, vm: BrakeCertificateViewModel) {
                     UnitSheetRow(com.z_company.route.R.drawable.ic_card_locomotive_ref, locomotiveName(loco, index + 1)) { vm.pickLoco(loco) }
                 }
             }
+        }
+    }
+}
+
+/** Ручной ввод плотности II/IV из бланка: значение участвует в оценке как замер; «Открыть замер» - перейти к секундомеру. */
+@Composable
+private fun ManualDensitySheet(state: BrakeCertificateUiState, kind0: TimerKind, vm: BrakeCertificateViewModel, onDismiss: () -> Unit, onOpenMeasure: (TimerKind) -> Unit) {
+    var kind by remember { mutableStateOf(kind0) }
+    val cur = if (kind == TimerKind.II) state.timerII else state.timerIV
+    var text by remember(kind) { mutableStateOf(cur.recordedSec?.let { fmt(it) } ?: "") }
+    val parsed = BrakeDensity.parseManualSeconds(text)
+    VuSheet(
+        title = "Плотность, с", sub = "Введите вручную или замерьте секундомером", onDismiss = onDismiss,
+        footer = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                VuBtn("Замерить ›", { onOpenMeasure(kind) }, kind = VuBtnKind.Text, h = 56.dp)
+                VuBtn("Готово", { if (vm.setManualDensity(kind, text)) onDismiss() }, Modifier.weight(1f), h = 56.dp, enabled = parsed != null)
+            }
+        },
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                VuChip("II положение", kind == TimerKind.II, { kind = TimerKind.II }, Modifier.weight(1f))
+                VuChip("IV положение", kind == TimerKind.IV, { kind = TimerKind.IV }, Modifier.weight(1f))
+            }
+            VuInput("Время падения давления, с", text, onChange = { text = it }, unit = "с", sunk = true, error = text.isNotBlank() && parsed == null)
+            if (cur.manual) VuHint("Сейчас значение введено вручную.")
         }
     }
 }

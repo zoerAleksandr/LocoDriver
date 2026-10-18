@@ -244,6 +244,13 @@ object BrakeDensity {
         return group.minTimes[col] * chargeFactor(chargePressure) * locoCount.coerceAtLeast(1)
     }
 
+    /** Ручной ввод времени плотности, с: положительное число до 3600, округляется до 0,1 с; иначе null. */
+    fun parseManualSeconds(text: String): Double? {
+        val v = text.trim().replace(',', '.').toDoubleOrNull() ?: return null
+        if (!v.isFinite() || v <= 0.0 || v > 3600.0) return null
+        return kotlin.math.round(v * 10) / 10.0
+    }
+
     enum class Verdict { OK, FAIL, NO_NORM }
 
     data class Assessment(val verdict: Verdict, val text: String)

@@ -451,4 +451,23 @@ class BrakeTurnaroundTest {
         assertEquals("0,8", BrakeNorms.manualFieldText(BrakeNorms.manualInfo(SlopeStep.S006, BrakeNorms.ManualBrakeNorm.SLOPE_010)))
         assertEquals("1,2", BrakeNorms.manualFieldText(BrakeNorms.manualInfo(SlopeStep.S006, BrakeNorms.ManualBrakeNorm.SLOPE_014)))
     }
+
+    @Test
+    fun manualSecondsParsing() {
+        assertEquals(27.1, BrakeDensity.parseManualSeconds("27,1")!!, 1e-9)
+        assertEquals(27.1, BrakeDensity.parseManualSeconds(" 27.14 ")!!, 1e-9)
+        assertEquals(92.0, BrakeDensity.parseManualSeconds("92")!!, 1e-9)
+        assertNull(BrakeDensity.parseManualSeconds(""))
+        assertNull(BrakeDensity.parseManualSeconds("0"))
+        assertNull(BrakeDensity.parseManualSeconds("-5"))
+        assertNull(BrakeDensity.parseManualSeconds("abc"))
+        assertNull(BrakeDensity.parseManualSeconds("99999"))
+        // ручное значение оценивается так же, как замер
+        assertEquals(BrakeDensity.Verdict.OK, BrakeDensity.assessRoute(BrakeDensity.parseManualSeconds("100")!!, 105.0).verdict)
+        assertEquals(BrakeDensity.Verdict.FAIL, BrakeDensity.assessRoute(BrakeDensity.parseManualSeconds("60")!!, 105.0).verdict)
+        // старые измерения без поля manual читаются как замер
+        val j = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+        assertEquals(false, j.decodeFromString<DensityMeasurementData>("""{"kind":"II","seconds":50.0}""").manual)
+        assertEquals(true, j.decodeFromString<DensityMeasurementData>("""{"kind":"II","seconds":50.0,"manual":true}""").manual)
+    }
 }

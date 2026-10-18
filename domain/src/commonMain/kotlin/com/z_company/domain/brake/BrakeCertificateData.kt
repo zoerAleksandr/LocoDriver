@@ -79,4 +79,6 @@ data class DensityMeasurementData(
     @Deprecated("Не используется: поле убрано из UI")
     val grEnd: String = "",
     val drop: String = "",
+    /** Значение введено вручную (не замером секундомером); у старых записей false. */
+    val manual: Boolean = false,
 )

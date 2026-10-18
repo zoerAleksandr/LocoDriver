@@ -72,6 +72,8 @@ data class DensityTimerState(
     val accumulatedMs: Long = 0L,
     val recordedSec: Double? = null,
     val dropText: String = "",
+    /** Значение введено вручную (а не замером). */
+    val manual: Boolean = false,
 ) {
     fun elapsedMs(nowMs: Long): Long = accumulatedMs + if (running) (nowMs - startedAtMs).coerceAtLeast(0) else 0L
 }
@@ -729,7 +731,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
 
     fun startTimer(k: TimerKind) {
         val now = SystemClock.elapsedRealtime()
-        updateTimer(k) { it.copy(running = true, startedAtMs = now, accumulatedMs = 0L, recordedSec = null) }
+        updateTimer(k) { it.copy(running = true, startedAtMs = now, accumulatedMs = 0L, recordedSec = null, manual = false) }
         if (k == TimerKind.ROUTE) _state.update { it.copy(routeWrittenEntryId = null) }
         ensureTicker()
     }
@@ -775,6 +777,14 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
                 )
             }
         }
+    }
+
+    /** Ручной ввод плотности, с (дробные). Некорректное значение игнорируется; true - принято. Участвует в оценке как замер. */
+    fun setManualDensity(k: TimerKind, text: String): Boolean {
+        val v = BrakeDensity.parseManualSeconds(text) ?: return false
+        updateTimer(k) { it.copy(running = false, accumulatedMs = (v * 1000).toLong(), recordedSec = v, manual = true) }
+        if (k == TimerKind.ROUTE) _state.update { it.copy(routeWrittenEntryId = null) }
+        return true
     }
 
     fun setDrop(k: TimerKind, v: String) = updateTimer(k) { it.copy(dropText = v) }
@@ -877,7 +887,7 @@ fun BrakeCertificateUiState.effectiveRows(): List<BrakeRowUi> =
 
 /** Единое сериализуемое состояние справки (без идущих секундомеров и UI-состояния). */
 fun BrakeCertificateUiState.toData(updatedAt: Long = 0L): BrakeCertificateData {
-    fun m(kind: TimerKind, t: DensityTimerState) = DensityMeasurementData(kind.name, t.recordedSec, drop = t.dropText)
+    fun m(kind: TimerKind, t: DensityTimerState) = DensityMeasurementData(kind.name, t.recordedSec, drop = t.dropText, manual = t.manual)
     return BrakeCertificateData(
         routeId = routeId, trainId = trainId, categoryId = categoryId, grade = grade, slope = slope, autoblock3 = autoblock3, manualNorm = manualOverride,
         station = stationText, issueTime = issueTimeText, date = dateText, locoSeries = locoSeriesText, locoNumber = locoNumberText,
@@ -898,7 +908,7 @@ fun BrakeCertificateData.toUiState(base: BrakeCertificateUiState): BrakeCertific
         val m = measurements.firstOrNull { it.kind == kind.name } ?: return DensityTimerState()
         return DensityTimerState(
             accumulatedMs = ((m.seconds ?: 0.0) * 1000).toLong(), recordedSec = m.seconds,
-            dropText = m.drop,
+            dropText = m.drop, manual = m.manual,
         )
     }
     var next = 0
