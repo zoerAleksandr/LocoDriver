@@ -85,7 +85,7 @@ object BrakeCertificateCalculator {
         val shortage = if (enough) 0.0 else (cat.norm - per100).coerceAtLeast(0.0)
 
         input.declaredAxles?.let {
-            if (it != axlesFromRows) warnings += "Осей в таблице: $axlesFromRows, в поезде указано: $it"
+            if (it != axlesFromRows) warnings += "В справке указано осей: $axlesFromRows, текущие данные: $it"
         }
         if (cat.group == TrainGroup.FREIGHT && loco != null) {
             warnings += "Для грузовых поездов вес и нажатие локомотива не учитываются (${InstructionRef.p("41")})"

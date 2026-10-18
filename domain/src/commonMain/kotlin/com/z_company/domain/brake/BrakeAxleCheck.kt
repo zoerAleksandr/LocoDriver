@@ -32,9 +32,9 @@ object AxleCheck {
 
     /** Короткий текст предупреждения; null - сходится или сверять нечего. */
     fun message(check: AxleSumCheck): String? = when (check) {
-        is AxleSumCheck.TableLess -> "Осей в таблице: ${check.tableSum}, указано вверху: ${check.declared} - не хватает ${check.diff}. Расчёт неполный."
-        is AxleSumCheck.TableMore -> "Осей в таблице: ${check.tableSum}, указано вверху: ${check.declared} - больше на ${check.diff}. Расчёт расходится с «Всего осей»."
-        is AxleSumCheck.DeclaredEmpty -> "«Всего осей» вверху не указано, в таблице осей: ${check.tableSum}."
+        is AxleSumCheck.TableLess -> "В справке указано осей: ${check.tableSum}, текущие данные: ${check.declared} - не хватает ${check.diff}. Расчёт неполный."
+        is AxleSumCheck.TableMore -> "В справке указано осей: ${check.tableSum}, текущие данные: ${check.declared} - больше на ${check.diff}. Проверьте данные на лицевой стороне справки."
+        is AxleSumCheck.DeclaredEmpty -> "«Всего осей» не указано, в справке указано осей: ${check.tableSum}."
         else -> null
     }
 }
