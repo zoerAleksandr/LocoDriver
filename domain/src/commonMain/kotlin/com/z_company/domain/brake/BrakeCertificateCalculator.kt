@@ -51,6 +51,9 @@ sealed interface SpeedLimit {
     data class NotDetermined(val reason: String, val kind: Kind = Kind.NO_DATA) : SpeedLimit
 }
 
+/** Вклад учитываемого локомотива в итоги справки: оси, нажатие колодок (тс) и учётный вес (т). */
+data class LocoShare(val axles: Int, val pressureTc: Double, val weight: Double)
+
 data class BrakeCertificateResult(
     val totalWeight: Double,
     val requiredPressure: Double,
@@ -65,6 +68,8 @@ data class BrakeCertificateResult(
     val requiredManualAxles: Int?,
     val manualAxlesOk: Boolean?,
     val warnings: List<String>,
+    /** Локомотив учтён в итогах (null - не учитывается). Входит в [totalWeight], [requiredPressure], [actualPressure] и [totalAxles]. */
+    val loco: LocoShare? = null,
 )
 
 object BrakeCertificateCalculator {
@@ -115,6 +120,7 @@ object BrakeCertificateCalculator {
             requiredManualAxles = manualRequired,
             manualAxlesOk = manualOk,
             warnings = warnings,
+            loco = loco?.let { LocoShare(it.axles, it.pressurePerAxle * it.axles, it.weight) },
         )
     }
 

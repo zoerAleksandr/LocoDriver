@@ -256,3 +256,6 @@
 
 ## «Записать» и шторка выбора записи
 После записи замера «В пути» таймер сбрасывается, подтверждение - снекбар с действием; шторка «Куда записать замер» показывает все записи (занятые неактивны), «Новая запись» и радио-метку текущей цели. `TurnaroundTarget.NEW_ENTRY` - явный выбор новой записи. Тест: `TurnaroundTargetTest.explicitNewEntry`.
+
+## Локомотив в итогах
+`BrakeCertificateResult.loco: LocoShare?` (оси, нажатие, вес) - вклад локомотива, уже входящий в totalWeight/required/actual/totalAxles. Показывается на «Расчёте» и на лицевой. Тест: `locoContributionIsIncludedAndVisible`.

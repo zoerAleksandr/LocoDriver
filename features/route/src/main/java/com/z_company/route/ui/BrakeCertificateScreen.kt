@@ -567,6 +567,9 @@ private fun ResultCard(result: BrakeCertificateResult?, state: BrakeCertificateU
                         align = TextAlign.End, modifier = Modifier.weight(0.8f),
                     )
                 }
+                result.loco?.let { l ->
+                    VuHint("Локомотив учтён: ${l.axles} осей, ${fmt(l.pressureTc)} тс, вес ${fmt(l.weight)} т - входят в потребное, фактическое и число осей", Modifier.padding(top = 6.dp))
+                }
                 Box(Modifier.padding(vertical = 10.dp).fillMaxWidth().height(1.dp).background(t.border))
                 if (warn) VuWarnVerdict("Нажатие недостаточно: не хватает ${fmt(result.requiredPressure - result.actualPressure)} тс (${fmt(result.shortagePer100, 2)} тс на 100 тс веса при норме ${category.norm}), но скорость не снижена")
                 else if (low) VuVerdict(false, "Нажатие недостаточно: не хватает ${fmt(result.requiredPressure - result.actualPressure)} тс (${fmt(result.shortagePer100, 2)} тс на 100 тс веса при норме ${category.norm})")
@@ -882,6 +885,7 @@ private fun FrontBody(
         VuInk(result?.let { fmt(it.requiredPressure) } ?: "", Modifier.width(92.dp), calc = true, align = TextAlign.End)
         VuMiniHelp { help("required") }
     }
+    if (result?.loco != null) Text("с учётом веса локомотива (${fmt(result.loco!!.weight)} т)", Modifier.fillMaxWidth().padding(horizontal = 14.dp), fontSize = 12.sp, color = t.accent, textAlign = TextAlign.End)
     VuFillRow(end = true) {
         VuPrint("ручных тормозов в осях")
         VuInk(if (!category.manualBrakesRequired) "все" else result?.requiredManualAxles?.toString() ?: "", Modifier.width(56.dp), calc = true, align = TextAlign.End)
@@ -977,6 +981,13 @@ private fun AxleTable(state: BrakeCertificateUiState, vm: BrakeCertificateViewMo
             }
             OtherColumn(state, onEdit = { onSheet(BrakeSheet.Other) })
         }
+    }
+    state.toInput()?.let { BrakeCertificateCalculator.calculate(it) }?.loco?.let { l ->
+        val r = state.toInput()?.let { BrakeCertificateCalculator.calculate(it) }
+        if (r != null) Text(
+            "Итого с локомотивом: ${r.totalAxles} осей, ${fmt(r.actualPressure)} тс (в т.ч. локомотив: ${l.axles} осей, ${fmt(l.pressureTc)} тс)",
+            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = t.accent, lineHeight = 16.sp,
+        )
     }
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { onSheet(BrakeSheet.RowPressure) }.vuCellBorders(lineColor, right = false, bottom = true).padding(start = 14.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("+ Другое нажатие", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent)

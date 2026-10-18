@@ -371,4 +371,17 @@ class HeadTailMinimumPointTest {
         // 29 тс: не хватает 4 т -> 75 - 8 = 67 -> 65 (до 0,010) - таблица не ограничивает
         assertEquals(65, speedAt(29.0, GradeClass.OVER_006_TO_010).kmh)
     }
+
+    @Test fun locoContributionIsIncludedAndVisible() {
+        val cat = BrakeNorms.category("FREIGHT_PASS")!!
+        val rows = listOf(AxleRow(7.0, 100))
+        val without = BrakeCertificateCalculator.calculate(BrakeCertificateInput(cat, 1000.0, rows))
+        val with = BrakeCertificateCalculator.calculate(BrakeCertificateInput(cat, 1000.0, rows, loco = LocoBrakeInput(200.0, 8, 10.0)))
+        assertEquals(null, without.loco)
+        assertEquals(LocoShare(8, 80.0, 200.0), with.loco)
+        assertEquals(without.totalAxles + 8, with.totalAxles)
+        assertEquals(without.actualPressure + 80.0, with.actualPressure, 1e-9)
+        assertEquals(1200.0, with.totalWeight, 1e-9)
+        assertEquals(528.0, with.requiredPressure, 1e-9) // 44 * 1200 / 100
+    }
 }
