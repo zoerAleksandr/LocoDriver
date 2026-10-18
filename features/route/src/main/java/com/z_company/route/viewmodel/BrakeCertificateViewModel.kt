@@ -191,14 +191,22 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     val state: StateFlow<BrakeCertificateUiState> = _state.asStateFlow()
 
     init {
-        // станции пользователя для подсказок: список из настроек (то, что вводилось в формах) + справочник станций
+        // станции пользователя для подсказок: список из настроек (то, что вводилось в формах), справочник станций и станции всех маршрутов (история).
+        // Подписка на потоки, а не разовое чтение: первое значение настроек/маршрутов может прийти пустым и затем обновиться.
         viewModelScope.launch {
-            val names = withContext(Dispatchers.IO) {
-                val saved = runCatching { settingsUseCase.getUserSettingFlow().first().stationList }.getOrDefault(emptyList())
-                val dir = runCatching { stationDirectory.stations().map { it.name } }.getOrDefault(emptyList())
-                saved + dir
-            }
-            _state.update { it.copy(knownStationNames = names) }
+            kotlinx.coroutines.flow.combine(
+                settingsUseCase.getUserSettingFlow().map { it.stationList },
+                routeUseCase.getListRoutesAsFlow(),
+            ) { saved, routes -> saved to routes }
+                .debounce(300)
+                .collect { (saved, routes) ->
+                    val names = withContext(Dispatchers.Default) {
+                        val dir = runCatching { stationDirectory.stations().map { it.name } }.getOrDefault(emptyList())
+                        val history = routes.flatMap { r -> r.trains.flatMap { t -> t.stations.mapNotNull { it.stationName } } }
+                        saved + dir + history
+                    }
+                    _state.update { it.copy(knownStationNames = names) }
+                }
         }
     }
 
