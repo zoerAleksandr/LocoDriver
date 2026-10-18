@@ -1676,6 +1676,7 @@ fun HomeScreen(
                                     title = "ВУ-45",
                                     iconRes = R.drawable.ic_card_brake,
                                     iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    iconContent = { com.z_company.route.component.Vu45Icon(size = 72.dp, tint = MaterialTheme.colorScheme.surfaceContainerLow) },
                                     widthScreen = widthScreen,
                                     interactionSource = interactionSource,
                                     onSizeChanged = { size ->
@@ -2222,6 +2223,8 @@ private fun ActionCard(
     onSizeChanged: (androidx.compose.ui.unit.IntSize) -> Unit,
     minHeightDp: androidx.compose.ui.unit.Dp,
     enabled: Boolean = true,
+    // вместо иконки-ресурса: произвольное содержимое (например, текстовая иконка «ВУ-45»)
+    iconContent: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     Card(
@@ -2265,7 +2268,7 @@ private fun ActionCard(
                     .weight(1f),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
+                if (iconContent != null) iconContent() else Icon(
                     modifier = Modifier.size(72.dp),
                     painter = painterResource(iconRes),
                     contentDescription = title,

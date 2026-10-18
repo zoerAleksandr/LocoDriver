@@ -2282,6 +2282,7 @@ private fun TrainBottomAppBar(
                 TrainBottomIconButton(
                     modifier = Modifier.width(48.dp),
                     iconRes = com.z_company.route.R.drawable.ic_card_brake,
+                    iconContent = { com.z_company.route.component.Vu45Icon(size = 28.dp, tint = MaterialTheme.colorScheme.primary) },
                     contentDescription = "Справка ВУ-45",
                     active = false,
                     onClick = onBrakeCertificateClick,
@@ -2315,11 +2316,12 @@ private fun TrainBottomIconButton(
     contentDescription: String,
     active: Boolean,
     colored: Boolean = false,
+    iconContent: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     Box(modifier = modifier.height(48.dp), contentAlignment = Alignment.Center) {
         IconButton(onClick = onClick) {
-            Icon(
+            if (iconContent != null) iconContent() else Icon(
                 painter = painterResource(iconRes),
                 contentDescription = contentDescription,
                 tint = if (colored) Color.Unspecified else MaterialTheme.colorScheme.primary,
