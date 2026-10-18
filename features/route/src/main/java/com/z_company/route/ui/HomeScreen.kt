@@ -1685,20 +1685,8 @@ fun HomeScreen(
                                     },
                                     minHeightDp = maxHeightBox.toDp(),
                                     onClick = {
-                                        val train = com.z_company.domain.autorecord.TrainOrdering
-                                            .pickHomeMapTarget(currentRoute?.trains)
-                                        val loco = currentRoute?.locomotives?.lastOrNull()
-                                        onBrakeCertificate(
-                                            com.z_company.domain.brake.BrakePrefill(
-                                                weight = train?.weight,
-                                                axles = train?.axle,
-                                                trainNumber = train?.number,
-                                                locoSeries = loco?.series,
-                                                locoNumber = loco?.number,
-                                                routeId = currentRoute?.basicData?.id,
-                                                trainId = train?.trainId,
-                                            ),
-                                        )
+                                        // справка из «Инструментов» открывается пустой; данные подставляет «Заполнить из маршрута»
+                                        onBrakeCertificate(null)
                                     }
                                 )
                             }
@@ -1920,7 +1908,7 @@ private fun RouteUnitTile(
 
 /** Локомотив: серия+номер; только серия → «серия б/н»; только номер →
  * «{тип тяги} {номер}»; пусто → «{тип тяги} {порядковый}». */
-private fun locomotiveName(loco: Locomotive, ordinal: Int): String {
+internal fun locomotiveName(loco: Locomotive, ordinal: Int): String {
     val s = loco.series?.takeIf { it.isNotBlank() }
     val n = loco.number?.takeIf { it.isNotBlank() }
     return when {
@@ -1961,7 +1949,7 @@ private fun routeUnitSubtitle(number: String?, shoulder: ServicePhase?, first: S
 }
 
 /** Полное имя для строки шторки (заголовок + станции). */
-private fun routeUnitFullName(number: String?, shoulder: ServicePhase?, first: String?, last: String?): String {
+internal fun routeUnitFullName(number: String?, shoulder: ServicePhase?, first: String?, last: String?): String {
     val title = routeUnitTitle(number, shoulder, first, last)
     val sub = routeUnitSubtitle(number, shoulder, first, last)
     return if (sub != null) "$title $sub" else title
@@ -1969,7 +1957,7 @@ private fun routeUnitFullName(number: String?, shoulder: ServicePhase?, first: S
 
 /** Строка единицы в шторке «Список»: аватар-иконка + название + шеврон. */
 @Composable
-private fun UnitSheetRow(iconRes: Int, name: String, onClick: () -> Unit) {
+internal fun UnitSheetRow(iconRes: Int, name: String, onClick: () -> Unit) {
     val c = MaterialTheme.colorScheme
     Row(
         modifier = Modifier

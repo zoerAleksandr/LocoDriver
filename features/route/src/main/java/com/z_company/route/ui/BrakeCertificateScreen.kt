@@ -102,6 +102,7 @@ import com.z_company.route.ui.settings.SettingsPickerOption
 import com.z_company.route.ui.settings.SettingsPickerSheet
 import com.z_company.route.viewmodel.BrakeCertificateUiState
 import com.z_company.route.viewmodel.BrakeCertificateViewModel
+import com.z_company.route.viewmodel.FillPick
 import com.z_company.route.viewmodel.PressureField
 import com.z_company.route.viewmodel.effectiveDensityGroup
 import com.z_company.route.viewmodel.pressureField
@@ -485,15 +486,20 @@ private fun DensityFields(state: BrakeCertificateUiState, vm: BrakeCertificateVi
 @Composable
 private fun FillFromRoute(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel) {
     val t = vuColors()
+    state.fillPick?.let { FillPickSheet(it, vm) }
+    state.fillDialog?.let { msg ->
+        com.z_company.route.component.AppAlertDialog(
+            onDismissRequest = vm::dismissFillDialog, title = "Заполнить из маршрута", text = msg, confirmText = "Понятно", onConfirm = vm::dismissFillDialog,
+        )
+    }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         VuBtn(
-            if (state.filling) "Заполняю…" else "Заполнить из маршрута", { vm.fillFromRoute() },
+            if (state.filling) "Заполняю…" else "Заполнить из маршрута", { vm.onFillClicked() },
             Modifier.fillMaxWidth(), kind = VuBtnKind.Tonal, enabled = !state.filling,
         )
         val error = state.fillReport?.note
         if (error != null) VuHint(error, Modifier.padding(horizontal = 4.dp), color = t.danger)
         else if (state.categoryNote != null) VuHint(state.categoryNote, Modifier.padding(horizontal = 4.dp))
-        else if (state.routeId == null) VuHint("Нет маршрута: введите данные вручную.", Modifier.padding(horizontal = 4.dp))
     }
 }
 
@@ -1666,6 +1672,37 @@ private fun CompositionHelpSheet(onDismiss: () -> Unit) {
             Text("Если строк нет, фактическое вводится вручную. Ручная правка помечается «правка», «Пересчитать» возвращает расчёт по строкам.", fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
             Text("Ручные тормозные оси: вес × норма по табл. III.4 (не менее 0,6 оси на 100 тс веса, п. 45), округление вверх - пересчитывается по новому весу.", fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
             Text("Пример. На лицевой 220 осей, фактическое 1500 тс. Отцепили 20 осей по 7 тс/ось: −140 тс, осталось 200 осей. Прицепили 10 осей по 5 тс/ось: +50 тс, стало 210 осей. Итого фактическое = 1500 − 140 + 50 = 1410 тс. Для порожнего поезда на 360 осей (N = 44) отцепка 20 осей даёт 340 осей и N = 55 - норма выросла. Расчёт справочный; окончательно - по Правилам и Инструкции.", fontSize = 14.sp, color = t.muted, lineHeight = 20.sp)
+        }
+    }
+}
+
+/** Выбор поезда или локомотива текущего маршрута: шторка в стиле «Текущего маршрута» главного экрана. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun FillPickSheet(pick: FillPick, vm: BrakeCertificateViewModel) {
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = vm::dismissFillPick,
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = androidx.compose.material3.MaterialTheme.colorScheme.background,
+    ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                if (pick.kind == FillPick.Kind.TRAIN) "Поезда · ${pick.trains.size}" else "Локомотивы · ${pick.locos.size}",
+                style = androidx.compose.material3.MaterialTheme.typography.headlineMedium,
+                color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 4.dp, bottom = 12.dp),
+            )
+            if (pick.kind == FillPick.Kind.TRAIN) {
+                pick.trains.forEach { train ->
+                    val first = train.stations.firstOrNull()?.stationName
+                    val last = if (train.stations.size > 1) train.stations.last().stationName else null
+                    UnitSheetRow(com.z_company.route.R.drawable.ic_card_train_ref, routeUnitFullName(train.number, train.servicePhase, first, last)) { vm.pickTrain(train) }
+                }
+            } else {
+                pick.locos.forEachIndexed { index, loco ->
+                    UnitSheetRow(com.z_company.route.R.drawable.ic_card_locomotive_ref, locomotiveName(loco, index + 1)) { vm.pickLoco(loco) }
+                }
+            }
         }
     }
 }

@@ -137,6 +137,10 @@ data class BrakeCertificateUiState(
     val fillReport: FillReport? = null,
     /** Пояснение к подбору категории по номеру поезда (после «Заполнить из маршрута»). */
     val categoryNote: String? = null,
+    /** Выбор поезда/локомотива маршрута при нескольких (шторка как на главном экране). */
+    val fillPick: FillPick? = null,
+    /** Сообщение «нет текущего маршрута / нет поезда» (диалог). */
+    val fillDialog: String? = null,
     val filling: Boolean = false,
     /** Названия станций раздела «Поезд» (для выбора станции в отметке оборота). */
     val trainStationNames: List<String> = emptyList(),
@@ -148,6 +152,15 @@ val BrakeCertificateUiState.grade: GradeClass get() = slope.grade
 val BrakeCertificateUiState.manualInfo: BrakeNorms.ManualInfo get() = BrakeNorms.manualInfo(slope, manualOverride)
 
 /** «Заполнить из маршрута»: итог подстановки не показывается, только короткая ошибка ([note]). */
+/** Запрос выбора при «Заполнить из маршрута»: поезда или локомотивы маршрута [routeId]. */
+data class FillPick(
+    val kind: Kind,
+    val trains: List<com.z_company.domain.entities.route.Train> = emptyList(),
+    val locos: List<com.z_company.domain.entities.route.Locomotive> = emptyList(),
+) {
+    enum class Kind { TRAIN, LOCO }
+}
+
 data class FillReport(val note: String? = null) {
     val text: String get() = note.orEmpty()
 }
@@ -223,6 +236,83 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         }
     }
 
+    private var pendingRoute: com.z_company.domain.entities.route.Route? = null
+    private var pendingTrain: com.z_company.domain.entities.route.Train? = null
+
+    /**
+     * Кнопка «Заполнить из маршрута». Открыта из формы «Поезд» (известен маршрут) - тот же маршрут и поезд; из «Инструментов» - текущий маршрут
+     * (как на главном экране): нет маршрута - «Нет текущего маршрута», нет поезда - «В текущем маршруте нет поезда», несколько поездов - выбор поезда,
+     * затем при нескольких локомотивах - выбор локомотива (шторки как в «Текущем маршруте»).
+     */
+    fun onFillClicked() {
+        val rid = _state.value.routeId
+        viewModelScope.launch {
+            _state.update { it.copy(filling = true, fillReport = null, fillDialog = null, fillPick = null) }
+            val route = if (rid != null) loadRoute(rid) else currentRoute()
+            if (route == null) {
+                _state.update {
+                    if (rid != null) it.copy(filling = false, fillReport = FillReport("Маршрут не найден"))
+                    else it.copy(filling = false, fillDialog = "Нет текущего маршрута")
+                }
+                return@launch
+            }
+            val train: com.z_company.domain.entities.route.Train?
+            if (rid == null) {
+                when {
+                    route.trains.isEmpty() -> { _state.update { it.copy(filling = false, fillDialog = "В текущем маршруте нет поезда") }; return@launch }
+                    route.trains.size > 1 -> {
+                        pendingRoute = route
+                        _state.update { it.copy(filling = false, fillPick = FillPick(FillPick.Kind.TRAIN, trains = route.trains)) }
+                        return@launch
+                    }
+                    else -> train = route.trains.first()
+                }
+            } else {
+                val wanted = _state.value.trainId
+                train = route.trains.firstOrNull { it.trainId == wanted } ?: TrainOrdering.pickHomeMapTarget(route.trains)
+            }
+            continueFill(route, train)
+        }
+    }
+
+    /** Выбран поезд в шторке. */
+    fun pickTrain(train: com.z_company.domain.entities.route.Train) {
+        val route = pendingRoute ?: return
+        _state.update { it.copy(fillPick = null, filling = true) }
+        viewModelScope.launch { continueFill(route, train) }
+    }
+
+    /** Выбран локомотив в шторке. */
+    fun pickLoco(loco: com.z_company.domain.entities.route.Locomotive) {
+        val route = pendingRoute ?: return
+        val train = pendingTrain
+        _state.update { it.copy(fillPick = null, filling = true) }
+        viewModelScope.launch { performFill(route, train, loco, onOpen = false) }
+    }
+
+    fun dismissFillPick() {
+        pendingRoute = null; pendingTrain = null
+        _state.update { it.copy(fillPick = null, filling = false) }
+    }
+
+    fun dismissFillDialog() = _state.update { it.copy(fillDialog = null) }
+
+    private suspend fun continueFill(route: com.z_company.domain.entities.route.Route, train: com.z_company.domain.entities.route.Train?) {
+        if (route.locomotives.size > 1) {
+            pendingRoute = route; pendingTrain = train
+            _state.update { it.copy(filling = false, fillPick = FillPick(FillPick.Kind.LOCO, locos = route.locomotives)) }
+        } else performFill(route, train, route.locomotives.firstOrNull(), onOpen = false)
+    }
+
+    /** Текущий маршрут - как на главном экране (`findCurrentRoute`). */
+    private suspend fun currentRoute(): com.z_company.domain.entities.route.Route? = withContext(Dispatchers.IO) {
+        runCatching {
+            val routes = routeUseCase.getListRoutesAsFlow().first()
+            val settings = settingsUseCase.getUserSettingFlow().first()
+            with(com.z_company.domain.entities.route.UtilsForEntities) { routes.findCurrentRoute(System.currentTimeMillis(), settings) }
+        }.getOrNull()
+    }
+
     /**
      * «Заполнить из маршрута»: вес, оси, номер поезда - из раздела «Поезд»; серия и номер - из последнего локомотива маршрута. Нажатие СРАЗУ заменяет значения
      * актуальными данными маршрута (в т.ч. введённые вручную); пустые и нулевые поля маршрута введённое не затирают. Объём ГР определяется заново
@@ -244,45 +334,57 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
             }
             val wantedTrain = _state.value.trainId
             val train = route.trains.firstOrNull { it.trainId == wantedTrain } ?: TrainOrdering.pickHomeMapTarget(route.trains)
-            val loco = route.locomotives.lastOrNull()
-            val q = BrakePrefill(
-                weight = train?.weight, axles = train?.axle, trainNumber = train?.number,
-                locoSeries = loco?.series, locoNumber = loco?.number,
-            ).sanitized()
-            val cur = _state.value
-            val pick: (String, String?) -> String = if (onOpen) BrakeFillResolver::pickOnOpen else BrakeFillResolver::pickRouteValue
-            val lf = if (onOpen) {
-                // при открытии: серия/номер/группа не перетираются, только пустые подставляются
-                BrakeFillResolver.resolveLoco(null, null, cur.locoSeriesText.ifBlank { q.locoSeries.orEmpty() }, cur.locoNumberText.ifBlank { q.locoNumber.orEmpty() }, cur.densityGroup, cur.customVolumeText)
-            } else {
-                BrakeFillResolver.resolveLoco(q.locoSeries, q.locoNumber, cur.locoSeriesText, cur.locoNumberText, cur.densityGroup, cur.customVolumeText)
-            }
-            _state.update {
-                it.copy(
-                    weightText = pick(cur.weightText, q.weight),
-                    totalAxlesText = pick(cur.totalAxlesText, q.axles),
-                    trainNumberText = pick(cur.trainNumberText, q.trainNumber),
-                    locoNumberText = lf.number,
-                    densityGroup = lf.manualGroup,
-                    customVolumeText = lf.customVolume,
-                    trainId = train?.trainId ?: it.trainId,
-                    filling = false,
-                    fillReport = null,
-                )
-            }
-            setLocoSeries(lf.series)
-            if (!onOpen) {
-                // категория по номеру поезда из маршрута - только если номер определяет её однозначно (иначе текущая остаётся)
-                val st = _state.value
-                val sug = BrakeCategory.suggestByTrainNumber(q.trainNumber, st.totalAxlesText.trim().toIntOrNull(), st.categoryId)
-                sug.categoryId?.let { applyCategory(it) }
-                _state.update { it.copy(categoryNote = sug.note) }
-                // «Учитывать локомотив» следует категории: в пассажирских и грузопассажирских включено, в грузовых выключено (ручная правка действует до следующего заполнения)
-                val cat = BrakeNorms.category(_state.value.categoryId)
-                if (cat != null) _state.update { it.copy(locoEnabled = cat.locoCountedByDefault) }
-            }
-            applyStopCandidates(train?.stations.orEmpty())
+            performFill(route, train, route.locomotives.lastOrNull(), onOpen)
         }
+    }
+
+    /** Подстановка данных выбранных поезда и локомотива маршрута (см. [fillFromRoute]). */
+    private suspend fun performFill(
+        route: com.z_company.domain.entities.route.Route,
+        train: com.z_company.domain.entities.route.Train?,
+        loco: com.z_company.domain.entities.route.Locomotive?,
+        onOpen: Boolean,
+    ) {
+        pendingRoute = null; pendingTrain = null
+        val q = BrakePrefill(
+            weight = train?.weight, axles = train?.axle, trainNumber = train?.number,
+            locoSeries = loco?.series, locoNumber = loco?.number,
+        ).sanitized()
+        val cur = _state.value
+        val pick: (String, String?) -> String = if (onOpen) BrakeFillResolver::pickOnOpen else BrakeFillResolver::pickRouteValue
+        val lf = if (onOpen) {
+            // при открытии: серия/номер/группа не перетираются, только пустые подставляются
+            BrakeFillResolver.resolveLoco(null, null, cur.locoSeriesText.ifBlank { q.locoSeries.orEmpty() }, cur.locoNumberText.ifBlank { q.locoNumber.orEmpty() }, cur.densityGroup, cur.customVolumeText)
+        } else {
+            BrakeFillResolver.resolveLoco(q.locoSeries, q.locoNumber, cur.locoSeriesText, cur.locoNumberText, cur.densityGroup, cur.customVolumeText)
+        }
+        _state.update {
+            it.copy(
+                weightText = pick(cur.weightText, q.weight),
+                totalAxlesText = pick(cur.totalAxlesText, q.axles),
+                trainNumberText = pick(cur.trainNumberText, q.trainNumber),
+                locoNumberText = lf.number,
+                densityGroup = lf.manualGroup,
+                customVolumeText = lf.customVolume,
+                trainId = train?.trainId ?: it.trainId,
+                routeId = route.basicData.id,
+                filling = false,
+                fillReport = null,
+            )
+        }
+        setLocoSeries(lf.series)
+        if (!onOpen) {
+            // категория по номеру поезда из маршрута - только если номер определяет её однозначно (иначе текущая остаётся)
+            val st = _state.value
+            val sug = BrakeCategory.suggestByTrainNumber(q.trainNumber, st.totalAxlesText.trim().toIntOrNull(), st.categoryId)
+            sug.categoryId?.let { applyCategory(it) }
+            _state.update { it.copy(categoryNote = sug.note) }
+            // «Учитывать локомотив» следует категории: в пассажирских и грузопассажирских включено, в грузовых выключено (ручная правка действует до следующего заполнения)
+            val cat = BrakeNorms.category(_state.value.categoryId)
+            if (cat != null) _state.update { it.copy(locoEnabled = cat.locoCountedByDefault) }
+        }
+        applyStopCandidates(train?.stations.orEmpty())
+        if (!persistStarted) startPersisting()
     }
 
     // ── Хранение (BrakeCertificate.db; docs/VU45_STORAGE_DESIGN.md) ──
