@@ -46,6 +46,16 @@ fun NavGraphBuilder.homeGraph(
             com.z_company.route.ui.DataPrivacyScreen(onBack = { router.back() })
         }
 
+        composableScreen(MyCertificatesRoute.route) {
+            com.z_company.route.ui.MyCertificatesScreen(
+                viewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+                onBack = { router.back() },
+                onOpen = { item ->
+                    router.showBrakeCertificate(com.z_company.domain.brake.BrakePrefill(routeId = item.routeId, trainId = item.trainId))
+                },
+            )
+        }
+
         composableScreen(TrackHistoryRoute.route) {
             val showPurchases = rememberShowPurchasesScreen(router)
             com.z_company.route.ui.TrackHistoryScreen(

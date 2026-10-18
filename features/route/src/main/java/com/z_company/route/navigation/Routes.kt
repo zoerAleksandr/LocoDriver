@@ -195,6 +195,7 @@ object SelectReleaseDaysScreenRoute: AppRoutes("SelectReleaseDaysScreen")
 object ProfileRoute: AppRoutes("ProfileRoute")
 object DataPrivacyRoute: AppRoutes("DataPrivacyRoute")
 object TrackHistoryRoute: AppRoutes("TrackHistoryRoute")
+object MyCertificatesRoute: AppRoutes("MyCertificatesRoute")
 object StatisticsRoute: AppRoutes("StatisticsRoute")
 object BrakeCertificateRoute: AppRoutes("BrakeCertificateRoute") {
     private val params = listOf("weight", "axles", "train", "locoSeries", "locoNumber", "routeId", "trainId")

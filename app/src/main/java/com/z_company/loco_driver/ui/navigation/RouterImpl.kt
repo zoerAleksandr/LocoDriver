@@ -245,6 +245,10 @@ class RouterImpl(
         requireNavController().navigate(com.z_company.route.navigation.DataPrivacyRoute.route)
     }
 
+    override fun showMyCertificates() {
+        requireNavController().navigate(com.z_company.route.navigation.MyCertificatesRoute.route)
+    }
+
     override fun showTrackHistory() {
         requireNavController().navigate(com.z_company.route.navigation.TrackHistoryRoute.route)
     }

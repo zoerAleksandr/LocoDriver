@@ -190,6 +190,8 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     private var storedId: String = ""
     private var lastSavedKey: BrakeCertificateData? = null
     private var persistStarted = false
+    /** Справка удалена пользователем: автосохранение отключено (иначе при выходе она сохранилась бы заново). */
+    private var deleted = false
     private val prefs = application.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     private val _state = MutableStateFlow(
@@ -351,7 +353,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
             _state.update { it.copy(filling = true, fillReport = null) }
             val route = loadRoute(rid)
             if (route == null) {
-                _state.update { it.copy(filling = false, fillReport = FillReport("Маршрут не найден")) }
+                _state.update { it.copy(filling = false, fillReport = if (onOpen) null else FillReport("Маршрут не найден")) }
                 return@launch
             }
             val wantedTrain = _state.value.trainId
@@ -441,6 +443,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     }
 
     private fun persist(key: BrakeCertificateData) {
+        if (deleted) return
         val st = _state.value
         val rid = st.routeId ?: return
         val tid = st.trainId ?: return
@@ -467,7 +470,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         station.isNotBlank() || tailCar.isNotBlank() || manualHave.isNotBlank() || flags.isNotEmpty() || tcpv.isNotBlank() || dpv.isNotBlank()
 
     override fun onCleared() {
-        if (persistStarted) persist(_state.value.toData().copy(id = "", updatedAt = 0L))
+        if (persistStarted && !deleted) persist(_state.value.toData().copy(id = "", updatedAt = 0L))
         super.onCleared()
     }
 
@@ -801,6 +804,27 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
                 timerRoute = DensityTimerState(dropText = s0.timerRoute.dropText),
                 writtenNotice = WrittenNotice(label, System.nanoTime()),
             )
+        }
+    }
+
+    /**
+     * Удаление справки из топ-бара: надгробие в локальном хранилище + пометка рейса несинхронизированным (на сервер уходит список без неё,
+     * `docs/VU45_STORAGE_DESIGN.md`); автосохранение отключается; тост «Справка удалена»; [onDone] закрывает экран.
+     */
+    fun deleteCertificate(onDone: () -> Unit) {
+        deleted = true
+        val id = storedId
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                if (id.isNotBlank()) {
+                    val routes = certificates.deleteByIds(listOf(id))
+                    if (com.z_company.repository.remote_rest.RemoteFeatureFlags.remoteCertificatesEnabled) {
+                        routes.forEach { runCatching { routeUseCase.markUnsynchronized(it).first { r -> r !is ResultState.Loading } } }
+                    }
+                }
+            }
+            android.widget.Toast.makeText(getApplication(), "Справка удалена", android.widget.Toast.LENGTH_SHORT).show()
+            onDone()
         }
     }
 

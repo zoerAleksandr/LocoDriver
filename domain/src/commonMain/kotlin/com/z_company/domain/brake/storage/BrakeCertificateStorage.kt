@@ -33,6 +33,11 @@ interface BrakeCertificateRepository {
     fun getByTrain(trainId: String): StoredBrakeCertificate?
     fun listByRoute(routeId: String, includeDeleted: Boolean = false): List<StoredBrakeCertificate>
     fun upsert(cert: StoredBrakeCertificate)
+    fun getById(certificateId: String): StoredBrakeCertificate?
+    /** Все неудалённые справки (всех рейсов), новые сверху. */
+    fun listAllActive(): List<StoredBrakeCertificate>
+    /** Помечает справку удалённой (надгробие до следующей отправки рейса). */
+    fun markDeletedById(certificateId: String, now: Long)
     /** Помечает справки поезда удалёнными (надгробие до следующей отправки рейса). */
     fun markDeletedByTrain(trainId: String, now: Long)
     /** Физически удаляет все справки рейса (рейс удалён навсегда). */
@@ -76,6 +81,30 @@ class BrakeCertificateUseCase(
             ),
         )
         return saved
+    }
+
+    /** Все сохранённые справки (экран «Мои справки ВУ-45»). */
+    fun listAll(): List<StoredBrakeCertificate> = repository.listAllActive()
+
+    /** Данные справки из хранилища (без привязки к поезду). */
+    fun decode(stored: StoredBrakeCertificate): BrakeCertificateData? =
+        runCatching { json.decodeFromString(BrakeCertificateData.serializer(), stored.payload) }.getOrNull()
+            ?.copy(id = stored.certificateId, updatedAt = stored.updatedAt)
+
+    /**
+     * Удаление справок по id: надгробие (как при удалении поезда) - рейс затем уходит на сервер списком без них и надгробия очищаются
+     * (`RoutesManager`); сервер удаляет справку (full-replace), с сервера она не воскресает (слияние пропускает локальные надгробия). Возвращает id рейсов,
+     * которые нужно пометить несинхронизированными.
+     */
+    fun deleteByIds(ids: Collection<String>): Set<String> {
+        val routes = mutableSetOf<String>()
+        val ts = now()
+        for (id in ids) {
+            val c = repository.getById(id) ?: continue
+            repository.markDeletedById(id, ts)
+            routes += c.routeId
+        }
+        return routes
     }
 
     fun deleteForTrain(trainId: String) = repository.markDeletedByTrain(trainId, now())

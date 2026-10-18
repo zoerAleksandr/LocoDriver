@@ -29,3 +29,12 @@ DELETE FROM BrakeCertificate WHERE routeId = :routeId;
 
 purgeTombstones:
 DELETE FROM BrakeCertificate WHERE routeId = :routeId AND isDeleted = 1;
+
+getById:
+SELECT * FROM BrakeCertificate WHERE certificateId = :id;
+
+listAllActive:
+SELECT * FROM BrakeCertificate WHERE isDeleted = 0 ORDER BY updatedAt DESC;
+
+markDeletedById:
+UPDATE BrakeCertificate SET isDeleted = 1, updatedAt = :now WHERE certificateId = :id;

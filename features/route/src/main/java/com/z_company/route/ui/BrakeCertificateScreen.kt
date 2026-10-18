@@ -195,6 +195,20 @@ fun BrakeCertificateScreen(
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
+    var confirmDelete by remember { mutableStateOf(false) }
+    if (confirmDelete) {
+        com.z_company.route.component.AppBottomSheet(
+            onDismissRequest = { confirmDelete = false },
+            sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            headerContent = {
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Удалить справку?", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center)
+                    Text("Справка будет удалена с этого устройства и с сервера", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp, start = 16.dp, end = 16.dp))
+                }
+            },
+            actions = listOf(com.z_company.route.component.BottomSheetAction(text = "Да, удалить") { confirmDelete = false; viewModel.deleteCertificate(onBack) }),
+        )
+    }
     // «Записано в оборот: …» с действием «К отметкам оборота»
     LaunchedEffect(state.writtenNotice) {
         val n = state.writtenNotice ?: return@LaunchedEffect
@@ -211,6 +225,11 @@ fun BrakeCertificateScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back), contentDescription = "Назад", tint = t.text)
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { confirmDelete = true }) {
+                        Icon(painter = painterResource(com.z_company.route.R.drawable.delete_24px), contentDescription = "Удалить справку", tint = t.text)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),

@@ -271,3 +271,6 @@
 
 ## Иконка ВУ-45
 `component/Vu45Icon.kt`: буквы «ВУ-45» (MonoFont, ExtraBold); `ActionCard`/`TrainBottomIconButton` принимают `iconContent`.
+
+## Удаление справок и «Мои справки ВУ-45»
+`BrakeCertificateUseCase.listAll/decode/deleteByIds`; репозиторий: `getById`, `listAllActive`, `markDeletedById`. Удаление - надгробие + `markUnsynchronized` рейса (по флагу отправки), далее штатная синхронизация (full-replace без справки, purge надгробий). Тест: `BrakeCertificateStorageTest.listAllAndDeleteByIds_tombstoneSyncsAndDoesNotResurrect`. Экран профиля: SCREEN_SPECS §26.10 и описание Профиля.

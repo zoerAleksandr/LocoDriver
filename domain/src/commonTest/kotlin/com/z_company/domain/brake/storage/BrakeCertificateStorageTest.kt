@@ -18,6 +18,11 @@ private class FakeRepo : BrakeCertificateRepository {
     override fun listByRoute(routeId: String, includeDeleted: Boolean) =
         rows.values.filter { it.routeId == routeId && (includeDeleted || !it.isDeleted) }
     override fun upsert(cert: StoredBrakeCertificate) { rows[cert.certificateId] = cert }
+    override fun getById(certificateId: String) = rows[certificateId]
+    override fun listAllActive() = rows.values.filter { !it.isDeleted }.sortedByDescending { it.updatedAt }
+    override fun markDeletedById(certificateId: String, now: Long) {
+        rows[certificateId]?.let { rows[certificateId] = it.copy(isDeleted = true, updatedAt = now) }
+    }
     override fun markDeletedByTrain(trainId: String, now: Long) {
         rows.replaceAll { _, v -> if (v.trainId == trainId) v.copy(isDeleted = true, updatedAt = now) else v }
     }
@@ -141,5 +146,30 @@ class BrakeCertificateStorageTest {
         // ответ без поля (сервер без миграции / старый ответ) - null, локальные справки не трогаются
         val noField = j.decodeFromString(Route.serializer(), """{"basicData":{"id":"x"}}""")
         assertNull(noField.brakeCertificates)
+    }
+
+    @Test
+    fun listAllAndDeleteByIds_tombstoneSyncsAndDoesNotResurrect() {
+        uc.save(data, "r1", "t1") { "c1" }
+        clock = 2_000
+        uc.save(data.copy(weight = "100"), "r1", "t2") { "c2" }
+        clock = 3_000
+        uc.save(data, "r2", "t3") { "c3" }
+        assertEquals(listOf("c3", "c2", "c1"), uc.listAll().map { it.certificateId }) // новые сверху
+        assertEquals("3040,5", uc.decode(uc.listAll().last())!!.weight)
+        clock = 4_000
+        val routes = uc.deleteByIds(listOf("c1", "c3", "missing"))
+        assertEquals(setOf("r1", "r2"), routes)
+        assertEquals(listOf("c2"), uc.listAll().map { it.certificateId })
+        // в рейс r1 уходит список без удалённой; r2 - пустой список (full-replace очистит сервер)
+        assertEquals(listOf("c2"), uc.forUpload("r1")!!.map { it.certificateId })
+        assertEquals(emptyList(), uc.forUpload("r2")!!)
+        // старая версия с сервера (updatedAt меньше надгробия) не воскрешает
+        val old = BrakeCertificateSync("c1", "r1", "t1", 1_000L, kotlinx.serialization.json.JsonObject(emptyMap()))
+        assertEquals(0, uc.mergeRemote("r1", listOf(old)))
+        assertNull(uc.loadForTrain("t1"))
+        // после доставки надгробия очищаются
+        uc.purgeTombstones("r2")
+        assertNull(uc.forUpload("r2"))
     }
 }

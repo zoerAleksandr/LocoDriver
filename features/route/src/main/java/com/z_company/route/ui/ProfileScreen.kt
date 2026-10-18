@@ -207,6 +207,7 @@ fun ProfileScreen(
     trashViewModel: TrashViewModel,
     onBillingClick: () -> Unit,
     onOpenTrackHistory: () -> Unit = {},
+    onOpenMyCertificates: () -> Unit = {},
     onOpenDataPrivacy: () -> Unit = {},
     isPullRefreshing: Boolean = false,
     onPullRefresh: () -> Unit = {},
@@ -1383,6 +1384,16 @@ fun ProfileScreen(
                                         subtitleStyle = styleHint,
                                         titleColor = primaryColor,
                                         onClick = onOpenTrackHistory,
+                                    )
+                                    ProfileDataDivider()
+                                    ProfileDataRow(
+                                        iconRes = R.drawable.ic_card_pdf,
+                                        title = "Мои справки ВУ-45",
+                                        subtitle = "Сохранённые справки о тормозах",
+                                        titleStyle = styleData,
+                                        subtitleStyle = styleHint,
+                                        titleColor = primaryColor,
+                                        onClick = onOpenMyCertificates,
                                     )
                                     ProfileDataDivider()
                                     ProfileDataRow(
