@@ -665,13 +665,13 @@ private fun SpeedExplanation(sp: SpeedLimit?, warn: Boolean = false) {
 @Composable
 private fun DeficitBlock(result: BrakeCertificateResult, category: BrakeCategory, onHelp: () -> Unit, onOpenReference: () -> Unit) {
     val t = vuColors()
-    val items = deficitShortSteps(category.group == TrainGroup.PASSENGER || category.group == TrainGroup.FREIGHT_PASSENGER)
+    val items = deficitFacts(result)
     var open by rememberSaveable { mutableStateOf(false) }
     Column(
         Modifier.fillMaxWidth().background(t.danger.copy(alpha = 0.12f), RoundedCornerShape(16.dp)).padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 8.dp),
     ) {
         Row(Modifier.clickable { open = !open }, verticalAlignment = Alignment.CenterVertically) {
-            Text("Что делать при нехватке нажатия", Modifier.weight(1f), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = t.danger)
+            Text("Нехватка нажатия", Modifier.weight(1f), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = t.danger)
             Text(if (open) "Свернуть ▴" else "Подробнее ▾", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, modifier = Modifier.padding(horizontal = 8.dp))
             VuHelp(onHelp)
         }
@@ -682,7 +682,7 @@ private fun DeficitBlock(result: BrakeCertificateResult, category: BrakeCategory
                     Text(x, fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
                 }
             }
-            VuBtn("Алгоритм в «Справочнике» ›", onOpenReference, kind = VuBtnKind.Text)
+            VuBtn("Нормы и снижение скорости в «Справочнике» ›", onOpenReference, kind = VuBtnKind.Text)
         }
     }
 }
@@ -1471,7 +1471,7 @@ private fun RowSheet(state: BrakeCertificateUiState, vm: BrakeCertificateViewMod
 private fun HelpSheet(key: String, state: BrakeCertificateUiState, category: BrakeCategory, result: BrakeCertificateResult?, onDismiss: () -> Unit) {
     val t = vuColors()
     val hint = brakeHints[key] ?: if (key == "deficit") BrakeHint(
-        "Что делать при недостатке нажатия", "Нажатие ниже нормы табл. III.1. Не хватает, но выше минимума табл. III.2 - скорость снижается (приложение считает само, п. 35). Ниже минимума - скорость устанавливает владелец инфраструктуры, сообщить диспетчеру/ДСП (п. 37). Подробнее - «Справочник → Недостаток нажатия».", "Правила ТО тормозного оборудования, прил. 2, п. 33-35, 37",
+        "Недостаток нажатия", "Нажатие ниже нормы табл. III.1. Не ниже минимума табл. III.2 - скорость табл. III.1 уменьшается за каждую недостающую тонну на 100 т веса (грузовые 2 км/ч; пассажирские и грузопассажирские 1 км/ч при спуске до 0,006, 2 км/ч круче), вниз до кратного 5 (п. 35). Ниже минимума - скорость по таблицам не определяется (п. 37). Нормы и минимумы - «Справочник → Недостаток нажатия».", "Правила ТО тормозного оборудования, прил. 2, п. 33-35, 37",
     ) else null
     if (hint == null) { onDismiss(); return }
     val calc = when (key) {

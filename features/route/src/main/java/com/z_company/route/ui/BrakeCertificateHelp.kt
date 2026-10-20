@@ -1,5 +1,9 @@
 package com.z_company.route.ui
 
+import com.z_company.domain.brake.BrakeCertificateResult
+import com.z_company.domain.brake.BrakeNorms
+import com.z_company.domain.brake.SpeedLimit
+
 import com.z_company.domain.brake.DensityLocoGroup
 
 /**
@@ -169,15 +173,41 @@ internal val brakeHints: Map<String, BrakeHint> = mapOf(
 
 internal data class ReferenceCard(val title: String, val lines: List<String>)
 
-internal const val REF_DEFICIT_TITLE = "Недостаток нажатия: что делать"
+internal const val REF_DEFICIT_TITLE = "Недостаток нажатия"
 
-/** Краткий алгоритм для красного блока «Что делать» на «Расчёте» (полный - в «Справочнике»). */
-internal fun deficitShortSteps(passenger: Boolean): List<String> = listOf(
-    "Не хватает, но выше минимума табл. III.2 - скорость снижается (п. 35 прил. 2; приложение считает само).",
-    "Ниже минимума табл. III.2 - скорость устанавливает владелец инфраструктуры; сообщить диспетчеру/ДСП (п. 37).",
-    "Довести нажатие: включить автотормоза, отцепить вагоны с неисправными тормозами; ручные тормоза - табл. III.4.",
-    "Результат записывает осмотрщик в справку ВУ-45. Подробнее - «Справочник».",
-)
+/** Строки карточки «Недостаток нажатия»: две ступени с цифрами п. 35 и мини-таблица «категория - норма - минимум» из BrakeNorms (табл. III.1 и III.2). */
+internal fun deficitReferenceLines(): List<String> {
+    val rows = listOf("FREIGHT_LOADED", "EMPTY_350", "EMPTY_350_400", "EMPTY_400_520", "FREIGHT_PASS", "PASS_120", "PASS_130", "PASS_140", "PASS_160")
+        .mapNotNull { BrakeNorms.category(it) }
+        .map { c ->
+            val name = c.title.substringBefore(" / ").substringBefore(" (")
+            "$name: норма ${c.norm}, минимум ${c.minNorm ?: "не задан"}"
+        }
+    return buildList {
+        add("#Y|Не хватает, но не ниже минимума табл. III.2 - скорость табл. III.1 (без скобок) уменьшается за каждую недостающую тонну на 100 т веса: грузовые, рефрижераторные, хозяйственные - на 2 км/ч; пассажирские, грузопассажирские, рефрижераторные свыше 90 км/ч - на 1 км/ч (спуск до 0,006) или 2 км/ч (круче). Результат - вниз до кратного 5. ‖ п. 35 прил. 2")
+        add("Тс на 100 т веса: норма (табл. III.1) и минимум (табл. III.2):")
+        addAll(rows.map { "- $it" })
+        add("Пример: груженый, 3000 т, не хватает 3 тс на 100 т - 70 км/ч. ‖ п. 35 прил. 2")
+        add("#R|Ниже минимума табл. III.2 - скорость по таблицам не определяется; её устанавливает владелец инфраструктуры по номограммам, на 20 % ниже. ‖ п. 37 прил. 2")
+    }
+}
+
+/** Факты для красного блока на «Расчёте»: сколько не хватает и какая скорость получилась (без советов). */
+internal fun deficitFacts(result: BrakeCertificateResult): List<String> = buildList {
+    val short = result.requiredPressure - result.actualPressure
+    add("Не хватает ${fmtFact(short)} тс (${fmtFact(result.shortagePer100)} на 100 т веса): фактическое ${fmtFact(result.actualPressure)} из ${fmtFact(result.requiredPressure)} тс.")
+    when (val sp = result.speed) {
+        is SpeedLimit.Allowed -> add(
+            if (sp.reducedFrom != null) "Скорость: ${sp.kmh} км/ч (табл. III.1: ${sp.reducedFrom} км/ч, снижена по п. 35 прил. 2)." else "Скорость: ${sp.kmh} км/ч (нажатие не снижает скорость по п. 31 прил. 2)."
+        )
+        is SpeedLimit.NotDetermined -> add("Скорость по таблицам не определена (" + (if (sp.kind == SpeedLimit.Kind.BELOW_MIN) "ниже минимума табл. III.2, п. 37 прил. 2" else "нет норм в таблицах") + ").")
+    }
+}
+
+private fun fmtFact(v: Double): String {
+    val r = kotlin.math.round(v * 10) / 10
+    return (if (r % 1.0 == 0.0) r.toLong().toString() else r.toString()).replace('.', ',')
+}
 
 
 internal val brakeReference: List<ReferenceCard> = listOf(
@@ -206,19 +236,7 @@ internal val brakeReference: List<ReferenceCard> = listOf(
             "При 100 % исправных тормозов у электропоездов, дизель-поездов, пассажирских поездов с пассажирскими локомотивами, ВЛ80, ВЛ10, ВЛ11, ВЛ65, ВЛ82, 2ЭС4К и цельнометаллических составов (до 120 км/ч) нажатие принимают без подсчёта: 60 тс на 100 тс веса, таблица в справке не заполняется (п. 43 прил. 2 Правил ТО тормозного оборудования).",
         ),
     ),
-    ReferenceCard(
-        REF_DEFICIT_TITLE,
-        listOf(
-            "#G|Нажатие в норме - едем по табл. III.1 ‖ прил. 2, табл. III.1",
-            "#Y|Не хватает, но выше минимума табл. III.2 - скорость снижается (приложение считает само) ‖ п. 35 прил. 2",
-            "#R|Ниже минимума табл. III.2 - скорость устанавливает владелец инфраструктуры; сообщить диспетчеру/ДСП ‖ п. 37 прил. 2",
-            "Пример: 3000 т, не хватает 3 тс на 100 т - 70 км/ч (груженый).",
-            "Что можно сделать:",
-            "- довести нажатие: включить автотормоза, отцепить вагоны с неисправными тормозами ‖ п. 33-34 прил. 2",
-            "- ручные тормоза: число осей - в «Расчёте» (0,6 и более на 100 т по уклону), недостающие - башмаками ‖ табл. III.4, п. 44-46",
-            "- доложить: порядок - по документам владельца инфраструктуры; записать результат в справку ВУ-45 ‖ 808-2022, прил. М",
-        ),
-    ),
+    ReferenceCard(REF_DEFICIT_TITLE, deficitReferenceLines()),
     ReferenceCard(
         "Ручные тормоза",
         listOf(
