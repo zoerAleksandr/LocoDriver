@@ -59,6 +59,8 @@ fun SyncProgressDialog(
     isNetworkError: Boolean = false,
     isSessionExpired: Boolean = false,
     showPercentageProgress: Boolean = false,
+    // «Отмена» идущей синхронизации: доступна сразу, до завершения (null - кнопки нет)
+    onCancel: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val ctx = LocalContext.current
@@ -363,6 +365,13 @@ fun SyncProgressDialog(
                     }
                 }
                 CustomDivider(orientation = Orientation.Horizontal)
+            }
+
+            if (!isSyncComplete && onCancel != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                TextButton(onClick = onCancel, modifier = Modifier.align(Alignment.End)) {
+                    Text("Отмена", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
 
             if (isSyncComplete) {

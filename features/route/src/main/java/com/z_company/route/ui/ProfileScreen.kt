@@ -584,6 +584,7 @@ fun ProfileScreen(
     }
 
     SyncProgressDialog(
+        onCancel = viewModel::cancelSync,
         showDialog = uiState.showSyncDialog,
         isSyncSuccess = uiState.isSyncSuccess,
         isSyncComplete = uiState.isSyncComplete,

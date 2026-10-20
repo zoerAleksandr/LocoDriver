@@ -1293,6 +1293,8 @@ class HomeViewModel : ViewModel(), KoinComponent {
                         }
                     }
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val newProgress = _uiState.value.syncUploadProgress.mapValues {
                     if (it.value is com.z_company.route.viewmodel.SyncStepState.Loading)
@@ -1302,6 +1304,12 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 _uiState.update { it.copy(syncUploadProgress = newProgress, isSyncComplete = true) }
             }
         }
+    }
+
+    /** «Отмена» в диалоге синхронизации: прерывает корутину ([resetSyncState] отменяет job) и сообщает об этом; данные не портятся (идемпотентная синхронизация). */
+    fun cancelSync() {
+        resetSyncState()
+        snackbarManager.show(message = "Синхронизация отменена")
     }
 
     fun resetSyncState() {

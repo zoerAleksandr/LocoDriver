@@ -263,6 +263,7 @@ fun HomeScreen(
     isNetworkError: Boolean = false,
     isSessionExpired: Boolean = false,
     onResetSyncState: () -> Unit = {},
+    onCancelSync: () -> Unit = {},
     isPullRefreshing: Boolean = false,
     onPullRefresh: () -> Unit = {},
     pullSyncMessage: String? = null,
@@ -540,6 +541,7 @@ fun HomeScreen(
         isNetworkError = isNetworkError,
         isSessionExpired = isSessionExpired,
         showPercentageProgress = true,
+        onCancel = onCancelSync,
         onDismiss = onResetSyncState
     )
 

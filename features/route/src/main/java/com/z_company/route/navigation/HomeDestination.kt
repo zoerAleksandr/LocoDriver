@@ -139,6 +139,7 @@ fun HomeDestination(
         isNetworkError = uiState.isNetworkError,
         isSessionExpired = uiState.isSessionExpired,
         onResetSyncState = homeViewModel::resetSyncState,
+        onCancelSync = homeViewModel::cancelSync,
         normaHours = uiState.normaHours,
         isBackgroundSyncing = uiState.isBackgroundSyncing,
     )

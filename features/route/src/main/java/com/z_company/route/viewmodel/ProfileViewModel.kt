@@ -263,8 +263,23 @@ class ProfileViewModel : ViewModel(), KoinComponent {
      * маршрутов по updatedAt с распространением удалений в обе стороны — всё в
      * [SyncManager.syncBidirectional].
      */
+    private var syncJob: Job? = null
+
+    /**
+     * Отмена идущей синхронизации (кнопка «Отмена» в диалоге): прерывает корутину и закрывает диалог. Безопасно для данных: синхронизация
+     * идемпотентна (merge по updatedAt / full-replace), прерывание на середине оставляет уже записанное, рейсы, не дошедшие до сервера,
+     * остаются помеченными несинхронизированными и уйдут при следующей синхронизации.
+     */
+    fun cancelSync() {
+        syncJob?.cancel()
+        syncJob = null
+        resetSyncState()
+        snackbarManager.show("Синхронизация отменена")
+    }
+
     fun startSync() {
-        viewModelScope.launch(Dispatchers.IO) {
+        syncJob?.cancel()
+        syncJob = viewModelScope.launch(Dispatchers.IO) {
             val setting = settingsUseCase.getUserSettingFlow().first()
             if (setting.subscriptionPeriod <= Calendar.getInstance().timeInMillis) {
                 snackbarManager.show("Синхронизация доступна по подписке")
@@ -364,6 +379,8 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                         }
                     }
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val p = _uiState.value.syncProgress.mapValues {
                     if (it.value is SyncStepState.Loading) SyncStepState.Error(e.message ?: "Ошибка синхронизации") else it.value
