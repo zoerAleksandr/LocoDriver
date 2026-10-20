@@ -191,7 +191,7 @@ class BrakeStatusTest {
         for (s in listOf("2ЭС6", "2эс6", "2 эс 6", "2ЭС4К", "2эс4к", "3ЭС4К", "3эс5к", "2ЭС5К")) {
             val d = BrakeLocoCatalog.find(s)
             assertNotNull(d, s)
-            assertEquals(null, d.pressurePerAxle) // достоверного источника нет - ввод вручную
+            assertEquals(14.0, d.pressurePerAxle) // 14 тс/ось - по указанию владельца (2ЭС5К - по проекту прил. 2)
         }
         assertEquals(192.0, BrakeLocoCatalog.find("2эс6")!!.weight)
         assertEquals(12, BrakeLocoCatalog.find("3ЭС5К")!!.axles)

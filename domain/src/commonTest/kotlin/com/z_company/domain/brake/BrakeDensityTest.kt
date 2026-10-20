@@ -214,8 +214,12 @@ class BrakeTurnaroundTest {
         assertEquals(DensityLocoGroup.G5, BrakeDensity.groupBySeries("ВЛ85"))
         // ВЛ10: объём зависит от номера (№ 1-18 - 1960 л, с № 19 - 1500 л) - автоподбора нет
         assertNull(BrakeDensity.groupBySeries("ВЛ10"))
-        // серия без подтверждённого объёма (ЧС2: диапазон 980-1080 л) - «Не выбрана»
-        assertNull(BrakeDensity.groupBySeries("ЧС2"))
+        // ЧС2: диапазон 980-1080 л (Приложение № 1 к Правилам эксплуатации тормозов) - принята строка 1000 л (допущение)
+        assertEquals(DensityLocoGroup.G1, BrakeDensity.groupBySeries("ЧС2"))
+        assertEquals(DensityLocoGroup.G2, BrakeDensity.groupBySeries("ВЛ8")) // 1440 л -> ближайший наименьший 1200
+        assertEquals(DensityLocoGroup.G5, BrakeDensity.groupBySeries("ВЛ10К")) // 2400 л -> 2000
+        assertEquals(DensityLocoGroup.G6, BrakeDensity.groupBySeries("2ТЭ70У")) // 2510 л -> 2500
+        assertEquals(DensityLocoGroup.G5, BrakeDensity.groupBySeries("2ТЭ10В"))
         assertNull(BrakeDensity.groupBySeries("ЭС99"))
     }
 
@@ -224,14 +228,15 @@ class BrakeTurnaroundTest {
         val rows = DensityLocoGroup.values().map { it.liters }
         for (g in DensityLocoGroup.values()) for (e in g.examples) {
             val minVolume = Regex("""\d+""").find(e.volume)!!.value.toInt()
-            val expected = rows.filter { it <= minVolume }.maxOrNull()
+            // диапазон, нижняя граница которого ниже наименьшей строки (1000 л), - принята строка 1000 (допущение, см. docs/VU45_SPEC.md)
+            val expected = rows.filter { it <= minVolume }.maxOrNull() ?: rows.min()
             assertEquals(expected, g.liters, "${e.series} ${e.volume}")
         }
         assertTrue(DensityLocoGroup.G1.examplesText.contains("ЭП1"))
         // в UI только названия серий: без объёмов, пометок и сомнительных (ВЛ10 с зависимостью объёма от номера)
         for (g in DensityLocoGroup.values()) assertTrue(!g.examplesText.contains("л)") && !g.examplesText.contains("ориент"), g.examplesText)
-        assertEquals("ВЛ60", DensityLocoGroup.G2.examplesText)
-        assertEquals("3ЭС4К, 3ЭС5К", DensityLocoGroup.G7.examplesText)
+        assertEquals("ВЛ60, ВЛ8, ВЛ8М", DensityLocoGroup.G2.examplesText)
+        assertEquals("3ЭС4К, 3ЭС5К, 3ТЭ10М, 4ТЭ10С, 3М62У", DensityLocoGroup.G7.examplesText)
         assertEquals("ВЛ10 (№ 19+), ВЛ10У, ВЛ11".split(", ").toSet(), DensityLocoGroup.G3.examplesText.split(", ").toSet())
         assertTrue(DensityLocoGroup.G4.examplesText.contains("ВЛ10 (№ 1-18)"))
         assertEquals("1000 л", DensityLocoGroup.G1.title)

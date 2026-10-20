@@ -36,10 +36,19 @@ enum class DensityLocoGroup(val liters: Int, val examples: List<SeriesExample>, 
             SeriesExample("ВЛ65", "1020 л"), SeriesExample("ЭП1", "1020 л"),
             SeriesExample("ЧС6", "1010 л"), SeriesExample("ЧС7", "1010 л"),
             SeriesExample("ЧС8", "1010 л"), SeriesExample("ЧС200", "1010 л"),
+            // Приложение № 1 к Правилам эксплуатации тормозов ПС (предоставлено владельцем): серии и объёмы ГР
+            SeriesExample("ЭП10", "1000 л"), SeriesExample("ЭП2К", "1000 л"), SeriesExample("ЭП1М", "1020-1100 л"), SeriesExample("ЧС2К", "1000 л"),
+            SeriesExample("ТЭП70БС", "1000 л"), SeriesExample("ТЭП70У", "1000 л"), SeriesExample("ТЭМ21", "1000 л"), SeriesExample("ТЭМ7", "1020 л"), SeriesExample("ТЭМ7А", "1020 л"),
+            SeriesExample("ТЭП10", "1020-1110 л"), SeriesExample("ТЭ10", "1020-1110 л"), SeriesExample("М62", "1020-1110 л"),
+            // допущение: диапазон включает значения ниже 1000 л (наименьшая строка табл. IV.1) - принята строка 1000 л
+            SeriesExample("ЧС2", "980-1080 л"), SeriesExample("ЧС2Т", "980-1080 л"), SeriesExample("ЧС4", "980-1080 л"), SeriesExample("ЧС4Т", "980-1080 л"),
+            SeriesExample("ЧС1", "930-1010 л"), SeriesExample("ЧС3", "930-1010 л"),
+            // допущение: индексы того же семейства, что серия из таблицы
+            SeriesExample("ЧМЭ3Т", "1000 л"), SeriesExample("ЧМЭ3Э", "1000 л"), SeriesExample("ТЭМ2А", "1000 л"), SeriesExample("ТЭМ2УМ", "1000 л"),
         ),
         listOf(58, 40, 29, 25, 23, 20, 17, 15, 13, 11),
     ),
-    G2(1200, listOf(SeriesExample("ВЛ60", "1200-1290 л", "все индексы")), listOf(69, 46, 34, 29, 25, 22, 20, 18, 15, 13)),
+    G2(1200, listOf(SeriesExample("ВЛ60", "1200-1290 л", "все индексы"), SeriesExample("ВЛ8", "1440 л", "ближайший наименьший 1200"), SeriesExample("ВЛ8М", "1440 л", "ближайший наименьший 1200")), listOf(69, 46, 34, 29, 25, 22, 20, 18, 15, 13)),
     G3(
         1500,
         listOf(
@@ -62,6 +71,11 @@ enum class DensityLocoGroup(val liters: Int, val examples: List<SeriesExample>, 
             SeriesExample("ВЛ11М", "2000 л"), SeriesExample("2ТЭ116", "2000 л"), SeriesExample("2ТЭ116УП", "2000 л"), SeriesExample("ТГ102", "2000 л"),
             SeriesExample("ВЛ85", "2100 л"),
             SeriesExample("2ТЭ10", "2040-2160 л", "индексы Л, В, М"), SeriesExample("2ТЭ121", "2040-2160 л"),
+            SeriesExample("2ТЭ10Л", "2040-2160 л"), SeriesExample("2ТЭ10В", "2040-2160 л"), SeriesExample("2ТЭ10М", "2040-2160 л"),
+            SeriesExample("ВЛ10К", "2400 л", "ближайший наименьший 2000"), SeriesExample("ВЛ10УК", "2400 л", "ближайший наименьший 2000"),
+            SeriesExample("ТЭ3", "2160 л"), SeriesExample("ТЭ7", "2160 л"), SeriesExample("2ТЭ70", "2000 л"),
+            // выведено по примечанию 4 (объём пропорционален числу секций): 2 секции по ~1020-1110 л
+            SeriesExample("2ТЭП60", "~2060 л", "2 секции ТЭП60"), SeriesExample("2М62", "~2040-2220 л", "2 секции М62"), SeriesExample("2М62У", "~2040-2220 л", "2 секции М62"),
             // справочно (открытая информация): 2 секции по 1000 л; в документах не подтверждено
             SeriesExample("2ЭС4К", "2000 л"), SeriesExample("2ЭС5К", "2000 л"), SeriesExample("2ЭС6", "2000 л"),
         ),
@@ -69,10 +83,17 @@ enum class DensityLocoGroup(val liters: Int, val examples: List<SeriesExample>, 
     ),
     G6(
         2500,
-        listOf(SeriesExample("ВЛ15", "2500 л"), SeriesExample("2ТЭ10У", "2500 л"), SeriesExample("2ТЭ10УТ", "2500 л")),
+        listOf(SeriesExample("ВЛ15", "2500 л"), SeriesExample("2ТЭ10У", "2500 л"), SeriesExample("2ТЭ10УТ", "2500 л"), SeriesExample("2ТЭ70У", "2510 л")),
         listOf(129, 93, 71, 64, 51, 45, 40, 36, 30, 28),
     ),
-    G7(3000, listOf(SeriesExample("3ЭС4К", "3000 л"), SeriesExample("3ЭС5К", "3000 л")), listOf(207, 138, 102, 87, 75, 66, 60, 51, 45, 33));
+    G7(
+        3000,
+        listOf(
+            SeriesExample("3ЭС4К", "3000 л"), SeriesExample("3ЭС5К", "3000 л"),
+            // выведено по примечанию 4 (число секций): 3 секции ~3060-3330 л, 4 секции более 3000 л - строка 3000 (прим. 3)
+            SeriesExample("3ТЭ10М", "~3060-3240 л", "3 секции 2ТЭ10"), SeriesExample("4ТЭ10С", "более 4000 л", "строка 3000"), SeriesExample("3М62У", "~3060-3330 л", "3 секции М62"),
+        ),
+         listOf(207, 138, 102, 87, 75, 66, 60, 51, 45, 33));
 
     /** Название строки: «1000 л». */
     val title: String get() = "$liters л"
