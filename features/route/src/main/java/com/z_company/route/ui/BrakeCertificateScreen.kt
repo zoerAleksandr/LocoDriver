@@ -1733,8 +1733,8 @@ private fun WagonChangeRow(c: WagonChange, onChange: (WagonChange) -> Unit, onRe
             Text("×", Modifier.clickable(onClick = onRemove).heightIn(min = 40.dp).widthIn(min = 40.dp).padding(horizontal = 10.dp, vertical = 6.dp), fontSize = 24.sp, color = t.muted, textAlign = TextAlign.Center)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            VuInput("Нажатие на ось, тс", c.pressureText, Modifier.weight(1f), onChange = { v -> onChange(c.copy(pressureText = v)) }, sunk = true)
             VuInput("Осей", c.axlesText, Modifier.weight(1f), onChange = { v -> onChange(c.copy(axlesText = v)) }, keyboard = KeyboardType.Number, sunk = true)
+            VuInput("Нажатие на ось, тс", c.pressureText, Modifier.weight(1f), onChange = { v -> onChange(c.copy(pressureText = v)) }, sunk = true)
         }
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             PRINTED.forEach { p ->
