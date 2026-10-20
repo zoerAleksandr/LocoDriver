@@ -1471,7 +1471,7 @@ private fun RowSheet(state: BrakeCertificateUiState, vm: BrakeCertificateViewMod
 private fun HelpSheet(key: String, state: BrakeCertificateUiState, category: BrakeCategory, result: BrakeCertificateResult?, onDismiss: () -> Unit) {
     val t = vuColors()
     val hint = brakeHints[key] ?: if (key == "deficit") BrakeHint(
-        "Что делать при недостатке нажатия", "Нажатие ниже нормы табл. III.1 Правил ТО тормозного оборудования. Если оно не ниже минимума табл. III.2 и случай относится к п. 33-34, скорость табл. III.1 снижают по п. 35: 2 км/ч за каждую недостающую тонну на 100 тс для грузовых (1 или 2 км/ч для пассажирских), результат вниз до кратного 5; ниже минимума табл. III.2 - скорость по таблицам не определяется (п. 37). Полный алгоритм с примерами - «Справочник → Недостаток нажатия».", "Правила ТО тормозного оборудования, прил. 2, п. 33-35, 37",
+        "Что делать при недостатке нажатия", "Нажатие ниже нормы табл. III.1. Не хватает, но выше минимума табл. III.2 - скорость снижается (приложение считает само, п. 35). Ниже минимума - скорость устанавливает владелец инфраструктуры, сообщить диспетчеру/ДСП (п. 37). Подробнее - «Справочник → Недостаток нажатия».", "Правила ТО тормозного оборудования, прил. 2, п. 33-35, 37",
     ) else null
     if (hint == null) { onDismiss(); return }
     val calc = when (key) {
@@ -1726,7 +1726,7 @@ private fun ReferenceTab(state: BrakeCertificateUiState, category: BrakeCategory
                 }
                 if (open == i) {
                     Column(Modifier.padding(start = 46.dp, end = 18.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        card.lines.forEach { Text(InstructionRef.annotate(it), fontSize = 14.sp, color = t.text, lineHeight = 20.sp) }
+                        card.lines.forEach { line -> RefLine(line) }
                         Text("Источник: " + InstructionRef.FULL, fontSize = 12.sp, color = t.muted, lineHeight = 16.sp)
                         if (card.title.startsWith("Плотность")) {
                             Row(Modifier.fillMaxWidth().background(t.accentSoft, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1912,4 +1912,30 @@ private fun LocoCaption(l: LocoShare) {
 private fun minutesOfDay(ms: Long): Int {
     val c = java.util.Calendar.getInstance().apply { timeInMillis = ms }
     return c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE)
+}
+
+/**
+ * Строка карточки «Справочника». Формат: «#G|#Y|#R|» в начале - цветная плашка-маркер (зелёный/жёлтый/красный); « ‖ тег» в конце - ссылка на пункт
+ * нормативки мелким шрифтом справа; иначе обычная строка.
+ */
+@Composable
+private fun RefLine(raw: String) {
+    val t = vuColors()
+    val marker = if (raw.length > 2 && raw[0] == '#' && raw[2] == '|') raw[1] else null
+    val body = if (marker != null) raw.substring(3) else raw
+    val parts = body.split(" ‖ ", limit = 2)
+    val text = parts[0]
+    val tag = parts.getOrNull(1)
+    val color = when (marker) { 'G' -> t.success; 'Y' -> t.warning; 'R' -> t.danger; else -> null }
+    Row(
+        Modifier.fillMaxWidth().then(if (color != null) Modifier.background(color.copy(alpha = 0.14f), RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 8.dp) else Modifier),
+        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top,
+    ) {
+        if (color != null) Box(Modifier.padding(top = 4.dp).width(6.dp).height(18.dp).background(color, RoundedCornerShape(3.dp)))
+        Column(Modifier.weight(1f)) {
+            // ссылки на пункты - тегом в конце строки, поэтому текст не раскрывается «аннотацией» источника
+            Text(if (tag != null || marker != null) text else InstructionRef.annotate(text), fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
+            if (tag != null) Text(tag, fontSize = 10.sp, color = t.muted, lineHeight = 13.sp, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+        }
+    }
 }
