@@ -22,6 +22,15 @@ sealed interface AxleSumCheck {
 }
 
 object AxleCheck {
+    /**
+     * Сверка с учётом локомотива: обе стороны - с осями локомотива ([locoAxles] > 0, если он учитывается) или обе без; так разница не включает оси локомотива
+     * ни с одной стороны (раньше таблица считалась без локомотива, а «текущие данные» с ним).
+     */
+    fun compareWithLoco(declared: Int?, tableSum: Int, locoAxles: Int): AxleSumCheck {
+        val l = locoAxles.coerceAtLeast(0)
+        return compare(declared?.takeIf { it > 0 }?.let { it + l }, if (tableSum > 0) tableSum + l else tableSum)
+    }
+
     fun compare(declared: Int?, tableSum: Int): AxleSumCheck = when {
         tableSum <= 0 -> AxleSumCheck.NoTable
         declared == null || declared <= 0 -> AxleSumCheck.DeclaredEmpty(tableSum)

@@ -438,4 +438,16 @@ class HeadTailMinimumPointTest {
         val sep = BrakeTable.locoRow(listOf(AxleRow(7.0, 100)), LocoBrakeInput(100.0, 6, 13.3), printed)
         assertEquals(true, sep.separateRow); assertEquals(106, sep.totalAxles); assertEquals(700.0 + 79.8, sep.totalPressure, 1e-9)
     }
+
+    @Test fun axleCheck_withLocoOnBothSides() {
+        // вагоны: в таблице 6, в «Всего осей» 6; локомотив 8 осей - обе стороны с локомотивом, расхождения нет
+        assertEquals(AxleSumCheck.Equal(14), AxleCheck.compareWithLoco(6, 6, 8))
+        // реальное расхождение (4 против 6) сохраняется и не включает оси локомотива в разницу
+        val diff = AxleCheck.compareWithLoco(10, 6, 8) as AxleSumCheck.TableLess
+        assertEquals(4, diff.diff)
+        // без локомотива - как прежде
+        assertEquals(AxleSumCheck.Equal(128), AxleCheck.compareWithLoco(128, 128, 0))
+        // пустая таблица не даёт ложной разницы от локомотива
+        assertTrue(AxleCheck.compareWithLoco(null, 0, 8) is AxleSumCheck.NoTable)
+    }
 }

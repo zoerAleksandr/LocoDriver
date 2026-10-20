@@ -1025,7 +1025,7 @@ private fun AxleTable(state: BrakeCertificateUiState, vm: BrakeCertificateViewMo
 private fun AxleSumWarning(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, modifier: Modifier = Modifier) {
     val t = vuColors()
     val sum = state.effectiveRows().sumOf { it.axlesText.trim().toIntOrNull() ?: 0 }
-    val check = AxleCheck.compare(state.totalAxlesText.trim().toIntOrNull(), sum)
+    val check = AxleCheck.compareWithLoco(state.totalAxlesText.trim().toIntOrNull(), sum, state.toInput()?.loco?.axles ?: 0)
     if (!state.rowsMode) return
     when (check) {
         is AxleSumCheck.Equal -> Unit
@@ -1057,16 +1057,28 @@ private fun AxleRowCells(label: String, axles: String, product: String, filled: 
                 .then(if (focused) Modifier.border(2.dp, t.accent) else Modifier),
             contentAlignment = Alignment.Center,
         ) {
-            if (locoAxles != null) Text("в т.ч. лок. $locoAxles", Modifier.align(Alignment.BottomCenter), fontSize = 8.sp, color = t.muted, maxLines = 1)
-            BasicTextField(
-                value = axles,
-                onValueChange = { onAxles(it.filter { c -> c in '0'..'9' }.take(4)) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp).padding(bottom = if (locoAxles != null) 6.dp else 0.dp).onFocusChanged { focused = it.isFocused },
-                singleLine = true,
-                textStyle = TextStyle(fontFamily = VuMono, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = t.accent, textAlign = TextAlign.Center),
-                cursorBrush = SolidColor(t.accent),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            )
+            // локомотив влит в строку: крупно число осей строки (вагоны + локомотив), мелко «в т.ч. лок. N»; тап - правка числа осей вагонов
+            var editing by remember(label) { mutableStateOf(false) }
+            val fr = remember { androidx.compose.ui.focus.FocusRequester() }
+            if (locoAxles != null && !editing) {
+                val wagons = axles.trim().toIntOrNull() ?: 0
+                Column(Modifier.fillMaxSize().clickable { editing = true }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                    Text("${wagons + locoAxles}", fontFamily = VuMono, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = t.accent, lineHeight = 17.sp)
+                    Text("в т.ч. лок. $locoAxles", fontSize = 8.sp, color = t.muted, maxLines = 1, lineHeight = 9.sp)
+                }
+            } else {
+                if (locoAxles != null) LaunchedEffect(Unit) { fr.requestFocus() }
+                BasicTextField(
+                    value = axles,
+                    onValueChange = { onAxles(it.filter { c -> c in '0'..'9' }.take(4)) },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp).focusRequester(fr)
+                        .onFocusChanged { focused = it.isFocused; if (locoAxles != null && !it.isFocused) editing = false },
+                    singleLine = true,
+                    textStyle = TextStyle(fontFamily = VuMono, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = t.accent, textAlign = TextAlign.Center),
+                    cursorBrush = SolidColor(t.accent),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                )
+            }
         }
         Box(Modifier.weight(1f).height(32.dp).background(bg).vuCellBorders(line), contentAlignment = Alignment.Center) {
             Text(product, fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = t.text, maxLines = 1)
