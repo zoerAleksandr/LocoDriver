@@ -856,7 +856,6 @@ private fun PaperHeader(
                     VuInk(state.locoSeriesText, Modifier.weight(1f), onChange = vm::setLocoSeries, maxLen = 12)
                     VuPrint("№")
                     VuInk(state.locoNumberText, Modifier.width(80.dp), onChange = vm::setLocoNumber, maxLen = 8)
-                    VuMiniHelp { onHelp("loco") }
                 }
                 VuFillRow {
                     VuPrint("Поезд №")
@@ -888,7 +887,6 @@ private fun FrontBody(
         VuPrint("Всего осей", modifier = Modifier.padding(start = 6.dp))
         if (locoShare != null) VuInk("${result.totalAxles}", Modifier.width(56.dp), calc = true)
         else VuInk(state.totalAxlesText, Modifier.width(56.dp), onChange = vm::setTotalAxles, keyboard = KeyboardType.Number, maxLen = 4)
-        VuMiniHelp { help("axles") }
     }
     if (locoShare != null) LocoCaption(locoShare)
     VuFillRow {
@@ -1107,6 +1105,8 @@ private fun OtherColumn(state: BrakeCertificateUiState, onEdit: () -> Unit) {
         if (state.vo2hvText.isNotBlank()) add("ВО2ХВ" to state.vo2hvText + " с")
         if (state.tailVoltageText.isNotBlank()) add("Напр." to state.tailVoltageText + " В")
         if (state.feedDensityText.isNotBlank()) add("Пит." to state.feedDensityText)
+        // зарядное давление - тот же источник, что поле на «Расчёте» (`chargePressureText`)
+        if (state.chargePressureText.isNotBlank()) add("Заряд. давл." to state.chargePressureText + " кгс/см²")
     }
     Column(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         // Каждый параметр - строка «подпись значение» (как в бланке), параметры между собой - столбцом
