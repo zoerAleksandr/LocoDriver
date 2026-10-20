@@ -376,3 +376,47 @@ object TurnaroundComposition {
     /** Значение поля введено вручную (отличается от расчёта). */
     fun isManual(entered: String, calculated: String?): Boolean = entered.isNotBlank() && calculated != null && entered.trim() != calculated
 }
+
+/**
+ * Эталон плотности для записей оборота. Запись с видом «СП»/«ТП» и указанной плотностью САМА не оценивается (показывается только значение и пометка
+ * «эталон»), но становится эталоном для следующих по времени записей без вида (только замер плотности), которые оцениваются от неё (допуск 20 %,
+ * [TurnaroundDensityCheck]); до первого СП/ТП эталон - замер II лицевой стороны. Порядок - по времени опробования, иначе по времени прибытия на стоянку
+ * (время суток), иначе по порядку в списке. Подтверждение в тексте Правил/808-2022 не найдено: правило машиниста-владельца (прил. 3 п. 1 говорит об «указанной в справке» плотности).
+ */
+object TurnaroundReference {
+    /** Эталон: [seconds] с, источник - «II» ([kind] = null) либо запись СП/ТП ([kind] "СП"/"ТП", [time] «ЧЧ:ММ» или пусто). */
+    data class Ref(val seconds: Double, val kind: String?, val time: String) {
+        val label: String get() = if (kind == null) "от II" else "от $kind" + if (time.isNotBlank()) " $time" else ""
+    }
+
+    /** [ref] - эталон для записи (null - эталона нет); [becomesReference] - запись СП/ТП с плотностью: не оценивается, становится эталоном. */
+    data class Info(val ref: Ref?, val becomesReference: Boolean)
+
+    private fun minutes(hhmm: String): Int? {
+        val n = TimeOfDayInput.normalize(hhmm) ?: return null
+        return n.substring(0, 2).toInt() * 60 + n.substring(3).toInt()
+    }
+
+    /** [minutesOfDay] - минуты суток для момента (мс) в часовом поясе пользователя. */
+    fun resolve(entries: List<TurnaroundEntry>, iiSec: Double?, minutesOfDay: (Long) -> Int): Map<String, Info> {
+        // ключ порядка: время опробования, иначе время прибытия; без времени - как у предыдущей записи списка
+        var carry = 0
+        val keyed = entries.mapIndexed { idx, e ->
+            val k = minutes(e.readinessTime) ?: e.arrivalMs?.let(minutesOfDay) ?: carry
+            carry = k
+            Triple(k, idx, e)
+        }.sortedWith(compareBy({ it.first }, { it.second }))
+        val out = LinkedHashMap<String, Info>()
+        var current: Ref? = iiSec?.takeIf { it > 0.0 }?.let { Ref(it, null, "") }
+        for ((_, _, e) in keyed) {
+            val sp = (e.testKind == TurnaroundEntry.KIND_SHORT || e.testKind == TurnaroundEntry.KIND_FULL) && e.densitySec != null
+            if (sp) {
+                out[e.id] = Info(null, true)
+                current = Ref(e.densitySec!!, e.testKindShort, TimeOfDayInput.display(e.readinessTime).takeIf { minutes(it) != null } ?: "")
+            } else {
+                out[e.id] = Info(current, false)
+            }
+        }
+        return out
+    }
+}

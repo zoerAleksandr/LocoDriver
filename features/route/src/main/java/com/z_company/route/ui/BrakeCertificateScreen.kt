@@ -102,6 +102,7 @@ import com.z_company.domain.brake.TimeOfDayInput
 import com.z_company.domain.brake.TurnaroundComposition
 import com.z_company.domain.brake.WagonChange
 import com.z_company.domain.brake.TurnaroundDensityCheck
+import com.z_company.domain.brake.TurnaroundReference
 import com.z_company.domain.brake.TurnaroundEntry
 import com.z_company.domain.brake.TurnaroundPick
 import com.z_company.domain.brake.TurnaroundPlanner
@@ -1170,6 +1171,7 @@ private fun BackBody(state: BrakeCertificateUiState, vm: BrakeCertificateViewMod
     // станции раздела «Поезд» перечитываются при открытии «Оборота» (ручные записи и введённые данные сохраняются)
     LaunchedEffect(state.routeId) { if (state.routeId != null) vm.refreshStops() }
     val reference = state.timerII.recordedSec
+    val refs = remember(state.turnaround, reference) { TurnaroundReference.resolve(state.turnaround, reference, ::minutesOfDay) }
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().vuCellBorders(line, right = false, bottom = true).height(IntrinsicSize.Min)) {
             listOf("Станция / место" to 1.25f, "Вид" to 0.55f, "Плотность" to 1.0f, "Время" to 0.7f).forEachIndexed { i, (x, w) ->
@@ -1198,16 +1200,22 @@ private fun BackBody(state: BrakeCertificateUiState, vm: BrakeCertificateViewMod
                         val d = e.densitySec
                         if (d == null) Text("замерить", fontSize = 12.sp, color = t.faint)
                         else {
-                            val r = TurnaroundDensityCheck.check(d, reference)
+                            val info = refs[e.id]
+                            val r = TurnaroundDensityCheck.check(d, info?.ref?.seconds)
                             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Text(fmt(d), fontFamily = VuMono, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = t.accent)
-                                    r.deviationPct?.let { Text(formatDeviation(it), fontFamily = VuMono, fontSize = 12.sp, color = t.muted) }
+                                    // запись СП/ТП не оценивается: только значение и пометка «эталон»
+                                    if (info?.becomesReference != true) r.deviationPct?.let { Text(formatDeviation(it), fontFamily = VuMono, fontSize = 12.sp, color = t.muted) }
                                 }
-                                when (r.verdict) {
-                                    TurnaroundDensityCheck.Verdict.OK -> Text("✓ в норме", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = t.success)
-                                    TurnaroundDensityCheck.Verdict.EXCEEDED -> Text("! более 20 %", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = t.danger)
-                                    TurnaroundDensityCheck.Verdict.NO_REFERENCE -> Text("нет эталона", fontSize = 11.sp, color = t.muted)
+                                if (info?.becomesReference == true) Text("эталон", fontSize = 10.sp, color = t.muted)
+                                else {
+                                    when (r.verdict) {
+                                        TurnaroundDensityCheck.Verdict.OK -> Text("✓ в норме", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = t.success)
+                                        TurnaroundDensityCheck.Verdict.EXCEEDED -> Text("! более 20 %", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = t.danger)
+                                        TurnaroundDensityCheck.Verdict.NO_REFERENCE -> Text("нет эталона", fontSize = 11.sp, color = t.muted)
+                                    }
+                                    info?.ref?.let { Text(it.label, fontSize = 10.sp, color = t.muted) }
                                 }
                             }
                         }
@@ -1219,7 +1227,7 @@ private fun BackBody(state: BrakeCertificateUiState, vm: BrakeCertificateViewMod
                 e.compositionSummary?.let { Text(it, Modifier.fillMaxWidth().padding(horizontal = 8.dp).padding(bottom = 8.dp), fontSize = 12.sp, color = t.muted, lineHeight = 16.sp) }
             }
         }
-        if (state.turnaround.any { it.densitySec != null } && reference == null) {
+        if (state.turnaround.any { it.densitySec != null && refs[it.id]?.ref == null && refs[it.id]?.becomesReference != true }) {
             VuHint("Нет эталона: запишите замер II на лицевой стороне справки.", Modifier.padding(start = 14.dp, end = 14.dp, top = 8.dp))
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1274,15 +1282,19 @@ private fun TurnaroundSheet(
             )
             VuBtn("Замерить секундомером", onMeasure, Modifier.fillMaxWidth(), kind = VuBtnKind.Tonal)
             run {
-                val reference = state.timerII.recordedSec
-                val r = e.densitySec?.let { TurnaroundDensityCheck.check(it, reference) }
-                val range = reference?.let { "допуск ${fmt(it * 0.8)}–${fmt(it * 1.2)} с" }
+                val refs = TurnaroundReference.resolve(state.turnaround, state.timerII.recordedSec, ::minutesOfDay)
+                val info = refs[e.id]
+                val ref = info?.ref
+                val isSp = e.testKind == TurnaroundEntry.KIND_SHORT || e.testKind == TurnaroundEntry.KIND_FULL
+                val r = e.densitySec?.let { TurnaroundDensityCheck.check(it, ref?.seconds) }
+                val range = ref?.let { "допуск ${fmt(it.seconds * 0.8)}–${fmt(it.seconds * 1.2)} с" }
                 when {
-                    reference == null -> VuHint("Нет эталона: запишите замер II на лицевой стороне справки.")
-                    r == null -> VuHint("Эталон - замер II на лицевой стороне: ${fmt(reference)} с; $range (±20 %).")
-                    r.verdict == TurnaroundDensityCheck.Verdict.OK -> VuVerdict(true, "В норме: ${formatDeviation(r.deviationPct ?: 0.0)} от замера II; $range")
+                    isSp -> VuHint("Станет эталоном для следующих замеров (сама не оценивается).")
+                    ref == null -> VuHint("Нет эталона: запишите замер II на лицевой стороне справки или плотность с видом «СП»/«ТП» раньше по времени.")
+                    r == null -> VuHint("Эталон ${ref.label.removePrefix("от ")}: ${fmt(ref.seconds)} с; $range (±20 %).")
+                    r.verdict == TurnaroundDensityCheck.Verdict.OK -> VuVerdict(true, "В норме: ${formatDeviation(r.deviationPct ?: 0.0)} ${ref.label}; $range")
                     else -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        VuVerdict(false, "Отклонение более 20 % (${formatDeviation(r.deviationPct ?: 0.0)}); $range")
+                        VuVerdict(false, "Отклонение более 20 % (${formatDeviation(r.deviationPct ?: 0.0)}) ${ref.label}; $range")
                         VuHint("По прил. 3, п. 1 ${InstructionRef.GENITIVE}: при изменении плотности более чем на 20 % от указанной в справке проводится сокращённое опробование тормозов - отметьте «СП».")
                     }
                 }
@@ -1891,4 +1903,10 @@ private fun LocoCaption(l: LocoShare) {
         Modifier.fillMaxWidth().padding(horizontal = 14.dp).padding(bottom = 4.dp),
         fontSize = 10.sp, color = t.muted, lineHeight = 13.sp, textAlign = TextAlign.End,
     )
+}
+
+/** Минуты суток для момента [ms] в часовом поясе устройства (для порядка записей оборота). */
+private fun minutesOfDay(ms: Long): Int {
+    val c = java.util.Calendar.getInstance().apply { timeInMillis = ms }
+    return c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE)
 }
