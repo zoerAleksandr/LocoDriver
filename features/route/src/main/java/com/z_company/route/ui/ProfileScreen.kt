@@ -957,13 +957,18 @@ fun ProfileScreen(
                             }
                             // ===================== ШАПКА ПРОФИЛЯ =====================
                             item {
-                                Box(
+                                // одна карточка профиля: шапка (VK/имя) и почта, один индикатор загрузки
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .shadow(1.dp, Shapes.medium)
-                                        .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
-                                        .padding(vertical = 14.dp, horizontal = 16.dp),
+                                        .background(MaterialTheme.colorScheme.secondary, Shapes.medium),
                                 ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 14.dp, horizontal = 16.dp),
+                                    ) {
                                     Column(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1095,21 +1100,11 @@ fun ProfileScreen(
                                         }
                                     }
                                 }
-                            }
-
-                            // ===================== EMAIL =====================
-                            item {
-                                ProfileGroupLabel("EMAIL")
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .shadow(1.dp, Shapes.medium)
-                                        .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
-                                        .padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
-                                ) {
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                                    Box(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp)) {
                                     AsyncData(
                                         resultState = uiState.userDetailsState,
-                                        loadingContent = { CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp) },
+                                        loadingContent = { if (uiState.vkUserState !is ResultState.Loading) CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp) },
                                         errorContent = { Text("Ошибка загрузки", style = styleData, color = primaryColor) }
                                     ) { user ->
                                         user?.let {
@@ -1169,6 +1164,7 @@ fun ProfileScreen(
                                                 }
                                             }
                                         }
+                                    }
                                     }
                                 }
                             }
