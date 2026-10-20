@@ -609,7 +609,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
             next = next.copy(
                 locoWeightText = fmtNum(data.weight),
                 locoAxlesText = data.axles.toString(),
-                locoPressureText = fmtNum(data.pressurePerAxle),
+                locoPressureText = data.pressurePerAxle?.let { p -> fmtNum(p) } ?: "",
                 locoAuto = true,
                 locoNote = data.note,
             )

@@ -5,7 +5,8 @@ data class LocoBrakeData(
     val series: String,
     val weight: Double,
     val axles: Int,
-    val pressurePerAxle: Double,
+    /** Нажатие на ось, тс; null - достоверного источника нет, вводится вручную. */
+    val pressurePerAxle: Double?,
     val note: String? = null,
 )
 
@@ -15,6 +16,7 @@ data class LocoBrakeData(
  * Нажатие - груженый/пассажирский режим для чугунных колодок. Остальные серии вводятся вручную.
  */
 object BrakeLocoCatalog {
+    private const val NEW_NOTE = "вес и оси справочно (открытые данные производителя); нажатие на ось введите вручную"
     private const val PASS = "Пассажирский режим (скоростной режим даёт большее нажатие)"
 
     val items: List<LocoBrakeData> = listOf(
@@ -64,6 +66,13 @@ object BrakeLocoCatalog {
         LocoBrakeData("ТЭМ18", 123.0, 6, 11.0),
         LocoBrakeData("ТЭМ7", 180.0, 8, 13.0),
         LocoBrakeData("ТЭМ7А", 180.0, 8, 13.0),
+        // Современные грузовые электровозы переменного/постоянного тока: вес и оси - справочно (открытые данные производителя, не из 277/Правил);
+        // нажатие на ось достоверно не найдено - вводится вручную.
+        LocoBrakeData("2ЭС4К", 192.0, 8, null, NEW_NOTE),
+        LocoBrakeData("3ЭС4К", 288.0, 12, null, NEW_NOTE),
+        LocoBrakeData("2ЭС5К", 192.0, 8, null, NEW_NOTE),
+        LocoBrakeData("3ЭС5К", 288.0, 12, null, NEW_NOTE),
+        LocoBrakeData("2ЭС6", 192.0, 8, null, NEW_NOTE),
     )
 
     private fun norm(s: String): String = s.trim().uppercase().filter { it != ' ' && it != '-' && it != '_' }.map {

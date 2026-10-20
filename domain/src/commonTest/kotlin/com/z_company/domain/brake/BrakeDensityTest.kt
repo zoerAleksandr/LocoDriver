@@ -117,8 +117,8 @@ class BrakeDensityTest {
         assertEquals(192.0, vl80.weight)
         assertEquals(8, vl80.axles)
         assertEquals(14.0, vl80.pressurePerAxle)
-        assertNull(BrakeLocoCatalog.find("2ЭС5К"))
-        assertTrue(BrakeLocoCatalog.items.all { it.weight > 0 && it.axles > 0 && it.pressurePerAxle > 0 })
+        assertNull(BrakeLocoCatalog.find("ТЭП99")) // нет в справочнике
+        assertTrue(BrakeLocoCatalog.items.all { it.weight > 0 && it.axles > 0 && (it.pressurePerAxle ?: 1.0) > 0 })
     }
 }
 

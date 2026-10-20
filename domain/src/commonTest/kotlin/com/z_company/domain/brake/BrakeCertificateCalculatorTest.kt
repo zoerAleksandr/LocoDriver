@@ -384,4 +384,25 @@ class HeadTailMinimumPointTest {
         assertEquals(1200.0, with.totalWeight, 1e-9)
         assertEquals(528.0, with.requiredPressure, 1e-9) // 44 * 1200 / 100
     }
+
+    @Test fun locoRow_mergedIntoSamePressureRow_noDoubleCount() {
+        val rows = listOf(AxleRow(7.0, 100), AxleRow(5.0, 50))
+        val loco = LocoBrakeInput(184.0, 8, 7.0) // такое же нажатие, как у строки 7
+        val r = BrakeTable.locoRow(rows, loco)
+        assertEquals(7.0, r.mergedPressure)
+        assertEquals(false, r.separateRow)
+        assertEquals(158, r.totalAxles) // 100 + 50 + 8 - локомотив один раз
+        assertEquals(700.0 + 250.0 + 56.0, r.totalPressure, 1e-9)
+    }
+
+    @Test fun locoRow_separateWhenNoMatchingPressure() {
+        val rows = listOf(AxleRow(7.0, 100))
+        val r = BrakeTable.locoRow(rows, LocoBrakeInput(184.0, 8, 21.0))
+        assertEquals(null, r.mergedPressure)
+        assertEquals(true, r.separateRow)
+        assertEquals(108, r.totalAxles)
+        assertEquals(700.0 + 168.0, r.totalPressure, 1e-9)
+        val none = BrakeTable.locoRow(rows, null)
+        assertEquals(false, none.separateRow); assertEquals(100, none.totalAxles)
+    }
 }

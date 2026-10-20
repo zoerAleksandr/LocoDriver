@@ -86,6 +86,8 @@ import com.z_company.domain.brake.BrakeNorms
 import com.z_company.domain.brake.CompositeShare
 import com.z_company.domain.brake.DensityLocoGroup
 import com.z_company.domain.brake.AxleCheck
+import com.z_company.domain.brake.AxleRow
+import com.z_company.domain.brake.BrakeTable
 import com.z_company.domain.brake.AxleSumCheck
 import com.z_company.domain.brake.GradeClass
 import com.z_company.domain.brake.InstructionRef
@@ -872,22 +874,19 @@ private fun FrontBody(
 ) {
     val t = vuColors()
     val help = { k: String -> onSheet(BrakeSheet.Help(k)) }
+    // локомотив учтён: в шапке - значения с локомотивом (вес состава + вес локомотива, оси вагонов + оси локомотива, как в калькуляторе), подпись снизу
+    val locoShare = result?.loco
     VuFillRow {
         VuPrint("весом")
-        VuInk(state.weightText, Modifier.weight(1f), onChange = vm::setWeight, keyboard = KeyboardType.Decimal, maxLen = 8)
+        if (locoShare != null) VuInk(fmt((state.weightText.toFiniteDoubleOrNull() ?: 0.0) + locoShare.weight), Modifier.weight(1f), calc = true)
+        else VuInk(state.weightText, Modifier.weight(1f), onChange = vm::setWeight, keyboard = KeyboardType.Decimal, maxLen = 8)
         VuPrint("т.")
         VuPrint("Всего осей", modifier = Modifier.padding(start = 6.dp))
-        VuInk(state.totalAxlesText, Modifier.width(56.dp), onChange = vm::setTotalAxles, keyboard = KeyboardType.Number, maxLen = 4)
+        if (locoShare != null) VuInk("${result.totalAxles}", Modifier.width(56.dp), calc = true)
+        else VuInk(state.totalAxlesText, Modifier.width(56.dp), onChange = vm::setTotalAxles, keyboard = KeyboardType.Number, maxLen = 4)
         VuMiniHelp { help("axles") }
     }
-    // локомотив учтён: вес и оси с ним (калькулятор: вес состава + вес локомотива, оси вагонов + оси локомотива)
-    result?.loco?.let { l ->
-        val wagonW = state.weightText.toFiniteDoubleOrNull() ?: 0.0
-        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp).padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text("весом ${fmt(wagonW + l.weight)} т (с лок.)", fontFamily = VuMono, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = t.accent)
-            Text("всего осей ${result.totalAxles} (с лок.)", fontFamily = VuMono, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = t.accent)
-        }
-    }
+    if (locoShare != null) Text("(с учётом локомотива)", Modifier.fillMaxWidth().padding(horizontal = 14.dp).padding(bottom = 4.dp), fontSize = 10.sp, color = t.muted, lineHeight = 13.sp)
     VuFillRow {
         Text("Требуется нажатие тормозных колодок в тс.", Modifier.weight(1f), fontSize = 14.sp, color = t.text, lineHeight = 18.sp)
         VuInk(result?.let { fmt(it.requiredPressure) } ?: "", Modifier.width(92.dp), calc = true, align = TextAlign.End)
@@ -949,12 +948,14 @@ private fun AxleTable(state: BrakeCertificateUiState, vm: BrakeCertificateViewMo
     val byPressure = rows.associateBy { it.pressureText.toFiniteDoubleOrNull() }
     val extra = rows.filter { r -> val p = r.pressureText.toFiniteDoubleOrNull(); p != null && p !in PRINTED }
     val locoIn = state.toInput()?.loco
-    val totalAxles = rows.sumOf { it.axlesText.trim().toIntOrNull() ?: 0 } + (locoIn?.axles ?: 0)
-    val totalPressure = rows.sumOf { (it.pressureText.toFiniteDoubleOrNull() ?: 0.0) * (it.axlesText.trim().toIntOrNull() ?: 0) } + (locoIn?.let { it.pressurePerAxle * it.axles } ?: 0.0)
+    val axleRowsForTable = rows.mapNotNull { r -> val p = r.pressureText.toFiniteDoubleOrNull(); val n = r.axlesText.trim().toIntOrNull(); if (p != null && n != null && n > 0) AxleRow(p, n) else null }
+    val locoRowInfo = BrakeTable.locoRow(axleRowsForTable, locoIn)
+    val totalAxles = locoRowInfo.totalAxles
+    val totalPressure = locoRowInfo.totalPressure
     val low = state.toInput()?.let { BrakeCertificateCalculator.calculate(it) }?.let { it.actualPressure > 0 && !it.enough } == true
     val lineColor = t.borderStrong
     val head: @Composable (String, Boolean) -> Unit = { text, right ->
-        Box(Modifier.fillMaxHeight().vuCellBorders(lineColor, right = right, bottom = true).padding(horizontal = 2.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxSize().vuCellBorders(lineColor, right = right, bottom = true).padding(horizontal = 2.dp), contentAlignment = Alignment.Center) {
             Text(text, fontSize = 10.sp, lineHeight = 12.sp, color = t.text, textAlign = TextAlign.Center)
         }
     }
@@ -968,14 +969,16 @@ private fun AxleTable(state: BrakeCertificateUiState, vm: BrakeCertificateViewMo
             }
             PRINTED.forEach { p ->
                 val r = byPressure[p]
-                AxleRowCells(label = fmtP(p), axles = r?.axlesText.orEmpty(), product = r?.let { fmt(p * (it.axlesText.trim().toIntOrNull() ?: 0)) }.orEmpty(), filled = r != null, onAxles = { vm.setAxlesForPressure(p, it) })
+                val locoHere = locoIn?.takeIf { locoRowInfo.mergedPressure == p }
+                AxleRowCells(label = fmtP(p), axles = r?.axlesText.orEmpty(), product = r?.let { fmt(p * ((it.axlesText.trim().toIntOrNull() ?: 0) + (locoHere?.axles ?: 0))) }.orEmpty(), filled = r != null, locoAxles = locoHere?.axles, onAxles = { vm.setAxlesForPressure(p, it) })
             }
             extra.forEach { r ->
                 val p = r.pressureText.toFiniteDoubleOrNull() ?: 0.0
-                AxleRowCells(label = fmtP(p), axles = r.axlesText, product = fmt(p * (r.axlesText.trim().toIntOrNull() ?: 0)), filled = true, onAxles = { vm.setAxlesForPressure(p, it) })
+                val locoHere = locoIn?.takeIf { locoRowInfo.mergedPressure == p }
+                AxleRowCells(label = fmtP(p), axles = r.axlesText, product = fmt(p * ((r.axlesText.trim().toIntOrNull() ?: 0) + (locoHere?.axles ?: 0))), filled = true, locoAxles = locoHere?.axles, onAxles = { vm.setAxlesForPressure(p, it) })
             }
             // Локомотив (если учитывается): не редактируется здесь - правка в блоке «Учитывать локомотив»
-            if (locoIn != null) {
+            if (locoIn != null && locoRowInfo.separateRow) {
                 val lbg = t.accentSoft
                 Row(Modifier.height(IntrinsicSize.Min)) {
                     Box(Modifier.weight(1f).heightIn(min = 32.dp).background(lbg).vuCellBorders(lineColor), contentAlignment = Alignment.Center) {
@@ -1039,7 +1042,7 @@ private fun AxleSumWarning(state: BrakeCertificateUiState, vm: BrakeCertificateV
 }
 
 @Composable
-private fun AxleRowCells(label: String, axles: String, product: String, filled: Boolean, onAxles: (String) -> Unit) {
+private fun AxleRowCells(label: String, axles: String, product: String, filled: Boolean, onAxles: (String) -> Unit, locoAxles: Int? = null) {
     val t = vuColors()
     val line = t.borderStrong
     val bg = if (filled) t.accentSoft else Color.Transparent
@@ -1053,10 +1056,11 @@ private fun AxleRowCells(label: String, axles: String, product: String, filled: 
                 .then(if (focused) Modifier.border(2.dp, t.accent) else Modifier),
             contentAlignment = Alignment.Center,
         ) {
+            if (locoAxles != null) Text("в т.ч. лок. $locoAxles", Modifier.align(Alignment.BottomCenter), fontSize = 8.sp, color = t.muted, maxLines = 1)
             BasicTextField(
                 value = axles,
                 onValueChange = { onAxles(it.filter { c -> c in '0'..'9' }.take(4)) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp).onFocusChanged { focused = it.isFocused },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp).padding(bottom = if (locoAxles != null) 6.dp else 0.dp).onFocusChanged { focused = it.isFocused },
                 singleLine = true,
                 textStyle = TextStyle(fontFamily = VuMono, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = t.accent, textAlign = TextAlign.Center),
                 cursorBrush = SolidColor(t.accent),

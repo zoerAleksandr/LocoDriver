@@ -218,3 +218,28 @@ object BrakeCertificateCalculator {
         )
     }
 }
+
+/**
+ * Строка локомотива в таблице нажатий бланка: если среди строк таблицы уже есть строка с тем же нажатием на ось, оси локомотива
+ * прибавляются в неё ([mergedPressure] != null, отдельной строки нет); иначе добавляется отдельная строка. Итоги [totalAxles]/[totalPressure]
+ * включают локомотив один раз (без двойного счёта).
+ */
+data class LocoTableRow(
+    val mergedPressure: Double?,
+    val separateRow: Boolean,
+    val totalAxles: Int,
+    val totalPressure: Double,
+)
+
+object BrakeTable {
+    fun locoRow(rows: List<AxleRow>, loco: LocoBrakeInput?): LocoTableRow {
+        val wagonAxles = rows.sumOf { it.axles }
+        val wagonPressure = rows.sumOf { it.pressurePerAxle * it.axles }
+        if (loco == null) return LocoTableRow(null, false, wagonAxles, wagonPressure)
+        val match = rows.firstOrNull { kotlin.math.abs(it.pressurePerAxle - loco.pressurePerAxle) < 1e-9 }
+        return LocoTableRow(
+            mergedPressure = match?.pressurePerAxle, separateRow = match == null,
+            totalAxles = wagonAxles + loco.axles, totalPressure = wagonPressure + loco.pressurePerAxle * loco.axles,
+        )
+    }
+}

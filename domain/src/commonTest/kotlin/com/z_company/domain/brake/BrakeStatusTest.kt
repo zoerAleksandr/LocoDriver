@@ -2,6 +2,7 @@ package com.z_company.domain.brake
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class BrakeStatusTest {
@@ -184,5 +185,23 @@ class BrakeStatusTest {
         assertTrue(amb.note!!.contains("не определяется"))
         assertEquals(null, BrakeCategory.suggestByTrainNumber("", null, "FREIGHT_LOADED").note)
         assertEquals(null, BrakeCategory.suggestByTrainNumber(null, null, "FREIGHT_LOADED").categoryId)
+    }
+
+    @Test fun catalog_newElectricLocos_caseAndLatinInsensitive() {
+        for (s in listOf("2ЭС6", "2эс6", "2 эс 6", "2ЭС4К", "2эс4к", "3ЭС4К", "3эс5к", "2ЭС5К")) {
+            val d = BrakeLocoCatalog.find(s)
+            assertNotNull(d, s)
+            assertEquals(null, d.pressurePerAxle) // достоверного источника нет - ввод вручную
+        }
+        assertEquals(192.0, BrakeLocoCatalog.find("2эс6")!!.weight)
+        assertEquals(12, BrakeLocoCatalog.find("3ЭС5К")!!.axles)
+        // латинские двойники (E, C, K) тоже находятся
+        assertNotNull(BrakeLocoCatalog.find("3ЭC4K"))
+        // объём ГР 3000 л (со слов владельца) для 3ЭС4К/3ЭС5К; для 2ЭС объём не задан
+        assertEquals(DensityLocoGroup.G7, BrakeDensity.groupBySeries("3эс4к"))
+        assertEquals(DensityLocoGroup.G7, BrakeDensity.groupBySeries("3ЭС5К"))
+        assertEquals(null, BrakeDensity.groupBySeries("2ЭС6"))
+        // существующие серии не изменились
+        assertEquals(14.0, BrakeLocoCatalog.find("ВЛ10У")!!.pressurePerAxle)
     }
 }
