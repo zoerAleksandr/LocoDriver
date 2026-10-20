@@ -180,6 +180,8 @@ fun BrakeCertificateScreen(
 ) {
     // по умолчанию открывается «Бланк» (индекс 0); запомненная вкладка не используется - состояние живёт только на время экрана
     var tab by remember { mutableIntStateOf(0) }
+    // раскрытая карточка «Справочника» (индекс; -1 - все свёрнуты); «Недостаток нажатия» открывается ссылкой из красного блока
+    var refOpen by remember { mutableIntStateOf(-1) }
     var side by rememberSaveable { mutableIntStateOf(0) }
     var measureKind by rememberSaveable { mutableStateOf(TimerKind.II.name) }
     var sheet by remember { mutableStateOf<BrakeSheet?>(null) }
@@ -249,6 +251,7 @@ fun BrakeCertificateScreen(
                     state, category, result, viewModel,
                     onSheet = { sheet = it },
                     onOpenBlank = { tab = 0; side = 0 },
+                    onOpenReference = { refOpen = brakeReference.indexOfFirst { it.title == REF_DEFICIT_TITLE }; tab = 3 },
                 )
                 0 -> BlankTab(
                     state, category, result, viewModel, now, side, turnaroundApplies,
@@ -263,7 +266,7 @@ fun BrakeCertificateScreen(
                     onHelp = { sheet = BrakeSheet.Help(it) },
                     onBackToTurnaround = { tab = 0; side = 1 },
                 )
-                else -> ReferenceTab(state, category, onOpenMeasure = { tab = 2 })
+                else -> ReferenceTab(state, category, open = refOpen, onOpen = { refOpen = it }, onOpenMeasure = { tab = 2 })
             }
         }
     }
@@ -338,6 +341,7 @@ private fun CalcTab(
     vm: BrakeCertificateViewModel,
     onSheet: (BrakeSheet) -> Unit,
     onOpenBlank: () -> Unit,
+    onOpenReference: () -> Unit,
 ) {
     val t = vuColors()
     val calculated = BrakeStatusResolver.isCalculated(result)
@@ -428,7 +432,7 @@ private fun CalcTab(
                 )
             }
             if (calculated) ResultCard(result, state, category, onOpenBlank)
-            if (low && result != null && BrakeStatusResolver.resolve(result, true).level == StatusLevel.DANGER) DeficitBlock(result, category, onHelp = { onSheet(BrakeSheet.Help("deficit")) })
+            if (low && result != null && BrakeStatusResolver.resolve(result, true).level == StatusLevel.DANGER) DeficitBlock(result, category, onHelp = { onSheet(BrakeSheet.Help("deficit")) }, onOpenReference = onOpenReference)
         }
     }
 }
@@ -659,14 +663,9 @@ private fun SpeedExplanation(sp: SpeedLimit?, warn: Boolean = false) {
 }
 
 @Composable
-private fun DeficitBlock(result: BrakeCertificateResult, category: BrakeCategory, onHelp: () -> Unit) {
+private fun DeficitBlock(result: BrakeCertificateResult, category: BrakeCategory, onHelp: () -> Unit, onOpenReference: () -> Unit) {
     val t = vuColors()
-    val k = if (category.group == TrainGroup.FREIGHT) "2 км/ч" else "1 км/ч (спуск до 0,006) или 2 км/ч (круче)"
-    val items = listOf(
-        "Если нажатие не ниже допускаемого минимума ${InstructionRef.table("III.2")}, скорость табл. III.1 снижается на $k за каждую недостающую тонну на 100 тс веса, результат округляется вниз до кратного 5 (${InstructionRef.p("35")}).",
-        "Снижение допустимо только в случаях, указанных в ${InstructionRef.p("4.2-4.3")} (выключены неисправные автотормоза в пути; особые составы).",
-        "Если нажатие ниже допускаемого минимума, в исключительных случаях допускаемую скорость устанавливает начальник железной дороги по номограммам, на 20 % ниже определённой по ним (${InstructionRef.p("5.1")}). Подробнее - «Справочник».",
-    )
+    val items = deficitShortSteps(category.group == TrainGroup.PASSENGER || category.group == TrainGroup.FREIGHT_PASSENGER)
     var open by rememberSaveable { mutableStateOf(false) }
     Column(
         Modifier.fillMaxWidth().background(t.danger.copy(alpha = 0.12f), RoundedCornerShape(16.dp)).padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 8.dp),
@@ -683,6 +682,7 @@ private fun DeficitBlock(result: BrakeCertificateResult, category: BrakeCategory
                     Text(x, fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
                 }
             }
+            VuBtn("Алгоритм в «Справочнике» ›", onOpenReference, kind = VuBtnKind.Text)
         }
     }
 }
@@ -1471,7 +1471,7 @@ private fun RowSheet(state: BrakeCertificateUiState, vm: BrakeCertificateViewMod
 private fun HelpSheet(key: String, state: BrakeCertificateUiState, category: BrakeCategory, result: BrakeCertificateResult?, onDismiss: () -> Unit) {
     val t = vuColors()
     val hint = brakeHints[key] ?: if (key == "deficit") BrakeHint(
-        "Что делать при недостатке нажатия", "Нажатие ниже нормы табл. III.1 Правил ТО тормозного оборудования. Если оно не ниже допускаемого минимума табл. III.2 и случай относится к п. 33-34, скорость снижают: 2 км/ч за каждую недостающую тонну для грузовых, 1-2 км/ч для пассажирских, результат округляют вниз до кратного 5.", "Правила ТО тормозного оборудования, прил. 2, п. 33-35, 37",
+        "Что делать при недостатке нажатия", "Нажатие ниже нормы табл. III.1 Правил ТО тормозного оборудования. Если оно не ниже минимума табл. III.2 и случай относится к п. 33-34, скорость табл. III.1 снижают по п. 35: 2 км/ч за каждую недостающую тонну на 100 тс для грузовых (1 или 2 км/ч для пассажирских), результат вниз до кратного 5; ниже минимума табл. III.2 - скорость по таблицам не определяется (п. 37). Полный алгоритм с примерами - «Справочник → Недостаток нажатия».", "Правила ТО тормозного оборудования, прил. 2, п. 33-35, 37",
     ) else null
     if (hint == null) { onDismiss(); return }
     val calc = when (key) {
@@ -1710,9 +1710,8 @@ private fun TimerCard(
 // ───────────────────────────── Справочник ─────────────────────────────
 
 @Composable
-private fun ReferenceTab(state: BrakeCertificateUiState, category: BrakeCategory, onOpenMeasure: () -> Unit) {
+private fun ReferenceTab(state: BrakeCertificateUiState, category: BrakeCategory, open: Int, onOpen: (Int) -> Unit, onOpenMeasure: () -> Unit) {
     val t = vuColors()
-    var open by rememberSaveable { mutableIntStateOf(-1) }
     val group = state.effectiveDensityGroup()
     val axles = axlesForNorm(state)
     val minTime = group?.let { BrakeDensity.minTimeSeconds(it, axles, state.chargePressureText.toFiniteDoubleOrNull(), state.locoCountText.trim().toIntOrNull() ?: 1) }
@@ -1720,7 +1719,7 @@ private fun ReferenceTab(state: BrakeCertificateUiState, category: BrakeCategory
         VuTag("Справочник · " + InstructionRef.SHORT)
         brakeReference.forEachIndexed { i, card ->
             VuCard {
-                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { open = if (open == i) -1 else i }.padding(start = 18.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { onOpen(if (open == i) -1 else i) }.padding(start = 18.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("${i + 1}", Modifier.width(28.dp), fontFamily = VuMono, fontSize = 12.sp, color = t.faint)
                     Text(card.title, Modifier.weight(1f).padding(vertical = 8.dp), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = t.text, lineHeight = 20.sp)
                     Text(if (open == i) "▴" else "▾", Modifier.padding(horizontal = 14.dp), fontSize = 14.sp, color = t.muted)
