@@ -52,6 +52,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -1812,34 +1813,47 @@ private fun FillPickSheet(pick: FillPick, vm: BrakeCertificateViewModel) {
 @Composable
 private fun ManualDensitySheet(state: BrakeCertificateUiState, kind0: TimerKind, vm: BrakeCertificateViewModel, onDismiss: () -> Unit, onOpenMeasure: (TimerKind) -> Unit) {
     var kind by remember { mutableStateOf(kind0) }
-    val cur = if (kind == TimerKind.II) state.timerII else state.timerIV
-    var text by remember(kind) { mutableStateOf(cur.recordedSec?.let { fmt(it) } ?: "") }
+    val passenger = BrakeNorms.category(state.categoryId)?.group == TrainGroup.PASSENGER
+    // оба положения хранятся в шторке одновременно: переключение чипа не теряет введённое, «Готово» сохраняет оба
+    fun cur(k: TimerKind) = if (k == TimerKind.II) state.timerII else state.timerIV
+    val initial = remember { TimerKind.values().filter { it != TimerKind.ROUTE }.associateWith { k -> cur(k).recordedSec?.let { fmt(it) } ?: "" } }
+    val texts = remember { mutableStateMapOf(TimerKind.II to initial.getValue(TimerKind.II), TimerKind.IV to initial.getValue(TimerKind.IV)) }
+    val cleared = remember { mutableStateMapOf(TimerKind.II to false, TimerKind.IV to false) }
+    val pStarts = remember { mutableStateMapOf(TimerKind.II to cur(TimerKind.II).grStartText, TimerKind.IV to cur(TimerKind.IV).grStartText) }
+    val pEnds = remember { mutableStateMapOf(TimerKind.II to cur(TimerKind.II).grEndText, TimerKind.IV to cur(TimerKind.IV).grEndText) }
+    val text = texts.getValue(kind)
     val parsed = BrakeDensity.parseManualSeconds(text)
     VuSheet(
         title = "Плотность, с", sub = "Введите вручную или замерьте секундомером", onDismiss = onDismiss,
         footer = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 VuBtn("Замерить ›", { onOpenMeasure(kind) }, kind = VuBtnKind.Text, h = 56.dp)
-                VuBtn("Готово", { if (vm.setManualDensity(kind, text)) onDismiss() }, Modifier.weight(1f), h = 56.dp, enabled = parsed != null)
+                VuBtn("Готово", {
+                    listOf(TimerKind.II, TimerKind.IV).forEach { k ->
+                        vm.applyDensityCommit(k, BrakeDensity.commitDensity(texts.getValue(k), initial.getValue(k), cleared.getValue(k)))
+                        vm.setPressures(k, pStarts.getValue(k), pEnds.getValue(k))
+                    }
+                    onDismiss()
+                }, Modifier.weight(1f), h = 56.dp)
             }
         },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                VuChip("II положение", kind == TimerKind.II, { kind = TimerKind.II }, Modifier.weight(1f))
-                VuChip("IV положение", kind == TimerKind.IV, { kind = TimerKind.IV }, Modifier.weight(1f))
+                VuChip("II положение" + if (texts.getValue(TimerKind.II).isNotBlank()) " ✓" else "", kind == TimerKind.II, { kind = TimerKind.II }, Modifier.weight(1f))
+                VuChip("IV положение" + if (texts.getValue(TimerKind.IV).isNotBlank()) " ✓" else "", kind == TimerKind.IV, { kind = TimerKind.IV }, Modifier.weight(1f))
             }
-            VuInput("Время падения давления, с", text, onChange = { text = it }, unit = "с", sunk = true, error = text.isNotBlank() && parsed == null)
-            if (cur.manual) VuHint("Сейчас значение введено вручную.")
+            VuInput("Время падения давления, с", text, onChange = { texts[kind] = it; cleared[kind] = false }, unit = "с", sunk = true, error = text.isNotBlank() && parsed == null)
+            if (initial.getValue(kind).isNotBlank() || text.isNotBlank()) {
+                Text("Очистить", Modifier.clickable { texts[kind] = ""; cleared[kind] = true }.heightIn(min = 40.dp).padding(vertical = 10.dp), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = vuColors().accent)
+            }
+            if (cur(kind).manual) VuHint("Сейчас значение введено вручную.")
             VuTag("Давление в ГР, кгс/см²")
-            var pStart by remember(kind) { mutableStateOf(cur.grStartText) }
-            var pEnd by remember(kind) { mutableStateOf(cur.grEndText) }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                VuInput("В начале замера", pStart, Modifier.weight(1f), onChange = { pStart = it; vm.setPressures(kind, it, pEnd) }, sunk = true)
-                VuInput("В конце замера", pEnd, Modifier.weight(1f), onChange = { pEnd = it; vm.setPressures(kind, pStart, it) }, sunk = true)
+                VuInput("В начале замера", pStarts.getValue(kind), Modifier.weight(1f), onChange = { pStarts[kind] = it }, sunk = true)
+                VuInput("В конце замера", pEnds.getValue(kind), Modifier.weight(1f), onChange = { pEnds[kind] = it }, sunk = true)
             }
-            val passenger = BrakeNorms.category(state.categoryId)?.group == TrainGroup.PASSENGER
-            BrakeDensity.checkPressure(kind.name, pStart, pEnd, passenger)?.let { c ->
+            BrakeDensity.checkPressure(kind.name, pStarts.getValue(kind), pEnds.getValue(kind), passenger)?.let { c ->
                 when (c.ok) {
                     true -> VuVerdict(true, c.text, 14)
                     false -> VuVerdict(false, c.text, 14)

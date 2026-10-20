@@ -293,3 +293,6 @@
 
 ## Шестой пакет: ячейка осей и сверка
 Число осей слитой строки = вагоны + локомотив; `AxleCheck.compareWithLoco` сравнивает таблицу и «Всего осей» с локомотивом с обеих сторон. Тест: `axleCheck_withLocoOnBothSides`.
+
+## Шторка плотности бланка: оба положения
+`BrakeDensity.commitDensity` / `applyDensityCommit`: Keep (пусто/не менялось), Set, Clear (кнопка «Очистить»). Тесты: `commitDensity_sheetScenarios`.

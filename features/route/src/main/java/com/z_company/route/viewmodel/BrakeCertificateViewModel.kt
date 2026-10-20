@@ -838,6 +838,18 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         return true
     }
 
+    /** Применяет решение шторки плотности бланка к замеру [k] (см. [BrakeDensity.commitDensity]). */
+    fun applyDensityCommit(k: TimerKind, c: BrakeDensity.DensityCommit) {
+        when (c) {
+            BrakeDensity.DensityCommit.Keep -> Unit
+            is BrakeDensity.DensityCommit.Set -> setManualDensity(k, c.seconds.toString())
+            BrakeDensity.DensityCommit.Clear -> {
+                updateTimer(k) { it.copy(running = false, accumulatedMs = 0L, startedAtMs = 0L, recordedSec = null, manual = false) }
+                if (k == TimerKind.ROUTE) _state.update { it.copy(routeWrittenEntryId = null) }
+            }
+        }
+    }
+
     /** Давление в начале/в конце замера (кгс/см2). Для пассажирского II разность переносится в «падение давления в ТМ». */
     fun setPressures(k: TimerKind, start: String, end: String) {
         updateTimer(k) { it.copy(grStartText = start, grEndText = end) }

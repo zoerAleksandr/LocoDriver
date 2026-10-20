@@ -482,4 +482,21 @@ class BrakeTurnaroundTest {
         assertNull(BrakeDensity.checkPressure("II", "5,2", "5,0", true)!!.ok) // пассажирский: падение в ТМ
         assertEquals(0.2, BrakeDensity.checkPressure("II", "5,2", "5,0", true)!!.diff!!, 1e-9)
     }
+
+    @Test
+    fun commitDensity_sheetScenarios() {
+        // II -> IV -> «Готово»: оба значения сохраняются (каждое решение независимо)
+        assertEquals(BrakeDensity.DensityCommit.Set(27.1), BrakeDensity.commitDensity("27,1", "", false))
+        assertEquals(BrakeDensity.DensityCommit.Set(24.3), BrakeDensity.commitDensity("24.3", "", false))
+        // пустое поле не затирает сохранённый секундомером замер
+        assertEquals(BrakeDensity.DensityCommit.Keep, BrakeDensity.commitDensity("", "27,1", false))
+        // значение не менялось - не превращаем замер в «введённое вручную»
+        assertEquals(BrakeDensity.DensityCommit.Keep, BrakeDensity.commitDensity("27,1", "27,1", false))
+        // правка значения, записанного секундомером
+        assertEquals(BrakeDensity.DensityCommit.Set(30.0), BrakeDensity.commitDensity("30", "27,1", false))
+        // явная очистка
+        assertEquals(BrakeDensity.DensityCommit.Clear, BrakeDensity.commitDensity("", "27,1", true))
+        // некорректный ввод игнорируется
+        assertEquals(BrakeDensity.DensityCommit.Keep, BrakeDensity.commitDensity("abc", "27,1", false))
+    }
 }

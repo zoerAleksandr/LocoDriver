@@ -246,6 +246,27 @@ object BrakeDensity {
         return group.minTimes[col] * chargeFactor(chargePressure) * locoCount.coerceAtLeast(1)
     }
 
+    /** Решение по значению плотности при «Готово» в шторке бланка. */
+    sealed interface DensityCommit {
+        /** Оставить сохранённое (замер секундомером или прежний ввод) без изменений. */
+        data object Keep : DensityCommit
+        /** Записать введённое вручную значение. */
+        data class Set(val seconds: Double) : DensityCommit
+        /** Пользователь явно очистил значение. */
+        data object Clear : DensityCommit
+    }
+
+    /**
+     * Что делать со значением при «Готово»: явная очистка ([cleared]) - [DensityCommit.Clear]; текст не менялся ([initialText]) или пуст - [DensityCommit.Keep]
+     * (пустое поле не затирает сохранённый замер); корректное число - [DensityCommit.Set]; некорректный ввод - [DensityCommit.Keep].
+     */
+    fun commitDensity(text: String, initialText: String, cleared: Boolean): DensityCommit {
+        if (cleared) return DensityCommit.Clear
+        if (text.trim() == initialText.trim() || text.isBlank()) return DensityCommit.Keep
+        val v = parseManualSeconds(text) ?: return DensityCommit.Keep
+        return DensityCommit.Set(v)
+    }
+
     /** Результат сверки давления в начале и в конце замера: [diff] - снижение, кгс/см2; [ok] - null, если нормы нет (только показ разницы). */
     data class PressureCheck(val diff: Double?, val ok: Boolean?, val text: String)
 
