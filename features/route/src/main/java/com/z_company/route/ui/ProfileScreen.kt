@@ -55,7 +55,9 @@ import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.GenericLoading
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.repository.remote_rest.RegistrationState
+import com.z_company.route.viewmodel.ProfileDataBanner
 import com.z_company.route.viewmodel.ProfileViewModel
+import com.z_company.route.viewmodel.dataBanner
 import com.z_company.route.component.PullToSyncContainer
 import com.z_company.core.util.isEmailValid
 import com.z_company.core.util.isVpnActive
@@ -609,8 +611,9 @@ fun ProfileScreen(
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
-            if (uiState.userDetailsState is ResultState.Loading){
-                GenericLoading((uiState.userDetailsState as ResultState.Loading).message)
+            // Локальные данные показываются сразу; сеть (профиль, покупки) догружается с баннером. Заглушка - только пока читается локальная сессия.
+            if (!uiState.sessionChecked) {
+                GenericLoading("Открываем профиль...")
             } else {
                 // Миграция
                 if (isMigrationNeeded) {
@@ -907,56 +910,7 @@ fun ProfileScreen(
                 }
                 // Профиль
                 else if (isLoggedIn) {
-                    if (uiState.isProfileNetworkError) {
-                        val vpnActive = remember(uiState.isProfileNetworkError) { isVpnActive(ctx) }
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            Column(
-                                modifier = Modifier
-                                    .align(Alignment.Center)
-                                    .padding(horizontal = 32.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.signal_disconnected_24px),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(64.dp),
-                                    tint = MaterialTheme.colorScheme.outline
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = if (vpnActive) "Возможно, мешает VPN" else "Нет интернета",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.outline
-                                )
-                                if (vpnActive) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = VPN_ERROR_HINT,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.outline,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            }
-                            Button(
-                                onClick = viewModel::refresh,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 24.dp)
-                                    .align(Alignment.BottomCenter),
-                                shape = Shapes.medium,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                                )
-                            ) {
-                                Text(
-                                    text = "Повторить",
-                                    color = MaterialTheme.colorScheme.secondary
-                                )
-                            }
-                        }
-                    } else PullToSyncContainer(
+                    PullToSyncContainer(
                         isRefreshing = isPullRefreshing || uiState.isRefreshing,
                         onRefresh = onPullRefresh,
                         message = pullSyncMessage,
@@ -968,6 +922,25 @@ fun ProfileScreen(
                                 .padding(horizontal = 12.dp)
                                 .testTag("profile_lazy_column")
                         ) {
+                            // Баннер: сеть ещё грузится / нет сети (показаны сохранённые данные)
+                            uiState.dataBanner(isLoggedIn)?.let { banner ->
+                                item(key = "profile_data_banner") {
+                                    val vpn = remember(banner) { banner == ProfileDataBanner.OFFLINE && isVpnActive(ctx) }
+                                    Column(
+                                        Modifier.fillMaxWidth().padding(bottom = 8.dp).background(MaterialTheme.colorScheme.primaryContainer, Shapes.medium).padding(horizontal = 14.dp, vertical = 10.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            if (banner == ProfileDataBanner.LOADING) CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                            Text(banner.text, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                                            if (banner == ProfileDataBanner.OFFLINE) {
+                                                Text("Повторить", Modifier.clickable { viewModel.refresh() }.padding(6.dp), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
+                                            }
+                                        }
+                                        if (vpn) Text(VPN_ERROR_HINT, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
                             // Заголовок «Профиль»
                             item {
                                 Text(
