@@ -35,12 +35,14 @@ class TurnaroundDensityCheckTest {
     }
 
     @Test fun compositionSummary() {
-        assertNull(TurnaroundEntry("a", newAxles = "200").compositionSummary) // оси в строку не выводятся
+        assertNull(TurnaroundEntry("a").compositionSummary)
+        // вес «ХХХХ т.», оси в скобках «(ХХХ осей)»
         assertEquals(
-            "Новый вес 3100 т · Потребное 1020 тс · Фактическое 1010 тс",
+            "Новый вес 3100 т. (200 осей) · Потребное 1020 тс · Фактическое 1010 тс",
             TurnaroundEntry("a", newWeight = "3100", newAxles = "200", newRequired = "1020", newActual = "1010").compositionSummary,
         )
-        assertEquals("Новый вес 3100 т", TurnaroundEntry("a", newWeight = "3100").compositionSummary)
+        assertEquals("Новый вес 3100 т.", TurnaroundEntry("a", newWeight = "3100").compositionSummary)
+        assertEquals("Осей: (200 осей)", TurnaroundEntry("a", newAxles = "200").compositionSummary)
     }
 
     @Test fun kindShortAndOldRecords() {

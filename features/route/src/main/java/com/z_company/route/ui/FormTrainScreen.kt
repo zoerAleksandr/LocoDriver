@@ -2282,7 +2282,7 @@ private fun TrainBottomAppBar(
                 TrainBottomIconButton(
                     modifier = Modifier.width(48.dp),
                     iconRes = com.z_company.route.R.drawable.ic_card_brake,
-                    iconContent = { com.z_company.route.component.Vu45Icon(size = 28.dp, tint = MaterialTheme.colorScheme.primary) },
+                    iconContent = { com.z_company.route.component.Vu45Icon(size = 38.dp, tint = MaterialTheme.colorScheme.primary) },
                     contentDescription = "Справка ВУ-45",
                     active = false,
                     onClick = onBrakeCertificateClick,

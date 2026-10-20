@@ -112,7 +112,7 @@ class TurnaroundCompositionTest {
         val j = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
         val e = j.decodeFromString<TurnaroundEntry>("""{"id":"x","newWeight":"3100","newActual":"1010"}""")
         assertTrue(e.changes.isEmpty())
-        assertEquals("Новый вес 3100 т · Фактическое 1010 тс", e.compositionSummary)
+        assertEquals("Новый вес 3100 т. · Фактическое 1010 тс", e.compositionSummary)
         val withChanges = j.decodeFromString<TurnaroundEntry>("""{"id":"x","changes":[{"id":"c1","attached":true,"pressureText":"7","axlesText":"4"}]}""")
         assertEquals(1, withChanges.changes.size)
         assertTrue(withChanges.changes[0].isValid)

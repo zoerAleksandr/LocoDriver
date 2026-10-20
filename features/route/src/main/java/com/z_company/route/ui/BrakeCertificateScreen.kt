@@ -133,7 +133,7 @@ private sealed interface BrakeSheet {
     data class Help(val key: String) : BrakeSheet
 }
 
-private val TABS = listOf("Расчёт", "Бланк", "Замеры", "Справочник")
+private val TABS = listOf("Бланк", "Расчёт", "Замеры", "Справочник")
 /** Строки «Тормозное нажатие на ось, тс» по образцу формы ВУ-45 (808-2022 ПКБ ЦВ, прил. М): 27 значений. */
 private val PRINTED = BrakeNorms.blankAxlePressures
 private val OTHER_VALUES = listOf(1.25, 2.5, 3.5, 5.0, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 18.0, 21.0)
@@ -173,7 +173,8 @@ fun BrakeCertificateScreen(
     onBack: () -> Unit,
     viewModel: BrakeCertificateViewModel,
 ) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    // по умолчанию открывается «Бланк» (индекс 0); запомненная вкладка не используется - состояние живёт только на время экрана
+    var tab by remember { mutableIntStateOf(0) }
     var side by rememberSaveable { mutableIntStateOf(0) }
     var measureKind by rememberSaveable { mutableStateOf(TimerKind.II.name) }
     var sheet by remember { mutableStateOf<BrakeSheet?>(null) }
@@ -214,7 +215,7 @@ fun BrakeCertificateScreen(
         val n = state.writtenNotice ?: return@LaunchedEffect
         val r = snackbarHostState.showSnackbar(message = "Записано в оборот: ${n.label}", actionLabel = "К отметкам оборота", duration = androidx.compose.material3.SnackbarDuration.Long)
         viewModel.consumeWrittenNotice()
-        if (r == SnackbarResult.ActionPerformed) { tab = 1; side = 1 }
+        if (r == SnackbarResult.ActionPerformed) { tab = 0; side = 1 }
     }
     Scaffold(
         containerColor = t.bg,
@@ -239,12 +240,12 @@ fun BrakeCertificateScreen(
         Column(Modifier.fillMaxSize().padding(padding)) {
             Box(Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp)) { VuTabs(TABS, tab, { tab = it }) }
             when (tab) {
-                0 -> CalcTab(
+                1 -> CalcTab(
                     state, category, result, viewModel,
                     onSheet = { sheet = it },
-                    onOpenBlank = { tab = 1; side = 0 },
+                    onOpenBlank = { tab = 0; side = 0 },
                 )
-                1 -> BlankTab(
+                0 -> BlankTab(
                     state, category, result, viewModel, now, side, turnaroundApplies,
                     onSide = { side = it },
                     onSheet = { sheet = it },
@@ -255,7 +256,7 @@ fun BrakeCertificateScreen(
                     kind = TimerKind.valueOf(measureKind), onKind = { measureKind = it.name },
                     onGroupClick = { sheet = BrakeSheet.DensityGroup },
                     onHelp = { sheet = BrakeSheet.Help(it) },
-                    onBackToTurnaround = { tab = 1; side = 1 },
+                    onBackToTurnaround = { tab = 0; side = 1 },
                 )
                 else -> ReferenceTab(state, category, onOpenMeasure = { tab = 2 })
             }
@@ -807,7 +808,8 @@ private fun PaperHeader(
     val t = vuColors()
     Column(Modifier.padding(top = 10.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Column(Modifier.weight(1f)) {
+            // штемпель станции - реквизит лицевой стороны; на обороте не показывается
+            if (side) Spacer(Modifier.weight(1f)) else Column(Modifier.weight(1f)) {
                 VuPrint("Штемпель станции", 12)
                 if (open) {
                     DashedBox(Modifier.padding(top = 6.dp).width(112.dp).height(62.dp)) {
@@ -878,6 +880,14 @@ private fun FrontBody(
         VuInk(state.totalAxlesText, Modifier.width(56.dp), onChange = vm::setTotalAxles, keyboard = KeyboardType.Number, maxLen = 4)
         VuMiniHelp { help("axles") }
     }
+    // локомотив учтён: вес и оси с ним (калькулятор: вес состава + вес локомотива, оси вагонов + оси локомотива)
+    result?.loco?.let { l ->
+        val wagonW = state.weightText.toFiniteDoubleOrNull() ?: 0.0
+        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp).padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text("весом ${fmt(wagonW + l.weight)} т (с лок.)", fontFamily = VuMono, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = t.accent)
+            Text("всего осей ${result.totalAxles} (с лок.)", fontFamily = VuMono, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = t.accent)
+        }
+    }
     VuFillRow {
         Text("Требуется нажатие тормозных колодок в тс.", Modifier.weight(1f), fontSize = 14.sp, color = t.text, lineHeight = 18.sp)
         VuInk(result?.let { fmt(it.requiredPressure) } ?: "", Modifier.width(92.dp), calc = true, align = TextAlign.End)
@@ -938,8 +948,9 @@ private fun AxleTable(state: BrakeCertificateUiState, vm: BrakeCertificateViewMo
     val rows = state.effectiveRows()
     val byPressure = rows.associateBy { it.pressureText.toFiniteDoubleOrNull() }
     val extra = rows.filter { r -> val p = r.pressureText.toFiniteDoubleOrNull(); p != null && p !in PRINTED }
-    val totalAxles = rows.sumOf { it.axlesText.trim().toIntOrNull() ?: 0 }
-    val totalPressure = rows.sumOf { (it.pressureText.toFiniteDoubleOrNull() ?: 0.0) * (it.axlesText.trim().toIntOrNull() ?: 0) }
+    val locoIn = state.toInput()?.loco
+    val totalAxles = rows.sumOf { it.axlesText.trim().toIntOrNull() ?: 0 } + (locoIn?.axles ?: 0)
+    val totalPressure = rows.sumOf { (it.pressureText.toFiniteDoubleOrNull() ?: 0.0) * (it.axlesText.trim().toIntOrNull() ?: 0) } + (locoIn?.let { it.pressurePerAxle * it.axles } ?: 0.0)
     val low = state.toInput()?.let { BrakeCertificateCalculator.calculate(it) }?.let { it.actualPressure > 0 && !it.enough } == true
     val lineColor = t.borderStrong
     val head: @Composable (String, Boolean) -> Unit = { text, right ->
@@ -963,6 +974,24 @@ private fun AxleTable(state: BrakeCertificateUiState, vm: BrakeCertificateViewMo
                 val p = r.pressureText.toFiniteDoubleOrNull() ?: 0.0
                 AxleRowCells(label = fmtP(p), axles = r.axlesText, product = fmt(p * (r.axlesText.trim().toIntOrNull() ?: 0)), filled = true, onAxles = { vm.setAxlesForPressure(p, it) })
             }
+            // Локомотив (если учитывается): не редактируется здесь - правка в блоке «Учитывать локомотив»
+            if (locoIn != null) {
+                val lbg = t.accentSoft
+                Row(Modifier.height(IntrinsicSize.Min)) {
+                    Box(Modifier.weight(1f).heightIn(min = 32.dp).background(lbg).vuCellBorders(lineColor), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("лок. ${state.locoSeriesText}".trim(), fontSize = 9.sp, color = t.muted, maxLines = 1)
+                            Text(fmtP(locoIn.pressurePerAxle), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = t.text)
+                        }
+                    }
+                    Box(Modifier.weight(1f).heightIn(min = 32.dp).background(lbg).vuCellBorders(lineColor), contentAlignment = Alignment.Center) {
+                        Text("${locoIn.axles}", fontFamily = VuMono, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = t.accent)
+                    }
+                    Box(Modifier.weight(1f).heightIn(min = 32.dp).background(lbg).vuCellBorders(lineColor), contentAlignment = Alignment.Center) {
+                        Text(fmt(locoIn.pressurePerAxle * locoIn.axles), fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = t.text, maxLines = 1)
+                    }
+                }
+            }
             // Всего
             Row(Modifier.height(IntrinsicSize.Min)) {
                 Box(Modifier.weight(1f).heightIn(min = 32.dp).vuCellBorders(lineColor), contentAlignment = Alignment.Center) { VuPrint("Всего", bold = true) }
@@ -979,13 +1008,6 @@ private fun AxleTable(state: BrakeCertificateUiState, vm: BrakeCertificateViewMo
             }
             OtherColumn(state, onEdit = { onSheet(BrakeSheet.Other) })
         }
-    }
-    state.toInput()?.let { BrakeCertificateCalculator.calculate(it) }?.loco?.let { l ->
-        val r = state.toInput()?.let { BrakeCertificateCalculator.calculate(it) }
-        if (r != null) Text(
-            "Итого с локомотивом: ${r.totalAxles} осей, ${fmt(r.actualPressure)} тс (в т.ч. локомотив: ${l.axles} осей, ${fmt(l.pressureTc)} тс)",
-            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = t.accent, lineHeight = 16.sp,
-        )
     }
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { onSheet(BrakeSheet.RowPressure) }.vuCellBorders(lineColor, right = false, bottom = true).padding(start = 14.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("+ Другое нажатие", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent)
@@ -1281,7 +1303,7 @@ VuTimeField(e.readinessTime, { v -> vm.updateTurnaround(entryId) { it.copy(readi
                     onRemove = { vm.updateTurnaroundComposition(entryId) { en -> en.copy(changes = en.changes.filterNot { it.id == c.id }) } },
                 )
             }
-            VuBtn("+ строка", { vm.updateTurnaroundComposition(entryId) { en -> en.copy(changes = en.changes + WagonChange(id = vm.newTurnaroundId())) } }, kind = VuBtnKind.Text, h = 48.dp)
+            VuBtn("Добавить изменения состава", { vm.updateTurnaroundComposition(entryId) { en -> en.copy(changes = en.changes + WagonChange(id = vm.newTurnaroundId())) } }, kind = VuBtnKind.Text, h = 48.dp)
             calc?.warnings?.forEach { w -> VuHint(w) }
             VuInput("Всего осей", e.newAxles, onChange = { v -> vm.updateTurnaroundComposition(entryId) { it.copy(newAxles = v) } }, keyboard = KeyboardType.Number, sunk = true)
             val reqManual = TurnaroundComposition.isManual(e.newRequired, calc?.requiredText)
@@ -1553,6 +1575,7 @@ private fun MeasureTab(
             },
             onHelp = { onHelp("density") },
             onWrite = if (active == TimerKind.ROUTE && turnApplies) ({ vm.writeRouteMeasurement() }) else null,
+            onDropHelp = { onHelp("pass_drop") },
         )
         VuHint("Результаты замеров автоматически попадают во вкладку «Бланк». Экран не гаснет, пока идёт замер.", Modifier.padding(horizontal = 4.dp))
     }
@@ -1573,6 +1596,7 @@ private fun TimerCard(
     normMissing: String? = null,
     onHelp: () -> Unit,
     onWrite: (() -> Unit)? = null,
+    onDropHelp: (() -> Unit)? = null,
 ) {
     val t = vuColors()
     val elapsed = timer.elapsedMs(now)
@@ -1643,7 +1667,7 @@ private fun TimerCard(
                 }
             }
             if (passenger) {
-                Box(Modifier.padding(top = 16.dp)) { VuInput("Падение давления в ТМ, кгс/см²", timer.dropText, onChange = { vm.setDrop(kind, it) }, sunk = true) }
+                Box(Modifier.padding(top = 16.dp)) { VuInput("Падение давления в ТМ, кгс/см²", timer.dropText, onChange = { vm.setDrop(kind, it) }, sunk = true, onHelp = onDropHelp) }
             }
         }
     }

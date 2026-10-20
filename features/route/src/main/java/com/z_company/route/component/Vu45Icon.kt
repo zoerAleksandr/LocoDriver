@@ -1,7 +1,10 @@
 package com.z_company.route.component
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -17,13 +20,17 @@ import androidx.compose.ui.unit.sp
 import com.z_company.core.ui.theme.MonoFont
 
 /**
- * Иконка справки ВУ-45: буквы «ВУ-45» жирным моно-шрифтом приложения (без растровых ресурсов и новых шрифтов).
+ * Иконка справки ВУ-45: буквы «ВУ-45» жирным моно-шрифтом приложения в прямоугольной рамке (скругление 3 dp, цвет иконки, 1,5-2 dp) (без растровых ресурсов и новых шрифтов).
  * Размер текста подбирается под размер иконки [size]; не масштабируется системным размером шрифта, чтобы читаться в иконке.
  */
 @Composable
 fun Vu45Icon(modifier: Modifier = Modifier, size: Dp = 24.dp, tint: Color = MaterialTheme.colorScheme.primary) {
-    val fontSize: TextUnit = (size.value * 0.27f).sp
-    Box(modifier.size(size), contentAlignment = Alignment.Center) {
+    val fontSize: TextUnit = (size.value * 0.29f).sp
+    val stroke = if (size.value >= 48f) 2.dp else 1.5.dp
+    Box(
+        modifier.width(size).height(size * 0.64f).border(stroke, tint, RoundedCornerShape(3.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
         androidx.compose.material3.Text(
             text = "ВУ-45", maxLines = 1, softWrap = false, textAlign = TextAlign.Center,
             style = TextStyle(fontFamily = MonoFont, fontWeight = FontWeight.ExtraBold, fontSize = fontSize, color = tint, letterSpacing = (-0.5).sp),

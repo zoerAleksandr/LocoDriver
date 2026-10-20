@@ -88,11 +88,16 @@ data class TurnaroundEntry(
     /** Состав и вес поезда изменились: заполнены графы 3-6 оборота. */
     val compositionChanged: Boolean get() = newWeight.isNotBlank() || newAxles.isNotBlank() || newRequired.isNotBlank() || newActual.isNotBlank()
 
-    /** Вторая строка записи при изменении состава: «Новый вес N т · Потребное X тс · Фактическое Y тс»; null - состав не менялся. Число осей не выводится. */
+    /**
+     * Вторая строка записи при изменении состава: «Новый вес 3100 т. (290 осей) · Потребное X тс · Фактическое Y тс»;
+     * вес - «ХХХХ т.», число осей - в скобках «(ХХХ осей)»; null - состав не менялся.
+     */
     val compositionSummary: String?
         get() {
+            val weight = newWeight.trim().takeIf { it.isNotEmpty() }?.let { "Новый вес $it т." + (newAxles.trim().takeIf { a -> a.isNotEmpty() }?.let { a -> " ($a осей)" } ?: "") }
+                ?: newAxles.trim().takeIf { it.isNotEmpty() }?.let { "Осей: ($it осей)" }
             val parts = buildList {
-                if (newWeight.isNotBlank()) add("Новый вес ${newWeight.trim()} т")
+                weight?.let { add(it) }
                 if (newRequired.isNotBlank()) add("Потребное ${newRequired.trim()} тс")
                 if (newActual.isNotBlank()) add("Фактическое ${newActual.trim()} тс")
             }

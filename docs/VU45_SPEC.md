@@ -275,3 +275,6 @@
 ## Удаление справок и «Мои справки ВУ-45»
 Карточка справки: дата и время, маршрут, поезд, локомотив, станция выдачи (без нажатия); режим выбора и панель - общие компоненты «Все маршруты».
 `BrakeCertificateUseCase.listAll/decode/deleteByIds`; репозиторий: `getById`, `listAllActive`, `markDeletedById`. Удаление - надгробие + `markUnsynchronized` маршрута (по флагу отправки), далее штатная синхронизация (full-replace без справки, purge надгробий). Тест: `BrakeCertificateStorageTest.listAllAndDeleteByIds_tombstoneSyncsAndDoesNotResurrect`. Экран профиля: SCREEN_SPECS §26.10 и описание Профиля.
+
+## Третий пакет правок
+Иконка в рамке; оборот без штемпеля; формат строки смены состава «Новый вес N т. (M осей) · …»; строка локомотива и «с лок.» на лицевой (`BrakeCertificateResult.loco`); вкладки «Бланк | Расчёт | Замеры | Справочник», по умолчанию «Бланк»; «?» к падению давления в ТМ (п. 50 прил. 2). Тест: `TurnaroundDensityCheckTest.compositionSummary`.
