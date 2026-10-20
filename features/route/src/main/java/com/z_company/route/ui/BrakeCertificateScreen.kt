@@ -1106,14 +1106,17 @@ private fun OtherColumn(state: BrakeCertificateUiState, onEdit: () -> Unit) {
         if (state.tailVoltageText.isNotBlank()) add("Напр." to state.tailVoltageText + " В")
         if (state.feedDensityText.isNotBlank()) add("Пит." to state.feedDensityText)
         // зарядное давление - тот же источник, что поле на «Расчёте» (`chargePressureText`)
-        if (state.chargePressureText.isNotBlank()) add("Заряд. давл." to state.chargePressureText + " кгс/см²")
+        if (state.chargePressureText.isNotBlank()) add("Заряд." to state.chargePressureText + " кгс/см²")
     }
     Column(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         // Каждый параметр - строка «подпись значение» (как в бланке), параметры между собой - столбцом
         items.forEach { (k, v) ->
             Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(k, Modifier.alignByBaseline(), fontSize = 12.sp, color = t.muted)
-                Text(v, Modifier.weight(1f, fill = false).alignByBaseline(), fontFamily = VuMono, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, lineHeight = 17.sp)
+                // единица измерения «кгс/см²» мельче значения, чтобы строка помещалась в узкую графу
+                val parts = v.split('\u00a0', limit = 2)
+                Text(parts[0], Modifier.alignByBaseline(), fontFamily = VuMono, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, lineHeight = 17.sp)
+                if (parts.size > 1) Text(parts[1], Modifier.alignByBaseline(), fontSize = 9.sp, color = t.muted, maxLines = 1, softWrap = false)
             }
         }
         Text(
