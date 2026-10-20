@@ -28,7 +28,7 @@ data class LocoPassport(
 /**
  * Что подставляется в справочник серий пользователя. Правило достоверности: только значения, подтверждённые
  * документами (табл. 4-5 Инструкции 277 / проект прил. 2 - вес, оси, нажатие; файл 1 - объём ГР), и значения
- * владельца для 2ЭС4К/3ЭС4К/2ЭС5К/3ЭС5К/2ЭС6 (нажатие 14,0; объём ГР 2000/3000 л). Справочные вес и оси этих
+ * владельца для 2ЭС4К/3ЭС4К/2ЭС5К/3ЭС5К/2ЭС6 (нажатие 14,0; объём ГР 2000/3000 л). Справочный вес этих
  * ЭС-серий, выведенные по допущениям объёмы ГР и ВЛ10 (объём зависит от номера) не предзаполняются.
  */
 object LocoSeriesDefaults {
@@ -44,13 +44,12 @@ object LocoSeriesDefaults {
 
     fun forSeries(name: String?): SeriesBrakeDefaults {
         val loco = BrakeLocoCatalog.find(name)
-        val confirmed = loco?.takeIf { it.weightAxlesConfirmed }
         return SeriesBrakeDefaults(
             sectionCount = sectionCountFor(name),
             brakeVolumeL = BrakeDensity.confirmedVolumeLiters(name),
-            axleCount = confirmed?.axles,
+            axleCount = loco?.axles, // оси ЭС-серий (8 у двухсекционных, 12 у трёхсекционных) - открытая информация, подтверждены владельцем
             axleLoadTf = loco?.pressurePerAxle,
-            weightT = confirmed?.weight,
+            weightT = loco?.takeIf { it.weightAxlesConfirmed }?.weight,
         )
     }
 

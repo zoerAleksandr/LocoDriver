@@ -52,13 +52,13 @@ class LocoSeriesDefaultsTest {
     }
 
     @Test
-    fun ownerStatedEsSeriesGetPressureAndVolumeButNotReferenceWeightAxles() {
-        listOf("2ЭС4К" to 2000, "2ЭС6" to 2000, "3ЭС4К" to 3000, "3ЭС5К" to 3000).forEach { (name, liters) ->
+    fun esSeriesGetPressureVolumeAxlesButNotReferenceWeight() {
+        listOf(Triple("2ЭС4К", 2000, 8), Triple("2ЭС6", 2000, 8), Triple("3ЭС4К", 3000, 12), Triple("3ЭС5К", 3000, 12)).forEach { (name, liters, axles) ->
             val d = LocoSeriesDefaults.forSeries(name)
             assertEquals(14.0, d.axleLoadTf, name)
             assertEquals(liters, d.brakeVolumeL, name)
+            assertEquals(axles, d.axleCount, name)
             assertNull(d.weightT, name)
-            assertNull(d.axleCount, name)
         }
     }
 
