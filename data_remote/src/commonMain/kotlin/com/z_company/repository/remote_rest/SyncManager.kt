@@ -5,6 +5,7 @@ package com.z_company.repository.remote_rest
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.sendToSentry
+import com.z_company.domain.brake.LocoSeriesDefaults
 import com.z_company.domain.repositories.LocomotiveSeriesRepository
 import com.z_company.domain.repositories.PartnerRepository
 import com.z_company.domain.repositories.SharedPreferencesRepositories
@@ -1233,14 +1234,24 @@ class SyncManager(
             .collect { if (it is ResultState.Success) remote = it.data }
         val server = remote ?: return false
 
+        // Паспортные поля (объём ГР, оси, нажатие, вес, секции): серии после миграции БД и серии от старых клиентов
+        // заполняются значениями по умолчанию до слияния, чтобы значения ушли на сервер с новым updatedAt.
+        locomotiveSeriesRepository.prefillBrakeDefaults()
         val localSeries = locomotiveSeriesRepository.getAll()
         val staleBefore = Clock.System.now().toEpochMilliseconds() - STATION_TOMBSTONE_TTL_MS
         val allLocalTombstones = locomotiveSeriesRepository.getTombstones()
-        val merged = LocomotiveSeriesMerge.merge(
+        val mergedRaw = LocomotiveSeriesMerge.merge(
             localSeries,
             allLocalTombstones.filter { it.deletedAt >= staleBefore },
             server.series,
             server.tombstones,
+        )
+        // Серии от старых клиентов, которых у нас ещё не было, тоже получают значения по умолчанию.
+        val nowMs = Clock.System.now().toEpochMilliseconds()
+        val merged = mergedRaw.copy(
+            series = mergedRaw.series.map {
+                if (LocoSeriesDefaults.needsDefaults(it)) with(LocoSeriesDefaults) { it.withDefaults() }.copy(updatedAt = nowMs) else it
+            }
         )
 
         if (merged.series.toSet() != localSeries.toSet() || merged.tombstones.toSet() != allLocalTombstones.toSet()) {

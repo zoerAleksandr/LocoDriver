@@ -30,7 +30,9 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlinx.coroutines.flow.first
 import com.z_company.domain.brake.BrakeCertificateInput
-import com.z_company.domain.brake.BrakeLocoCatalog
+import com.z_company.domain.brake.LocoPassport
+import com.z_company.domain.brake.LocoSeriesDefaults
+import com.z_company.domain.brake.SeriesPassportField
 import com.z_company.domain.brake.BrakeCategory
 import com.z_company.domain.brake.BrakeNorms
 import com.z_company.domain.brake.BrakePrefill
@@ -109,6 +111,8 @@ data class BrakeCertificateUiState(
     val locoAxlesText: String = "",
     val locoPressureText: String = "",
     val locoAuto: Boolean = false,
+    /** Свой объём ГР подставлен из справочника серий (а не введён) — при смене серии заменяется. */
+    val volumeAuto: Boolean = false,
     val locoNote: String? = null,
     // Другие данные
     val compositeShare: CompositeShare = CompositeShare.P100,
@@ -189,6 +193,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     private val certificates: BrakeCertificateUseCase by inject()
     private val settingsUseCase: com.z_company.domain.use_cases.SettingsUseCase by inject()
     private val stationDirectory: com.z_company.domain.use_cases.StationDirectoryUseCase by inject()
+    private val seriesRepository: com.z_company.domain.repositories.LocomotiveSeriesRepository by inject()
     /** Запись справки после выхода с экрана не должна отменяться вместе с viewModelScope. */
     private val persistScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var storedId: String = ""
@@ -383,9 +388,9 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         val pick: (String, String?) -> String = if (onOpen) BrakeFillResolver::pickOnOpen else BrakeFillResolver::pickRouteValue
         val lf = if (onOpen) {
             // при открытии: серия/номер/группа не перетираются, только пустые подставляются
-            BrakeFillResolver.resolveLoco(null, null, cur.locoSeriesText.ifBlank { q.locoSeries.orEmpty() }, cur.locoNumberText.ifBlank { q.locoNumber.orEmpty() }, cur.densityGroup, cur.customVolumeText)
+            BrakeFillResolver.resolveLoco(null, null, cur.locoSeriesText.ifBlank { q.locoSeries.orEmpty() }, cur.locoNumberText.ifBlank { q.locoNumber.orEmpty() }, cur.densityGroup, cur.customVolumeText.takeUnless { cur.volumeAuto }.orEmpty())
         } else {
-            BrakeFillResolver.resolveLoco(q.locoSeries, q.locoNumber, cur.locoSeriesText, cur.locoNumberText, cur.densityGroup, cur.customVolumeText)
+            BrakeFillResolver.resolveLoco(q.locoSeries, q.locoNumber, cur.locoSeriesText, cur.locoNumberText, cur.densityGroup, cur.customVolumeText.takeUnless { cur.volumeAuto }.orEmpty())
         }
         _state.update {
             it.copy(
@@ -625,22 +630,68 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     fun setWeight(v: String) { _state.update { it.copy(weightText = v) }; recomputeByAxleLoad() }
     fun setTotalAxles(v: String) { _state.update { it.copy(totalAxlesText = v) }; recomputeByAxleLoad() }
 
-    /** Серия локомотива; если серия есть в справочнике таблиц 4-5, подставляются вес, оси и нажатие (можно править). */
-    fun setLocoSeries(v: String) = _state.update {
-        var next = it.copy(locoSeriesText = v)
-        val data = BrakeLocoCatalog.find(v)
-        if (data != null && (it.locoAuto || it.locoWeightText.isBlank() && it.locoAxlesText.isBlank() && it.locoPressureText.isBlank())) {
-            next = next.copy(
-                locoWeightText = fmtNum(data.weight),
-                locoAxlesText = data.axles.toString(),
-                locoPressureText = data.pressurePerAxle?.let { p -> fmtNum(p) } ?: "",
-                locoAuto = true,
-                locoNote = data.note,
-            )
-        } else if (data == null && it.locoAuto) {
-            next = next.copy(locoWeightText = "", locoAxlesText = "", locoPressureText = "", locoAuto = false, locoNote = null)
+    /**
+     * Серия локомотива: вес, оси, нажатие и объём ГР подставляются (и правятся вручную). Приоритет: запись справочника
+     * серий пользователя -> каталог (табл. 4-5, группы ГР) -> пусто. Введённое вручную не затирается.
+     */
+    fun setLocoSeries(v: String) {
+        val userRecord = seriesRepository.getAll().firstOrNull { it.name.trim().equals(v.trim(), ignoreCase = true) }
+        val data = LocoSeriesDefaults.passportFor(v, userRecord)
+        val hasData = data.weightT != null || data.axleCount != null || data.axleLoadTf != null
+        _state.update {
+            var next = it.copy(locoSeriesText = v)
+            if (hasData && (it.locoAuto || it.locoWeightText.isBlank() && it.locoAxlesText.isBlank() && it.locoPressureText.isBlank())) {
+                next = next.copy(
+                    locoWeightText = data.weightT?.let { w -> fmtNum(w) } ?: "",
+                    locoAxlesText = data.axleCount?.toString() ?: "",
+                    locoPressureText = data.axleLoadTf?.let { p -> fmtNum(p) } ?: "",
+                    locoAuto = true,
+                    locoNote = data.note,
+                )
+            } else if (!hasData && it.locoAuto) {
+                next = next.copy(locoWeightText = "", locoAxlesText = "", locoPressureText = "", locoAuto = false, locoNote = null)
+            }
+            // Объём ГР: подставляется, пока не выбран вручную (ни своё значение, ни строка таблицы) — как и вес с осями.
+            val volumeFree = next.densityGroup == null && (next.customVolumeText.isBlank() || next.volumeAuto)
+            if (volumeFree) {
+                next = if (data.brakeVolumeL != null) next.copy(customVolumeText = data.brakeVolumeL.toString(), volumeAuto = true)
+                else next.copy(customVolumeText = "", volumeAuto = false)
+            }
+            next
         }
-        next
+    }
+
+    private val pendingSeriesEdits = mutableSetOf<SeriesPassportField>()
+    private var seriesWriteBackJob: Job? = null
+
+    /**
+     * Пользователь изменил вес/оси/нажатие/объём ГР: через паузу значения записываются в справочник серий
+     * (запись создаётся, если серии там не было) и в следующей справке подставляются уже они.
+     */
+    private fun scheduleSeriesWriteBack(field: SeriesPassportField) {
+        pendingSeriesEdits += field
+        seriesWriteBackJob?.cancel()
+        seriesWriteBackJob = persistScope.launch {
+            delay(SERIES_WRITE_BACK_DELAY_MS)
+            val fields = synchronized(pendingSeriesEdits) { pendingSeriesEdits.toSet().also { pendingSeriesEdits.clear() } }
+            val st = _state.value
+            val name = st.locoSeriesText.trim()
+            if (name.isEmpty()) return@launch
+            runCatching {
+                val all = seriesRepository.getAll()
+                val existing = all.firstOrNull { it.name.trim().equals(name, ignoreCase = true) }
+                val edited = LocoPassport(
+                    weightT = st.locoWeightText.toFiniteDoubleOrNull()?.takeIf { it > 0 },
+                    axleCount = st.locoAxlesText.trim().toIntOrNull()?.takeIf { it > 0 },
+                    axleLoadTf = st.locoPressureText.toFiniteDoubleOrNull()?.takeIf { it > 0 },
+                    brakeVolumeL = st.customVolumeText.toFiniteDoubleOrNull()?.takeIf { it > 0 }?.toInt(),
+                )
+                val updated = LocoSeriesDefaults.recordWithEdits(
+                    name, existing, edited, fields, System.currentTimeMillis(),
+                ) ?: return@runCatching
+                seriesRepository.replaceAll(all.filter { it.seriesId != updated.seriesId } + updated).collect {}
+            }
+        }
     }
 
     // ── Нажатие ──
@@ -719,9 +770,18 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
 
     // ── Локомотив ──
     fun setLocoEnabled(v: Boolean) = _state.update { it.copy(locoEnabled = v) }
-    fun setLocoWeight(v: String) = _state.update { it.copy(locoWeightText = v, locoAuto = false, locoNote = null) }
-    fun setLocoAxles(v: String) = _state.update { it.copy(locoAxlesText = v, locoAuto = false, locoNote = null) }
-    fun setLocoPressure(v: String) = _state.update { it.copy(locoPressureText = v, locoAuto = false, locoNote = null) }
+    fun setLocoWeight(v: String) {
+        _state.update { it.copy(locoWeightText = v, locoAuto = false, locoNote = null) }
+        scheduleSeriesWriteBack(SeriesPassportField.WEIGHT)
+    }
+    fun setLocoAxles(v: String) {
+        _state.update { it.copy(locoAxlesText = v, locoAuto = false, locoNote = null) }
+        scheduleSeriesWriteBack(SeriesPassportField.AXLES)
+    }
+    fun setLocoPressure(v: String) {
+        _state.update { it.copy(locoPressureText = v, locoAuto = false, locoNote = null) }
+        scheduleSeriesWriteBack(SeriesPassportField.AXLE_LOAD)
+    }
 
     // ── Другие данные ──
     /** Запоминается (SharedPreferences), по умолчанию К-100; общее состояние «Расчёта» и «Бланка». */
@@ -747,10 +807,13 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     // ── Плотность ──
     fun setChargePressure(v: String) = _state.update { it.copy(chargePressureText = v) }
     /** Выбор группы по табл. IV.1 вручную сбрасывает свой объём. */
-    fun setDensityGroup(g: DensityLocoGroup?) = _state.update { it.copy(densityGroup = g, customVolumeText = "") }
+    fun setDensityGroup(g: DensityLocoGroup?) = _state.update { it.copy(densityGroup = g, customVolumeText = "", volumeAuto = false) }
 
     /** Свой объём ГР, л: группа определяется по прим. 3 к табл. IV.1 (ближайший наименьший объём). Пусто - свой объём не задан. */
-    fun setCustomVolume(v: String) = _state.update { it.copy(customVolumeText = v, densityGroup = if (v.isBlank()) it.densityGroup else null) }
+    fun setCustomVolume(v: String) {
+        _state.update { it.copy(customVolumeText = v, volumeAuto = false, densityGroup = if (v.isBlank()) it.densityGroup else null) }
+        scheduleSeriesWriteBack(SeriesPassportField.VOLUME)
+    }
     fun setLocoCount(v: String) = _state.update { it.copy(locoCountText = v) }
 
     private fun timerOf(s: BrakeCertificateUiState, k: TimerKind) = when (k) {
@@ -906,6 +969,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         }
 
         private const val PREFS = "brake_certificate_prefs"
+        private const val SERIES_WRITE_BACK_DELAY_MS = 800L
         private const val KEY_MANUAL_NORM = "manual_norm"
         private const val KEY_AUTOBLOCK = "autoblock3"
         const val DEFAULT_AUTOBLOCK = false

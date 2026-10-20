@@ -41,4 +41,29 @@ class LocomotiveSeriesMergeTest {
         assertEquals(setOf("b", "c"), r.series.map { it.seriesId }.toSet())
         assertEquals(listOf("a"), r.tombstones.map { it.seriesId })
     }
+
+    @Test
+    fun newerCopyWithoutBrakeFieldsInheritsThemFromOlder() {
+        // Старый клиент правит нормы: сервер вернул свежую копию без паспортных полей - локальные не теряются.
+        val local = se("a", "2ЭС6", 1).copy(brakeVolumeL = 2000, axleCount = 8, axleLoadTf = 14.0, weightT = 192.0, sectionCount = 2)
+        val server = se("a", "2ЭС6", 9, acc = 25)
+        val r = LocomotiveSeriesMerge.merge(listOf(local), emptyList(), listOf(server), emptyList()).series.single()
+        assertEquals(9, r.updatedAt)
+        assertEquals(25, r.acceptanceDurationMin)
+        assertEquals(2000, r.brakeVolumeL)
+        assertEquals(2, r.sectionCount)
+        // и наоборот: локальная копия новее, а у сервера значения есть
+        val r2 = LocomotiveSeriesMerge.merge(listOf(se("a", "2ЭС6", 9)), emptyList(), listOf(local), emptyList()).series.single()
+        assertEquals(9, r2.updatedAt)
+        assertEquals(8, r2.axleCount)
+    }
+
+    @Test
+    fun newerCopyWithSomeBrakeFieldsKeepsItsOwnChoice() {
+        val old = se("a", "ВЛ80С", 1).copy(brakeVolumeL = 1800, axleCount = 8, sectionCount = 1)
+        val edited = se("a", "ВЛ80С", 5).copy(axleCount = 6)
+        val r = LocomotiveSeriesMerge.merge(listOf(old), emptyList(), listOf(edited), emptyList()).series.single()
+        assertEquals(6, r.axleCount)
+        assertEquals(null, r.brakeVolumeL)
+    }
 }

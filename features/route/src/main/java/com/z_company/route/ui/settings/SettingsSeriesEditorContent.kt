@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
+import com.z_company.domain.brake.SeriesPassportField
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.norma_time.SectionNumberingType
 import com.z_company.route.R
@@ -108,6 +109,11 @@ fun SettingsSeriesEditorContent(
         state.deliveryDurationMin,
         state.acceptanceHandToHandMin,
         state.deliveryHandToHandMin,
+        state.sectionCount,
+        state.weightT,
+        state.axleCount,
+        state.axleLoadTf,
+        state.brakeVolumeL,
     ) {
         if (state.name.isNotBlank()) {
             delay(500)
@@ -139,6 +145,42 @@ fun SettingsSeriesEditorContent(
             transform = { it.filter { c -> c.isDigit() }.take(3) },
             // Пусто — «не задано» (как 0).
             isValid = { it.isEmpty() || it.toIntOrNull() != null },
+            cursorAtEnd = true,
+        )
+    }
+
+    // Ввод значения данных локомотива (секции, вес, оси, нажатие, объём ГР)
+    var brakeDialog by remember { mutableStateOf<SeriesPassportField?>(null) }
+    brakeDialog?.let { field ->
+        val initial = when (field) {
+            SeriesPassportField.SECTIONS -> state.sectionCount?.toString()
+            SeriesPassportField.WEIGHT -> formatSeriesNumber(state.weightT)
+            SeriesPassportField.AXLES -> state.axleCount?.toString()
+            SeriesPassportField.AXLE_LOAD -> formatSeriesNumber(state.axleLoadTf)
+            SeriesPassportField.VOLUME -> state.brakeVolumeL?.toString()
+        }.orEmpty()
+        val decimal = field == SeriesPassportField.WEIGHT || field == SeriesPassportField.AXLE_LOAD
+        AppInputBottomSheet(
+            onDismissRequest = { brakeDialog = null },
+            title = brakeFieldTitle(field),
+            initialValue = initial,
+            onConfirm = { v ->
+                viewModel.setBrakeField(field, v)
+                brakeDialog = null
+            },
+            label = "Значение",
+            suffix = brakeFieldUnit(field),
+            keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number,
+            transform = { raw ->
+                if (decimal) {
+                    var dot = false
+                    raw.replace(',', '.').filter { c ->
+                        if (c == '.') (!dot).also { dot = true } else c.isDigit()
+                    }.take(6)
+                } else raw.filter { it.isDigit() }.take(4)
+            },
+            // Пусто — «не задано».
+            isValid = { it.isEmpty() || (it.toDoubleOrNull() != null) },
             cursorAtEnd = true,
         )
     }
@@ -333,6 +375,44 @@ fun SettingsSeriesEditorContent(
             )
         }
 
+        // ДАННЫЕ ЛОКОМОТИВА
+        Text(
+            text = "ДАННЫЕ ЛОКОМОТИВА",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+            modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 4.dp)
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(2.dp, Shapes.medium)
+                .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
+        ) {
+            val rows = listOf(
+                SeriesPassportField.SECTIONS to state.sectionCount?.toString(),
+                SeriesPassportField.WEIGHT to formatSeriesNumber(state.weightT),
+                SeriesPassportField.AXLES to state.axleCount?.toString(),
+                SeriesPassportField.AXLE_LOAD to formatSeriesNumber(state.axleLoadTf),
+                SeriesPassportField.VOLUME to state.brakeVolumeL?.toString(),
+            )
+            rows.forEachIndexed { i, (field, text) ->
+                if (i > 0) HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
+                BrakeValueRow(
+                    label = brakeFieldTitle(field),
+                    value = text,
+                    unit = brakeFieldUnit(field),
+                    onClick = { brakeDialog = field },
+                )
+            }
+        }
+        Text(
+            text = "Подставляются в форму локомотива (число секций) и в справку ВУ-45. " +
+                "Подсказки заполнены по документам; пусто — данных нет, введите свои.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+            modifier = Modifier.padding(start = 4.dp, top = 6.dp)
+        )
+
         // Delete — always visible
         Spacer(Modifier.height(16.dp))
         Row(
@@ -380,4 +460,52 @@ private fun SectionNumberingChoice(
             .clickable(onClick = onClick)
             .padding(vertical = 15.dp),
     )
+}
+
+private fun brakeFieldTitle(field: SeriesPassportField): String = when (field) {
+    SeriesPassportField.SECTIONS -> "Количество секций"
+    SeriesPassportField.WEIGHT -> "Вес"
+    SeriesPassportField.AXLES -> "Число осей"
+    SeriesPassportField.AXLE_LOAD -> "Нажатие на ось"
+    SeriesPassportField.VOLUME -> "Объём ГР"
+}
+
+private fun brakeFieldUnit(field: SeriesPassportField): String? = when (field) {
+    SeriesPassportField.SECTIONS, SeriesPassportField.AXLES -> null
+    SeriesPassportField.WEIGHT -> "т"
+    SeriesPassportField.AXLE_LOAD -> "тс"
+    SeriesPassportField.VOLUME -> "л"
+}
+
+/** 192,0 -> «192», 14,3 -> «14,3»; null -> null. */
+private fun formatSeriesNumber(v: Double?): String? = v?.let {
+    if (it % 1.0 == 0.0) it.toLong().toString() else it.toString().replace('.', ',')
+}
+
+@Composable
+private fun BrakeValueRow(label: String, value: String?, unit: String?, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = when {
+                value == null -> "—"
+                unit != null -> "$value $unit"
+                else -> value
+            },
+            style = MaterialTheme.typography.bodyLarge.copy(fontFamily = MonoFont),
+            color = if (value == null) MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+            else MaterialTheme.colorScheme.primary,
+        )
+    }
 }

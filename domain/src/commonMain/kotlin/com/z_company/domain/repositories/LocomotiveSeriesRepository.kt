@@ -22,4 +22,11 @@ interface LocomotiveSeriesRepository {
         series: List<LocomotiveSeries>,
         tombstones: List<LocomotiveSeriesTombstone>,
     ): Flow<ResultState<Unit>>
+
+    /**
+     * Разовое заполнение значений по умолчанию (объём ГР, оси, нажатие, вес, секции) у серий, где число секций
+     * ещё не задано: записи после миграции БД и серии от старых клиентов. Уже заполненные поля не трогает;
+     * у изменённых серий растёт updatedAt (значения уходят на сервер). Возвращает true, если что-то записано.
+     */
+    fun prefillBrakeDefaults(): Boolean
 }
