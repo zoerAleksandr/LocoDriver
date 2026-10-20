@@ -232,13 +232,24 @@ data class LocoTableRow(
 )
 
 object BrakeTable {
-    fun locoRow(rows: List<AxleRow>, loco: LocoBrakeInput?): LocoTableRow {
+    /** Допуск сравнения нажатий на ось, тс. */
+    const val PRESSURE_EPS = 0.001
+
+    fun samePressure(a: Double, b: Double): Boolean = kotlin.math.abs(a - b) <= PRESSURE_EPS
+
+    /**
+     * Слияние локомотива с таблицей по равенству нажатия (допуск [PRESSURE_EPS]): сначала среди заполненных строк, затем среди значений напечатанной
+     * шкалы бланка [printed] (строка существует и когда не заполнена - оси локомотива пишутся в неё, нажатие колодок тоже); иначе - отдельная строка.
+     * [LocoTableRow.mergedPressure] - значение строки, в которую влит локомотив.
+     */
+    fun locoRow(rows: List<AxleRow>, loco: LocoBrakeInput?, printed: List<Double> = emptyList()): LocoTableRow {
         val wagonAxles = rows.sumOf { it.axles }
         val wagonPressure = rows.sumOf { it.pressurePerAxle * it.axles }
         if (loco == null) return LocoTableRow(null, false, wagonAxles, wagonPressure)
-        val match = rows.firstOrNull { kotlin.math.abs(it.pressurePerAxle - loco.pressurePerAxle) < 1e-9 }
+        val match = rows.firstOrNull { samePressure(it.pressurePerAxle, loco.pressurePerAxle) }?.pressurePerAxle
+            ?: printed.firstOrNull { samePressure(it, loco.pressurePerAxle) }
         return LocoTableRow(
-            mergedPressure = match?.pressurePerAxle, separateRow = match == null,
+            mergedPressure = match, separateRow = match == null,
             totalAxles = wagonAxles + loco.axles, totalPressure = wagonPressure + loco.pressurePerAxle * loco.axles,
         )
     }

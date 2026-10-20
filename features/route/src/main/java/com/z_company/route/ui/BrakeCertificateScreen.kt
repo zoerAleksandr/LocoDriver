@@ -949,7 +949,7 @@ private fun AxleTable(state: BrakeCertificateUiState, vm: BrakeCertificateViewMo
     val extra = rows.filter { r -> val p = r.pressureText.toFiniteDoubleOrNull(); p != null && p !in PRINTED }
     val locoIn = state.toInput()?.loco
     val axleRowsForTable = rows.mapNotNull { r -> val p = r.pressureText.toFiniteDoubleOrNull(); val n = r.axlesText.trim().toIntOrNull(); if (p != null && n != null && n > 0) AxleRow(p, n) else null }
-    val locoRowInfo = BrakeTable.locoRow(axleRowsForTable, locoIn)
+    val locoRowInfo = BrakeTable.locoRow(axleRowsForTable, locoIn, PRINTED)
     val totalAxles = locoRowInfo.totalAxles
     val totalPressure = locoRowInfo.totalPressure
     val low = state.toInput()?.let { BrakeCertificateCalculator.calculate(it) }?.let { it.actualPressure > 0 && !it.enough } == true
@@ -969,12 +969,12 @@ private fun AxleTable(state: BrakeCertificateUiState, vm: BrakeCertificateViewMo
             }
             PRINTED.forEach { p ->
                 val r = byPressure[p]
-                val locoHere = locoIn?.takeIf { locoRowInfo.mergedPressure == p }
-                AxleRowCells(label = fmtP(p), axles = r?.axlesText.orEmpty(), product = r?.let { fmt(p * ((it.axlesText.trim().toIntOrNull() ?: 0) + (locoHere?.axles ?: 0))) }.orEmpty(), filled = r != null, locoAxles = locoHere?.axles, onAxles = { vm.setAxlesForPressure(p, it) })
+                val locoHere = locoIn?.takeIf { locoRowInfo.mergedPressure?.let { m -> BrakeTable.samePressure(m, p) } == true }
+                AxleRowCells(label = fmtP(p), axles = r?.axlesText.orEmpty(), product = if (r != null || locoHere != null) fmt(p * ((r?.axlesText?.trim()?.toIntOrNull() ?: 0) + (locoHere?.axles ?: 0))) else "", filled = r != null || locoHere != null, locoAxles = locoHere?.axles, onAxles = { vm.setAxlesForPressure(p, it) })
             }
             extra.forEach { r ->
                 val p = r.pressureText.toFiniteDoubleOrNull() ?: 0.0
-                val locoHere = locoIn?.takeIf { locoRowInfo.mergedPressure == p }
+                val locoHere = locoIn?.takeIf { locoRowInfo.mergedPressure?.let { m -> BrakeTable.samePressure(m, p) } == true }
                 AxleRowCells(label = fmtP(p), axles = r.axlesText, product = fmt(p * ((r.axlesText.trim().toIntOrNull() ?: 0) + (locoHere?.axles ?: 0))), filled = true, locoAxles = locoHere?.axles, onAxles = { vm.setAxlesForPressure(p, it) })
             }
             // Локомотив (если учитывается): не редактируется здесь - правка в блоке «Учитывать локомотив»

@@ -405,4 +405,37 @@ class HeadTailMinimumPointTest {
         val none = BrakeTable.locoRow(rows, null)
         assertEquals(false, none.separateRow); assertEquals(100, none.totalAxles)
     }
+
+    private val printed = BrakeNorms.blankAxlePressures
+
+    @Test fun locoMerge_user14_variants() {
+        // «14», «14,0», «14.0»: парсинг даёт одно и то же число
+        for (txt in listOf("14", "14,0", "14.0")) {
+            val p = txt.replace(',', '.').toDouble()
+            val r = BrakeTable.locoRow(listOf(AxleRow(14.0, 100)), LocoBrakeInput(184.0, 8, p), printed)
+            assertEquals(14.0, r.mergedPressure); assertEquals(false, r.separateRow); assertEquals(108, r.totalAxles)
+        }
+        // значение из справочника с плавающей точкой (сумма/деление даёт 14.000000000000002)
+        val fp = 0.1 * 140.0
+        assertEquals(false, BrakeTable.locoRow(listOf(AxleRow(14.0, 100)), LocoBrakeInput(184.0, 8, fp), printed).separateRow)
+    }
+
+    @Test fun locoMerge_intoPrintedRowEvenWhenNotFilled_orAvgMode() {
+        // таблица пуста: чип 14 есть среди напечатанных значений, но не заполнен -> локомотив пишется в него
+        val r = BrakeTable.locoRow(emptyList(), LocoBrakeInput(184.0, 8, 14.0), printed)
+        assertEquals(14.0, r.mergedPressure); assertEquals(false, r.separateRow)
+        assertEquals(8, r.totalAxles); assertEquals(112.0, r.totalPressure, 1e-9)
+        // режим «одно среднее нажатие»: единственная строка 14 с осями
+        val avg = BrakeTable.locoRow(listOf(AxleRow(14.0, 220)), LocoBrakeInput(184.0, 8, 14.0), printed)
+        assertEquals(false, avg.separateRow); assertEquals(228, avg.totalAxles)
+    }
+
+    @Test fun locoMerge_fractionalCloseValueAndSeparate() {
+        // близкое значение в пределах 0,001 -> слияние; дальше -> отдельная строка
+        assertEquals(false, BrakeTable.locoRow(listOf(AxleRow(12.5, 10)), LocoBrakeInput(100.0, 6, 12.5004), printed).separateRow)
+        assertEquals(true, BrakeTable.locoRow(listOf(AxleRow(12.5, 10)), LocoBrakeInput(100.0, 6, 12.52), listOf(12.5)).separateRow)
+        // нет такого нажатия ни в строках, ни в шкале -> отдельная строка; «Всего» без двойного счёта
+        val sep = BrakeTable.locoRow(listOf(AxleRow(7.0, 100)), LocoBrakeInput(100.0, 6, 13.3), printed)
+        assertEquals(true, sep.separateRow); assertEquals(106, sep.totalAxles); assertEquals(700.0 + 79.8, sep.totalPressure, 1e-9)
+    }
 }
