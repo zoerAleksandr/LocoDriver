@@ -8,6 +8,11 @@ data class LocoBrakeData(
     /** Нажатие на ось, тс; null - достоверного источника нет, вводится вручную. */
     val pressurePerAxle: Double?,
     val note: String? = null,
+    /**
+     * Вес подтверждён документом (табл. 4-5 Инструкции 277 или проект прил. 2). false - справочно
+     * (открытые данные производителя): вес в справочник серий пользователя не предзаполняется (число осей - да).
+     */
+    val weightAxlesConfirmed: Boolean = true,
 )
 
 /**
@@ -85,11 +90,11 @@ object BrakeLocoCatalog {
         LocoBrakeData("ТЭП70БС", 138.5, 6, 14.0, "$PRJ; пассажирский режим (на скоростном более 60 км/ч 19 тс)"),
         // Современные грузовые электровозы переменного/постоянного тока: вес и оси - справочно (открытые данные производителя, не из 277/Правил);
         // нажатие на ось достоверно не найдено - вводится вручную.
-        LocoBrakeData("2ЭС4К", 192.0, 8, 14.0, NEW_NOTE),
-        LocoBrakeData("3ЭС4К", 288.0, 12, 14.0, NEW_NOTE),
+        LocoBrakeData("2ЭС4К", 192.0, 8, 14.0, NEW_NOTE, weightAxlesConfirmed = false),
+        LocoBrakeData("3ЭС4К", 288.0, 12, 14.0, NEW_NOTE, weightAxlesConfirmed = false),
         LocoBrakeData("2ЭС5К", 192.0, 8, 14.0, NEW_NOTE_5K),
-        LocoBrakeData("3ЭС5К", 288.0, 12, 14.0, NEW_NOTE),
-        LocoBrakeData("2ЭС6", 192.0, 8, 14.0, NEW_NOTE),
+        LocoBrakeData("3ЭС5К", 288.0, 12, 14.0, NEW_NOTE, weightAxlesConfirmed = false),
+        LocoBrakeData("2ЭС6", 192.0, 8, 14.0, NEW_NOTE, weightAxlesConfirmed = false),
     )
 
     private fun norm(s: String): String = s.trim().uppercase().filter { it != ' ' && it != '-' && it != '_' }.map {

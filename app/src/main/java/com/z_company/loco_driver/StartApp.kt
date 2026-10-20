@@ -223,6 +223,11 @@ class StartApp : Application() {
                 outcome.cause.sendToSentry("StartApp", "refreshSession")
             }
         }
+        // Миграция 26: данные локомотива (объём ГР, оси, нажатие, вес, секции) у уже имеющихся серий. Идемпотентно.
+        appScope.launch {
+            runCatching { koinApplication.koin.get<com.z_company.domain.repositories.LocomotiveSeriesRepository>().prefillBrakeDefaults() }
+                .onFailure { it.sendToSentry("StartApp", "prefillLocoSeries") }
+        }
         runCatching {
             RecoveryTelemetryQueue(this).drainTo(
                 diagnostics = koinApplication.koin.get<DiagnosticRepository>(),

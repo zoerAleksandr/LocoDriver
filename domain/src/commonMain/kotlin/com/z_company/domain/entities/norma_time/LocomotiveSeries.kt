@@ -24,5 +24,17 @@ data class LocomotiveSeries(
     val acceptanceHandToHandMin: Int? = null,
     val deliveryHandToHandMin: Int? = null,
     val sectionNumberingType: SectionNumberingType = SectionNumberingType.NUMERIC,
+    // Данные для справки ВУ-45 и формы локомотива. null - не задано (у записей, пришедших от старых
+    // клиентов, и у сомнительных значений, которые каталог не предзаполняет).
+    /** Общий объём главных резервуаров, л. */
+    val brakeVolumeL: Int? = null,
+    /** Число осей (тормозных). */
+    val axleCount: Int? = null,
+    /** Нажатие на ось, тс. */
+    val axleLoadTf: Double? = null,
+    /** Служебный вес локомотива, т. */
+    val weightT: Double? = null,
+    /** Количество секций: при выборе серии в форме локомотива столько секций создаётся сразу. */
+    val sectionCount: Int? = null,
     val updatedAt: Long = Clock.System.now().toEpochMilliseconds()
 )

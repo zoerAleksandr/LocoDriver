@@ -7,6 +7,7 @@ import app.cash.sqldelight.coroutines.mapToList
 import com.z_company.core.ResultState
 import com.z_company.core.ResultState.Companion.flowRequest
 import com.z_company.data_local.setting.db.SettingsDatabase
+import com.z_company.domain.brake.LocoSeriesDefaults
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.norma_time.LocomotiveSeriesTombstone
 import com.z_company.domain.entities.norma_time.SectionNumberingType
@@ -72,6 +73,23 @@ class SqlDelightLocomotiveSeriesRepository : LocomotiveSeriesRepository, KoinCom
         }
     }
 
+    override fun prefillBrakeDefaults(): Boolean {
+        val now = Clock.System.now().toEpochMilliseconds()
+        var changed = false
+        db.locomotiveSeriesQueries.transaction {
+            val all = getAll()
+            if (all.none { LocoSeriesDefaults.needsDefaults(it) }) return@transaction
+            val filled = all.map { s ->
+                if (!LocoSeriesDefaults.needsDefaults(s)) s
+                else with(LocoSeriesDefaults) { s.withDefaults() }.copy(updatedAt = now)
+            }
+            // Только запись, без надгробий: набор серий не меняется. updatedAt вырос - значения уйдут на сервер.
+            writeSeries(filled)
+            changed = true
+        }
+        return changed
+    }
+
     private fun writeSeries(series: List<LocomotiveSeries>) {
         db.locomotiveSeriesQueries.deleteAll()
         series.forEach { s ->
@@ -84,7 +102,12 @@ class SqlDelightLocomotiveSeriesRepository : LocomotiveSeriesRepository, KoinCom
                 acceptanceHandToHandMin = s.acceptanceHandToHandMin?.toLong(),
                 deliveryHandToHandMin = s.deliveryHandToHandMin?.toLong(),
                 sectionNumberingType = s.sectionNumberingType.name,
-                updatedAt = s.updatedAt
+                updatedAt = s.updatedAt,
+                brakeVolumeL = s.brakeVolumeL?.toLong(),
+                axleCount = s.axleCount?.toLong(),
+                axleLoadTf = s.axleLoadTf,
+                weightT = s.weightT,
+                sectionCount = s.sectionCount?.toLong(),
             )
         }
     }
@@ -101,6 +124,11 @@ class SqlDelightLocomotiveSeriesRepository : LocomotiveSeriesRepository, KoinCom
             sectionNumberingType = SectionNumberingType.entries.find {
                 it.name == sectionNumberingType
             } ?: SectionNumberingType.NUMERIC,
+            brakeVolumeL = brakeVolumeL?.toInt(),
+            axleCount = axleCount?.toInt(),
+            axleLoadTf = axleLoadTf,
+            weightT = weightT,
+            sectionCount = sectionCount?.toInt(),
             updatedAt = updatedAt
         )
 }

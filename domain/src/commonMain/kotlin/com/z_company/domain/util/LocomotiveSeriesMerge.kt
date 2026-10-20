@@ -28,8 +28,11 @@ object LocomotiveSeriesMerge {
             val dead = tombstones[s.seriesId]
             if (dead != null && dead.deletedAt >= s.updatedAt) return
             val known = series[s.seriesId]
-            if (known != null && known.updatedAt >= s.updatedAt) return
-            series[s.seriesId] = s
+            if (known != null && known.updatedAt >= s.updatedAt) {
+                if (known.brakeFieldsEmpty() && !s.brakeFieldsEmpty()) series[s.seriesId] = known.withBrakeFieldsOf(s)
+                return
+            }
+            series[s.seriesId] = if (known != null && s.brakeFieldsEmpty()) s.withBrakeFieldsOf(known) else s
             if (dead != null) tombstones.remove(s.seriesId)
         }
 
@@ -57,7 +60,23 @@ object LocomotiveSeriesMerge {
 
     private fun filled(s: LocomotiveSeries): Int = listOf(
         s.acceptanceDurationMin, s.deliveryDurationMin, s.acceptanceHandToHandMin, s.deliveryHandToHandMin,
+        s.brakeVolumeL, s.axleCount, s.axleLoadTf, s.weightT, s.sectionCount,
     ).count { it != null }
+
+    /**
+     * Паспортные поля (объём ГР, оси, нажатие, вес, секции) пусты целиком: запись правил старый клиент, который их не
+     * знает (сервер их сохраняет, но свежая копия от старого клиента может прийти без них) - тогда берём их у другой копии.
+     */
+    private fun LocomotiveSeries.brakeFieldsEmpty(): Boolean =
+        brakeVolumeL == null && axleCount == null && axleLoadTf == null && weightT == null && sectionCount == null
+
+    private fun LocomotiveSeries.withBrakeFieldsOf(other: LocomotiveSeries): LocomotiveSeries = copy(
+        brakeVolumeL = other.brakeVolumeL,
+        axleCount = other.axleCount,
+        axleLoadTf = other.axleLoadTf,
+        weightT = other.weightT,
+        sectionCount = other.sectionCount,
+    )
 
     private fun dedupe(
         series: MutableMap<String, LocomotiveSeries>,
@@ -80,6 +99,11 @@ object LocomotiveSeriesMerge {
                         deliveryDurationMin = merged.deliveryDurationMin ?: l.deliveryDurationMin,
                         acceptanceHandToHandMin = merged.acceptanceHandToHandMin ?: l.acceptanceHandToHandMin,
                         deliveryHandToHandMin = merged.deliveryHandToHandMin ?: l.deliveryHandToHandMin,
+                        brakeVolumeL = merged.brakeVolumeL ?: l.brakeVolumeL,
+                        axleCount = merged.axleCount ?: l.axleCount,
+                        axleLoadTf = merged.axleLoadTf ?: l.axleLoadTf,
+                        weightT = merged.weightT ?: l.weightT,
+                        sectionCount = merged.sectionCount ?: l.sectionCount,
                     )
                     series.remove(l.seriesId)
                     tombstones[l.seriesId] = LocomotiveSeriesTombstone(l.seriesId, l.name, l.type, stamp)

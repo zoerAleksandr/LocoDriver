@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.z_company.core.ResultState
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.setting.UserSettings
+import com.z_company.domain.brake.LocoSeriesDefaults
 import com.z_company.domain.entities.norma_time.SectionNumberingType
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.route.Locomotive
@@ -395,13 +396,34 @@ class LocoFormViewModel(
         _currentLoco.update { loco ->
             loco?.copy(series = series, type = selected?.type ?: loco.type)
         }
-        selected?.type?.let { type ->
-            when (type) {
-                LocoType.DIESEL -> if (_dieselSectionListState.value.isEmpty()) addingSectionDiesel()
-                LocoType.ELECTRIC -> if (_electricSectionListState.value.isEmpty()) addingSectionElectric()
-            }
+        // Число секций — из справочника (запись серии, иначе по правилу первой цифры в названии).
+        val type = selected?.type ?: _currentLoco.value?.type
+        val count = (selected?.sectionCount ?: LocoSeriesDefaults.sectionCountFor(series)).coerceIn(1, 9)
+        when (type) {
+            LocoType.DIESEL -> fitDieselSections(count)
+            LocoType.ELECTRIC -> fitElectricSections(count)
+            null -> Unit
         }
         changesHave()
+    }
+
+    /** Секций становится ровно [count]; лишние убираются только пустые (заполненные секции не теряются). */
+    private fun fitDieselSections(count: Int) {
+        while (_dieselSectionListState.value.size < count) addingSectionDiesel()
+        while (_dieselSectionListState.value.size > count) {
+            val last = _dieselSectionListState.value.last()
+            if (!isDieselSectionEmpty(last)) break
+            deleteSectionDiesel(last)
+        }
+    }
+
+    private fun fitElectricSections(count: Int) {
+        while (_electricSectionListState.value.size < count) addingSectionElectric()
+        while (_electricSectionListState.value.size > count) {
+            val last = _electricSectionListState.value.last()
+            if (!isElectricSectionEmpty(last)) break
+            deleteSectionElectric(last)
+        }
     }
 
     /** Переключает подписи всех секций и запоминает выбор для следующих локомотивов. */

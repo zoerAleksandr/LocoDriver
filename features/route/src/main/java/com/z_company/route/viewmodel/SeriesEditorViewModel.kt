@@ -4,6 +4,8 @@ package com.z_company.route.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.z_company.domain.brake.LocoSeriesDefaults
+import com.z_company.domain.brake.SeriesPassportField
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.norma_time.SectionNumberingType
 import com.z_company.domain.entities.route.LocoType
@@ -33,6 +35,16 @@ data class SeriesEditorState(
     // «Из рук в руки»
     val acceptanceHandToHandMin: Int? = null,
     val deliveryHandToHandMin: Int? = null,
+    // Данные локомотива. Для новой серии (или имени без записи) сюда подставляются значения по умолчанию из каталога.
+    val sectionCount: Int? = null,
+    val weightT: Double? = null,
+    val axleCount: Int? = null,
+    val axleLoadTf: Double? = null,
+    val brakeVolumeL: Int? = null,
+    /** Пользователь менял данные локомотива сам: пока false, при смене названия подставляются значения по умолчанию. */
+    val brakeEdited: Boolean = false,
+    /** Серия ещё не сохранена в справочнике (новая или «старая» — только имя в locomotiveSeriesList). */
+    val isNewRecord: Boolean = true,
     val saved: Boolean = false,
     val deleted: Boolean = false,
 ) {
@@ -57,7 +69,7 @@ class SeriesEditorViewModel(
     private val _state = MutableStateFlow(
         // Для «старой» серии (только имя в locomotiveSeriesList, без норм) открываем
         // редактор с заполненным названием — пользователь дозадаёт приёмку/сдачу.
-        SeriesEditorState(seriesId = persistentId, name = initialName?.trim().orEmpty())
+        SeriesEditorState(seriesId = persistentId, name = initialName?.trim().orEmpty()).withBrakeDefaults()
     )
     val state = _state.asStateFlow()
 
@@ -65,9 +77,18 @@ class SeriesEditorViewModel(
         if (seriesId != null) {
             viewModelScope.launch {
                 val found = repository.getAll().find { it.seriesId == seriesId }
-                found?.let { s ->
+                found?.let { s0 ->
+                    // Запись без секций (пришла от старого клиента, ещё не дополнена) показываем со значениями по умолчанию.
+                    val s = if (LocoSeriesDefaults.needsDefaults(s0)) with(LocoSeriesDefaults) { s0.withDefaults() } else s0
                     _state.update {
                         it.copy(
+                            sectionCount = s.sectionCount,
+                            weightT = s.weightT,
+                            axleCount = s.axleCount,
+                            axleLoadTf = s.axleLoadTf,
+                            brakeVolumeL = s.brakeVolumeL,
+                            brakeEdited = !LocoSeriesDefaults.needsDefaults(s0),
+                            isNewRecord = false,
                             seriesId = s.seriesId,
                             name = s.name,
                             type = s.type,
@@ -84,7 +105,39 @@ class SeriesEditorViewModel(
         }
     }
 
-    fun setName(value: String) = _state.update { it.copy(name = value) }
+    fun setName(value: String) = _state.update {
+        val next = it.copy(name = value)
+        if (it.isNewRecord && !it.brakeEdited) next.withBrakeDefaults() else next
+    }
+
+    /** Подставляет значения по умолчанию для названия серии; вызывать только пока пользователь данные не менял. */
+    private fun SeriesEditorState.withBrakeDefaults(): SeriesEditorState {
+        val d = LocoSeriesDefaults.forSeries(name)
+        return copy(
+            sectionCount = d.sectionCount,
+            weightT = d.weightT,
+            axleCount = d.axleCount,
+            axleLoadTf = d.axleLoadTf,
+            brakeVolumeL = d.brakeVolumeL,
+        )
+    }
+
+    /** Ввод значения данных локомотива: пустая строка — «не задано» (для секций — значение по умолчанию). */
+    fun setBrakeField(field: SeriesPassportField, text: String) {
+        val number = text.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() && it > 0 }
+        _state.update {
+            val edited = it.copy(brakeEdited = true)
+            when (field) {
+                SeriesPassportField.SECTIONS ->
+                    edited.copy(sectionCount = number?.toInt()?.coerceIn(1, 9) ?: LocoSeriesDefaults.sectionCountFor(it.name))
+                SeriesPassportField.WEIGHT -> edited.copy(weightT = number)
+                SeriesPassportField.AXLES -> edited.copy(axleCount = number?.toInt()?.coerceAtMost(99))
+                SeriesPassportField.AXLE_LOAD -> edited.copy(axleLoadTf = number)
+                SeriesPassportField.VOLUME -> edited.copy(brakeVolumeL = number?.toInt()?.coerceAtMost(9999))
+            }
+        }
+        save()
+    }
     fun setType(value: LocoType) = _state.update { it.copy(type = value) }
     fun setSectionNumberingType(value: SectionNumberingType) {
         _state.update { it.copy(sectionNumberingType = value) }
@@ -149,7 +202,7 @@ class SeriesEditorViewModel(
         if (s.name.isBlank()) return
         val hasNorm = s.acceptanceDurationMin != null || s.deliveryDurationMin != null ||
             s.acceptanceHandToHandMin != null || s.deliveryHandToHandMin != null ||
-            s.sectionNumberingType != SectionNumberingType.NUMERIC
+            s.sectionNumberingType != SectionNumberingType.NUMERIC || s.brakeEdited
         val all = repository.getAll().toMutableList()
         val idx = all.indexOfFirst { it.seriesId == persistentId }
         // Не создаём новую запись без норм: иначе «старая» серия (только имя в
@@ -165,6 +218,11 @@ class SeriesEditorViewModel(
             acceptanceHandToHandMin = s.acceptanceHandToHandMin,
             deliveryHandToHandMin = s.deliveryHandToHandMin,
             sectionNumberingType = s.sectionNumberingType,
+            brakeVolumeL = s.brakeVolumeL,
+            axleCount = s.axleCount,
+            axleLoadTf = s.axleLoadTf,
+            weightT = s.weightT,
+            sectionCount = s.sectionCount,
         )
         if (idx >= 0) all[idx] = updated else all.add(updated)
         repository.replaceAll(all).collect {}

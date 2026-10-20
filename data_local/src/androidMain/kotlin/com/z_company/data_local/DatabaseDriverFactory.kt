@@ -241,6 +241,12 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "StationNorm" to "kind",
             "StationNorm" to "axisKm",
             "StationNorm" to "axisPicket",
+            // Миграция 26: данные локомотива в справочнике серий
+            "LocomotiveSeries" to "brakeVolumeL",
+            "LocomotiveSeries" to "axleCount",
+            "LocomotiveSeries" to "axleLoadTf",
+            "LocomotiveSeries" to "weightT",
+            "LocomotiveSeries" to "sectionCount",
             primaryTable = "UserSettings")
         return createDriver(SettingsDatabase.Schema, "Settings.db", SchemaSpecs.settings)
     }

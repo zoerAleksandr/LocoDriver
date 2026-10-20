@@ -16,7 +16,7 @@ package com.z_company.domain.brake
  * (rustrain.narod.ru/biblio/tormoza/p1.htm). В действующих Правилах объёмы по сериям не приведены (на локомотиве выписка с объёмом, прим. 4 к табл. IV.1) -
  * данные ориентировочные, проверяйте по паспорту локомотива.
  */
-data class SeriesExample(val series: String, val volume: String, val note: String? = null, val auto: Boolean = true, val show: Boolean = true) {
+data class SeriesExample(val series: String, val volume: String, val note: String? = null, val auto: Boolean = true, val show: Boolean = true, val assumed: Boolean = false) {
     val label: String get() = series
 }
 
@@ -44,7 +44,7 @@ enum class DensityLocoGroup(val liters: Int, val examples: List<SeriesExample>, 
             SeriesExample("ЧС2", "980-1080 л"), SeriesExample("ЧС2Т", "980-1080 л"), SeriesExample("ЧС4", "980-1080 л"), SeriesExample("ЧС4Т", "980-1080 л"),
             SeriesExample("ЧС1", "930-1010 л"), SeriesExample("ЧС3", "930-1010 л"),
             // допущение: индексы того же семейства, что серия из таблицы
-            SeriesExample("ЧМЭ3Т", "1000 л"), SeriesExample("ЧМЭ3Э", "1000 л"), SeriesExample("ТЭМ2А", "1000 л"), SeriesExample("ТЭМ2УМ", "1000 л"),
+            SeriesExample("ЧМЭ3Т", "1000 л", assumed = true), SeriesExample("ЧМЭ3Э", "1000 л", assumed = true), SeriesExample("ТЭМ2А", "1000 л", assumed = true), SeriesExample("ТЭМ2УМ", "1000 л", assumed = true),
         ),
         listOf(58, 40, 29, 25, 23, 20, 17, 15, 13, 11),
     ),
@@ -76,7 +76,7 @@ enum class DensityLocoGroup(val liters: Int, val examples: List<SeriesExample>, 
             SeriesExample("ТЭ3", "2160 л"), SeriesExample("ТЭ7", "2160 л"), SeriesExample("2ТЭ70", "2000 л"),
             // выведено по примечанию 4 (объём пропорционален числу секций): 2 секции по ~1020-1110 л
             SeriesExample("2ТЭП60", "~2060 л", "2 секции ТЭП60"), SeriesExample("2М62", "~2040-2220 л", "2 секции М62"), SeriesExample("2М62У", "~2040-2220 л", "2 секции М62"),
-            // справочно (открытая информация): 2 секции по 1000 л; в документах не подтверждено
+            // по указанию владельца: 2 секции по 1000 л (2ЭС5К в файле 1 - 2100 л); в документах не подтверждено
             SeriesExample("2ЭС4К", "2000 л"), SeriesExample("2ЭС5К", "2000 л"), SeriesExample("2ЭС6", "2000 л"),
         ),
         listOf(104, 75, 58, 52, 40, 36, 32, 29, 24, 22),
@@ -139,6 +139,24 @@ object BrakeDensity {
         }
         if (n.startsWith("ВЛ80")) return DensityLocoGroup.G4
         if (n.startsWith("ВЛ60")) return DensityLocoGroup.G2
+        return null
+    }
+
+    private val plainLiters = Regex("""^(\d+) л$""")
+
+    /**
+     * Паспортный объём ГР, л, для предзаполнения справочника серий: только серии с одним точным значением
+     * из примеров групп (файл 1 / Инструкция 277) и пять ЭС по указанию владельца. Выведенное по допущениям
+     * ([SeriesExample.assumed]), диапазоны и ВЛ10 (зависит от номера) - null: вводится вручную.
+     */
+    fun confirmedVolumeLiters(series: String?): Int? {
+        val n = normalizeSeries(series ?: return null)
+        if (n.isEmpty() || n == "ВЛ10") return null
+        for (g in DensityLocoGroup.values()) {
+            val e = g.examples.firstOrNull { it.auto && !it.assumed && normalizeSeries(it.series) == n } ?: continue
+            return plainLiters.matchEntire(e.volume)?.groupValues?.get(1)?.toIntOrNull()
+        }
+        if (n.startsWith("ВЛ80")) return 1800
         return null
     }
 

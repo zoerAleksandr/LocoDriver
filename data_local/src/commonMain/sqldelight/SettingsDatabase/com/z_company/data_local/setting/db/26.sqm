@@ -1,0 +1,7 @@
+-- Миграция 26: данные локомотива в справочнике серий (объём ГР, оси, нажатие, вес, секции).
+-- Все поля необязательные; значения по умолчанию подставляет Kotlin (LocoSeriesDefaults) при первом запуске.
+ALTER TABLE LocomotiveSeries ADD COLUMN brakeVolumeL INTEGER;
+ALTER TABLE LocomotiveSeries ADD COLUMN axleCount INTEGER;
+ALTER TABLE LocomotiveSeries ADD COLUMN axleLoadTf REAL;
+ALTER TABLE LocomotiveSeries ADD COLUMN weightT REAL;
+ALTER TABLE LocomotiveSeries ADD COLUMN sectionCount INTEGER;
