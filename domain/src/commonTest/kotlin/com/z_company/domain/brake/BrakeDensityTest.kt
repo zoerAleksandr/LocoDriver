@@ -48,7 +48,7 @@ class BrakeDensityTest {
         assertEquals(DensityLocoGroup.G3, BrakeDensity.groupBySeries("ВЛ11"))
         assertEquals(DensityLocoGroup.G5, BrakeDensity.groupBySeries("2ТЭ10"))
         assertEquals(DensityLocoGroup.G6, BrakeDensity.groupBySeries("2ТЭ10У"))
-        assertNull(BrakeDensity.groupBySeries("2ЭС5К"))
+        assertNull(BrakeDensity.groupBySeries("ЭС99"))
         assertNull(BrakeDensity.groupBySeries(null))
     }
 
@@ -216,7 +216,7 @@ class BrakeTurnaroundTest {
         assertNull(BrakeDensity.groupBySeries("ВЛ10"))
         // серия без подтверждённого объёма (ЧС2: диапазон 980-1080 л) - «Не выбрана»
         assertNull(BrakeDensity.groupBySeries("ЧС2"))
-        assertNull(BrakeDensity.groupBySeries("2ЭС5К"))
+        assertNull(BrakeDensity.groupBySeries("ЭС99"))
     }
 
     @Test
@@ -268,7 +268,7 @@ class BrakeTurnaroundTest {
         // ВЛ10У - 1500 л независимо от номера; остальные серии - как раньше
         assertEquals(DensityLocoGroup.G3, BrakeDensity.groupForLoco("ВЛ10У", ""))
         assertEquals(DensityLocoGroup.G4, BrakeDensity.groupForLoco("ВЛ80С", ""))
-        assertNull(BrakeDensity.groupForLoco("2ЭС5К", "100"))
+        assertNull(BrakeDensity.groupForLoco("ЭС99", "100"))
     }
 
     @Test
@@ -345,13 +345,13 @@ class BrakeTurnaroundTest {
         val b = BrakeFillResolver.resolveLoco("ВЛ80С", "1", "ЭП1", "9", manualGroup = null, customVolume = "1450")
         assertEquals("", b.customVolume)
         assertEquals(DensityLocoGroup.G4, b.effectiveGroup)
-        // серия не определяет группу (2ЭС5К) -> группа и свой объём не трогаются, серия и номер заменяются
-        val c = BrakeFillResolver.resolveLoco("2ЭС5К", "77", "ЭП1", "9", manualGroup = DensityLocoGroup.G6, customVolume = "")
-        assertEquals("2ЭС5К", c.series)
+        // серия не определяет группу (ЭС99) -> группа и свой объём не трогаются, серия и номер заменяются
+        val c = BrakeFillResolver.resolveLoco("ЭС99", "77", "ЭП1", "9", manualGroup = DensityLocoGroup.G6, customVolume = "")
+        assertEquals("ЭС99", c.series)
         assertEquals("77", c.number)
         assertEquals(DensityLocoGroup.G6, c.manualGroup)
         assertTrue(!c.groupReset)
-        val d = BrakeFillResolver.resolveLoco("2ЭС5К", "77", "ЭП1", "9", manualGroup = null, customVolume = "1700")
+        val d = BrakeFillResolver.resolveLoco("ЭС99", "77", "ЭП1", "9", manualGroup = null, customVolume = "1700")
         assertEquals("1700", d.customVolume)
         assertEquals(DensityLocoGroup.G3, d.effectiveGroup)
         // ВЛ10 без разбираемого номера: группа не определяется -> ручная остаётся

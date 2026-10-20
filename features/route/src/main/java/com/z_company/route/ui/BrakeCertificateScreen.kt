@@ -91,6 +91,7 @@ import com.z_company.domain.brake.BrakeTable
 import com.z_company.domain.brake.AxleSumCheck
 import com.z_company.domain.brake.GradeClass
 import com.z_company.domain.brake.InstructionRef
+import com.z_company.domain.brake.LocoShare
 import com.z_company.domain.brake.SlopeStep
 import com.z_company.domain.brake.SpeedLimit
 import com.z_company.domain.brake.StopClass
@@ -886,13 +887,13 @@ private fun FrontBody(
         else VuInk(state.totalAxlesText, Modifier.width(56.dp), onChange = vm::setTotalAxles, keyboard = KeyboardType.Number, maxLen = 4)
         VuMiniHelp { help("axles") }
     }
-    if (locoShare != null) Text("(с учётом локомотива)", Modifier.fillMaxWidth().padding(horizontal = 14.dp).padding(bottom = 4.dp), fontSize = 10.sp, color = t.muted, lineHeight = 13.sp)
+    if (locoShare != null) LocoCaption(locoShare)
     VuFillRow {
         Text("Требуется нажатие тормозных колодок в тс.", Modifier.weight(1f), fontSize = 14.sp, color = t.text, lineHeight = 18.sp)
         VuInk(result?.let { fmt(it.requiredPressure) } ?: "", Modifier.width(92.dp), calc = true, align = TextAlign.End)
         VuMiniHelp { help("required") }
     }
-    if (result?.loco != null) Text("с учётом веса локомотива (${fmt(result.loco!!.weight)} т)", Modifier.fillMaxWidth().padding(horizontal = 14.dp), fontSize = 12.sp, color = t.accent, textAlign = TextAlign.End)
+    result?.loco?.let { LocoCaption(it) }
     VuFillRow(end = true) {
         VuPrint("ручных тормозов в осях")
         VuInk(if (!category.manualBrakesRequired) "все" else result?.requiredManualAxles?.toString() ?: "", Modifier.width(56.dp), calc = true, align = TextAlign.End)
@@ -1853,4 +1854,15 @@ private fun TargetRow(title: String, sub: String?, selected: Boolean, enabled: B
             if (sub != null) Text(sub, fontSize = 12.sp, color = t.muted)
         }
     }
+}
+
+/** Единая подпись под значением на лицевой при учёте локомотива (вес и оси локомотива). */
+@Composable
+private fun LocoCaption(l: LocoShare) {
+    val t = vuColors()
+    Text(
+        "с учётом локомотива: ${fmt(l.weight)} т, ${l.axles} осей",
+        Modifier.fillMaxWidth().padding(horizontal = 14.dp).padding(bottom = 4.dp),
+        fontSize = 10.sp, color = t.muted, lineHeight = 13.sp, textAlign = TextAlign.End,
+    )
 }

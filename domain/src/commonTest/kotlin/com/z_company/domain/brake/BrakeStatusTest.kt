@@ -197,10 +197,13 @@ class BrakeStatusTest {
         assertEquals(12, BrakeLocoCatalog.find("3ЭС5К")!!.axles)
         // латинские двойники (E, C, K) тоже находятся
         assertNotNull(BrakeLocoCatalog.find("3ЭC4K"))
-        // объём ГР 3000 л (со слов владельца) для 3ЭС4К/3ЭС5К; для 2ЭС объём не задан
+        // объём ГР 3000 л (со слов владельца) для 3ЭС4К/3ЭС5К; 2000 л для 2ЭС (справочно)
         assertEquals(DensityLocoGroup.G7, BrakeDensity.groupBySeries("3эс4к"))
         assertEquals(DensityLocoGroup.G7, BrakeDensity.groupBySeries("3ЭС5К"))
-        assertEquals(null, BrakeDensity.groupBySeries("2ЭС6"))
+        assertEquals(DensityLocoGroup.G5, BrakeDensity.groupBySeries("2ЭС6")) // справочно 2000 л
+        assertEquals(DensityLocoGroup.G5, BrakeDensity.groupBySeries("2эс4к"))
+        assertEquals(DensityLocoGroup.G5, BrakeDensity.groupBySeries("2ЭС5К"))
+        assertEquals(DensityLocoGroup.G5, (BrakeDensity.groupByVolume("2000") as BrakeDensity.VolumeGroup.Found).group)
         // существующие серии не изменились
         assertEquals(14.0, BrakeLocoCatalog.find("ВЛ10У")!!.pressurePerAxle)
     }

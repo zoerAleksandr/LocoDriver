@@ -62,6 +62,8 @@ enum class DensityLocoGroup(val liters: Int, val examples: List<SeriesExample>, 
             SeriesExample("ВЛ11М", "2000 л"), SeriesExample("2ТЭ116", "2000 л"), SeriesExample("2ТЭ116УП", "2000 л"), SeriesExample("ТГ102", "2000 л"),
             SeriesExample("ВЛ85", "2100 л"),
             SeriesExample("2ТЭ10", "2040-2160 л", "индексы Л, В, М"), SeriesExample("2ТЭ121", "2040-2160 л"),
+            // справочно (открытая информация): 2 секции по 1000 л; в документах не подтверждено
+            SeriesExample("2ЭС4К", "2000 л"), SeriesExample("2ЭС5К", "2000 л"), SeriesExample("2ЭС6", "2000 л"),
         ),
         listOf(104, 75, 58, 52, 40, 36, 32, 29, 24, 22),
     ),
