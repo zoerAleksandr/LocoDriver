@@ -147,6 +147,10 @@ data class BrakeCertificateUiState(
     val fillReport: FillReport? = null,
     /** Пояснение к подбору категории по номеру поезда (после «Заполнить из маршрута»). */
     val categoryNote: String? = null,
+    /** Категория выбрана вручную (запоминается в prefs): подбор по нагрузке на ось не применяется. */
+    val categoryManual: Boolean = false,
+    /** Пометка «Определено по нагрузке…» под выбором категории. */
+    val loadNote: String? = null,
     /** Выбор поезда/локомотива маршрута при нескольких (шторка как на главном экране). */
     val fillPick: FillPick? = null,
     /** Сообщение «нет текущего маршрута / нет поезда» (диалог). */
@@ -197,6 +201,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     private val _state = MutableStateFlow(
         BrakeCertificateUiState(
             manualOverride = loadManualOverride(),
+            categoryManual = prefs.getBoolean(KEY_CATEGORY_MANUAL, false),
             autoblock3 = prefs.getBoolean(KEY_AUTOBLOCK, DEFAULT_AUTOBLOCK),
             compositeShare = loadCompositeShare(),
             categoryId = loadCategoryId(),
@@ -403,6 +408,10 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
             val sug = BrakeCategory.suggestByTrainNumber(q.trainNumber, st.totalAxlesText.trim().toIntOrNull(), st.categoryId)
             sug.categoryId?.let { applyCategory(it) }
             _state.update { it.copy(categoryNote = sug.note) }
+            // «Заполнить из маршрута» сбрасывает ручной выбор категории; номер (однозначный) приоритетнее нагрузки
+            prefs.edit().putBoolean(KEY_CATEGORY_MANUAL, false).apply()
+            _state.update { it.copy(categoryManual = false, loadNote = null) }
+            recomputeByAxleLoad()
             // «Учитывать локомотив» следует категории: в пассажирских и грузопассажирских включено, в грузовых выключено (ручная правка действует до следующего заполнения)
             val cat = BrakeNorms.category(_state.value.categoryId)
             if (cat != null) _state.update { it.copy(locoEnabled = cat.locoCountedByDefault) }
@@ -562,8 +571,23 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     /** Выбор категории пользователем запоминается и становится значением по умолчанию для новой справки (у сохранённой справки своя категория). */
     fun setCategory(id: String) {
         if (BrakeNorms.category(id) == null) return
-        prefs.edit().putString(KEY_CATEGORY, id).apply()
+        prefs.edit().putString(KEY_CATEGORY, id).putBoolean(KEY_CATEGORY_MANUAL, true).apply()
         applyCategory(id)
+        _state.update { it.copy(categoryManual = true, loadNote = null) }
+    }
+
+    /** Подбор груженый/порожний по нагрузке на ось (пока категория не выбрана вручную и не определена номером поезда). */
+    private fun recomputeByAxleLoad() {
+        val st = _state.value
+        val axles = st.totalAxlesText.trim().toIntOrNull() ?: st.effectiveRows().sumOf { it.axlesText.trim().toIntOrNull() ?: 0 }.takeIf { it > 0 }
+        val byNumber = BrakeCategory.byTrainNumber(st.trainNumberText, axles) != null
+        val sug = BrakeCategory.suggestByAxleLoad(st.categoryId, st.categoryManual, byNumber, st.weightText.toFiniteDoubleOrNull(), axles)
+        if (sug == null) {
+            if (st.loadNote != null && (st.categoryManual || st.categoryId !in BrakeCategory.axleLoadCategoryIds)) _state.update { it.copy(loadNote = null) }
+            return
+        }
+        if (sug.categoryId != st.categoryId) applyCategory(sug.categoryId)
+        _state.update { it.copy(loadNote = sug.note) }
     }
 
     /** Категория без запоминания (подбор по номеру поезда при «Заполнить из маршрута»). */
@@ -598,8 +622,8 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     fun setDate(v: String) = _state.update { it.copy(dateText = v.take(10)) }
     fun setLocoNumber(v: String) = _state.update { it.copy(locoNumberText = v) }
     fun setTrainNumber(v: String) = _state.update { it.copy(trainNumberText = v) }
-    fun setWeight(v: String) = _state.update { it.copy(weightText = v) }
-    fun setTotalAxles(v: String) = _state.update { it.copy(totalAxlesText = v) }
+    fun setWeight(v: String) { _state.update { it.copy(weightText = v) }; recomputeByAxleLoad() }
+    fun setTotalAxles(v: String) { _state.update { it.copy(totalAxlesText = v) }; recomputeByAxleLoad() }
 
     /** Серия локомотива; если серия есть в справочнике таблиц 4-5, подставляются вес, оси и нажатие (можно править). */
     fun setLocoSeries(v: String) = _state.update {
@@ -887,6 +911,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         const val DEFAULT_AUTOBLOCK = false
         private const val KEY_COMPOSITE = "composite_share"
         private const val KEY_CATEGORY = "last_category"
+        private const val KEY_CATEGORY_MANUAL = "category_manual"
         val DEFAULT_COMPOSITE = CompositeShare.P100
 
         fun fmtNum(p: Double): String =

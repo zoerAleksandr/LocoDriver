@@ -103,6 +103,43 @@ data class BrakeCategory(
             return NumberSuggestion(null, "Номер $n: категория по номеру однозначно не определяется - проверьте категорию")
         }
 
+        /** Порог нагрузки на ось, т/ось: больше - вагоны груженые, не больше (в т.ч. ровно 10,0) - порожние (правило владельца). */
+        const val LOADED_AXLE_LOAD_THRESHOLD = 10.0
+
+        /** Категории, которые подбираются по нагрузке на ось: груженый и порожние грузовые (табл. III.1, строки 11, 9, 14.1, 14.2). Остальные не меняются. */
+        val axleLoadCategoryIds: Set<String> = setOf("FREIGHT_LOADED", "EMPTY_350", "EMPTY_350_400", "EMPTY_400_520")
+
+        /** [loaded] - груженый (> порога); [categoryId] - «груженый» либо порожний по числу осей. */
+        data class AxleLoadSuggestion(val categoryId: String, val loadPerAxle: Double, val loaded: Boolean) {
+            /** Пометка под выбором категории. */
+            val note: String get() {
+                val v = (kotlin.math.round(loadPerAxle * 10) / 10).toString().replace('.', ',')
+                return "Определено по нагрузке: $v т/ось (" + if (loaded) "> 10 - груженый)" else "≤ 10 - порожний)"
+            }
+        }
+
+        /**
+         * Груженый/порожний по нагрузке на ось = вес вагонов (без локомотива, брутто) / оси вагонов. null - нагрузку не вычислить
+         * (нет веса или осей) или для порожнего поезда осей больше 520 (категории нет).
+         */
+        fun byAxleLoad(weightT: Double?, axles: Int?): AxleLoadSuggestion? {
+            if (weightT == null || axles == null || weightT <= 0.0 || axles <= 0) return null
+            val load = weightT / axles
+            if (load > LOADED_AXLE_LOAD_THRESHOLD) return AxleLoadSuggestion("FREIGHT_LOADED", load, true)
+            val empty = BrakeNorms.categoryForAxles(BrakeNorms.category("EMPTY_350")!!, axles)
+            if (empty.id == "EMPTY_350" && axles > 350) return null
+            return AxleLoadSuggestion(empty.id, load, false)
+        }
+
+        /**
+         * Когда подбор по нагрузке применяется: текущая категория из набора [axleLoadCategoryIds], категория не выбрана вручную ([manual]) и
+         * не определена по номеру поезда однозначно ([numberDetermines]).
+         */
+        fun suggestByAxleLoad(currentId: String, manual: Boolean, numberDetermines: Boolean, weightT: Double?, axles: Int?): AxleLoadSuggestion? {
+            if (manual || numberDetermines || currentId !in axleLoadCategoryIds) return null
+            return byAxleLoad(weightT, axles)
+        }
+
         fun byTrainNumber(number: String?, axles: Int? = null): BrakeCategory? {
             val n = parseTrainNumber(number) ?: return null
             return when (n) {

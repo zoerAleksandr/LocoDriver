@@ -362,6 +362,7 @@ private fun CalcTab(
                     "Категория поезда", category.title.substringBefore(" / ").substringBefore(" ("), Modifier.fillMaxWidth(), sunk = true,
                     onClick = { onSheet(BrakeSheet.Category) }, onHelp = { onSheet(BrakeSheet.Help("category")) },
                 )
+                state.loadNote?.let { VuHint(it, Modifier.padding(horizontal = 4.dp)) }
                 VuNormLine("Требуемое нажатие: ${category.norm} тс на 100 т веса")
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     VuInput("Вес состава, т", state.weightText, Modifier.weight(1f), onChange = vm::setWeight, unit = "т", placeholder = "0", sunk = true, onHelp = { onSheet(BrakeSheet.Help("weight")) })

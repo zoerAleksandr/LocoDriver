@@ -207,4 +207,37 @@ class BrakeStatusTest {
         // существующие серии не изменились
         assertEquals(14.0, BrakeLocoCatalog.find("ВЛ10У")!!.pressurePerAxle)
     }
+
+    @Test fun byAxleLoad_boundaryAndEmptyRanges() {
+        // ровно 10,0 т/ось - порожний (не груженый), 10,01 - груженый
+        assertEquals("EMPTY_350", BrakeCategory.byAxleLoad(3000.0, 300)!!.categoryId) // 10,0
+        assertEquals(false, BrakeCategory.byAxleLoad(3000.0, 300)!!.loaded)
+        assertEquals("FREIGHT_LOADED", BrakeCategory.byAxleLoad(3003.0, 300)!!.categoryId) // 10,01
+        assertEquals(true, BrakeCategory.byAxleLoad(3003.0, 300)!!.loaded)
+        // порожний: 330-348 / до 350 осей, 350-400, 401-520
+        assertEquals("EMPTY_350", BrakeCategory.byAxleLoad(3000.0, 340)!!.categoryId)
+        assertEquals("EMPTY_350_400", BrakeCategory.byAxleLoad(3500.0, 380)!!.categoryId)
+        assertEquals("EMPTY_400_520", BrakeCategory.byAxleLoad(4000.0, 450)!!.categoryId)
+        assertEquals(null, BrakeCategory.byAxleLoad(4000.0, 530)) // порожний более 520 осей - категории нет
+        // нет веса или осей - не менять
+        assertEquals(null, BrakeCategory.byAxleLoad(null, 100)); assertEquals(null, BrakeCategory.byAxleLoad(3000.0, 0))
+        assertEquals("Определено по нагрузке: 12,4 т/ось (> 10 - груженый)", BrakeCategory.byAxleLoad(3100.0, 250)!!.note)
+        assertTrue(BrakeCategory.byAxleLoad(2000.0, 250)!!.note.contains("≤ 10 - порожний"))
+    }
+
+    @Test fun suggestByAxleLoad_manualNumberAndNonFreightNotOverridden() {
+        // ручной выбор не перекрывается
+        assertEquals(null, BrakeCategory.suggestByAxleLoad("FREIGHT_LOADED", manual = true, numberDetermines = false, weightT = 1000.0, axles = 200))
+        // номер поезда (однозначный) в приоритете
+        assertEquals(null, BrakeCategory.suggestByAxleLoad("FREIGHT_LOADED", manual = false, numberDetermines = true, weightT = 1000.0, axles = 200))
+        // не грузовые груженый/порожний категории не меняются
+        for (id in listOf("PASS_120", "REEFER", "FREIGHT_PASS", "JOINED_UNITED", "HEAD_TAIL_12")) {
+            assertEquals(null, BrakeCategory.suggestByAxleLoad(id, false, false, 5000.0, 200), id)
+        }
+        // из груженого при малой нагрузке - порожний, и обратно из порожнего
+        assertEquals("EMPTY_350", BrakeCategory.suggestByAxleLoad("FREIGHT_LOADED", false, false, 2000.0, 300)!!.categoryId)
+        assertEquals("FREIGHT_LOADED", BrakeCategory.suggestByAxleLoad("EMPTY_400_520", false, false, 6000.0, 400)!!.categoryId)
+        // нет данных - не менять
+        assertEquals(null, BrakeCategory.suggestByAxleLoad("FREIGHT_LOADED", false, false, null, 300))
+    }
 }
