@@ -14,6 +14,7 @@ import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.repositories.LocomotiveSeriesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 import org.koin.core.component.KoinComponent
@@ -27,6 +28,8 @@ class SqlDelightLocomotiveSeriesRepository : LocomotiveSeriesRepository, KoinCom
             .asFlow()
             .mapToList(Dispatchers.Default)
             .map { rows -> rows.map { it.toDomain() } }
+            // Повреждённая локальная схема не должна ронять подписчика: отдаём пустой список.
+            .catch { emit(emptyList()) }
 
     override fun getAll(): List<LocomotiveSeries> =
         db.locomotiveSeriesQueries.getAll().executeAsList().map { it.toDomain() }

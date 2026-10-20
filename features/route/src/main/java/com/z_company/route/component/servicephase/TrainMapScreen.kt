@@ -59,6 +59,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.z_company.core.gps.GpsRecorder
 import com.z_company.route.component.NetworkRequired
+import com.z_company.route.component.coachAnchor
 import com.z_company.route.component.rememberIsOnline
 import com.z_company.route.component.rememberNetworkGate
 import com.z_company.domain.track.HeadingEstimator
@@ -77,6 +78,7 @@ import com.z_company.domain.util.FollowReturn
 import com.z_company.domain.util.LabelDedup
 import com.z_company.domain.util.LabelPlacer
 import com.z_company.domain.util.PathCleaner
+import com.z_company.domain.util.PathCleanCache
 import com.z_company.domain.util.PathKeeper
 import com.z_company.domain.util.RailRefetch
 import com.z_company.domain.util.MapLabelItem
@@ -229,6 +231,20 @@ internal fun TrainMapScreen(
         var permGranted by remember { mutableStateOf(DeviceLocation.hasPermission(context)) }
         var selection by remember { mutableStateOf<TrainMapSelection?>(null) }
         var showChart by rememberSaveable { mutableStateOf(false) }
+        // Метки первого открытия карты + кнопка «?» для повтора (ONBOARDING_MATERIALS §2): один раз, не во время записи.
+        val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
+        var mapHintsOpen by rememberSaveable { mutableStateOf(false) }
+        val positionIconAnchor = com.z_company.route.component.rememberCoachAnchor()
+        val helpAnchor = com.z_company.route.component.rememberCoachAnchor()
+        LaunchedEffect(Unit) {
+            if (!viewOnly && com.z_company.domain.onboarding.OnboardingHints.canShow(
+                    id = com.z_company.domain.onboarding.HintId.MAP_FIRST_OPEN,
+                    shown = onboardingHints.shown,
+                    homeReached = onboardingHints.homeReached,
+                    recording = autoRecording,
+                )
+            ) mapHintsOpen = true
+        }
         // «Зоны без GPS» (§6.9): личный переключатель, зоны считаются по локальным трекам.
         val trackRepo: com.z_company.domain.track.TrackRepository = org.koin.compose.koinInject()
         var gnssOn by remember { mutableStateOf(GnssDeadZonePrefs.enabled(context)) }
@@ -263,7 +279,9 @@ internal fun TrainMapScreen(
         var showIconPicker by remember { mutableStateOf(false) }
         var ride by rememberSaveable { mutableStateOf(false) }
         // Поворот карты (градусы, 0 = север сверху): для кнопки-компаса.
-        var mapBearing by remember { mutableStateOf(0.0) }
+        // Хранится как State-объект и читается только внутри CompassSlot: поворот карты пальцем меняет значение каждый кадр,
+        // и чтение в теле TrainMapScreen перекомпоновывало бы весь экран на каждом кадре жеста.
+        val mapBearingState = remember { mutableStateOf(0.0) }
         // Масштаб, выбранный пользователем кнопками «+»/«−»: сохраняется при следовании (иначе слежение возвращало 14).
         var userZoom by remember { mutableStateOf<Double?>(null) }
         var snappedLast by remember { mutableStateOf<TrackPoint?>(null) }
@@ -515,9 +533,9 @@ internal fun TrainMapScreen(
                         style.addSource(GeoJsonSource(TRAIN_NODATA_SOURCE, FeatureCollection.fromFeatures(emptyList())))
                         style.addLayerBelow(
                             LineLayer("train-map-nodata-layer", TRAIN_NODATA_SOURCE).withProperties(
-                                PropertyFactory.lineColor("#78909C"),
-                                PropertyFactory.lineWidth(2.2f),
-                                PropertyFactory.lineDasharray(arrayOf(1.2f, 2f)),
+                                PropertyFactory.lineColor("#546E7A"),
+                                PropertyFactory.lineWidth(4f),
+                                PropertyFactory.lineDasharray(arrayOf(1.2f, 1.6f)),
                             ),
                             "train-map-stops-layer",
                         )
@@ -617,8 +635,8 @@ internal fun TrainMapScreen(
         }
         // Станции плеча и остановки по треку точками; подписи — только те, что помещаются на текущем зуме
         // (LabelPlacer: не перекрывают точки и друг друга, в приоритете крайние и «впереди»).
-        val lastStopsSig = remember { object { var value = "" } }
-        fun refreshStopSources() {
+        val stopsState = remember { StopRefreshState() }
+        fun refreshStopSources(cause: Int = REFRESH_DATA) {
             val m = map ?: return
             val style = m.style ?: return
             if (!alive.get()) return
@@ -643,12 +661,51 @@ internal fun TrainMapScreen(
             }
             val markRows = marks.map { Row(it.latitude, it.longitude, stopTitle(it, stops), "mark", 11f, 8.5f, 1) }
             val rows = routeRows + markRows
+            // Дешёвые признаки (без обращений к карте): состав подписей и «грубое» положение камеры. Пересчёт подписей
+            // (queryRenderedFeatures по всему экрану + проекции) нужен только когда они изменились: на обновлении GPS раз в
+            // секунду и на каждый «покой» карты после перерисовки источников он раньше выполнялся впустую.
+            val rowsSig = "$styleGen|${rows.joinToString("|") { it.name + it.role + it.lat + it.lon }}"
+            val cam = m.cameraPosition
+            val camKey = "${Math.round(cam.zoom * 10)}|${Math.round(cam.bearing / 2)}|${mapView.width}x${mapView.height}"
+            val camCenter = cam.target
+            val nowUp = android.os.SystemClock.uptimeMillis()
+            val shifted = camCenter == null || stopsState.centerLat.isNaN() || run {
+                val a = m.projection.toScreenLocation(LatLng(stopsState.centerLat, stopsState.centerLon))
+                val b = m.projection.toScreenLocation(camCenter)
+                Math.hypot((a.x - b.x).toDouble(), (a.y - b.y).toDouble()) > 0.15 * minOf(mapView.width, mapView.height)
+            }
+            val unchanged = camKey == stopsState.camKey && rowsSig == stopsState.rowsSig && !shifted
+            if (unchanged) {
+                // «Покой» карты после подгрузки тайлов: подписи базовой карты могли появиться - один повтор в окне
+                // после последнего изменения камеры, не чаще раза в секунду (хвостовой запуск догоняет). Остальное - пропуск.
+                if (cause != REFRESH_MAP_IDLE || nowUp - stopsState.camChangedAt > TILE_SETTLE_WINDOW_MS) return
+                val wait = MIN_REFRESH_GAP_MS - (nowUp - stopsState.runAt)
+                if (wait > 0) {
+                    stopsState.pending?.let { mapView.removeCallbacks(it) }
+                    val r = Runnable { refreshStopSources(REFRESH_MAP_IDLE) }
+                    stopsState.pending = r
+                    mapView.postDelayed(r, wait)
+                    return
+                }
+            } else {
+                stopsState.camChangedAt = nowUp
+            }
+            stopsState.pending?.let { mapView.removeCallbacks(it) }
+            stopsState.pending = null
+            stopsState.runAt = nowUp
+            stopsState.camKey = camKey
+            stopsState.rowsSig = rowsSig
+            if (camCenter != null) {
+                stopsState.centerLat = camCenter.latitude
+                stopsState.centerLon = camCenter.longitude
+            }
+            val t0 = MapPerf.begin("refreshStopSources")
             val screenPts = rows.map { r -> m.projection.toScreenLocation(LatLng(r.lat, r.lon)) }
             // Подписи базовой карты (станции/места стиля): своя подпись с тем же названием рядом (<= 40 dp) не рисуется -
-            // иначе два одинаковых названия накладываются друг на друга (SCREEN_SPECS §6.9).
-            val dups = LabelDedup.duplicates(
+            // иначе два одинаковых названия накладываются друг на друга (SCREEN_SPECS §6.9). Без своих подписей - не запрашиваем.
+            val dups = if (rows.isEmpty()) emptySet() else LabelDedup.duplicates(
                 rows.mapIndexed { i, r -> AppMapLabel(screenPts[i].x.toDouble(), screenPts[i].y.toDouble(), r.name) },
-                baseMapLabels(m, mapView.width, mapView.height),
+                baseMapLabels(m, mapView.width, mapView.height, stopsState, styleGen),
                 LabelDedup.RADIUS_DP * density,
             )
             // Дубли подписей одного названия рядом (<= 300 м; остановки в парке станции): остаётся одна, ближайшая к центру карты.
@@ -669,6 +726,7 @@ internal fun TrainMapScreen(
                 )
             }
             val shown = LabelPlacer.visible(items)
+            MapPerf.end(context, "refreshStopSources", t0)
             fun feature(i: Int, r: Row) = Feature.fromGeometry(Point.fromLngLat(r.lon, r.lat)).apply {
                 addStringProperty("name", r.name)
                 addStringProperty("role", r.role)
@@ -676,9 +734,9 @@ internal fun TrainMapScreen(
                 addNumberProperty("show", if (i in shown) 1 else 0)
             }
             // Перерисовка по событию «карта в покое» не должна зацикливаться: пишем источники, только если результат изменился.
-            val sig = "$styleGen|${rows.joinToString("|") { it.name + it.role + it.lat + it.lon }}|${shown.sorted()}"
-            if (sig == lastStopsSig.value) return
-            lastStopsSig.value = sig
+            val sig = "$rowsSig|${shown.sorted()}"
+            if (sig == stopsState.value) return
+            stopsState.value = sig
             style.getSourceAs<GeoJsonSource>(TRAIN_STOPS_SOURCE)?.setGeoJson(
                 FeatureCollection.fromFeatures(routeRows.mapIndexed { i, r -> feature(i, r) })
             )
@@ -689,14 +747,16 @@ internal fun TrainMapScreen(
         LaunchedEffect(styleGen, styleReady, myFix, track, map, railState) { if (styleReady) refreshStopSources() }
         DisposableEffect(map) {
             val m = map
-            val listener = MapLibreMap.OnCameraIdleListener { refreshStopSources() }
+            val listener = MapLibreMap.OnCameraIdleListener { refreshStopSources(REFRESH_CAMERA_IDLE) }
             // Подписи базовой карты подгружаются после остановки камеры (тайлы) - пересчитываем и по «карта в покое».
-            val idle = MapView.OnDidBecomeIdleListener { refreshStopSources() }
+            val idle = MapView.OnDidBecomeIdleListener { refreshStopSources(REFRESH_MAP_IDLE) }
             m?.addOnCameraIdleListener(listener)
             mapView.addOnDidBecomeIdleListener(idle)
             onDispose {
                 m?.removeOnCameraIdleListener(listener)
                 mapView.removeOnDidBecomeIdleListener(idle)
+                stopsState.pending?.let { mapView.removeCallbacks(it) }
+                stopsState.pending = null
             }
         }
         LaunchedEffect(Unit) {
@@ -723,7 +783,11 @@ internal fun TrainMapScreen(
                     if (ride) ride = false
                 }
             }
-            val bearingListener = MapLibreMap.OnCameraMoveListener { mapBearing = m?.cameraPosition?.bearing ?: 0.0 }
+            val bearingListener = MapLibreMap.OnCameraMoveListener {
+                // Шаг 0,5 градуса: компасу этого достаточно, лишние записи состояния не нужны.
+                val b = m?.cameraPosition?.bearing ?: 0.0
+                if (abs(b - mapBearingState.value) >= 0.5) mapBearingState.value = b
+            }
             m?.addOnCameraMoveStartedListener(l)
             m?.addOnCameraMoveListener(bearingListener)
             onDispose {
@@ -852,61 +916,45 @@ internal fun TrainMapScreen(
             if (!gnssOn && selection is TrainMapSelection.GnssZoneSel) selection = null
         }
         val drawnCount = remember { object { var value = 0 } }
+        // Очистка пути одна на оба расчёта (отрисовка и поиск съезда на соседний путь) + «не чаще раза в N мс».
+        val cleanCache = remember { PathCleanCache() }
+        val throttle = remember { object { var trackAt = 0L; var devAt = 0L } }
         // Пройденный путь жирной линией: сегменты со скоростью, разрыв по времени линию прерывает.
         // Путь рисуется из ЛОКАЛЬНЫХ данных (Track.db + живые точки записи) и не зависит от интернета и рельсовой линии:
         // привязка к рельсам - улучшение; сбой привязки -> сырые точки. Слои переживают смену стиля (styleGen).
         LaunchedEffect(styleGen, styleReady, track, railState, factLines, livePoints.lastOrNull()?.timeMs) {
             if (!styleReady) return@LaunchedEffect
+            // Живые точки приходят каждую секунду-несколько, а очистка + привязка + сборка GeoJSON всего пути стоят
+            // десятки-сотни мс на слабом процессоре: перерисовываем не чаще TRACK_REDRAW_MIN_MS (новое событие
+            // отменяет ожидание и пересчитывает ожидание заново, так что последнее состояние всегда будет нарисовано).
+            val waitMs = TRACK_REDRAW_MIN_MS - (android.os.SystemClock.elapsedRealtime() - throttle.trackAt)
+            if (waitMs > 0) delay(waitMs)
+            throttle.trackAt = android.os.SystemClock.elapsedRealtime()
             // Привязка к ближайшему из путей (линия плеча + линии по факту) там, где отклонение ≤ 50 м; иначе сырые точки
             // («вне путей» - только если дальше 50 м от ЛЮБОГО известного пути; пунктир сверху).
             val railLine = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line
             val railLines = listOfNotNull(railLine) + factLines
             val raw = PathKeeper.withLive(track?.drawPoints.orEmpty(), livePoints)
             if (raw.isEmpty() && drawnCount.value > 0) return@LaunchedEffect
-            val pts = try {
+            val geo = try {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-                    // Стоянка -> один центроид, шипы убраны, упрощение 4 м (PathCleaner); привязка с гистерезисом по путям.
-                    ActualRails.snapMarked(PathCleaner.clean(raw), railLines)
+                    MapPerf.measure(context, "trackBuild") {
+                        // Стоянка -> один центроид, шипы убраны, упрощение 4 м (PathCleaner); привязка с гистерезисом по путям.
+                        // GeoJSON собирается и сериализуется здесь же, вне главного потока.
+                        buildTrackGeo(ActualRails.snapMarked(cleanCache.clean(raw), railLines))
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                raw.map { TrainMapRoute.SnappedPoint(it, true) }
+                buildTrackGeo(raw.map { TrainMapRoute.SnappedPoint(it, true) })
             }
-            val feats = ArrayList<Feature>(pts.size)
-            val offFeats = ArrayList<Feature>()
-            val noDataFeats = ArrayList<Feature>()
-            for (i in 1 until pts.size) {
-                val a = pts[i - 1]
-                val b = pts[i]
-                val dt = b.point.timeMs - a.point.timeMs
-                if (dt > TrackAnalysis.GAP_MS) continue
-                if (dt > TrackAnalysis.DATA_GAP_MS) {
-                    noDataFeats += Feature.fromGeometry(
-                        LineString.fromLngLats(
-                            listOf(
-                                Point.fromLngLat(a.point.longitude, a.point.latitude),
-                                Point.fromLngLat(b.point.longitude, b.point.latitude),
-                            ),
-                        ),
-                    )
-                    continue
-                }
-                val v = b.point.speedKmh ?: a.point.speedKmh
-                val seg = LineString.fromLngLats(
-                    listOf(
-                        Point.fromLngLat(a.point.longitude, a.point.latitude),
-                        Point.fromLngLat(b.point.longitude, b.point.latitude),
-                    )
-                )
-                feats += Feature.fromGeometry(seg).apply { addNumberProperty("speed", v ?: -1.0) }
-                if (!a.onRail || !b.onRail) offFeats += Feature.fromGeometry(seg)
-            }
-            drawnCount.value = feats.size
-            snappedLast = pts.lastOrNull()?.point
-            map?.style?.getSourceAs<GeoJsonSource>(TRAIN_TRACK_SOURCE)?.setGeoJson(FeatureCollection.fromFeatures(feats))
-            map?.style?.getSourceAs<GeoJsonSource>(TRAIN_OFF_SOURCE)?.setGeoJson(FeatureCollection.fromFeatures(offFeats))
-            map?.style?.getSourceAs<GeoJsonSource>(TRAIN_NODATA_SOURCE)?.setGeoJson(FeatureCollection.fromFeatures(noDataFeats))
+            drawnCount.value = geo.segments
+            snappedLast = geo.last
+            val st = map?.style
+            st?.getSourceAs<GeoJsonSource>(TRAIN_TRACK_SOURCE)?.setGeoJson(geo.trackJson)
+            st?.getSourceAs<GeoJsonSource>(TRAIN_OFF_SOURCE)?.setGeoJson(geo.offJson)
+            st?.getSourceAs<GeoJsonSource>(TRAIN_NODATA_SOURCE)?.setGeoJson(geo.noDataJson)
         }
         // Линия по факту: трек устойчиво ушёл (>15 м) от всех известных путей (соседний путь многопутного участка) ->
         // сервер строит линию по рельсам через via-точки трека (route/length, без изменения контракта); принимается,
@@ -914,9 +962,15 @@ internal fun TrainMapScreen(
         LaunchedEffect(track, railState, livePoints.lastOrNull()?.timeMs) {
             val routeLine = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line ?: return@LaunchedEffect
             if (viewOnly || !hasRoute) return@LaunchedEffect
+            // Поиск съезда тяжёлый (каждая точка против всех линий) и нужен лишь для редкого запроса линии - не чаще раза в 5 с.
+            val waitMs = DEVIATION_CHECK_MIN_MS - (android.os.SystemClock.elapsedRealtime() - throttle.devAt)
+            if (waitMs > 0) delay(waitMs)
+            throttle.devAt = android.os.SystemClock.elapsedRealtime()
             val raw = PathKeeper.withLive(track?.drawPoints.orEmpty(), livePoints)
             val run = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-                ActualRails.deviationRun(PathCleaner.clean(raw), listOf(routeLine) + factLines)
+                MapPerf.measure(context, "deviationRun") {
+                    ActualRails.deviationRun(cleanCache.clean(raw), listOf(routeLine) + factLines)
+                }
             } ?: return@LaunchedEffect
             val key = ActualRails.runKey(run)
             if (!triedFactRuns.add(key)) return@LaunchedEffect
@@ -1243,6 +1297,13 @@ internal fun TrainMapScreen(
                         )
                     }
                 }
+                if (!viewOnly) {
+                    Box(Modifier.coachAnchor(helpAnchor)) {
+                        MapButton(onClick = { mapHintsOpen = true }, description = "Подсказки") {
+                            Text("?", style = Pst.sans.copy(fontSize = 20.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+                        }
+                    }
+                }
             }
 
 
@@ -1431,21 +1492,18 @@ internal fun TrainMapScreen(
                 MapButton(onClick = { zoomBy(-1.0) }, description = "Отдалить") {
                     Text("−", style = Pst.sans.copy(fontSize = 22.sp), color = Pst.text)
                 }
-                val bearingNorm = ((mapBearing % 360.0) + 540.0) % 360.0 - 180.0
-                if (abs(bearingNorm) > 0.5) {
-                    MapButton(
-                        onClick = {
-                            ride = false
-                            map?.let { mm ->
-                                mm.animateCamera(
-                                    CameraUpdateFactory.newCameraPosition(CameraPosition.Builder(mm.cameraPosition).bearing(0.0).tilt(0.0).build()),
-                                    400,
-                                )
-                            }
-                        },
-                        description = "Север сверху",
-                    ) { CompassNeedle(bearingNorm.toFloat()) }
-                }
+                CompassSlot(
+                    bearing = mapBearingState,
+                    onClick = {
+                        ride = false
+                        map?.let { mm ->
+                            mm.animateCamera(
+                                CameraUpdateFactory.newCameraPosition(CameraPosition.Builder(mm.cameraPosition).bearing(0.0).tilt(0.0).build()),
+                                400,
+                            )
+                        }
+                    },
+                )
                 if (!viewOnly || track?.points.orEmpty().isNotEmpty()) {
                     MapButton(onClick = { showChart = true }, description = "График скорости") {
                         PstIcon(PstIcons.SpeedChart, 22.dp, Pst.text)
@@ -1498,8 +1556,10 @@ internal fun TrainMapScreen(
                             },
                         contentAlignment = Alignment.Center,
                     ) { PstIcon(PstIcons.Navigate, 22.dp, if (ride) androidx.compose.ui.graphics.Color.White else Pst.text) }
-                    MapButton(onClick = { showIconPicker = !showIconPicker }, description = "Значок положения") {
-                        PositionIconTile(positionIcon, 36.dp)
+                    Box(Modifier.coachAnchor(positionIconAnchor)) {
+                        MapButton(onClick = { showIconPicker = !showIconPicker }, description = "Значок положения") {
+                            PositionIconTile(positionIcon, 36.dp)
+                        }
                     }
                     MapButton(onClick = { follow = true; requestOrShowLocation(center = true) }, description = "Моё местоположение") {
                         Box(Modifier.size(14.dp).border(2.dp, Pst.accent, CircleShape), contentAlignment = Alignment.Center) {
@@ -1507,6 +1567,18 @@ internal fun TrainMapScreen(
                         }
                     }
                 }
+            }
+
+            if (mapHintsOpen && !viewOnly) {
+                BackHandler { mapHintsOpen = false; onboardingHints.markShown(com.z_company.domain.onboarding.HintId.MAP_FIRST_OPEN) }
+                MapHintsOverlay(
+                    positionAnchor = positionIconAnchor,
+                    helpAnchor = helpAnchor,
+                    onDismiss = {
+                        mapHintsOpen = false
+                        onboardingHints.markShown(com.z_company.domain.onboarding.HintId.MAP_FIRST_OPEN)
+                    },
+                )
             }
 
             if (showIconPicker && !viewOnly) {
@@ -1845,6 +1917,15 @@ internal object TrainMapEta {
         if (m < 1000.0) "${(Math.round(m / 10.0) * 10)} м" else String.format(java.util.Locale.US, "%.1f", m / 1000.0).replace('.', ',') + " км"
 }
 
+/** Кнопка-компас: появляется при повороте карты; значение поворота читается здесь, а не в теле экрана. */
+@Composable
+private fun CompassSlot(bearing: androidx.compose.runtime.State<Double>, onClick: () -> Unit) {
+    val bearingNorm = ((bearing.value % 360.0) + 540.0) % 360.0 - 180.0
+    if (abs(bearingNorm) > 0.5) {
+        MapButton(onClick = onClick, description = "Север сверху") { CompassNeedle(bearingNorm.toFloat()) }
+    }
+}
+
 /** Иконка компаса: красная стрелка указывает на север карты (поворачивается против поворота карты). */
 @Composable
 private fun CompassNeedle(bearingDeg: Float) {
@@ -1909,15 +1990,95 @@ private fun RecordIcon(recording: Boolean) {
     }
 }
 
+/** Пройденный путь перерисовывается не чаще, мс. */
+private const val TRACK_REDRAW_MIN_MS = 2_000L
+
+/** Поиск участка съезда на соседний путь выполняется не чаще, мс. */
+private const val DEVIATION_CHECK_MIN_MS = 5_000L
+
+/** Готовые к записи в источники карты данные пройденного пути (JSON собран вне главного потока). */
+private class TrackGeo(
+    val trackJson: String,
+    val offJson: String,
+    val noDataJson: String,
+    val segments: Int,
+    val last: TrackPoint?,
+)
+
+/** Сегменты пути со скоростью, участки «вне путей» и «нет данных» (разрыв записи > DATA_GAP_MS) - в виде GeoJSON-строк. */
+private fun buildTrackGeo(pts: List<TrainMapRoute.SnappedPoint>): TrackGeo {
+    val feats = ArrayList<Feature>(pts.size)
+    val offFeats = ArrayList<Feature>()
+    val noDataFeats = ArrayList<Feature>()
+    for (i in 1 until pts.size) {
+        val a = pts[i - 1]
+        val b = pts[i]
+        val dt = b.point.timeMs - a.point.timeMs
+        if (dt > TrackAnalysis.GAP_MS) continue
+        val seg = LineString.fromLngLats(
+            listOf(
+                Point.fromLngLat(a.point.longitude, a.point.latitude),
+                Point.fromLngLat(b.point.longitude, b.point.latitude),
+            )
+        )
+        if (dt > TrackAnalysis.DATA_GAP_MS) {
+            // Через дыру линия соединяется «нет данных» (пунктир), только если смещение согласуется со скоростью.
+            val dKm = com.z_company.domain.util.GnssPlausibility.distanceM(
+                a.point.latitude, a.point.longitude, b.point.latitude, b.point.longitude,
+            ) / 1000.0
+            if (dKm / (dt / 3_600_000.0) > 200.0) continue
+            noDataFeats += Feature.fromGeometry(seg)
+            continue
+        }
+        val v = b.point.speedKmh ?: a.point.speedKmh
+        feats += Feature.fromGeometry(seg).apply { addNumberProperty("speed", v ?: -1.0) }
+        if (!a.onRail || !b.onRail) offFeats += Feature.fromGeometry(seg)
+    }
+    return TrackGeo(
+        FeatureCollection.fromFeatures(feats).toJson(),
+        FeatureCollection.fromFeatures(offFeats).toJson(),
+        FeatureCollection.fromFeatures(noDataFeats).toJson(),
+        feats.size,
+        pts.lastOrNull()?.point,
+    )
+}
+
+private const val REFRESH_DATA = 0
+private const val REFRESH_CAMERA_IDLE = 1
+private const val REFRESH_MAP_IDLE = 2
+
+/** Окно после последнего изменения камеры, в котором «покой» карты ещё может принести новые подписи тайлов, мс. */
+private const val TILE_SETTLE_WINDOW_MS = 4_000L
+
+/** Не чаще раза в это время пересчитываем подписи по «покою» карты при неподвижной камере, мс. */
+private const val MIN_REFRESH_GAP_MS = 1_000L
+
+/** Состояние пересчёта подписей станций: прошлая подпись источника, признаки камеры и отложенный запуск. */
+private class StopRefreshState {
+    var value = ""
+    var rowsSig = ""
+    var camKey = ""
+    var centerLat = Double.NaN
+    var centerLon = Double.NaN
+    var runAt = 0L
+    var camChangedAt = 0L
+    var pending: Runnable? = null
+    var baseLayerIds: Array<String>? = null
+    var baseLayerIdsGen = -1
+}
+
 /**
  * Подписи базовой карты (symbol-слои стиля: станции, населённые пункты) на экране - для отсева дублей своих подписей.
  * Слои приложения (`train-map-*`) не учитываются. Только точечные объекты с названием.
  */
-private fun baseMapLabels(m: MapLibreMap, width: Int, height: Int): List<BaseMapLabel> {
+private fun baseMapLabels(m: MapLibreMap, width: Int, height: Int, cache: StopRefreshState, styleGen: Int): List<BaseMapLabel> {
     val style = m.style ?: return emptyList()
     if (width <= 0 || height <= 0) return emptyList()
     return try {
-        val ids = style.layers.filter { it is SymbolLayer && !it.id.startsWith("train-map-") }.map { it.id }.toTypedArray()
+        // Список id symbol-слоёв подложки стабилен в пределах поколения стиля - не запрашиваем все слои из нативного кода каждый раз.
+        val ids = cache.baseLayerIds?.takeIf { cache.baseLayerIdsGen == styleGen }
+            ?: style.layers.filter { it is SymbolLayer && !it.id.startsWith("train-map-") }.map { it.id }.toTypedArray()
+                .also { cache.baseLayerIds = it; cache.baseLayerIdsGen = styleGen }
         if (ids.isEmpty()) return emptyList()
         m.queryRenderedFeatures(android.graphics.RectF(0f, 0f, width.toFloat(), height.toFloat()), *ids).mapNotNull { f ->
             val pt = f.geometry() as? Point ?: return@mapNotNull null

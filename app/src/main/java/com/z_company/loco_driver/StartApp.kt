@@ -9,6 +9,12 @@ import com.z_company.route.session.SessionExpiredHandler
 import com.z_company.core.initSentry
 import com.z_company.core.sendToSentry
 import com.vk.id.VKID
+import com.z_company.core.ui.perf.ScreenPerf
+import com.z_company.data_local.route.db.RouteDatabase
+import com.z_company.data_local.setting.db.SettingsDatabase
+import com.z_company.data_local.setting.salarydb.SalarySettingDatabase
+import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.route.viewmodel.SalaryCalculationViewModel
 import com.z_company.data_local.route.di.sqlDelightRouteModule
 import com.z_company.data_local.setting.di.sqlDelightSettingsModule
 import com.z_company.loco_driver.di.repositoryModule
@@ -81,7 +87,8 @@ class StartApp : Application() {
         VKID.instance.setLocale(Locale("ru"))
         val myTrackerConfig = MyTracker.getTrackerConfig()
         myTrackerConfig.locationTrackingMode = LocationTrackingMode.CACHED
-        MyTracker.setDebugMode(true)
+        // Подробный лог MyTracker — только по явному флагу (пишет много в logcat).
+        MyTracker.setDebugMode(BuildConfig.HEAVY_DEBUG_TOOLS)
         MyTracker.initTracker(getString(R.string.my_tracer_sdk_key), this)
 
         migrationBootstrap = MigrationRecoveryBootstrap(this, BuildConfig.VERSION_CODE)
@@ -169,6 +176,25 @@ class StartApp : Application() {
         }
     }
 
+    /**
+     * Создаёт тяжёлые синглтоны (открытие БД, SharedPreferences, расчёт зарплаты) в фоне,
+     * чтобы первое обращение с UI-потока (Home, формы) не платило за их инициализацию.
+     * Koin-синглтоны создаются под блокировкой, поэтому гонка с UI безопасна.
+     */
+    private fun warmUpSingletons(koin: org.koin.core.Koin) {
+        appScope.launch {
+            ScreenPerf.section("startup.warmUp") {
+                runCatching {
+                    koin.get<SharedPreferencesRepositories>()
+                    koin.get<SettingsDatabase>()
+                    koin.get<SalarySettingDatabase>()
+                    koin.get<RouteDatabase>()
+                    koin.get<SalaryCalculationViewModel>()
+                }
+            }
+        }
+    }
+
     private fun startMainGraphAndWorkers() {
         if (!mainGraphStarted.compareAndSet(false, true)) return
         val koinApplication = startKoin {
@@ -188,6 +214,7 @@ class StartApp : Application() {
         // Истёкший bearer-токен ловится на любом запросе (см. SessionExpiredHandler);
         // без этой подписки о 401 узнавал бы только экран «Профиль».
         koinApplication.koin.get<SessionExpiredHandler>().start(appScope)
+        warmUpSingletons(koinApplication.koin)
         // Токен старше недели меняем на свежий, чтобы сессия активного
         // пользователя не истекала; 401 здесь уйдёт в тот же handler.
         appScope.launch {
@@ -270,6 +297,16 @@ class StartApp : Application() {
             WorkManager.getInstance(this).cancelUniqueWork("recovery_snapshot_upload_now")
             WorkManager.getInstance(this).cancelUniqueWork("recovery_snapshot_upload_periodic")
         }
+        // Мягкое напоминание про «АВТО»: раз в сутки проверяет правило (не чаще раза в 30 дней, ONBOARDING_MATERIALS §4).
+        WorkManager.getInstance(this)
+            .enqueueUniquePeriodicWork(
+                com.z_company.loco_driver.widget.AutoHintReminderWorker.UNIQUE_NAME,
+                ExistingPeriodicWorkPolicy.KEEP,
+                PeriodicWorkRequestBuilder<com.z_company.loco_driver.widget.AutoHintReminderWorker>(
+                    repeatInterval = 1,
+                    repeatIntervalTimeUnit = TimeUnit.DAYS,
+                ).build(),
+            )
         WorkManager.getInstance(this)
             .enqueueUniquePeriodicWork(
                 "sync_work",

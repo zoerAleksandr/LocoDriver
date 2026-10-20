@@ -1,5 +1,7 @@
 package com.z_company.route.navigation
 
+import com.z_company.core.ui.perf.ScreenOpenTrace
+
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.runtime.Composable
@@ -25,6 +27,7 @@ import kotlinx.coroutines.withContext
 fun StatisticsDestination(
     router: Router,
 ) {
+    ScreenOpenTrace("statistics")
     val viewModel: StatisticsViewModel = viewModel()
     val state by viewModel.uiState.collectAsState()
 

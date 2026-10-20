@@ -1,5 +1,7 @@
 package com.z_company.route.navigation
 
+import com.z_company.core.ui.perf.ScreenOpenTrace
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -10,6 +12,7 @@ import org.koin.compose.koinInject
 
 @Composable
 fun SalaryCalculationDestination(router: Router){
+    ScreenOpenTrace("salary")
     val viewModel: SalaryCalculationViewModel = koinInject()
     val uiState by viewModel.uiState.collectAsState()
 

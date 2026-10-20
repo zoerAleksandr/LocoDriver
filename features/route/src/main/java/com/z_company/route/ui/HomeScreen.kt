@@ -85,6 +85,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
+import com.z_company.route.util.HomeUnitPrefs
+import com.z_company.route.util.locomotivesInOrder
+import com.z_company.route.util.trainsInOrder
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -250,6 +255,7 @@ fun HomeScreen(
     freeRoutesUsedCount: Int = 0,
     onPurchasesClick: () -> Unit = {},
     isBackgroundSyncing: Boolean = false,
+    isOffline: Boolean = false,
     onSyncClick: () -> Unit = {},
     showSyncDialog: Boolean = false,
     isSyncSuccess: Boolean = false,
@@ -271,6 +277,10 @@ fun HomeScreen(
 ) {
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
+
+    // Подсказки на месте включаются только после того, как пользователь увидел «Главную» (ONBOARDING_MATERIALS §2).
+    val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
+    LaunchedEffect(Unit) { onboardingHints.markHomeReached() }
 
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
@@ -446,6 +456,7 @@ fun HomeScreen(
         val bareToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(
             bareAutoManager,
             resolveTarget = { bareAutoManager.resolveRecordTarget(null) },
+            onOpenPrivacy = onConsentSettings,
         )
         TrainMapScreen(
             missingStation = { null },
@@ -467,6 +478,14 @@ fun HomeScreen(
     // Тип шторки со списком единиц текущего маршрута (loco/train/passenger), null — скрыта
     var unitsSheetType by remember { mutableStateOf<String?>(null) }
     val unitsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // «Всегда открывать последний» по типу плитки (loco/train/passenger): тап по плитке сразу
+    // открывает последний элемент, список — по бейджу-счётчику.
+    val unitsContext = LocalContext.current
+    val alwaysOpenLastUnit = remember {
+        mutableStateMapOf<String, Boolean>().apply {
+            HomeUnitPrefs.types.forEach { put(it, HomeUnitPrefs.get(unitsContext, it)) }
+        }
+    }
 
     // ItemState (а не только Route) — чтобы в быстром просмотре показать доплатные
     // признаки, вычисленные на уровне списка.
@@ -722,15 +741,42 @@ fun HomeScreen(
                         text = titleText,
                         style = MaterialTheme.typography.headlineMedium,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(start = 4.dp, bottom = 12.dp),
+                        modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
                     )
+                    unitsSheetType?.let { sheetType ->
+                        val checked = alwaysOpenLastUnit[sheetType] == true
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                                .clickable {
+                                    alwaysOpenLastUnit[sheetType] = !checked
+                                    HomeUnitPrefs.set(unitsContext, sheetType, !checked)
+                                }
+                                .padding(bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            androidx.compose.material3.Checkbox(
+                                checked = checked,
+                                onCheckedChange = null,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            )
+                            Column {
+                                Text(
+                                    text = "Всегда открывать последний",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        }
+                    }
                     when (unitsSheetType) {
-                        "loco" -> route.locomotives.forEachIndexed { index, loco ->
+                        "loco" -> route.locomotivesInOrder().forEachIndexed { index, loco ->
                             UnitSheetRow(R.drawable.ic_card_locomotive_ref, locomotiveName(loco, index + 1)) {
                                 unitsSheetType = null; onChangedLocoClick(loco)
                             }
                         }
-                        "train" -> route.trains.forEach { train ->
+                        "train" -> route.trainsInOrder().forEach { train ->
                             val first = train.stations.firstOrNull()?.stationName
                             val last = if (train.stations.size > 1) train.stations.last().stationName else null
                             UnitSheetRow(R.drawable.ic_card_train_ref, routeUnitFullName(train.number, train.servicePhase, first, last)) {
@@ -930,6 +976,22 @@ fun HomeScreen(
                         }
                     },
                     actions = {
+                        // Красный индикатор: фоновая синхронизация не достучалась до сервера.
+                        if (isOffline) {
+                            IconButton(onClick = {
+                                scope.launch {
+                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                    snackbarHostState.showSnackbar("Нет связи с сервером")
+                                }
+                            }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_offline_24px),
+                                    contentDescription = "Нет связи с сервером",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
                         IconButton(onClick = onSearchClick) {
                             Icon(
                                 painter = painterResource(R.drawable.search_24px),
@@ -939,9 +1001,6 @@ fun HomeScreen(
                         }
                     }
                 )
-                if (isBackgroundSyncing) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
                 // Заголовок месяца выровнен по общему внешнему полю контента +
                 // стрелки переключения месяца.
                 val monthYearListState by viewModel.monthYearList.collectAsState()
@@ -1229,7 +1288,7 @@ fun HomeScreen(
                                 val autoState by autoManager.state.collectAsState()
                                 com.z_company.route.autorecord.AutoRecordChip(
                                     state = autoState,
-                                    onToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(autoManager),
+                                    onToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(autoManager, onOpenPrivacy = onConsentSettings),
                                 )
                             }
                             LazyRow(
@@ -1330,6 +1389,7 @@ fun HomeScreen(
                                                 onNewTrain = onNewTrainClick,
                                                 onChangedPassenger = onChangedPassengerClick,
                                                 onNewPassenger = onNewPassengerClick,
+                                                alwaysOpenLast = alwaysOpenLastUnit[type] == true,
                                             )
                                         }
                                     }
@@ -1842,6 +1902,7 @@ private fun RouteUnitTile(
     onNewTrain: (String) -> Unit,
     onChangedPassenger: (Passenger) -> Unit,
     onNewPassenger: (String) -> Unit,
+    alwaysOpenLast: Boolean = false,
 ) {
     when (type) {
         "loco" -> StackedTile(
@@ -1850,18 +1911,20 @@ private fun RouteUnitTile(
             count = route.locomotives.size,
             iconRes = R.drawable.ic_card_locomotive_ref,
             label = "ЛОКОМОТИВ",
-            title = route.locomotives.lastOrNull()?.let { locomotiveName(it, route.locomotives.size) },
+            title = route.locomotivesInOrder().lastOrNull()?.let { locomotiveName(it, route.locomotives.size) },
             onClick = {
                 when {
+                    route.locomotives.size > 1 && alwaysOpenLast -> onChangedLoco(route.locomotivesInOrder().last())
                     route.locomotives.size > 1 -> onOpenSheet("loco")
                     route.locomotives.size == 1 -> onChangedLoco(route.locomotives.first())
                     else -> onNewLoco(route.basicData.id)
                 }
             },
             onAddClick = { onNewLoco(route.basicData.id) },
+            onStackClick = if (alwaysOpenLast) ({ onOpenSheet("loco") }) else null,
         )
         "train" -> {
-            val train = route.trains.lastOrNull()
+            val train = route.trainsInOrder().lastOrNull()
             val first = train?.stations?.firstOrNull()?.stationName
             val last = if ((train?.stations?.size ?: 0) > 1) train?.stations?.last()?.stationName else null
             StackedTile(
@@ -1874,12 +1937,14 @@ private fun RouteUnitTile(
                 subtitle = train?.let { routeUnitSubtitle(it.number, it.servicePhase, first, last) },
                 onClick = {
                     when {
+                        route.trains.size > 1 && alwaysOpenLast -> onChangedTrain(route.trainsInOrder().last())
                         route.trains.size > 1 -> onOpenSheet("train")
                         route.trains.size == 1 -> onChangedTrain(route.trains.first())
                         else -> onNewTrain(route.basicData.id)
                     }
                 },
                 onAddClick = { onNewTrain(route.basicData.id) },
+                onStackClick = if (alwaysOpenLast) ({ onOpenSheet("train") }) else null,
             )
         }
         else -> {
@@ -1894,12 +1959,14 @@ private fun RouteUnitTile(
                 subtitle = p?.let { routeUnitSubtitle(it.trainNumber, null, it.stationDeparture, it.stationArrival) },
                 onClick = {
                     when {
+                        route.passengers.size > 1 && alwaysOpenLast -> onChangedPassenger(route.passengers.last())
                         route.passengers.size > 1 -> onOpenSheet("passenger")
                         route.passengers.size == 1 -> onChangedPassenger(route.passengers.first())
                         else -> onNewPassenger(route.basicData.id)
                     }
                 },
                 onAddClick = { onNewPassenger(route.basicData.id) },
+                onStackClick = if (alwaysOpenLast) ({ onOpenSheet("passenger") }) else null,
             )
         }
     }
@@ -2049,6 +2116,9 @@ private fun StackedTile(
     subtitle: String? = null,
     onClick: () -> Unit,
     onAddClick: () -> Unit,
+    // Клик по бейджу-счётчику стопки (когда основной клик открывает последний элемент напрямую —
+    // бейдж остаётся способом открыть список).
+    onStackClick: (() -> Unit)? = null,
 ) {
     val tileSize = 150.dp
     val stackOffset = 6.dp
@@ -2072,7 +2142,12 @@ private fun StackedTile(
                 }
                 if (hasStack) {
                     Badge(
-                        modifier = Modifier.align(Alignment.TopEnd),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .then(
+                                if (onStackClick != null) Modifier.clickable(enabled = enabled) { onStackClick() }
+                                else Modifier
+                            ),
                         containerColor = c.tertiary,
                         contentColor = c.surface,
                     ) { Text("$count") }

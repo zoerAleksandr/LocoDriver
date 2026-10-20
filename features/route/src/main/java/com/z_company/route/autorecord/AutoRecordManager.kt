@@ -30,6 +30,7 @@ import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.track.NO_TRAIN_ID
+import com.z_company.domain.track.TrackAnalysis
 import com.z_company.domain.track.TrackPoint
 import com.z_company.domain.track.TrackRecordingState
 import com.z_company.domain.track.TrackRepository
@@ -205,6 +206,7 @@ class AutoRecordManager(
         // Целевой поезд: из кнопки на экране «Поезд»; без контекста — фиксируется асинхронно ниже.
         prefs.edit().putLong(KEY_UNTIL, until).putLong(KEY_BEAT, nowMs())
             .putBoolean(KEY_INTERRUPTED, false)
+            .putLong(KEY_LAST_ENABLED, nowMs()) // для мягкого напоминания про «АВТО»: пользователь режим уже пробовал
             .apply { if (trainId != null) putString(KEY_TARGET, trainId) else remove(KEY_TARGET) }
             .apply()
         _target.value = trainId
@@ -298,23 +300,26 @@ class AutoRecordManager(
             // Отправка накопленного и очистка осиротевших треков (воркер без сети/входа просто выходит).
             runCatching { onTrackUpload() }
         }
-        // Вклад высот (согласие №2): неотправленные сеансы - в отправку; без согласия - удалить.
-        altitudeStore?.let { st ->
-            runCatching {
-                if (trackConsent?.altitudeContrib?.value == true) {
-                    if (st.pendingIds().isNotEmpty()) onAltitudeContrib()
-                } else {
-                    st.clear()
+        // Файловые хранилища вкладов читаем вне главного потока.
+        scope.launch(Dispatchers.Default) {
+            // Вклад высот (согласие №2): неотправленные сеансы - в отправку; без согласия - удалить.
+            altitudeStore?.let { st ->
+                runCatching {
+                    if (trackConsent?.altitudeContrib?.value == true) {
+                        if (st.pendingIds().isNotEmpty()) onAltitudeContrib()
+                    } else {
+                        st.clear()
+                    }
                 }
             }
-        }
-        // Вклад зон без GPS: то же правило (согласие №2 в новой редакции).
-        gnssStore?.let { st ->
-            runCatching {
-                if (trackConsent?.gnssContribAllowed() == true) {
-                    if (st.pendingIds().isNotEmpty()) onGnssContrib()
-                } else {
-                    st.clear()
+            // Вклад зон без GPS: то же правило (согласие №2 в новой редакции).
+            gnssStore?.let { st ->
+                runCatching {
+                    if (trackConsent?.gnssContribAllowed() == true) {
+                        if (st.pendingIds().isNotEmpty()) onGnssContrib()
+                    } else {
+                        st.clear()
+                    }
                 }
             }
         }
@@ -478,6 +483,8 @@ class AutoRecordManager(
         if (wasEnabled && notifyExpired) showExpiredNotification()
     }
 
+    private var signalDrops = 0
+
     private suspend fun onPoint(p: GpsPoint) {
         val s = _state.value
         if (!s.enabled) return
@@ -510,15 +517,22 @@ class AutoRecordManager(
         val consent = trackConsent?.saveTracks?.value == true
         val target = prefs.getString(KEY_TARGET, null)
         try {
+            // Потеря сигнала / плохая точность: «точку стоянки» не пишем (§6.9). Возраст fix по часам
+            // устройства не сравниваем: при неверном времени телефона отбрасывались бы все точки.
+            val signalOk = GpsRecorder.quality.value.level != GnssLevel.LOST &&
+                GnssQualityRules.isUsableFix(0L, p.accuracyM)
+            // Диагностика (без координат): сколько точек стоянки отброшено из-за сигнала.
+            if (!signalOk && (p.speedKmh?.let { it < TrackAnalysis.STOP_SPEED_KMH } != false)) {
+                signalDrops++
+                if (signalDrops % 10 == 1) prefs.edit().putInt("diag_signal_drops", signalDrops).apply()
+            }
             synchronized(writer) {
                 writer.onPoint(
                     target,
                     TrackPoint(p.timeMs, p.latitude, p.longitude, p.speedKmh, p.accuracyM, p.altitudeM, p.baroAltitudeM),
                     consent,
-                    // Потеря сигнала / плохая точность: «точку стоянки» не пишем (§6.9). Возраст fix по часам
-                    // устройства не сравниваем: при неверном времени телефона отбрасывались бы все точки.
-                    signalOk = GpsRecorder.quality.value.level != GnssLevel.LOST &&
-                        GnssQualityRules.isUsableFix(0L, p.accuracyM),
+                    signalOk = signalOk,
+                    held = p.held,
                 )
             }
         } catch (e: Exception) {
@@ -794,6 +808,7 @@ class AutoRecordManager(
         private const val KEY_TZ = "display_tz"
         private const val KEY_NO_ROUTE_AT = "no_route_notified_ms"
         const val KEY_BATTERY_ASKED = "battery_asked"
+        private const val KEY_LAST_ENABLED = "last_enabled_ms"
         private const val STALE_MS = 10 * 60_000L
         private const val BEAT_WRITE_MS = 20_000L
         private const val NO_ROUTE_REPEAT_MS = 30 * 60_000L
@@ -804,6 +819,10 @@ class AutoRecordManager(
         private const val INTERRUPTED_ID = 7404
         private const val NO_CONSENT_ID = 7405
         private const val GPS_LOST_ID = 7406
+
+        /** Когда «АВТО» включали в последний раз (0 - никогда): мягкое напоминание про «АВТО» (docs/ONBOARDING_MATERIALS.md §4). */
+        fun lastEnabledMs(context: Context): Long =
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getLong(KEY_LAST_ENABLED, 0L)
 
         /** Для виджетов: момент автовыключения или 0, если АВТО выключено. */
         fun savedUntil(context: Context, now: Long = System.currentTimeMillis()): Long =

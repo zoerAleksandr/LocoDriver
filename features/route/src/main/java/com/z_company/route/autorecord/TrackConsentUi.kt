@@ -52,6 +52,13 @@ object TrackConsentTexts {
     const val NO_CONSENT_NOTE = "Без согласия режим «АВТО» продолжит записывать стоянки и отправления поезда, " +
         "но путь не сохранится."
     const val CONTINUE = "Продолжить"
+
+    // Экран первого включения «АВТО» (ONBOARDING_MATERIALS §3 - дословно): над переключателями согласий.
+    const val INTRO_TITLE = "Режим «АВТО»"
+    const val INTRO_TEXT = "АВТО сам записывает стоянки и отправления вашего поезда по скорости и месту. " +
+        "Время считается по тому моменту, когда поезд остановился или тронулся. Режим выключится сам через 12 часов."
+    const val CANCEL = "Отмена"
+    const val DETAILS = "Подробнее"
     const val REVOKE_TITLE = "Отозвать согласие?"
     const val REVOKE_TEXT = "Новые треки сохраняться не будут. Уже записанные треки останутся в разделе «Мои треки» — " +
         "удалить их можно там."
@@ -81,6 +88,8 @@ fun TrackConsentDialog(
     onContinue: (saveTracks: Boolean, shareAltitudes: Boolean) -> Unit,
     onDismiss: () -> Unit,
     initialAltitudeChecked: Boolean = false,
+    /** «Подробнее» → «Данные и конфиденциальность»; null - ссылки нет. */
+    onOpenDetails: (() -> Unit)? = null,
 ) {
     var checked by remember { mutableStateOf(initialChecked) }
     var altChecked by remember { mutableStateOf(initialAltitudeChecked) }
@@ -101,8 +110,32 @@ fun TrackConsentDialog(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     Text(
-                        TrackConsentTexts.TITLE,
+                        TrackConsentTexts.INTRO_TITLE,
                         style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.testTag("track_consent_intro_title"),
+                    )
+                    Text(
+                        TrackConsentTexts.INTRO_TEXT,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    // Кнопки - над переключателями согласий (ONBOARDING_MATERIALS §3).
+                    Button(
+                        onClick = { onContinue(checked, altChecked) },
+                        modifier = Modifier.fillMaxWidth().testTag("track_consent_continue"),
+                    ) { Text(TrackConsentTexts.CONTINUE) }
+                    TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text(TrackConsentTexts.CANCEL) }
+                    onOpenDetails?.let {
+                        TextButton(onClick = it, modifier = Modifier.fillMaxWidth().testTag("track_consent_details")) {
+                            Text(TrackConsentTexts.DETAILS)
+                        }
+                    }
+                    HorizontalDivider()
+                    Text(
+                        TrackConsentTexts.TITLE,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -161,12 +194,6 @@ fun TrackConsentDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Spacer(Modifier.height(12.dp))
-                Button(
-                    onClick = { onContinue(checked, altChecked) },
-                    modifier = Modifier.fillMaxWidth().testTag("track_consent_continue"),
-                ) { Text(TrackConsentTexts.CONTINUE) }
-                TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Отмена") }
             }
         }
     }

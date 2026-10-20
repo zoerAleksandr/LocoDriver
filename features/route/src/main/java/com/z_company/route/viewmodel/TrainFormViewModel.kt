@@ -238,14 +238,22 @@ class TrainFormViewModel(
                                     passengerWagonLengthMeters = settings.passengerWagonLengthMeters,
                                 )
                             }
-                            stationNameList.addAllOrSkip(settings.stationList.toMutableStateList())
-                            mutableStationList.addAllOrSkip(stationNameList)
-                            locomotiveSeriesList.addAllOrSkip(settings.locomotiveSeriesList.toMutableStateList())
-                            mutableFilteredSeriesList.addAllOrSkip(locomotiveSeriesList)
-                            servicePhaseList.clear()
-                            // Координаты станций плеч — из справочника станций (единый источник).
-                            stationDirectory.backfillOnce(settings.servicePhases)
-                            servicePhaseList.addAllOrSkip(stationDirectory.resolve(settings.servicePhases).toMutableStateList())
+                            com.z_company.core.ui.perf.ScreenPerf.section("train.settingsLists") {
+                                // Подсказки станций: настройки + справочник станций.
+                                stationNameList.addAllOrSkip(
+                                    com.z_company.route.util.mergeStationSuggestions(
+                                        settings.stationList,
+                                        stationDirectory.stations().map { it.name },
+                                    )
+                                )
+                                mutableStationList.addAllOrSkip(stationNameList)
+                                locomotiveSeriesList.addAllOrSkip(settings.locomotiveSeriesList)
+                                mutableFilteredSeriesList.addAllOrSkip(locomotiveSeriesList)
+                                servicePhaseList.clear()
+                                // Координаты станций плеч — из справочника станций (единый источник).
+                                stationDirectory.backfillOnce(settings.servicePhases)
+                                servicePhaseList.addAllOrSkip(stationDirectory.resolve(settings.servicePhases))
+                            }
                         }
                     }
                 }
@@ -1656,7 +1664,7 @@ class TrainFormViewModel(
             val newStationList =
                 sortSuggestions(
                     stationNameList
-                        .filter { it.startsWith(prefix = value, ignoreCase = true) }
+                        .filter { com.z_company.route.util.stationNameMatches(it, value) }
                         .filterNot { it == value }
                         .distinct()
                 ).toMutableStateList()

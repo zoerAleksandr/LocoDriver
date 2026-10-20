@@ -1171,7 +1171,18 @@ class SyncManager(
      * (сервер принял бы его за full-replace старого клиента). Возвращает false, если сеть
      * не отдала справочник или отправка не удалась; тогда локальное не меняем.
      */
-    private suspend fun syncStationNorms(bearerToken: String): Boolean {
+    private suspend fun syncStationNorms(bearerToken: String): Boolean = try {
+        syncStationNormsUnsafe(bearerToken)
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        // Локальная схема справочника станций может быть повреждена («no such table/column»):
+        // это не должно ломать всю синхронизацию и показываться пользователю. Только тип ошибки.
+        println("SyncManager: syncStationNorms skipped: ${e::class.simpleName}")
+        false
+    }
+
+    private suspend fun syncStationNormsUnsafe(bearerToken: String): Boolean {
         var remote: StationSnapshot? = null
         settingManager.getNormaTimeStationsFromRemote(bearerToken)
             .catch { }
@@ -1226,7 +1237,18 @@ class SyncManager(
     }
 
     /** Справочник серий локомотивов: слияние с сервером, как у станций ([syncStationNorms]). */
-    private suspend fun syncLocomotiveSeries(bearerToken: String): Boolean {
+    private suspend fun syncLocomotiveSeries(bearerToken: String): Boolean = try {
+        syncLocomotiveSeriesUnsafe(bearerToken)
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        // Локальная схема справочника серий может быть повреждена («no such table/column»):
+        // это не должно ломать всю синхронизацию и показываться пользователю. Только тип ошибки.
+        println("SyncManager: syncLocomotiveSeries skipped: ${e::class.simpleName}")
+        false
+    }
+
+    private suspend fun syncLocomotiveSeriesUnsafe(bearerToken: String): Boolean {
         var remote: SeriesSnapshot? = null
         settingManager.getNormaTimeLocomotivesFromRemote(bearerToken)
             .catch { }

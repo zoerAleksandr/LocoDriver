@@ -281,6 +281,7 @@ internal fun SettingsSelectTile(
     value: String,
     onClick: () -> Unit,
     leadingEmoji: String? = null,
+    leading: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -292,7 +293,10 @@ internal fun SettingsSelectTile(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (leadingEmoji != null) {
+        if (leading != null) {
+            leading()
+            Spacer(Modifier.width(12.dp))
+        } else if (leadingEmoji != null) {
             Text(text = leadingEmoji, fontSize = 19.sp)
             Spacer(Modifier.width(10.dp))
         }
@@ -319,6 +323,7 @@ internal data class SettingsPickerOption(
     val sub: String? = null,
     val leadingEmoji: String? = null,
     val selected: Boolean = false,
+    val leading: (@Composable () -> Unit)? = null,
     val onSelect: () -> Unit,
 )
 
@@ -385,7 +390,9 @@ private fun SettingsPickerRow(option: SettingsPickerOption, onDismiss: () -> Uni
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         SettingsRadioCircle(selected = option.selected)
-        if (option.leadingEmoji != null) {
+        if (option.leading != null) {
+            option.leading.invoke()
+        } else if (option.leadingEmoji != null) {
             Text(text = option.leadingEmoji, fontSize = 20.sp)
         }
         Column(modifier = Modifier.weight(1f)) {

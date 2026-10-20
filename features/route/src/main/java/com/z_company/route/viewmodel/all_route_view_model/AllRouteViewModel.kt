@@ -95,6 +95,8 @@ data class RoutesUiState(
     val monthWorkedTimeText: String = "",
     /** Фоновая синхронизация при открытии экрана. */
     val isBackgroundSyncing: Boolean = false,
+    /** Последняя фоновая синхронизация не достучалась до сервера — красный индикатор в топбаре. */
+    val isOffline: Boolean = false,
     /** Режим множественного выбора (кнопка «Выбрать» в топбаре). */
     val isSelectionMode: Boolean = false,
     /** id выбранных маршрутов — действия нижней панели применяются к ним. */
@@ -162,9 +164,10 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
             if (!routeHelper.hasActiveSubscription()) return@launch
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             if (token.isNullOrBlank()) return@launch
-            _uiState.update { it.copy(isBackgroundSyncing = true) }
+            // Полосу загрузки не показываем: пользователь работает и без сети.
             try {
                 var failureMessage: String? = null
+                var connectivityFailed = false
                 var pendingDeletionCount = 0
                 syncManager.syncBidirectional("Bearer $token").collect { state ->
                     when (state) {
@@ -173,6 +176,9 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                                 state.entity.message,
                                 state.entity.throwable,
                             )
+                            if (NetworkErrorMapper.isConnectivityError(state.entity.throwable) ||
+                                NetworkErrorMapper.isConnectivityMessage(failureMessage)
+                            ) connectivityFailed = true
                         }
                         is ResultState.Success -> {
                             pendingDeletionCount = state.data.pendingDeletionRouteIds.size
@@ -180,19 +186,24 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                         else -> {}
                     }
                 }
+                // Нет сети — тихий красный индикатор вместо тоста; успешный проход его гасит.
+                _uiState.update { it.copy(isOffline = connectivityFailed) }
                 // Тихий фоновый sync не удаляет маршруты сам, если это значительный объём —
                 // Подтверждение выполняется непосредственно в корзине.
-                val message = failureMessage ?: if (pendingDeletionCount > 0) {
+                val message = if (connectivityFailed) null
+                else failureMessage ?: if (pendingDeletionCount > 0) {
                     "На сервере пропало маршрутов: $pendingDeletionCount. Проверьте корзину в Настройках."
                 } else null
                 message?.let { snackbarManager.show(it) }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                e.sendToSentry("AllRouteViewModel", "syncOnScreenOpen")
-                snackbarManager.show(NetworkErrorMapper.syncFailureMessage(e.message, e))
-            } finally {
-                _uiState.update { it.copy(isBackgroundSyncing = false) }
+                if (NetworkErrorMapper.isConnectivityError(e)) {
+                    _uiState.update { it.copy(isOffline = true) }
+                } else {
+                    e.sendToSentry("AllRouteViewModel", "syncOnScreenOpen")
+                    snackbarManager.show(NetworkErrorMapper.syncFailureMessage(e.message, e))
+                }
             }
         }
     }
@@ -496,9 +507,7 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                     }
 
                     is ResultState.Error -> {
-                        val errorMsg = resultState.entity.message
-                            ?: resultState.entity.throwable?.message
-                            ?: "Ошибка синхронизации"
+                        val errorMsg = friendlyNetworkErrorMessage(resultState.entity.message ?: resultState.entity.throwable?.message, "Ошибка синхронизации")
                         snackbarManager.show(
                             message = "$label: $errorMsg",
                             duration = androidx.compose.material3.SnackbarDuration.Long
@@ -532,7 +541,7 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                     is ResultState.Error -> {
                         // также уведомляем об ошибке
                         val message =
-                            result.entity.message ?: result.entity.throwable?.message ?: "Ошибка"
+                            friendlyNetworkErrorMessage(result.entity.message ?: result.entity.throwable?.message, "Ошибка")
                         snackbarManager.show(message = message)
                         _uiState.update { it.copy(removeRouteState = ResultState.Error(result.entity)) }
                     }
@@ -559,7 +568,7 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                 is ResultState.Error -> {
                     // также уведомляем об ошибке
                     val message =
-                        result.entity.message ?: result.entity.throwable?.message ?: "Ошибка"
+                        friendlyNetworkErrorMessage(result.entity.message ?: result.entity.throwable?.message, "Ошибка")
                     snackbarManager.show(message = message)
                     _uiState.update { it.copy(removeRouteState = ResultState.Error(result.entity)) }
                 }
@@ -665,8 +674,7 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                         }
 
                         is ResultState.Error -> {
-                            val message = result.entity.message ?: result.entity.throwable?.message
-                            ?: "Ошибка загрузки маршрутов"
+                            val message = friendlyNetworkErrorMessage(result.entity.message ?: result.entity.throwable?.message, "Ошибка загрузки маршрутов")
                             _uiState.update {
                                 it.copy(
                                     isLoading = false,

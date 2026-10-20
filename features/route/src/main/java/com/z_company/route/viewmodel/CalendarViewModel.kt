@@ -521,7 +521,7 @@ class CalendarViewModel : ViewModel(), KoinComponent {
                     }
                     is ResultState.Error -> {
                         snackbarManager.show(
-                            result.entity.message ?: result.entity.throwable?.message ?: "Ошибка"
+                            friendlyNetworkErrorMessage(result.entity.message ?: result.entity.throwable?.message, "Ошибка")
                         )
                     }
                     is ResultState.Loading -> Unit
@@ -595,8 +595,7 @@ class CalendarViewModel : ViewModel(), KoinComponent {
                         loadMonth()
                     }
                     is ResultState.Error -> {
-                        val errorMsg = resultState.entity.message
-                            ?: resultState.entity.throwable?.message ?: "Ошибка синхронизации"
+                        val errorMsg = friendlyNetworkErrorMessage(resultState.entity.message ?: resultState.entity.throwable?.message, "Ошибка синхронизации")
                         snackbarManager.show(
                             message = "$label: $errorMsg",
                             duration = androidx.compose.material3.SnackbarDuration.Long,

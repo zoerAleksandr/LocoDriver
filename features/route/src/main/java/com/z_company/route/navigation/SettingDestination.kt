@@ -1,5 +1,7 @@
 package com.z_company.route.navigation
 
+import com.z_company.core.ui.perf.ScreenOpenTrace
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -18,6 +20,7 @@ fun SettingDestination(
     router: Router,
     backStackEntry: NavBackStackEntry
 ) {
+    ScreenOpenTrace("settings")
     val settingsViewModel: SettingsViewModel = viewModel()
     val pullToSyncViewModel: PullToSyncViewModel = viewModel()
     val pullToSyncState by pullToSyncViewModel.uiState.collectAsState()

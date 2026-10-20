@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.z_company.loco_driver.R
 import kotlin.math.ceil
@@ -57,6 +58,8 @@ object WKeys {
     val CURRENT_REPORT_DATE = stringPreferencesKey("w_current_report_date") // "16.07.26"
     // id текущего маршрута — для перехода по тапу на блок «ТЕКУЩИЙ МАРШРУТ»
     val CURRENT_ROUTE_ID = stringPreferencesKey("w_current_route_id")
+    // Явка текущего маршрута (мс, UTC) — от неё тикает хронометр «На работе»; 0 — не показывать.
+    val CURRENT_WORK_START_MS = longPreferencesKey("w_current_work_start_ms")
 
     // ─── Состояние нижнего блока развёрнутого виджета ───
     // "current" | "upcoming" | "upcoming_unknown" | "rest" | "home_rest" | "none"
@@ -251,6 +254,16 @@ object WidgetRender {
      * `false`, когда под хедером ещё показаны кнопки записи — так
      * экономится высота, а номер маршрута и так виден в приложении.
      */
+    /** Часовой пояс `GMT±hh:mm`, при котором время суток TextClock равно времени, прошедшему с [startMs]. */
+    internal fun elapsedClockZone(startMs: Long): String {
+        val day = 1440L
+        var offsetMin = ((-(startMs / 60_000L)) % day + day) % day
+        if (offsetMin > day / 2) offsetMin -= day            // в пределах ±12 ч (допустимо ±18)
+        val sign = if (offsetMin < 0) "-" else "+"
+        val abs = kotlin.math.abs(offsetMin)
+        return "GMT%s%02d:%02d".format(sign, abs / 60, abs % 60)
+    }
+
     fun populateRouteHeader(
         rv: RemoteViews,
         routeNumber: String,
@@ -258,7 +271,17 @@ object WidgetRender {
         to: String,
         trainLine: String,
         showCaption: Boolean = true,
+        workStartMs: Long = 0L,
     ) {
+        // «На работе»: прошедшее время «Ч:ММ» от явки. TextClock показывает время суток в заданном поясе;
+        // пояс GMT±hh:mm = −явка (по модулю суток) → время суток == прошедшее время. Обновляется
+        // сам раз в минуту, без перерисовки виджета. Смена короче 24 часов.
+        if (workStartMs > 0L && workStartMs <= System.currentTimeMillis()) {
+            rv.setViewVisibility(R.id.work_row, View.VISIBLE)
+            rv.setString(R.id.work_chrono, "setTimeZone", elapsedClockZone(workStartMs))
+        } else {
+            rv.setViewVisibility(R.id.work_row, View.GONE)
+        }
         if (showCaption) {
             rv.setViewVisibility(R.id.header_caption_row, View.VISIBLE)
             if (routeNumber.isNotEmpty()) {

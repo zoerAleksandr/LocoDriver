@@ -24,6 +24,7 @@ import com.z_company.core.util.ConverterLongToTime
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.route.util.HomeUnitPrefs
 import com.z_company.route.viewmodel.Passenger12hOption
 import com.z_company.route.viewmodel.SettingsViewModel
 import org.koin.compose.koinInject
@@ -89,20 +90,52 @@ fun SettingsRouteContent(
         // ── Значок положения на карте поезда ──
         val context = androidx.compose.ui.platform.LocalContext.current
         val positionIcon by PositionIconStore.selected(context).collectAsState()
+        var showPositionIconSheet by remember { mutableStateOf(false) }
         SettingsGroupHeader("ЗНАЧОК ПОЛОЖЕНИЯ", top = 20.dp, startPad = 4.dp)
+        SettingsSelectTile(
+            value = positionIcon.label,
+            onClick = { showPositionIconSheet = true },
+            leading = { PositionIconTile(positionIcon, 36.dp) },
+        )
+        SettingsSectionNote("Так вы отображаетесь на карте поезда. Значок поворачивается по ходу движения. Выбор хранится на этом устройстве.")
+        if (showPositionIconSheet) {
+            SettingsPickerSheet(
+                title = "Значок положения",
+                options = PositionIcon.entries.map { icon ->
+                    SettingsPickerOption(
+                        label = icon.label,
+                        sub = if (icon == PositionIcon.ARROW) "По умолчанию" else null,
+                        selected = positionIcon == icon,
+                        leading = { PositionIconTile(icon, 48.dp) },
+                        onSelect = { PositionIconStore.set(context, icon) },
+                    )
+                },
+                onDismiss = { showPositionIconSheet = false },
+            )
+        }
+
+        // ── Главный экран: «Всегда открывать последний» ──
+        val openLast = remember {
+            androidx.compose.runtime.mutableStateMapOf<String, Boolean>().apply {
+                HomeUnitPrefs.types.forEach { put(it, HomeUnitPrefs.get(context, it)) }
+            }
+        }
+        SettingsGroupHeader("ГЛАВНЫЙ ЭКРАН", top = 20.dp, startPad = 4.dp)
         SettingsCard {
-            PositionIcon.entries.forEachIndexed { index, icon ->
+            listOf("loco" to "Локомотив", "train" to "Поезд", "passenger" to "Пассажиром").forEachIndexed { index, (type, label) ->
                 if (index > 0) SettingsCardSep()
-                SettingsRadioRow(
-                    label = icon.label,
-                    sub = if (icon == PositionIcon.ARROW) "По умолчанию" else null,
-                    selected = positionIcon == icon,
-                    onClick = { PositionIconStore.set(context, icon) },
-                    leading = { PositionIconTile(icon, 56.dp) },
+                SettingsSwitchRow(
+                    label = label,
+                    sub = "Всегда открывать последний",
+                    checked = openLast[type] == true,
+                    onCheckedChange = {
+                        openLast[type] = it
+                        HomeUnitPrefs.set(context, type, it)
+                    },
                 )
             }
         }
-        SettingsSectionNote("Так вы отображаетесь на карте поезда. Значок поворачивается по ходу движения. Выбор хранится на этом устройстве.")
+        SettingsSectionNote("В разделе «Текущий маршрут», если есть несколько объектов")
 
         // ── Вид тяги (по умолчанию) ──
         SettingsGroupHeader("ВИД ТЯГИ", top = 20.dp, startPad = 4.dp)
