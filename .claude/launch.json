@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "pwa-permanent-partner",
+      "name": "pwa",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "cd /Users/zoer/Documents/loco-driver-pwa-permanent-partner && node_modules/.bin/vite --port 5188 --strictPort"],
-      "port": 5188
+      "runtimeArgs": ["-c", "cd /Users/zoer/Documents/loco-driver-pwa && node_modules/.bin/vite --port 5199 --strictPort"],
+      "port": 5199
     }
   ]
 }

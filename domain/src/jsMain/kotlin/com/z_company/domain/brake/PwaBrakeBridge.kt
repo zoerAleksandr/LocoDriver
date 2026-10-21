@@ -370,12 +370,13 @@ object PwaBrakeBridge {
     }
 
     private fun compositionOf(d: BrakeCertificateData, e: TurnaroundEntry?): TurnaroundComposition.Result? =
-        e?.let { TurnaroundComposition.compute(BrakeCertificateEngine.input(d), it.newWeight.toFiniteDoubleOrNull(), it.newAxles.trim().toIntOrNull(), it.changes) }
+        e?.let { TurnaroundComposition.compute(BrakeCertificateEngine.input(d, requireWeight = false), it.newWeight.toFiniteDoubleOrNull(), it.newAxles.trim().toIntOrNull(), it.changes) }
 
     private fun compositionResult(r: TurnaroundComposition.Result?): JsonElement = r?.let {
         buildJsonObject {
             put("category", category(it.category)); put("normBefore", it.normBefore); put("normAfter", it.normAfter); put("normChanged", it.normChanged)
             put("totalWeight", it.totalWeight); put("required", it.required); put("frontActual", it.frontActual); put("frontAxles", it.frontAxles)
+            put("available", buildJsonArray { it.available.forEach { r -> add(buildJsonObject { put("pressure", r.pressurePerAxle); put("axles", r.axles) }) } })
             put("derivedAxles", it.derivedAxles); put("actual", it.actual); put("attachedTc", it.attachedTc); put("detachedTc", it.detachedTc)
             put("requiredManualAxles", it.requiredManualAxles); put("manualAxlesBefore", it.manualAxlesBefore)
             put("warnings", buildJsonArray { it.warnings.forEach { w -> add(JsonPrimitive(w)) } })
