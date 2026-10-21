@@ -12,7 +12,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-private class FakeRepo : BrakeCertificateRepository {
+internal class FakeRepo : BrakeCertificateRepository {
     val rows = mutableMapOf<String, StoredBrakeCertificate>()
     override fun getByTrain(trainId: String) = rows.values.filter { it.trainId == trainId }.maxByOrNull { it.updatedAt }
     override fun listByRoute(routeId: String, includeDeleted: Boolean) =
