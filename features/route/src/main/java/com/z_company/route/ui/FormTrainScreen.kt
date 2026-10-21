@@ -1826,7 +1826,9 @@ fun FormTrainScreen(
                     item { Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.secondary_spacing))) }
                     item {
                         val stopwatch = rememberStopwatchState(
-                            stations = stationListState?.map {
+                            // Проходные станции в секундомере не участвуют: отсчёт идёт от
+                            // последней остановки/отправления, а не от времени проследования.
+                            stations = stationListState?.filterNot { it.isPassingStation }?.map {
                                 StopwatchStation(
                                     name = it.station.data,
                                     arrival = it.arrival.data,

@@ -1320,6 +1320,8 @@ class TrainFormViewModel(
 
         for (i in endIdx downTo 0) {
             val station = stationsListState[i]
+            // Проходная станция (время проследования) в логике кнопки ▶ не участвует.
+            if (station.isPassingStation) continue
             if (station.departure.data != null) return Pair(i, StationDataType.DEPARTURE)
             if (station.arrival.data != null) return Pair(i, StationDataType.ARRIVAL)
         }
@@ -1363,7 +1365,9 @@ class TrainFormViewModel(
             setDepartureTime(idx, now)
         } else {
             // Последнее заполненное — departure → arrival на следующей станции
-            val nextIdx = idx + 1
+            var nextIdx = idx + 1
+            // Проходные станции пропускаем: остановку записываем на следующую непроходную.
+            while (nextIdx <= stationsListState.lastIndex && stationsListState[nextIdx].isPassingStation) nextIdx++
             val isServicePhaseArrival = hasServicePhase && nextIdx == stationsListState.lastIndex
             if (nextIdx <= stationsListState.lastIndex && !isServicePhaseArrival) {
                 // Следующая станция уже существует и это не конечная станция плеча
