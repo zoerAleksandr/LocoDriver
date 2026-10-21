@@ -103,6 +103,16 @@ class PwaBrakeBridgeTest {
     }
 
     @Test
+    fun normalizeDataFillsDefaultsAndKeepsValues() {
+        val r = call("normalizeData", """{"data":{"weight":"3500","slope":"S010","unknownField":1}}""").jsonObject
+        assertEquals("3500", r["weight"]!!.jsonPrimitive.content)
+        assertEquals("S010", r["slope"]!!.jsonPrimitive.content)
+        assertEquals("FREIGHT_LOADED", r["categoryId"]!!.jsonPrimitive.content)
+        assertEquals("1", r["locoCount"]!!.jsonPrimitive.content)
+        assertTrue("unknownField" !in r)
+    }
+
+    @Test
     fun unknownFunctionFails() {
         assertFailsWith<IllegalArgumentException> { call("nope") }
         assertTrue(call("axleCheck", """{"declared":300,"tableSum":280,"locoAxles":0}""") is JsonObject)

@@ -108,6 +108,8 @@ object PwaBrakeBridge {
     private fun dispatch(name: String, a: JsonObject): JsonElement = when (name) {
         // Производные величины справки: всё, что рисуют «Бланк» и «Расчёт».
         "evaluate" -> evaluate(data(a), a.long("nowMs"))
+        // Каноническая форма справки: все поля со значениями по умолчанию (как хранит и отправляет Android).
+        "normalizeData" -> json.encodeToJsonElement(BrakeCertificateData.serializer(), data(a))
         "calculate" -> BrakeCertificateEngine.calculate(data(a))?.let { result(it) } ?: JsonNull
         "locoRow" -> locoRow(data(a))
         "axleCheck" -> axleCheck(a.intOrNull("declared"), a.int("tableSum") ?: 0, a.int("locoAxles") ?: 0)
