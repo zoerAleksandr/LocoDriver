@@ -622,10 +622,12 @@ internal fun VuStationSuggest(
     val t = vuColors()
     var focused by remember { mutableStateOf(false) }
     var dismissed by remember(value) { mutableStateOf(false) }
+    // значение на момент получения фокуса: список показывается, когда ввод начался (значение изменилось), а не сразу по фокусу
+    var valueAtFocus by remember { mutableStateOf<String?>(null) }
     val items = remember(value, suggestions) { BrakeStations.filter(suggestions, value) }
-    Box(modifier.onFocusChanged { focused = it.hasFocus; if (focused) dismissed = false }) {
+    Box(modifier.onFocusChanged { focused = it.hasFocus; if (focused) { dismissed = false; valueAtFocus = value } else valueAtFocus = null }) {
         content()
-        if (focused && !dismissed && items.isNotEmpty() && !BrakeStations.isExact(suggestions, value)) {
+        if (focused && !dismissed && value != valueAtFocus && items.isNotEmpty() && !BrakeStations.isExact(suggestions, value)) {
             DropdownMenu(
                 expanded = true,
                 onDismissRequest = { dismissed = true },

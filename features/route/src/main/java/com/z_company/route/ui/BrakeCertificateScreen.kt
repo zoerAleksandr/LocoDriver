@@ -396,6 +396,10 @@ private fun CalcTab(
                     "Ручных на 100 т веса", BrakeNorms.manualFieldText(state.manualInfo), Modifier.fillMaxWidth(), sunk = true,
                     onClick = { onSheet(BrakeSheet.ManualNorm) }, onHelp = { onSheet(BrakeSheet.Help("manual_req")) },
                 )
+                // потребное число ручных осей - сразу, как требуемое нажатие и плотность; нет данных (вес) - ничего не пишем
+                result?.requiredManualAxles?.let { n ->
+                    VuNormLine("Требуется ручных тормозов: $n осей (${BrakeNorms.manualFieldText(state.manualInfo).substringBefore(" ·")} на 100 т веса)")
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(Modifier.fillMaxWidth().heightIn(min = 24.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("Руководящий уклон, ‰", Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = t.muted)
