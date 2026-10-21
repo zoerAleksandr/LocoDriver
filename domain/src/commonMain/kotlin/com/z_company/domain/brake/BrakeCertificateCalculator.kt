@@ -117,7 +117,8 @@ object BrakeCertificateCalculator {
             actualPer100 = per100,
             enough = enough,
             shortagePer100 = shortage,
-            totalAxles = axlesFromRows + (loco?.axles ?: 0),
+            // без таблицы нажатий (нажатие не задано) берём введённое «Всего осей»: иначе при учтённом локомотиве на бланке были бы только его оси
+            totalAxles = (axlesFromRows.takeIf { it > 0 } ?: input.enteredAxles ?: 0) + (loco?.axles ?: 0),
             speed = speed,
             requiredManualAxles = manualRequired,
             manualAxlesOk = manualOk,

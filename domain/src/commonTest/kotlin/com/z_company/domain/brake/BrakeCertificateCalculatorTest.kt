@@ -108,6 +108,18 @@ class BrakeCertificateCalculatorTest {
     }
 
     @Test
+    fun totalAxlesWithLoco_noRows_usesEnteredAxles() {
+        // нажатие не задано (таблицы нет), «Всего осей» 64 введено: на бланке 64 + 8 локомотива, а не только 8
+        val r = BrakeCertificateCalculator.calculate(
+            BrakeCertificateInput(
+                category = cat("PASS_120"), compositionWeight = 800.0, rows = emptyList(),
+                loco = LocoBrakeInput(weight = 184.0, axles = 8, pressurePerAxle = 14.0), enteredAxles = 64,
+            ),
+        )
+        assertEquals(72, r.totalAxles)
+    }
+
+    @Test
     fun passengerWithLoco() {
         // Состав 800 тс + локомотив ЭП1/ВЛ80-подобный 184 тс (8 осей x 14,0)
         val r = BrakeCertificateCalculator.calculate(
