@@ -1318,7 +1318,11 @@ VuTimeField(e.readinessTime, { v -> vm.updateTurnaround(entryId) { it.copy(readi
             var compHelp by remember { mutableStateOf(false) }
             var compOpen by remember(entryId) { mutableStateOf(e.changes.isNotEmpty() || e.newWeight.isNotBlank() || e.newAxles.isNotBlank() || e.newRequired.isNotBlank() || e.newActual.isNotBlank()) }
             if (compHelp) CompositionHelpSheet(onDismiss = { compHelp = false })
-            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { compOpen = !compOpen }, verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable {
+                compOpen = !compOpen
+                // первая строка изменений открыта сразу
+                if (compOpen && e.changes.isEmpty()) vm.updateTurnaroundComposition(entryId) { en -> en.copy(changes = en.changes + WagonChange(id = vm.newTurnaroundId())) }
+            }, verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) { VuTag("При изменении состава и веса поезда") }
                 VuHelp({ compHelp = true }, touch = 32.dp)
                 Text(if (compOpen) "▴" else "▾", Modifier.padding(horizontal = 12.dp), fontSize = 14.sp, color = t.muted)
@@ -1326,13 +1330,14 @@ VuTimeField(e.readinessTime, { v -> vm.updateTurnaround(entryId) { it.copy(readi
             if (compOpen) {
             VuHint("Прицепка или отцепка вагонов: введите новый вес и добавьте строки изменений (сколько осей с каким нажатием отцеплено или прицеплено) - число осей, потребное и фактическое нажатие рассчитаются сами (можно поправить). Если состав не менялся - оставьте пустым.")
             val calc = remember(state, e.newWeight, e.newAxles, e.changes) {
-                TurnaroundComposition.compute(state.toInput(), e.newWeight.toFiniteDoubleOrNull(), e.newAxles.trim().toIntOrNull(), e.changes)
+                TurnaroundComposition.compute(state.toInput(requireWeight = false), e.newWeight.toFiniteDoubleOrNull(), e.newAxles.trim().toIntOrNull(), e.changes)
             }
             VuInput("Вес поезда, т", e.newWeight, onChange = { v -> vm.updateTurnaroundComposition(entryId) { it.copy(newWeight = v) } }, unit = "т", sunk = true)
             VuTag("Что изменилось в составе")
             e.changes.forEach { c ->
                 WagonChangeRow(
                     c,
+                    available = calc?.available.orEmpty(),
                     onChange = { n -> vm.updateTurnaroundComposition(entryId) { en -> en.copy(changes = en.changes.map { if (it.id == c.id) n else it }) } },
                     onRemove = { vm.updateTurnaroundComposition(entryId) { en -> en.copy(changes = en.changes.filterNot { it.id == c.id }) } },
                 )
@@ -1757,7 +1762,7 @@ private fun turnaroundLabel(e: TurnaroundEntry): String {
 
 /** Строка изменения состава: отцеплено/прицеплено, нажатие на ось (значения как на лицевой таблице или своё) и число осей. */
 @Composable
-private fun WagonChangeRow(c: WagonChange, onChange: (WagonChange) -> Unit, onRemove: () -> Unit) {
+private fun WagonChangeRow(c: WagonChange, available: List<AxleRow>, onChange: (WagonChange) -> Unit, onRemove: () -> Unit) {
     val t = vuColors()
     Column(Modifier.fillMaxWidth().border(1.dp, t.border, RoundedCornerShape(12.dp)).padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1769,8 +1774,11 @@ private fun WagonChangeRow(c: WagonChange, onChange: (WagonChange) -> Unit, onRe
             VuInput("Осей", c.axlesText, Modifier.weight(1f), onChange = { v -> onChange(c.copy(axlesText = v)) }, keyboard = KeyboardType.Number, sunk = true)
             VuInput("Нажатие на ось, тс", c.pressureText, Modifier.weight(1f), onChange = { v -> onChange(c.copy(pressureText = v)) }, sunk = true)
         }
+        // Отцепить можно только то, что есть на лицевой (нажатия с осями); прицепить - любое из печатных значений.
+        if (!c.attached && available.isEmpty()) VuHint("На лицевой нет нажатий с осями - заполните таблицу нажатий, тогда здесь можно будет выбрать, что отцепить.")
+        else if (!c.attached) available.firstOrNull { it.pressurePerAxle == c.pressure }?.let { VuHint("На лицевой по ${fmt(it.pressurePerAxle)} тс/ось: ${it.axles} осей") }
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            PRINTED.forEach { p ->
+            (if (c.attached) PRINTED else available.map { it.pressurePerAxle }).forEach { p ->
                 val txt = fmt(p)
                 VuChip(txt, c.pressure == p, { onChange(c.copy(pressureText = txt)) }, small = true)
             }

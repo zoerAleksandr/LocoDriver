@@ -23,9 +23,10 @@ object BrakeCertificateEngine {
     private fun AxleRowData.filled(): Boolean = (pressure.toFiniteDoubleOrNull() ?: 0.0) > 0 && (axles.trim().toIntOrNull() ?: 0) > 0
 
     /** Вход калькулятора; null - данных недостаточно (нет веса или категории). */
-    fun input(d: BrakeCertificateData): BrakeCertificateInput? {
+    fun input(d: BrakeCertificateData, requireWeight: Boolean = true): BrakeCertificateInput? {
         val cat = BrakeNorms.category(d.categoryId) ?: return null
-        val weight = d.weight.toFiniteDoubleOrNull()?.takeIf { it > 0 } ?: return null
+        // Для оборота (изменение состава) вес лицевой не обязателен: число осей считается и без него.
+        val weight = d.weight.toFiniteDoubleOrNull()?.takeIf { it > 0 } ?: if (requireWeight) return null else 0.0
         val axleRows = if (d.rowsMode) d.rows.mapNotNull { r ->
             val p = r.pressure.toFiniteDoubleOrNull() ?: return@mapNotNull null
             val n = r.axles.trim().toIntOrNull() ?: return@mapNotNull null

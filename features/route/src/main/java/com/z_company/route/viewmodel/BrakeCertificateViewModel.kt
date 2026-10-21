@@ -546,7 +546,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
 
     /** Правка веса/осей новой строки состава: потребное и фактическое пересчитываются калькулятором, если не правились вручную. */
     fun updateTurnaroundComposition(id: String, f: (TurnaroundEntry) -> TurnaroundEntry) = _state.update { st ->
-        val base = st.toInput()
+        val base = st.toInput(requireWeight = false)
         fun calc(x: TurnaroundEntry) =
             com.z_company.domain.brake.TurnaroundComposition.compute(base, x.newWeight.toFiniteDoubleOrNull(), x.newAxles.trim().toIntOrNull(), x.changes)
         st.copy(turnaround = st.turnaround.map { e ->
@@ -986,9 +986,10 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
 }
 
 /** Собирает вход калькулятора; null - данных недостаточно (нет веса или категории). */
-fun BrakeCertificateUiState.toInput(): BrakeCertificateInput? {
+fun BrakeCertificateUiState.toInput(requireWeight: Boolean = true): BrakeCertificateInput? {
     val cat = BrakeNorms.category(categoryId) ?: return null
-    val weight = weightText.toFiniteDoubleOrNull()?.takeIf { it > 0 } ?: return null
+    // Для оборота (изменение состава) вес лицевой не обязателен: число осей считается и без него.
+    val weight = weightText.toFiniteDoubleOrNull()?.takeIf { it > 0 } ?: if (requireWeight) return null else 0.0
     val axleRows = if (rowsMode) rows.mapNotNull { r ->
         val p = r.pressureText.toFiniteDoubleOrNull() ?: return@mapNotNull null
         val n = r.axlesText.trim().toIntOrNull() ?: return@mapNotNull null
@@ -1016,6 +1017,7 @@ fun BrakeCertificateUiState.toInput(): BrakeCertificateInput? {
         manualNorm = manualOverride,
         actualManualAxles = manualHaveText.trim().toIntOrNull(),
         declaredAxles = if (rowsMode) totalAxlesText.trim().toIntOrNull() else null,
+        enteredAxles = totalAxlesText.trim().toIntOrNull(),
     )
 }
 

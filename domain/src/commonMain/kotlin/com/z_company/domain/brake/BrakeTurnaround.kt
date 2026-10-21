@@ -294,6 +294,8 @@ object TurnaroundComposition {
         val required: Double?,
         val frontActual: Double?,
         val frontAxles: Int,
+        /** Что есть на лицевой по нажатиям (сгруппировано, по возрастанию нажатия): отцепить можно только это. */
+        val available: List<AxleRow>,
         val derivedAxles: Int?,
         val actual: Double?,
         val attachedTc: Double,
@@ -348,7 +350,7 @@ object TurnaroundComposition {
         val before = BrakeCertificateCalculator.calculate(base.copy(declaredAxles = null, actualManualAxles = null))
         return Result(
             category = cat, normBefore = base.category.norm, normAfter = cat.norm, totalWeight = calc?.totalWeight,
-            required = calc?.requiredPressure, frontActual = frontActual, frontAxles = frontAxles, derivedAxles = derivedAxles, actual = actual,
+            required = calc?.requiredPressure, frontActual = frontActual, frontAxles = frontAxles, available = base.rows.groupBy { it.pressurePerAxle }.map { (p, l) -> AxleRow(p, l.sumOf { it.axles }) }.sortedBy { it.pressurePerAxle }, derivedAxles = derivedAxles, actual = actual,
             attachedTc = attachedTc, detachedTc = detachedTc,
             requiredManualAxles = calc?.requiredManualAxles, manualAxlesBefore = before.requiredManualAxles, warnings = warnings,
         )
