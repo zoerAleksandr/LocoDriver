@@ -53,6 +53,7 @@ object BrakeCertificateEngine {
             manualNorm = d.manualNorm,
             actualManualAxles = d.manualHave.trim().toIntOrNull(),
             declaredAxles = if (d.rowsMode) d.totalAxles.trim().toIntOrNull() else null,
+            enteredAxles = d.totalAxles.trim().toIntOrNull(),
         )
     }
 

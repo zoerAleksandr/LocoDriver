@@ -322,7 +322,8 @@ object TurnaroundComposition {
     fun compute(base: BrakeCertificateInput?, newWeight: Double?, newAxlesEntered: Int?, changes: List<WagonChange>): Result? {
         if (base == null) return null
         val valid = changes.filter { it.isValid }
-        val frontAxles = base.rows.sumOf { it.axles }
+        // Число осей лицевой: введённое «Всего осей» (enteredAxles), иначе сумма по строкам таблицы нажатий.
+        val frontAxles = base.enteredAxles?.takeIf { it > 0 } ?: base.rows.sumOf { it.axles }
         val frontComposition = base.rows.sumOf { it.pressurePerAxle * it.axles }
         val frontActual = if (base.rows.isEmpty()) null else frontComposition + (base.loco?.let { it.pressurePerAxle * it.axles } ?: 0.0)
         val attachedTc = valid.filter { it.attached }.sumOf { it.pressure!! * it.axles!! }

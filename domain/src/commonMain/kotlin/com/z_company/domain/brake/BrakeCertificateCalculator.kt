@@ -29,6 +29,8 @@ data class BrakeCertificateInput(
     val actualManualAxles: Int? = null,
     /** Число осей состава (для сверки с суммой по строкам), если известно. */
     val declaredAxles: Int? = null,
+    /** Введённое «Всего осей» состава в любом режиме бланка (в отличие от [declaredAxles] не участвует в сверке); основа оборота при изменении состава. */
+    val enteredAxles: Int? = null,
 )
 
 sealed interface SpeedLimit {

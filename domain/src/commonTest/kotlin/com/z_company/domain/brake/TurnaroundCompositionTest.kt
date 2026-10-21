@@ -117,4 +117,12 @@ class TurnaroundCompositionTest {
         assertEquals(1, withChanges.changes.size)
         assertTrue(withChanges.changes[0].isValid)
     }
+
+    @Test fun detached_usesEnteredAxlesWhenRowsEmpty() {
+        // «Всего осей» введено, а нажатие не задано - строк таблицы нет: оси лицевой берутся из введённого числа
+        val b = base("FREIGHT_LOADED", emptyList()).copy(enteredAxles = 200)
+        val r = TurnaroundComposition.compute(b, 3000.0, null, listOf(ch(false, "7", "4")))!!
+        assertEquals(196, r.derivedAxles)
+        assertEquals(200, r.frontAxles)
+    }
 }
