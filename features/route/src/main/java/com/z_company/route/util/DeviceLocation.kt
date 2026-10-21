@@ -15,6 +15,7 @@ import com.z_company.core.gps.NetworkLocationReference
 import com.z_company.domain.util.DriftFilter
 import com.z_company.domain.util.GeoFix
 import com.z_company.domain.util.GnssPlausibility
+import com.z_company.domain.util.LocationSensitivity
 import android.location.LocationListener
 import android.os.Bundle
 import android.os.Looper
@@ -86,9 +87,15 @@ object DeviceLocation {
      * [NetworkLocationReference]); отвергнутый fix не отдаётся (позиция остаётся последней правдоподобной), о нём
      * сообщает [onRejected]. Сетевой fix показывается, только если GPS-fix ещё не был принят либо GPS молчит >= 10 с и сеть
      * не противоречит последней принятой позиции (радиус max(5 км, 3 x точность сети)).
+     * [sensitivity] (1..5, [LocationSensitivity]) - сила гашения дрейфа на стоянке; 3 = прежнее поведение.
      */
     @SuppressLint("MissingPermission")
-    fun updates(context: Context, intervalMs: Long = 1_000L, onRejected: (() -> Unit)? = null): Flow<LiveFix> = callbackFlow {
+    fun updates(
+        context: Context,
+        intervalMs: Long = 1_000L,
+        sensitivity: Int = LocationSensitivity.DEFAULT,
+        onRejected: (() -> Unit)? = null,
+    ): Flow<LiveFix> = callbackFlow {
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
         val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).filter {
             hasPermission(context) && runCatching { lm?.isProviderEnabled(it) }.getOrNull() == true
@@ -101,7 +108,7 @@ object DeviceLocation {
         var shownLat = Double.NaN
         var shownLon = Double.NaN
         val plausibility = GnssPlausibility()
-        val drift = DriftFilter()
+        val drift = DriftFilter(LocationSensitivity.driftConfig(sensitivity))
         NetworkLocationReference.acquire(context)
         val listener = object : LocationListener {
             override fun onLocationChanged(location: Location) {

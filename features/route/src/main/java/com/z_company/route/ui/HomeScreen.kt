@@ -466,6 +466,7 @@ fun HomeScreen(
             onDetermine = { false },
             autoRecording = bareAutoState.enabled,
             onToggleRecording = bareToggle,
+            onOpenConsentSettings = { showBareMap = false; onConsentSettings() },
             onDismiss = { showBareMap = false },
             title = "Карта",
         )

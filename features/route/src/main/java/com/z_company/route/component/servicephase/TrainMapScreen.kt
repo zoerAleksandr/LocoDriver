@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import com.z_company.domain.util.LocationSensitivity
 import com.z_company.domain.util.ActualRails
 import com.z_company.domain.util.ArrivalPlan
 import com.z_company.domain.util.ArrivalPlanData
@@ -67,6 +68,7 @@ import androidx.compose.runtime.collectAsState
 import com.z_company.domain.entities.setting.ServicePhaseStationKind
 import com.z_company.domain.track.SpeedBand
 import com.z_company.domain.track.SpeedProfile
+import com.z_company.domain.track.TrackEmptyReasons
 import com.z_company.domain.track.SpeedScale
 import com.z_company.domain.track.TrackAnalysis
 import com.z_company.route.util.GnssQualityMonitor
@@ -248,6 +250,8 @@ internal fun TrainMapScreen(
         // «Зоны без GPS» (§6.9): личный переключатель, зоны считаются по локальным трекам.
         val trackRepo: com.z_company.domain.track.TrackRepository = org.koin.compose.koinInject()
         var gnssOn by remember { mutableStateOf(GnssDeadZonePrefs.enabled(context)) }
+        // Подсказка «зон нет» - только когда пользователь сам включил слой в настройках, не при открытии карты с уже включённым.
+        var gnssJustEnabled by remember { mutableStateOf(false) }
         var gnssZones by remember { mutableStateOf(emptyList<com.z_company.domain.gnss.GnssZone>()) }
         // Общая карта (серверные ячейки): только при включённой кнопке и входе; кэш и обновление - GnssZonesRepository.
         val gnssRepo: com.z_company.repository.remote_rest.tracks.GnssZonesRepository = org.koin.compose.koinInject()
@@ -276,8 +280,16 @@ internal fun TrainMapScreen(
         val heading = remember { HeadingEstimator() }
         var headingDeg by remember { mutableStateOf<Double?>(null) }
         val positionIcon by PositionIconStore.selected(context).collectAsState()
-        var showIconPicker by remember { mutableStateOf(false) }
-        var ride by rememberSaveable { mutableStateOf(false) }
+        // «Еду по карте»: при слежении карта поворачивается по курсу (маркер «вверх»); компас и жест карты выключают, кнопка локации включает.
+        var ride by rememberSaveable { mutableStateOf(true) }
+        var rideBeforeGesture by remember { mutableStateOf(false) }
+        var showSettings by rememberSaveable { mutableStateOf(false) }
+        var showProfileFull by rememberSaveable { mutableStateOf(false) }
+        val sensitivity by TrainMapPrefs.sensitivity(context).collectAsState()
+        val profileVisible by TrainMapPrefs.profileVisible(context).collectAsState()
+        val speedVisible by TrainMapPrefs.speedVisible(context).collectAsState()
+        // Порог «едем» (км/ч) зависит от чувствительности локации: выше чувствительность - раньше считаем ход.
+        val moveThresholdKmh = LocationSensitivity.stillSpeedKmh(sensitivity)
         // Поворот карты (градусы, 0 = север сверху): для кнопки-компаса.
         // Хранится как State-объект и читается только внутри CompassSlot: поворот карты пальцем меняет значение каждый кадр,
         // и чтение в теле TrainMapScreen перекомпоновывало бы весь экран на каждом кадре жеста.
@@ -290,7 +302,6 @@ internal fun TrainMapScreen(
         // Возврат в слежение через FollowReturn.RETURN_DELAY_MS без касаний (SCREEN_SPECS §6.9).
         var lastInteractionMs by remember { mutableStateOf(System.currentTimeMillis()) }
         var fingerDown by remember { mutableStateOf(false) }
-        var rideBeforeGesture by remember { mutableStateOf(false) }
         var zoomBeforeGesture by remember { mutableStateOf<Double?>(null) }
         val autoRunning by GpsRecorder.isRunning.collectAsState()
         // Функции, которым нужен интернет (перестроение линии), без сети показывают диалог «Нет интернета».
@@ -316,11 +327,10 @@ internal fun TrainMapScreen(
         val alive = remember { AtomicBoolean(true) }
         val scope = rememberCoroutineScope()
 
-        // Маркер положения: стрелка по курсу в движении (скорость ≥ 2 км/ч, курс известен), иначе синяя точка.
+        // Маркер положения: выбранный значок всегда; повёрнут по курсу (на стоянке - последний известный, пока курса нет - «вверх»).
         fun setMe(m: MapLibreMap, lat: Double, lon: Double, bearing: Double?) {
             m.style?.getSourceAs<GeoJsonSource>(TRAIN_ME_SOURCE)?.setGeoJson(
                 Feature.fromGeometry(Point.fromLngLat(lon, lat)).apply {
-                    addNumberProperty("moving", if (bearing != null) 1 else 0)
                     addNumberProperty("bearing", bearing ?: 0.0)
                 }
             )
@@ -381,14 +391,6 @@ internal fun TrainMapScreen(
                         if (style.getSource(TRAIN_ME_SOURCE) != null) return
                         addRailwayLayers(style)
                         style.addSource(GeoJsonSource(TRAIN_ME_SOURCE, FeatureCollection.fromFeatures(emptyList())))
-                        style.addLayer(
-                            CircleLayer("train-map-me-layer", TRAIN_ME_SOURCE).withProperties(
-                                PropertyFactory.circleRadius(7f),
-                                PropertyFactory.circleColor("#00A0F5"),
-                                PropertyFactory.circleStrokeColor("#FFFFFF"),
-                                PropertyFactory.circleStrokeWidth(3f),
-                            ).also { it.setFilter(Expression.neq(Expression.get("moving"), 1)) }
-                        )
                         style.addImage(ME_ICON_IMAGE, renderPositionIcon(context, positionIcon, (positionIcon.mapHeightDp * density).toInt()))
                         style.addLayer(
                             SymbolLayer("train-map-me-arrow", TRAIN_ME_SOURCE).withProperties(
@@ -397,7 +399,7 @@ internal fun TrainMapScreen(
                                 PropertyFactory.iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP),
                                 PropertyFactory.iconAllowOverlap(true),
                                 PropertyFactory.iconIgnorePlacement(true),
-                            ).also { it.setFilter(Expression.eq(Expression.get("moving"), 1)) }
+                            )
                         )
                         // Будущий маршрут (§6.9, состояние 2): пунктир под точками станций; данные — по готовности.
                         style.addSource(GeoJsonSource(TRAIN_ROUTE_SOURCE, FeatureCollection.fromFeatures(emptyList())))
@@ -778,8 +780,7 @@ internal fun TrainMapScreen(
                     }
                     follow = false
                     userZoom = null
-                    // Ручной жест (в т.ч. поворот двумя пальцами) выключает «еду по карте»; поворот карты не сбрасываем —
-                    // возвращает север кнопка-компас.
+                    // Ручной жест выключает «еду по карте»; север возвращает кнопка-компас.
                     if (ride) ride = false
                 }
             }
@@ -797,12 +798,12 @@ internal fun TrainMapScreen(
         }
         // Живая геолокация: подписка только пока карта открыта (раньше было разовое «последнее известное» — позиция не
         // обновлялась). Обновляет маркер, скорость и, в режиме «следовать» при движении, плавно ведёт камеру.
-        LaunchedEffect(styleReady, permGranted) {
+        LaunchedEffect(styleReady, permGranted, sensitivity) {
             if (!styleReady || !permGranted || viewOnly) return@LaunchedEffect
-            DeviceLocation.updates(context, onRejected = { gnssMonitor.onRejected() }).collect { f ->
+            DeviceLocation.updates(context, sensitivity = sensitivity, onRejected = { gnssMonitor.onRejected() }).collect { f ->
                 val m = map ?: return@collect
                 if (!alive.get()) return@collect
-                val moving = (f.speedKmh ?: 0.0) >= 2.0
+                val moving = (f.speedKmh ?: 0.0) >= moveThresholdKmh
                 locationDenied = false
                 myFix = GeoFix(f.latitude, f.longitude, f.accuracyM)
                 gnssMonitor.onFix(f.accuracyM)
@@ -869,7 +870,7 @@ internal fun TrainMapScreen(
                     null
                 }
                 if (loaded != null) gnssZones = loaded
-                if (first && loaded != null && loaded.isEmpty()) {
+                if (first && gnssJustEnabled && loaded != null && loaded.isEmpty()) {
                     android.widget.Toast.makeText(context, com.z_company.domain.gnss.GnssDeadZoneText.EMPTY, android.widget.Toast.LENGTH_SHORT).show()
                 }
                 first = false
@@ -1169,7 +1170,7 @@ internal fun TrainMapScreen(
             val hasTrack = track != null
             if (!styleReady || (!hasRoute && !hasTrack)) return@LaunchedEffect
             // В движении при включённом следовании камеру ведёт положение, а не охват маршрута.
-            if (follow && (ride || liveSpeed?.let { it >= 2.0 } == true) && nowMs - liveAtMs < 15_000) return@LaunchedEffect
+            if (follow && (ride || liveSpeed?.let { it >= moveThresholdKmh } == true) && nowMs - liveAtMs < 15_000) return@LaunchedEffect
             val m = map ?: return@LaunchedEffect
             val line = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line
             val key = "${line?.size}|${myFix != null}|$hasTrack"
@@ -1241,7 +1242,7 @@ internal fun TrainMapScreen(
         // Возврат в слежение: через FollowReturn.RETURN_DELAY_MS без касаний камера снова ведётся за положением
         // (и «еду по карте», если было включено). Не возвращаем: открыта карточка планирования/выбранной точки/график/панель
         // значка, палец на карте, просмотр записанного трека.
-        val followBlocked = selection != null || showChart || showIconPicker || draft != null || planNote != null ||
+        val followBlocked = selection != null || showChart || showSettings || showProfileFull || draft != null || planNote != null ||
             (plan != null && planOpen)
         LaunchedEffect(followBlocked) { lastInteractionMs = System.currentTimeMillis() }
         LaunchedEffect(follow, followBlocked, fingerDown, lastInteractionMs, viewOnly) {
@@ -1251,16 +1252,15 @@ internal fun TrainMapScreen(
                 return@LaunchedEffect
             }
             follow = true
-            val wasRide = rideBeforeGesture
+            ride = rideBeforeGesture
             rideBeforeGesture = false
-            ride = wasRide
             val m = map
             val f = myFix
             if (m != null && f != null && alive.get()) {
                 val zoom = zoomBeforeGesture?.coerceAtLeast(12.0) ?: maxOf(m.cameraPosition.zoom, 14.0)
                 val h = headingDeg
                 val cam = CameraPosition.Builder().target(LatLng(f.latitude, f.longitude)).zoom(zoom)
-                    .bearing(if (wasRide && h != null) h else m.cameraPosition.bearing).tilt(0.0).build()
+                    .bearing(if (ride && h != null) h else m.cameraPosition.bearing).tilt(0.0).build()
                 m.animateCamera(CameraUpdateFactory.newCameraPosition(cam), 600)
             }
         }
@@ -1302,6 +1302,11 @@ internal fun TrainMapScreen(
                         MapButton(onClick = { mapHintsOpen = true }, description = "Подсказки") {
                             Text("?", style = Pst.sans.copy(fontSize = 20.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
                         }
+                    }
+                }
+                Box(Modifier.coachAnchor(positionIconAnchor)) {
+                    MapButton(onClick = { showSettings = true }, description = "Настройки карты") {
+                        PstIcon(PstIcons.Settings, 22.dp, Pst.text)
                     }
                 }
             }
@@ -1354,38 +1359,6 @@ internal fun TrainMapScreen(
                             .shadow(4.dp, RoundedCornerShape(16.dp))
                             .background(Pst.surface, RoundedCornerShape(16.dp)),
                     ) { com.z_company.route.autorecord.GnssSignalIndicator(quality = gnss, labelColor = Pst.textMuted) }
-                }
-                if (speedNow != null) {
-                    Column(
-                        modifier = Modifier
-                            .shadow(4.dp, RoundedCornerShape(16.dp))
-                            .background(Pst.surface, RoundedCornerShape(16.dp))
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
-                    ) {
-                        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = speedNow.toInt().toString(),
-                                style = Pst.mono.copy(fontSize = if (ride) 72.sp else 34.sp, fontWeight = FontWeight.Bold),
-                                color = Pst.text,
-                                maxLines = 1,
-                            )
-                            Text(
-                                text = "км/ч",
-                                style = Pst.sans.copy(fontSize = if (ride) 18.sp else 13.sp),
-                                color = Pst.textMuted,
-                                modifier = Modifier.padding(bottom = if (ride) 12.dp else 6.dp),
-                                maxLines = 1,
-                            )
-                        }
-                        if (!liveFresh && lastPoint != null) {
-                            Text(
-                                text = "последняя точка " + TrackAnalysis.clock(lastPoint.timeMs, zone, seconds = true),
-                                style = Pst.sans.copy(fontSize = 11.sp),
-                                color = Pst.textMuted,
-                                maxLines = 1,
-                            )
-                        }
-                    }
                 }
                 selection?.let { sel ->
                     Column(
@@ -1482,16 +1455,11 @@ internal fun TrainMapScreen(
                 }
             }
 
+            // Правая колонка: компас (только при повороте карты), «+», «−», «Моё местоположение».
             Column(
-                modifier = Modifier.align(Alignment.TopEnd).padding(end = 12.dp).offset(y = maxHeight * 0.4f),
+                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                MapButton(onClick = { zoomBy(+1.0) }, description = "Приблизить") {
-                    Text("+", style = Pst.sans.copy(fontSize = 22.sp), color = Pst.text)
-                }
-                MapButton(onClick = { zoomBy(-1.0) }, description = "Отдалить") {
-                    Text("−", style = Pst.sans.copy(fontSize = 22.sp), color = Pst.text)
-                }
                 CompassSlot(
                     bearing = mapBearingState,
                     onClick = {
@@ -1504,66 +1472,126 @@ internal fun TrainMapScreen(
                         }
                     },
                 )
-                if (!viewOnly || track?.points.orEmpty().isNotEmpty()) {
-                    MapButton(onClick = { showChart = true }, description = "График скорости") {
-                        PstIcon(PstIcons.SpeedChart, 22.dp, Pst.text)
-                    }
+                MapButton(onClick = { zoomBy(+1.0) }, description = "Приблизить") {
+                    Text("+", style = Pst.sans.copy(fontSize = 22.sp), color = Pst.text)
                 }
-                // «Зоны без GPS»: красноватые пятна по локальным трекам; включено - акцентная кнопка.
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .shadow(4.dp, RoundedCornerShape(16.dp))
-                        .background(if (gnssOn) Pst.accent else Pst.surface, RoundedCornerShape(16.dp))
-                        .clickable(onClickLabel = com.z_company.domain.gnss.GnssDeadZoneText.TOGGLE) {
-                            gnssOn = !gnssOn
-                            GnssDeadZonePrefs.set(context, gnssOn)
-                        },
-                    contentAlignment = Alignment.Center,
-                ) { PstIcon(PstIcons.GnssZones, 22.dp, if (gnssOn) androidx.compose.ui.graphics.Color.White else Pst.text) }
-                if (!viewOnly && onToggleRecording != null) {
-                    // Кнопка записи трека (= «АВТО»): запись идёт - красный квадрат «стоп» и пульсирующая красная точка.
-                    val recDesc = if (autoRecording) "Остановить запись" else "Начать запись"
-                    MapButton(onClick = onToggleRecording, description = recDesc) { RecordIcon(autoRecording) }
+                MapButton(onClick = { zoomBy(-1.0) }, description = "Отдалить") {
+                    Text("−", style = Pst.sans.copy(fontSize = 22.sp), color = Pst.text)
                 }
                 if (!viewOnly) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .shadow(4.dp, RoundedCornerShape(16.dp))
-                            .background(if (ride) Pst.accent else Pst.surface, RoundedCornerShape(16.dp))
-                            .clickable(onClickLabel = "Еду по карте") {
-                                val m = map
-                                if (ride) {
-                                    ride = false
-                                    m?.easeCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder(m.cameraPosition).bearing(0.0).build()), 400)
-                                } else {
-                                    ride = true
-                                    follow = true
-                                    val f = myFix
-                                    if (m != null && f != null) {
-                                        val zoom = userZoom ?: maxOf(m.cameraPosition.zoom, 15.0)
-                                        userZoom = zoom
-                                        m.easeCamera(
-                                            CameraUpdateFactory.newCameraPosition(
-                                                CameraPosition.Builder().target(LatLng(f.latitude, f.longitude)).zoom(zoom)
-                                                    .bearing(headingDeg ?: 0.0).tilt(0.0).build()
-                                            ),
-                                            600,
-                                        )
-                                    }
-                                }
-                            },
-                        contentAlignment = Alignment.Center,
-                    ) { PstIcon(PstIcons.Navigate, 22.dp, if (ride) androidx.compose.ui.graphics.Color.White else Pst.text) }
-                    Box(Modifier.coachAnchor(positionIconAnchor)) {
-                        MapButton(onClick = { showIconPicker = !showIconPicker }, description = "Значок положения") {
-                            PositionIconTile(positionIcon, 36.dp)
+                    // «Моё местоположение» = слежение и «еду по карте» (карта по курсу): синяя иконка-стрелка - карта ведётся за положением; серая - пользователь
+                    // сдвинул карту, через FollowReturn.RETURN_DELAY_MS без касаний слежение включится само. Нажатие включает сразу.
+                    MapButton(
+                        onClick = {
+                            follow = true
+                            ride = true
+                            requestOrShowLocation(center = true)
+                            val m = map
+                            val h = headingDeg
+                            if (m != null && h != null) {
+                                m.easeCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder(m.cameraPosition).bearing(h).build()), 400)
+                            }
+                        },
+                        description = "Моё местоположение",
+                    ) {
+                        PstIcon(PstIcons.Navigate, 24.dp, if (follow) Pst.accent else Pst.textFaint)
+                    }
+                }
+            }
+
+            // Нижняя область: кнопка записи (+ чип скрытого профиля), полоса профиля пути, полоса скорости.
+            val stripH = mapStripHeight(maxHeight)
+            val trackHasPoints = track?.points.orEmpty().isNotEmpty()
+            // Отсчёты для мини-графика скорости: загруженный трек + живые точки записи (как пройденный путь на карте).
+            // Без согласия на сохранение треков график пуст (как у полноэкранного): живые точки в память приходят и без него.
+            val consentStore: com.z_company.route.autorecord.TrackConsentStore = org.koin.compose.koinInject()
+            val saveTracks by consentStore.saveTracks.collectAsState()
+            val miniSamples = remember(track, saveTracks, livePoints.lastOrNull()?.timeMs) {
+                com.z_company.domain.track.SpeedChart.buildSeries(
+                    if (saveTracks || viewOnly) PathKeeper.withLive(track?.points.orEmpty(), livePoints) else track?.points.orEmpty(),
+                )
+            }
+            // Пустой мини-график объясняет причину так же, как полноэкранный (согласие / АВТО / цель); тап открывает полный экран с кнопкой действия.
+            var miniRecState by remember { mutableStateOf<com.z_company.domain.track.TrackRecordingState?>(null) }
+            val miniEmpty = !viewOnly && speedVisible && miniSamples.size < 2
+            LaunchedEffect(miniEmpty) {
+                if (!miniEmpty) return@LaunchedEffect
+                while (true) {
+                    miniRecState = runCatching { loadRecordingState() }.getOrNull()
+                    delay(3_000)
+                }
+            }
+            val needConsent = !viewOnly && !saveTracks
+            val miniEmptyText = if (viewOnly) {
+                "Нет данных о скорости"
+            } else if (needConsent) {
+                "Для записи скорости нужно ваше согласие на обработку геоданных"
+            } else {
+                val pts = track?.points.orEmpty()
+                TrackEmptyReasons.message(
+                    TrackEmptyReasons.determine(miniRecState, pts.size, pts.count { it.speedKmh != null }),
+                    miniRecState?.otherTrainNumber,
+                )
+            }
+            val showRecordRow = !viewOnly && onToggleRecording != null
+            val chipSlotH = 48.dp + 16.dp
+            val bothHidden = !profileVisible && !speedVisible
+            // Каждая полоса остаётся на своём месте (профиль выше, скорость ниже): скрытая заменяется кнопкой в своём слоте;
+            // обе скрытые - две кнопки в ряд внизу.
+            val bottomStackH = (if (bothHidden) chipSlotH else (if (profileVisible) stripH else chipSlotH) + (if (speedVisible) stripH else chipSlotH)) +
+                (if (showRecordRow) 48.dp + 8.dp else 0.dp)
+            Column(
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
+            ) {
+                if (showRecordRow) {
+                    Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 8.dp)) {
+                        RecordButton(autoRecording, onClick = { onToggleRecording?.invoke() }, modifier = Modifier.weight(1f))
+                    }
+                }
+                if (bothHidden) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        StripShowChip("Профиль", "Показать профиль пути", { TrainMapPrefs.setProfileVisible(context, true) }, Modifier.weight(1f))
+                        StripShowChip("Скорость", "Показать скорость", { TrainMapPrefs.setSpeedVisible(context, true) }, Modifier.weight(1f))
+                    }
+                } else {
+                    if (profileVisible) {
+                        ProfileStrip(
+                            height = stripH,
+                            onHide = { TrainMapPrefs.setProfileVisible(context, false) },
+                            onExpand = { showProfileFull = true },
+                        )
+                    } else {
+                        Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)) {
+                            StripShowChip("Профиль", "Показать профиль пути", { TrainMapPrefs.setProfileVisible(context, true) }, Modifier.weight(1f))
                         }
                     }
-                    MapButton(onClick = { follow = true; requestOrShowLocation(center = true) }, description = "Моё местоположение") {
-                        Box(Modifier.size(14.dp).border(2.dp, Pst.accent, CircleShape), contentAlignment = Alignment.Center) {
-                            Box(Modifier.size(4.dp).background(Pst.accent, CircleShape))
+                    if (profileVisible && speedVisible) Box(Modifier.fillMaxWidth().height(1.dp).background(Pst.border))
+                    if (speedVisible) {
+                        val sel = selection
+                        val selectedSpeed = (sel as? TrainMapSelection.PathPoint)?.point?.speedKmh
+                        SpeedStrip(
+                            height = stripH,
+                            speedKmh = if (viewOnly) selectedSpeed else speedNow,
+                            caption = if (!viewOnly && !liveFresh && lastPoint != null) {
+                                "последняя точка " + TrackAnalysis.clock(lastPoint.timeMs, zone, seconds = true)
+                            } else null,
+                            samples = miniSamples,
+                            emptyText = miniEmptyText,
+                            emptyActionLabel = if (needConsent) "Настройки согласия" else null,
+                            onEmptyAction = if (needConsent) ({ onOpenConsentSettings() }) else null,
+                            profile = speedProfile,
+                            selectedTimeMs = (sel as? TrainMapSelection.PathPoint)?.point?.timeMs,
+                            onExpand = if (!viewOnly || trackHasPoints) ({ showChart = true }) else null,
+                            onHide = { TrainMapPrefs.setSpeedVisible(context, false) },
+                        )
+                        Box(Modifier.fillMaxWidth().background(Pst.surface).navigationBarsPadding())
+                    } else {
+                        Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)) {
+                            StripShowChip("Скорость", "Показать скорость", { TrainMapPrefs.setSpeedVisible(context, true) }, Modifier.weight(1f))
                         }
                     }
                 }
@@ -1581,54 +1609,19 @@ internal fun TrainMapScreen(
                 )
             }
 
-            if (showIconPicker && !viewOnly) {
-                // Нажатие мимо панели (карта, любая кнопка, системный «Назад») закрывает её, не передаваясь дальше.
-                BackHandler { showIconPicker = false }
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showIconPicker = false }
+            if (showSettings) {
+                MapSettingsScreen(
+                    viewOnly = viewOnly,
+                    gnssOn = gnssOn,
+                    onGnssChange = { gnssJustEnabled = it; gnssOn = it; GnssDeadZonePrefs.set(context, it) },
+                    positionIcon = positionIcon,
+                    onPositionIcon = { PositionIconStore.set(context, it) },
+                    sensitivity = sensitivity,
+                    onSensitivity = { TrainMapPrefs.setSensitivity(context, it) },
+                    onDismiss = { showSettings = false },
                 )
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(end = 72.dp)
-                        .offset(y = maxHeight * 0.3f)
-                        .shadow(8.dp, RoundedCornerShape(16.dp))
-                        .background(Pst.surface, RoundedCornerShape(16.dp))
-                        .padding(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text("Значок положения", style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
-                    PositionIcon.entries.chunked(3).forEach { rowIcons ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            rowIcons.forEach { ic ->
-                                Column(
-                                    modifier = Modifier
-                                        .width(78.dp)
-                                        .border(if (ic == positionIcon) 2.dp else 0.dp, if (ic == positionIcon) Pst.accent else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(14.dp))
-                                        .padding(4.dp)
-                                        .clickable(onClickLabel = ic.label) {
-                                            PositionIconStore.set(context, ic)
-                                            showIconPicker = false
-                                        },
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                ) {
-                                    PositionIconTile(ic, 64.dp)
-                                    Text(
-                                        ic.label,
-                                        style = Pst.sans.copy(fontSize = 10.sp, lineHeight = 12.sp),
-                                        color = Pst.text,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                        maxLines = 2,
-                                        modifier = Modifier.padding(top = 3.dp),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
             }
+            if (showProfileFull) ProfileFullScreen(onDismiss = { showProfileFull = false })
 
             if (showChart) {
                 SpeedChartScreen(
@@ -1660,6 +1653,7 @@ internal fun TrainMapScreen(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
+                        .padding(bottom = bottomStackH)
                         .imePadding()
                         .navigationBarsPadding()
                         .padding(16.dp)
@@ -1721,6 +1715,7 @@ internal fun TrainMapScreen(
                         maxLines = 1,
                         modifier = Modifier
                             .align(Alignment.BottomStart)
+                            .padding(bottom = bottomStackH)
                             .navigationBarsPadding()
                             .padding(16.dp)
                             .shadow(4.dp, RoundedCornerShape(14.dp))
@@ -1740,6 +1735,7 @@ internal fun TrainMapScreen(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
+                        .padding(bottom = bottomStackH)
                         .navigationBarsPadding()
                         .padding(16.dp)
                         .shadow(4.dp, RoundedCornerShape(16.dp))
@@ -1963,29 +1959,25 @@ private fun stopTitle(mk: com.z_company.domain.track.TrainStopMark, routeStops: 
 
 /** Иконка кнопки записи: кольцо с красной точкой (запись выключена) / красный квадрат «стоп» с пульсирующей точкой-бейджем. */
 @Composable
-private fun RecordIcon(recording: Boolean) {
-    val red = androidx.compose.ui.graphics.Color(0xFFE53935)
-    Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
+internal fun RecordIcon(recording: Boolean) {
+    // Запись идёт - красный «стоп» (квадрат); не идёт - зелёный «пуск» (треугольник).
+    val color = if (recording) androidx.compose.ui.graphics.Color(0xFFE53935) else androidx.compose.ui.graphics.Color(0xFF2E9E5B)
+    androidx.compose.foundation.Canvas(Modifier.size(24.dp)) {
         if (recording) {
-            Box(Modifier.size(14.dp).background(red, RoundedCornerShape(3.dp)))
-            val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "rec_pulse")
-            val a by t.animateFloat(
-                initialValue = 1f,
-                targetValue = 0.25f,
-                animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-                    androidx.compose.animation.core.tween(900, easing = androidx.compose.animation.core.LinearEasing),
-                    androidx.compose.animation.core.RepeatMode.Reverse,
-                ),
-                label = "rec_pulse_alpha",
-            )
-            Box(
-                Modifier.align(Alignment.TopEnd).size(8.dp)
-                    .alpha(a).background(red, CircleShape),
+            val side = size.minDimension * 0.62f
+            drawRoundRect(
+                color,
+                topLeft = androidx.compose.ui.geometry.Offset((size.width - side) / 2f, (size.height - side) / 2f),
+                size = androidx.compose.ui.geometry.Size(side, side),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(side * 0.18f),
             )
         } else {
-            Box(Modifier.size(22.dp).border(2.dp, Pst.text, CircleShape), contentAlignment = Alignment.Center) {
-                Box(Modifier.size(10.dp).background(red, CircleShape))
+            val w = size.width
+            val h = size.height
+            val tri = androidx.compose.ui.graphics.Path().apply {
+                moveTo(w * 0.28f, h * 0.18f); lineTo(w * 0.84f, h * 0.5f); lineTo(w * 0.28f, h * 0.82f); close()
             }
+            drawPath(tri, color)
         }
     }
 }
