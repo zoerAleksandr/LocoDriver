@@ -169,3 +169,14 @@ object SectionPicker {
 
     private fun norm(s: String) = s.lowercase().replace('ё', 'е').filter { it.isLetterOrDigit() }
 }
+
+/** Строка списка участков (без оси и профиля): для выбора вручную и поиска. */
+data class SectionSummary(
+    val id: String,
+    val name: String,
+    val fromStation: String,
+    val toStation: String,
+    val lengthKm: Double,
+    val hasProfile: Boolean,
+    val updatedAt: Long,
+)

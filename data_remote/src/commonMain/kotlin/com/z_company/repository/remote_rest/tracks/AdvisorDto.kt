@@ -7,12 +7,47 @@ import kotlinx.serialization.Serializable
  * api/v1/altitude_contrib.py, schemas/tracks.py). Все поля camelCase; лишние поля игнорируются. Координаты не логируются.
  */
 
-/** Элемент `GET /v1/advisor/sections`: нужны только признак геометрии и хэш оси. */
+/** Элемент `GET /v1/advisor/sections`: признак геометрии, хэш оси и данные для списка участков. */
 @Serializable
 data class AdvisorSectionSummaryDto(
     val id: String,
     val hasGeometry: Boolean = false,
     val axisHash: String? = null,
+    val name: String = "",
+    val fromStation: String = "",
+    val toStation: String = "",
+    val lengthKm: Double = 0.0,
+    val elementsCount: Int = 0,
+    val version: Int = 0,
+    val updatedAt: Double = 0.0,
+)
+
+/** Элемент профиля: уклон на `[startKm; endKm]` оси. */
+@Serializable
+data class AdvisorElementDto(
+    val startKm: Double,
+    val endKm: Double,
+    val gradePermille: Double = 0.0,
+    val curveRadiusM: Double = 0.0,
+    val speedLimitKmh: Int = 0,
+)
+
+/** Отметка километража: в месте `km` оси координата `kmAbs`, дальше нумерация `dir` (+1 растёт, −1 убывает). */
+@Serializable
+data class AdvisorKmMarkDto(
+    val km: Double,
+    val kmAbs: Double,
+    val dir: Int = 1,
+    val note: String = "",
+)
+
+/** Станция на оси участка. */
+@Serializable
+data class AdvisorStationDto(
+    val km: Double,
+    val name: String,
+    val lat: Double? = null,
+    val lon: Double? = null,
 )
 
 /** Точка оси участка: `km` - от начала оси, высота клиенту не нужна. */
@@ -25,6 +60,15 @@ data class AdvisorSectionDto(
     val id: String,
     val axisHash: String? = null,
     val geometry: List<AdvisorGeoPointDto> = emptyList(),
+    val name: String = "",
+    val fromStation: String = "",
+    val toStation: String = "",
+    val lengthKm: Double = 0.0,
+    val version: Int = 0,
+    val updatedAt: Double = 0.0,
+    val elements: List<AdvisorElementDto> = emptyList(),
+    val kmMarks: List<AdvisorKmMarkDto> = emptyList(),
+    val stations: List<AdvisorStationDto> = emptyList(),
 )
 
 /**
