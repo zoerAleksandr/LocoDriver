@@ -38,3 +38,6 @@ SELECT * FROM BrakeCertificate WHERE isDeleted = 0 ORDER BY updatedAt DESC;
 
 markDeletedById:
 UPDATE BrakeCertificate SET isDeleted = 1, updatedAt = :now WHERE certificateId = :id;
+
+deleteById:
+DELETE FROM BrakeCertificate WHERE certificateId = :id;

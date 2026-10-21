@@ -649,6 +649,7 @@ class SyncManager(
                                     when (saveResult) {
                                         is ResultState.Success -> {
                                             savedCount++
+                                            pruneRemoteDeletedCertificates(route, localRoutesById[route.basicData.id])
                                             runCatching { brakeCertificates?.mergeRemote(route.basicData.id, route.brakeCertificates) }
                                         }
                                         is ResultState.Error -> {
@@ -1321,6 +1322,15 @@ class SyncManager(
     }.flowOn(Dispatchers.Default)
 
     /**
+     * Справки ВУ-45, удалённые на другом устройстве: сервер прислал их список без локальной справки. Применяется только к рейсу,
+     * чистому локально (иначе справка могла быть создана здесь и ещё не отправлена), и только к справкам не новее копии рейса.
+     */
+    private fun pruneRemoteDeletedCertificates(server: Route, local: Route?) {
+        if (!RemoteFeatureFlags.remoteCertificatesEnabled || local == null || !local.basicData.isSynchronized) return
+        runCatching { brakeCertificates?.pruneDeletedRemotely(server.basicData.id, server.brakeCertificates, local.basicData.updatedAt) }
+    }
+
+    /**
      * Сохранить маршрут, пришедший с сервера (пометив синхронизированным).
      * @return true — сохранён. Неудача запрещает двигать курсор дельты: иначе
      *   изменение числилось бы полученным, а на устройстве его нет.
@@ -1338,7 +1348,10 @@ class SyncManager(
         )
         var saved = true
         routeUseCase.saveRouteAfterLoading(r).collect { if (it is ResultState.Error) saved = false }
-        if (saved) runCatching { brakeCertificates?.mergeRemote(server.basicData.id, server.brakeCertificates) }
+        if (saved) {
+            pruneRemoteDeletedCertificates(server, local)
+            runCatching { brakeCertificates?.mergeRemote(server.basicData.id, server.brakeCertificates) }
+        }
         return saved
     }
 

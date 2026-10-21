@@ -40,6 +40,8 @@ interface BrakeCertificateRepository {
     fun markDeletedById(certificateId: String, now: Long)
     /** Помечает справки поезда удалёнными (надгробие до следующей отправки рейса). */
     fun markDeletedByTrain(trainId: String, now: Long)
+    /** Физически удаляет справку (удалена на другом устройстве: надгробие не нужно, на сервере её уже нет). */
+    fun deleteById(certificateId: String)
     /** Физически удаляет все справки рейса (рейс удалён навсегда). */
     fun deleteByRoute(routeId: String)
     /** Удаляет доставленные надгробия рейса. */
@@ -140,5 +142,22 @@ class BrakeCertificateUseCase(
             changed++
         }
         return changed
+    }
+
+    /**
+     * Справки, удалённые на другом устройстве: сервер прислал список справок рейса ([remote] != null - поле он знает), а
+     * локальной справки в нём нет. Убираются только справки, о которых сервер заведомо знал: сохранённые не позже [notNewerThan]
+     * (updatedAt локальной копии рейса: справка помечает рейс несинхронизированным и «касается» его updatedAt, поэтому более
+     * новая справка создана после снимка рейса и ещё не отправлена). Вызывать только для рейса, чистого локально (isSynchronized).
+     * Без этого справка, удалённая на другом устройстве, жила бы здесь и вернулась на сервер при следующей отправке рейса.
+     * Локальные надгробия не трогаются. Возвращает число убранных справок.
+     */
+    fun pruneDeletedRemotely(routeId: String, remote: List<BrakeCertificateSync>?, notNewerThan: Long): Int {
+        if (remote == null) return 0
+        val known = remote.map { it.certificateId }.toSet()
+        val gone = repository.listByRoute(routeId, includeDeleted = false)
+            .filter { it.certificateId !in known && it.updatedAt <= notNewerThan }
+        gone.forEach { repository.deleteById(it.certificateId) }
+        return gone.size
     }
 }

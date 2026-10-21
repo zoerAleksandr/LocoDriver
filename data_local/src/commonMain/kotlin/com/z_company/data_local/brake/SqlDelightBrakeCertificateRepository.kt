@@ -26,6 +26,7 @@ class SqlDelightBrakeCertificateRepository(private val db: BrakeCertificateDatab
     override fun markDeletedById(certificateId: String, now: Long) = q.markDeletedById(now, certificateId)
 
     override fun markDeletedByTrain(trainId: String, now: Long) = q.markDeletedByTrain(now, trainId)
+    override fun deleteById(certificateId: String) = q.deleteById(certificateId)
     override fun deleteByRoute(routeId: String) = q.deleteByRoute(routeId)
     override fun purgeTombstones(routeId: String) = q.purgeTombstones(routeId)
 }

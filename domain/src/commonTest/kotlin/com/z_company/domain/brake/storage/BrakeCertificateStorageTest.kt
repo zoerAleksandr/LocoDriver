@@ -26,6 +26,7 @@ private class FakeRepo : BrakeCertificateRepository {
     override fun markDeletedByTrain(trainId: String, now: Long) {
         for (k in rows.keys.toList()) rows[k]?.let { v -> if (v.trainId == trainId) rows[k] = v.copy(isDeleted = true, updatedAt = now) }
     }
+    override fun deleteById(certificateId: String) { rows.remove(certificateId) }
     override fun deleteByRoute(routeId: String) { rows.values.removeAll { it.routeId == routeId } }
     override fun purgeTombstones(routeId: String) { rows.values.removeAll { it.routeId == routeId && it.isDeleted } }
 }
@@ -171,5 +172,47 @@ class BrakeCertificateStorageTest {
         // после доставки надгробия очищаются
         uc.purgeTombstones("r2")
         assertNull(uc.forUpload("r2"))
+    }
+
+    // ── удаление на другом устройстве ──
+
+    private fun remoteOf(vararg ids: String) = ids.map { BrakeCertificateSync(it, "r1", null, 0L, JsonObject(emptyMap())) }
+
+    @Test
+    fun pruneRemovesCertificatesMissingOnServer_onlySyncedOnes() {
+        clock = 1_000; val a = uc.save(data, "r1", "t1") { "c1" }
+        clock = 2_000; uc.save(data, "r1", "t2") { "c2" }
+        clock = 9_000; uc.save(data, "r1", "t3") { "c3" } // создана после снимка рейса (2 000...5 000)
+        // сервер знает только c2; снимок рейса сделан в 5 000: c1 удалена на другом устройстве, c3 ещё не отправлена
+        assertEquals(1, uc.pruneDeletedRemotely("r1", remoteOf("c2"), notNewerThan = 5_000))
+        assertNull(repo.getById(a.id))
+        assertNotNull(repo.getById("c2"))
+        assertNotNull(repo.getById("c3"))
+    }
+
+    @Test
+    fun pruneDoesNothingWhenServerDoesNotKnowTheField() {
+        uc.save(data, "r1", "t1") { "c1" }
+        assertEquals(0, uc.pruneDeletedRemotely("r1", null, notNewerThan = Long.MAX_VALUE))
+        assertNotNull(repo.getById("c1"))
+    }
+
+    @Test
+    fun pruneWithEmptyServerListRemovesAllSynced_butKeepsLocalTombstones() {
+        clock = 1_000; uc.save(data, "r1", "t1") { "c1" }
+        clock = 1_500; uc.save(data, "r1", "t2") { "c2" }
+        repo.markDeletedById("c2", 1_600) // локально удалена, надгробие ждёт отправки
+        assertEquals(1, uc.pruneDeletedRemotely("r1", emptyList(), notNewerThan = 5_000))
+        assertNull(repo.getById("c1"))
+        assertTrue(repo.getById("c2")!!.isDeleted) // надгробие остаётся до доставки
+    }
+
+    @Test
+    fun pruneDoesNotTouchOtherRoutes() {
+        uc.save(data, "r1", "t1") { "c1" }
+        uc.save(data, "r2", "t2") { "c2" }
+        uc.pruneDeletedRemotely("r1", emptyList(), notNewerThan = Long.MAX_VALUE)
+        assertNull(repo.getById("c1"))
+        assertNotNull(repo.getById("c2"))
     }
 }
