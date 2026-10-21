@@ -95,7 +95,7 @@ object TrackEmptyReasons {
         TrackEmptyReason.OTHER_TRAIN ->
             "АВТО записывает другой поезд" + otherTrainNumber?.takeIf { it.isNotBlank() }?.let { " (№$it)" }.orEmpty()
         TrackEmptyReason.NO_TARGET -> "АВТО включено, но поезд для записи не выбран"
-        TrackEmptyReason.NO_POINTS_YET -> "Запись идёт, точек пока нет. Нужно проехать несколько секунд"
+        TrackEmptyReason.NO_POINTS_YET -> "Запись идёт. Для построения графика скорости нужно начать движение"
         TrackEmptyReason.NO_SPEED -> "Нет данных о скорости от GPS"
     }
 

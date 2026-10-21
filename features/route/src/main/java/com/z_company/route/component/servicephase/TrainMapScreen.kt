@@ -1513,7 +1513,7 @@ internal fun TrainMapScreen(
             }
             // Пустой мини-график объясняет причину так же, как полноэкранный (согласие / АВТО / цель); тап открывает полный экран с кнопкой действия.
             var miniRecState by remember { mutableStateOf<com.z_company.domain.track.TrackRecordingState?>(null) }
-            val miniEmpty = !viewOnly && speedVisible && miniSamples.size < 2
+            val miniEmpty = !viewOnly && speedVisible && autoRecording && miniSamples.size < 2
             LaunchedEffect(miniEmpty) {
                 if (!miniEmpty) return@LaunchedEffect
                 while (true) {
@@ -1526,6 +1526,9 @@ internal fun TrainMapScreen(
                 "Нет данных о скорости"
             } else if (needConsent) {
                 "Для записи скорости нужно ваше согласие на обработку геоданных"
+            } else if (!autoRecording) {
+                // Согласие есть, запись не идёт: про АВТО на этом экране не пишем - есть кнопка «Начать запись».
+                "Для сохранения трека нажмите «Начать запись»"
             } else {
                 val pts = track?.points.orEmpty()
                 TrackEmptyReasons.message(
@@ -1634,6 +1637,9 @@ internal fun TrainMapScreen(
                     selectedTimeMs = (selection as? TrainMapSelection.PathPoint)?.point?.timeMs,
                     onSelect = { p -> selection = p?.let { TrainMapSelection.PathPoint(it) } },
                     onOpenConsent = { showChart = false; onOpenConsentSettings() },
+                    consentGranted = if (viewOnly) null else saveTracks,
+                    recordingOn = autoRecording,
+                    onStartRecording = if (!viewOnly && onToggleRecording != null) ({ showChart = false; onToggleRecording() }) else null,
                     onDismiss = {
                         showChart = false
                         // Точка, выбранная на графике, подсвечивается на карте — камера переходит к ней (зум сохраняется).

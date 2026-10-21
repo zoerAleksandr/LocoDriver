@@ -57,7 +57,8 @@ internal fun HomeTrainMap(trainId: String, basicId: String, onConsentSettings: (
         onDetermine = { viewModel.saveStationCoordinatesFromGps(it) },
         loadZone = { viewModel.trainMapZone() },
         planKey = remember { viewModel.trainMapPlanKey() },
-        onOpenConsentSettings = { onDismiss(); onConsentSettings() },
+        // Карта остаётся «открытой» (mapTrainId сохраняется): после «Готово» в настройках согласия возвращаемся на неё.
+        onOpenConsentSettings = { onConsentSettings() },
         onEnableAuto = { if (!autoRecordState.enabled) onAutoToggle() },
         autoRecording = autoRecordState.enabled,
         onToggleRecording = onAutoToggle,

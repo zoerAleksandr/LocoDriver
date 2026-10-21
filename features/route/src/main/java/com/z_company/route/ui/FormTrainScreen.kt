@@ -343,7 +343,8 @@ fun FormTrainScreen(
                 onDetermine = { viewModel.saveStationCoordinatesFromGps(it) },
                 loadZone = { viewModel.trainMapZone() },
                 planKey = remember { viewModel.trainMapPlanKey() },
-                onOpenConsentSettings = { showTrainMap = false; onConsentSettings() },
+                // Карта остаётся «открытой» (rememberSaveable): после «Готово» в настройках согласия возвращаемся на неё.
+                onOpenConsentSettings = { onConsentSettings() },
                 // Та же логика, что у кнопки «АВТО» в «Поезде» (разрешения, согласие, цель - этот поезд).
                 onEnableAuto = { if (!autoRecordState.enabled) onAutoToggle() },
                 // Кнопка записи на карте: то же переключение «АВТО», цель - этот поезд.

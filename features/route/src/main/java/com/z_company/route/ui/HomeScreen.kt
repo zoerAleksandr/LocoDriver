@@ -466,7 +466,8 @@ fun HomeScreen(
             onDetermine = { false },
             autoRecording = bareAutoState.enabled,
             onToggleRecording = bareToggle,
-            onOpenConsentSettings = { showBareMap = false; onConsentSettings() },
+            // showBareMap сохраняется: после «Готово» в настройках согласия возвращаемся на карту.
+            onOpenConsentSettings = { onConsentSettings() },
             onDismiss = { showBareMap = false },
             title = "Карта",
         )

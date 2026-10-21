@@ -107,6 +107,12 @@ internal fun SpeedChartScreen(
     selectedTimeMs: Long?,
     onSelect: (TrackPoint?) -> Unit,
     onOpenConsent: () -> Unit,
+    /** Живая карта: дано ли согласие на сохранение треков (null - режим просмотра трека, причина по состоянию записи). */
+    consentGranted: Boolean? = null,
+    /** Живая карта: запись трека идёт. */
+    recordingOn: Boolean = false,
+    /** Живая карта: кнопка «Начать запись» в пустом графике; null - кнопки нет. */
+    onStartRecording: (() -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
     Dialog(
@@ -257,6 +263,44 @@ internal fun SpeedChartScreen(
                     }
                     val reason = TrackEmptyReasons.determine(recording, points.size, pointsWithSpeed)
                     val action = TrackEmptyReasons.action(reason, canEnableAuto = onEnableAuto != null)
+                    // Живая карта знает состояние сама: согласие есть - о нём не напоминаем; осталось нажать «Начать запись» -
+                    // кнопка здесь; всё готово, но точек нет - реальная причина (нужно начать движение).
+                    val liveMode = consentGranted != null && pointsWithSpeed == 0 && points.size < 2
+                    val emptyMessage: String
+                    val emptyActionLabel: String?
+                    val emptyAction: (() -> Unit)?
+                    when {
+                        !liveMode -> {
+                            emptyMessage = TrackEmptyReasons.message(reason, recording?.otherTrainNumber)
+                            emptyActionLabel = if (action != TrackEmptyAction.NONE) TrackEmptyReasons.actionLabel(action, reason) else null
+                            emptyAction = if (action != TrackEmptyAction.NONE) ({
+                                when (action) {
+                                    TrackEmptyAction.ENABLE_AUTO -> { onEnableAuto?.invoke(); refresh++ }
+                                    TrackEmptyAction.OPEN_CONSENT -> onOpenConsent()
+                                    TrackEmptyAction.MAKE_TARGET -> scope.launch {
+                                        val conflict = runCatching { loadConflictText() }.getOrNull()
+                                        if (conflict != null) conflictText = conflict else if (makeTarget()) refresh++
+                                    }
+                                    TrackEmptyAction.NONE -> Unit
+                                }
+                            }) else null
+                        }
+                        consentGranted != true -> {
+                            emptyMessage = "Для записи скорости нужно ваше согласие на обработку геоданных"
+                            emptyActionLabel = "Настройки согласия"
+                            emptyAction = onOpenConsent
+                        }
+                        !recordingOn -> {
+                            emptyMessage = "Для сохранения трека нажмите «Начать запись»"
+                            emptyActionLabel = if (onStartRecording != null) "Начать запись" else null
+                            emptyAction = onStartRecording
+                        }
+                        else -> {
+                            emptyMessage = "Запись идёт. Для построения графика скорости нужно начать движение"
+                            emptyActionLabel = null
+                            emptyAction = null
+                        }
+                    }
                     Column(
                         modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -264,35 +308,23 @@ internal fun SpeedChartScreen(
                     ) {
                         Spacer(Modifier.weight(1f))
                         Text(
-                            text = TrackEmptyReasons.message(reason, recording?.otherTrainNumber),
+                            text = emptyMessage,
                             style = Pst.sans.copy(fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium),
                             color = Pst.text,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(bottom = 16.dp),
                         )
-                        if (action != TrackEmptyAction.NONE) {
-                            PstButton(
-                                text = TrackEmptyReasons.actionLabel(action, reason),
-                                onClick = {
-                                    when (action) {
-                                        TrackEmptyAction.ENABLE_AUTO -> { onEnableAuto?.invoke(); refresh++ }
-                                        TrackEmptyAction.OPEN_CONSENT -> onOpenConsent()
-                                        TrackEmptyAction.MAKE_TARGET -> scope.launch {
-                                            val conflict = runCatching { loadConflictText() }.getOrNull()
-                                            if (conflict != null) conflictText = conflict else if (makeTarget()) refresh++
-                                        }
-                                        TrackEmptyAction.NONE -> Unit
-                                    }
-                                },
-                                kind = PstButtonKind.CTA,
-                            )
+                        if (emptyActionLabel != null && emptyAction != null) {
+                            PstButton(text = emptyActionLabel, onClick = emptyAction, kind = PstButtonKind.CTA)
                         }
                         Spacer(Modifier.weight(1f))
-                        Text(
-                            text = TrackEmptyReasons.debugLine(recording, points.size),
-                            style = Pst.mono.copy(fontSize = 10.sp),
-                            color = Pst.textFaint,
-                        )
+                        if (!liveMode) {
+                            Text(
+                                text = TrackEmptyReasons.debugLine(recording, points.size),
+                                style = Pst.mono.copy(fontSize = 10.sp),
+                                color = Pst.textFaint,
+                            )
+                        }
                     }
                     return@Column
                 }
