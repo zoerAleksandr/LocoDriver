@@ -396,6 +396,10 @@ private fun CalcTab(
                     "Ручных на 100 т веса", BrakeNorms.manualFieldText(state.manualInfo), Modifier.fillMaxWidth(), sunk = true,
                     onClick = { onSheet(BrakeSheet.ManualNorm) }, onHelp = { onSheet(BrakeSheet.Help("manual_req")) },
                 )
+                // потребное число ручных осей - сразу, как требуемое нажатие и плотность; нет данных (вес) - ничего не пишем
+                result?.requiredManualAxles?.let { n ->
+                    VuNormLine("Требуется ручных тормозов: $n осей (${BrakeNorms.manualFieldText(state.manualInfo).substringBefore(" ·")} на 100 т веса)")
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(Modifier.fillMaxWidth().heightIn(min = 24.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("Руководящий уклон, ‰", Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = t.muted)
@@ -849,11 +853,13 @@ private fun PaperHeader(
             if (open) {
                 VuFillRow(end = true) {
                     VuPrint("Дата")
-                    VuInk(state.dateText, Modifier.width(128.dp), onChange = vm::setDate, maxLen = 10)
+                    VuInk(state.dateText, Modifier.width(128.dp), onChange = vm::setDate, keyboard = KeyboardType.Number, maxLen = 10)
                 }
                 VuFillRow {
                     VuPrint("Локомотив, серия")
-                    VuInk(state.locoSeriesText, Modifier.weight(1f), onChange = vm::setLocoSeries, maxLen = 12)
+                    VuStationSuggest(state.locoSeriesText, state.knownSeriesNames, onPick = vm::setLocoSeries, modifier = Modifier.weight(1f)) {
+                        VuInk(state.locoSeriesText, Modifier.fillMaxWidth(), onChange = vm::setLocoSeries, maxLen = 12)
+                    }
                     VuPrint("№")
                     VuInk(state.locoNumberText, Modifier.width(80.dp), onChange = vm::setLocoNumber, maxLen = 8)
                 }

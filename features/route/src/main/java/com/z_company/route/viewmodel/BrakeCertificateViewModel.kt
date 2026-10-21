@@ -164,6 +164,8 @@ data class BrakeCertificateUiState(
     val trainStationNames: List<String> = emptyList(),
     /** Все известные станции пользователя (список настроек + справочник станций) для подсказок. */
     val knownStationNames: List<String> = emptyList(),
+    /** Серии локомотивов пользователя (справочник серий + список настроек) для подсказок в поле серии. */
+    val knownSeriesNames: List<String> = emptyList(),
 )
 
 val BrakeCertificateUiState.grade: GradeClass get() = slope.grade
@@ -221,17 +223,22 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         // Подписка на потоки, а не разовое чтение: первое значение настроек/маршрутов может прийти пустым и затем обновиться.
         viewModelScope.launch {
             kotlinx.coroutines.flow.combine(
-                settingsUseCase.getUserSettingFlow().map { it.stationList },
+                settingsUseCase.getUserSettingFlow().map { it.stationList to it.locomotiveSeriesList },
                 routeUseCase.getListRoutesAsFlow(),
             ) { saved, routes -> saved to routes }
                 .debounce(300)
-                .collect { (saved, routes) ->
+                .collect { (savedLists, routes) ->
+                    val saved = savedLists.first
+                    val series = withContext(Dispatchers.Default) {
+                        val dir = runCatching { seriesRepository.getAll().map { it.name } }.getOrDefault(emptyList())
+                        (dir + savedLists.second).map { it.trim() }.filter { it.isNotEmpty() }.distinctBy { it.lowercase() }.sortedBy { it.lowercase() }
+                    }
                     val names = withContext(Dispatchers.Default) {
                         val dir = runCatching { stationDirectory.stations().map { it.name } }.getOrDefault(emptyList())
                         val history = routes.flatMap { r -> r.trains.flatMap { t -> t.stations.mapNotNull { it.stationName } } }
                         saved + dir + history
                     }
-                    _state.update { it.copy(knownStationNames = names) }
+                    _state.update { it.copy(knownStationNames = names, knownSeriesNames = series) }
                 }
         }
     }
@@ -624,7 +631,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     fun setIssueTimeNow() = _state.update {
         it.copy(issueTimeText = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")))
     }
-    fun setDate(v: String) = _state.update { it.copy(dateText = v.take(10)) }
+    fun setDate(v: String) = _state.update { it.copy(dateText = com.z_company.domain.brake.DateInput.mask(it.dateText, v)) }
     fun setLocoNumber(v: String) = _state.update { it.copy(locoNumberText = v) }
     fun setTrainNumber(v: String) = _state.update { it.copy(trainNumberText = v) }
     fun setWeight(v: String) { _state.update { it.copy(weightText = v) }; recomputeByAxleLoad() }

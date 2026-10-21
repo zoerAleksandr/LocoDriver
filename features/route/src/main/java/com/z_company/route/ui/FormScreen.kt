@@ -981,7 +981,7 @@ fun FormScreen(
                                             .weight(1f)
                                             .padding(start = 12.dp),
                                         value = number,
-                                        onValueChange = onNumberChanged,
+                                        onValueChange = { onNumberChanged(it.filter(Char::isDigit)) },
                                         singleLine = true,
                                         textStyle = MaterialTheme.typography.titleMedium.copy(
                                             fontFamily = MonoFont,
