@@ -658,7 +658,7 @@ private fun SpeedLegend(profile: SpeedProfile, dark: Boolean, showStopBand: Bool
     }
 }
 
-private fun android.content.Context.findActivity(): Activity? {
+internal fun android.content.Context.findActivity(): Activity? {
     var c: android.content.Context? = this
     while (c is android.content.ContextWrapper) {
         if (c is Activity) return c

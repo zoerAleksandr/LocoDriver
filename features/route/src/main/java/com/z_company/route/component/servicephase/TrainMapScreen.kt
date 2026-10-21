@@ -232,6 +232,8 @@ internal fun TrainMapScreen(
         var follow by remember { mutableStateOf(true) }
         var permGranted by remember { mutableStateOf(DeviceLocation.hasPermission(context)) }
         var selection by remember { mutableStateOf<TrainMapSelection?>(null) }
+        // Профиль пути: живое положение на профиле участка (выбор по местоположению и плечу, SCREEN_SPECS §6.9).
+        val profileModel = rememberProfileModel(myFix, liveSpeed, liveAtMs, stops)
         var showChart by rememberSaveable { mutableStateOf(false) }
         // Метки первого открытия карты + кнопка «?» для повтора (ONBOARDING_MATERIALS §2): один раз, не во время записи.
         val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
@@ -1563,6 +1565,7 @@ internal fun TrainMapScreen(
                 } else {
                     if (profileVisible) {
                         ProfileStrip(
+                            model = profileModel,
                             height = stripH,
                             onHide = { TrainMapPrefs.setProfileVisible(context, false) },
                             onExpand = { showProfileFull = true },
@@ -1624,7 +1627,7 @@ internal fun TrainMapScreen(
                     onDismiss = { showSettings = false },
                 )
             }
-            if (showProfileFull) ProfileFullScreen(onDismiss = { showProfileFull = false })
+            if (showProfileFull) ProfileFullScreen(profileModel, onDismiss = { showProfileFull = false })
 
             if (showChart) {
                 SpeedChartScreen(
