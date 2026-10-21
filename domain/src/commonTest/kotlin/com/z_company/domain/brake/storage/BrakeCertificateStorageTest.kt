@@ -24,7 +24,7 @@ private class FakeRepo : BrakeCertificateRepository {
         rows[certificateId]?.let { rows[certificateId] = it.copy(isDeleted = true, updatedAt = now) }
     }
     override fun markDeletedByTrain(trainId: String, now: Long) {
-        rows.replaceAll { _, v -> if (v.trainId == trainId) v.copy(isDeleted = true, updatedAt = now) else v }
+        for (k in rows.keys.toList()) rows[k]?.let { v -> if (v.trainId == trainId) rows[k] = v.copy(isDeleted = true, updatedAt = now) }
     }
     override fun deleteByRoute(routeId: String) { rows.values.removeAll { it.routeId == routeId } }
     override fun purgeTombstones(routeId: String) { rows.values.removeAll { it.routeId == routeId && it.isDeleted } }

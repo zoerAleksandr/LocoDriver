@@ -142,8 +142,9 @@ object AltitudeContribBuilder {
         }
         if (obs.isEmpty()) return emptyList()
 
-        val byCell = obs.groupBy { it.cell }.toSortedMap()
-        val cells = byCell.keys.toList()
+        val byCell = obs.groupBy { it.cell }
+        // sorted(), а не toSortedMap(): последний есть только в JVM, а domain собирается и в JS (мост PWA)
+        val cells = byCell.keys.sorted()
         val raw = HashMap<Int, Double>()
         for ((c, list) in byCell) raw[c] = median(list.map { it.alt })
         val smooth = HashMap<Int, Double>()
