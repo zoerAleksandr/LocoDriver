@@ -849,11 +849,13 @@ private fun PaperHeader(
             if (open) {
                 VuFillRow(end = true) {
                     VuPrint("Дата")
-                    VuInk(state.dateText, Modifier.width(128.dp), onChange = vm::setDate, maxLen = 10)
+                    VuInk(state.dateText, Modifier.width(128.dp), onChange = vm::setDate, keyboard = KeyboardType.Number, maxLen = 10)
                 }
                 VuFillRow {
                     VuPrint("Локомотив, серия")
-                    VuInk(state.locoSeriesText, Modifier.weight(1f), onChange = vm::setLocoSeries, maxLen = 12)
+                    VuStationSuggest(state.locoSeriesText, state.knownSeriesNames, onPick = vm::setLocoSeries, modifier = Modifier.weight(1f)) {
+                        VuInk(state.locoSeriesText, Modifier.fillMaxWidth(), onChange = vm::setLocoSeries, maxLen = 12)
+                    }
                     VuPrint("№")
                     VuInk(state.locoNumberText, Modifier.width(80.dp), onChange = vm::setLocoNumber, maxLen = 8)
                 }

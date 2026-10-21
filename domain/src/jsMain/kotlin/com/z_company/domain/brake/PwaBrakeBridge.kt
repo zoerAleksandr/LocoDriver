@@ -219,6 +219,7 @@ object PwaBrakeBridge {
         "fmt1" -> JsonPrimitive(TurnaroundComposition.fmt1(a.dbl("value") ?: 0.0))
 
         // Ввод времени суток
+        "dateMask" -> JsonPrimitive(DateInput.mask(a.str("prev") ?: "", a.str("raw") ?: ""))
         "timeFilter" -> JsonPrimitive(TimeOfDayInput.filter(a.str("raw") ?: ""))
         "timeMask" -> JsonPrimitive(TimeOfDayInput.mask(a.str("prev") ?: "", a.str("raw") ?: ""))
         "timeCommittable" -> TimeOfDayInput.committable(a.str("masked") ?: "")?.let { JsonPrimitive(it) } ?: JsonNull
