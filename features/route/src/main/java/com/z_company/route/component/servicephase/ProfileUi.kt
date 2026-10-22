@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTransformGestures
+import com.z_company.domain.track.Calibration
 import com.z_company.domain.track.KmGrid
 import com.z_company.domain.track.ProfileWindow
 import androidx.compose.ui.platform.LocalContext
@@ -520,10 +521,14 @@ private fun SectionHeader(model: ProfileModel, modifier: Modifier = Modifier, on
     }
 }
 
-/** Строка «Сейчас» в одну линию: километр и пикет, уклон, ближайшая станция впереди; вне участка - предупреждение. */
+/**
+ * Строка «Сейчас» в одну линию: километр и пикет (нажатие или «Уточнить» - ручная привязка), уклон, ближайшая станция
+ * впереди и поправка, если она задана; вне участка - предупреждение.
+ */
 @Composable
 private fun NowRow(model: ProfileModel, live: LiveProfile) {
     val pos = model.position
+    var showCalibrate by rememberSaveable { mutableStateOf(false) }
     val ahead = pos?.let { p ->
         val vx = live.toView(p.kmAxis)
         live.section.stations.map { live.toView(it.km) to it.name }.filter { it.first > vx + 0.05 }.minByOrNull { it.first }
@@ -531,34 +536,115 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
     }
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
-            .background(Pst.surface, RoundedCornerShape(14.dp)).padding(horizontal = 14.dp, vertical = 8.dp),
+            .background(Pst.surface, RoundedCornerShape(14.dp)).padding(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        when {
-            pos == null -> Text("Положение на участке определяется…", style = Pst.sans.copy(fontSize = 13.sp), color = Pst.textMuted)
-            pos.offRoute -> Text(
-                "Вы вне этого участка. Выберите другой или дождитесь автоподбора.",
-                style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold), color = Pst.danger, maxLines = 2,
-            )
-            else -> {
-                Text(
-                    text = pos.kmText ?: "${fmt1(live.toView(pos.kmAxis))} км от начала",
-                    style = Pst.mono.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, maxLines = 1,
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            when {
+                pos == null -> Text("Положение на участке определяется…", style = Pst.sans.copy(fontSize = 13.sp), color = Pst.textMuted)
+                pos.offRoute -> Text(
+                    "Вы вне этого участка. Выберите другой или дождитесь автоподбора.",
+                    style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold), color = Pst.danger, maxLines = 2,
                 )
-                gradeText(live, pos.element)?.let {
-                    Text(it, style = Pst.mono.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, maxLines = 1)
+                else -> {
+                    Text(
+                        text = pos.kmText ?: "${fmt1(live.toView(pos.kmAxis))} км от начала",
+                        style = Pst.mono.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, maxLines = 1,
+                    )
+                    gradeText(live, pos.element)?.let {
+                        Text(it, style = Pst.mono.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, maxLines = 1)
+                    }
+                    val tail = buildList {
+                        ahead?.let { add("До «${it.first}» — ${pstKm(it.second)}") }
+                        if (abs(model.calibrationKm) > 1e-6) add("поправка ${if (model.calibrationKm > 0) "+" else "−"}${(abs(model.calibrationKm) * 1000).roundToInt()} м")
+                        if (ahead == null && pos.kmText == null) add("Нет километровой привязки — показано расстояние от начала.")
+                    }.joinToString(" · ")
+                    Text(tail, style = Pst.sans.copy(fontSize = 13.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 }
-                Text(
-                    text = ahead?.let { "До «${it.first}» — ${pstKm(it.second)}" }
-                        ?: if (pos.kmText == null) "Нет километровой привязки — показано расстояние от начала." else "",
-                    style = Pst.sans.copy(fontSize = 13.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
+            }
+        }
+        if (live.section.kmMarks.isNotEmpty()) {
+            PstButton(
+                text = "Уточнить км", onClick = { showCalibrate = true },
+                kind = PstButtonKind.TONAL, height = 34.dp, fontSize = 13,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
+            )
+        }
+    }
+    if (showCalibrate) CalibrateDialog(model, live, onDismiss = { showCalibrate = false })
+}
+
+/**
+ * Ручная привязка: «я на 7046 км, пк 4». GPS остаётся основой, вводом считается поправка по оси для этого участка (карта могла
+ * быть нарисована со сдвигом или километраж не совпадает со столбами); новая привязка заменяет прежнюю. Если введённое место
+ * далеко (> 2 км) от показываемого - просим подтвердить повторным нажатием.
+ */
+@Composable
+private fun CalibrateDialog(model: ProfileModel, live: LiveProfile, onDismiss: () -> Unit) {
+    var km by remember { mutableStateOf(TextFieldValue("")) }
+    var pk by remember { mutableStateOf(TextFieldValue("")) }
+    var plus by remember { mutableStateOf(TextFieldValue("")) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var confirmFar by remember { mutableStateOf(false) }
+    val numeric = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+    fun submit() {
+        val kmV = km.text.trim().toIntOrNull()
+        val pkV = pk.text.trim().ifEmpty { "1" }.toIntOrNull()
+        val plusV = plus.text.trim().ifEmpty { "0" }.toIntOrNull()
+        when {
+            kmV == null || kmV < 0 -> { error = "Введите номер километра."; return }
+            pkV == null || pkV !in 1..10 -> { error = "Пикет — число от 1 до 10."; return }
+            plusV == null || plusV !in 0..99 -> { error = "«+ м» — число от 0 до 99."; return }
+        }
+        val abs = kmV!! + (pkV!! - 1) / 10.0 + plusV!! / 1000.0
+        when (val c = model.calibrationFor(abs)) {
+            Calibration.NoPosition -> error = "Положение по GPS пока не определено."
+            Calibration.NotOnSection -> error = "Такого километра нет на этом участке."
+            is Calibration.Ok -> {
+                if (c.diffKm > FAR_KM && !confirmFar) {
+                    error = "Это в ${pstKm(c.diffKm)} от места, которое показывает GPS. Нажмите «Привязать» ещё раз, если уверены."
+                    confirmFar = true
+                } else {
+                    model.applyCalibration(c.shiftKm)
+                    onDismiss()
+                }
+            }
+        }
+    }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(
+            modifier = Modifier.fillMaxWidth(0.7f).background(Pst.bg, RoundedCornerShape(20.dp)).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Уточнить километр", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+            Text(
+                text = "Сейчас: ${model.position?.kmText ?: "положение определяется"}. Введите, где вы на самом деле, — приложение сдвинет положение на профиле для этого участка.",
+                style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 17.sp), color = Pst.textMuted,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                PstTextField(km, { km = it; error = null; confirmFar = false }, "Км", Modifier.weight(1f), keyboardOptions = numeric, mono = true)
+                PstTextField(pk, { pk = it; error = null; confirmFar = false }, "Пикет", Modifier.weight(1f), placeholder = "1", keyboardOptions = numeric, mono = true)
+                PstTextField(plus, { plus = it; error = null; confirmFar = false }, "+ м", Modifier.weight(1f), placeholder = "0", keyboardOptions = numeric, mono = true)
+            }
+            error?.let { Text(it, style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 17.sp), color = if (confirmFar) Pst.text else Pst.danger) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), modifier = Modifier.fillMaxWidth()) {
+                if (abs(model.calibrationKm) > 1e-6) {
+                    PstButton("Сбросить поправку", { model.resetCalibration(); onDismiss() }, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
+                }
+                PstButton("Отмена", onDismiss, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
+                PstButton("Привязать", { submit() }, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
             }
         }
     }
 }
+
+/** Дальше этого расстояния от показываемого места привязку просим подтвердить, км. */
+private const val FAR_KM = 2.0
 
 /** Список участков: ближайшие по положению сверху (плечо поезда — выше всех), поиск по названию и станциям. */
 @Composable

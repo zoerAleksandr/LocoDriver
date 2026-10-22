@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.z_company.domain.track.Calibration
 import com.z_company.domain.track.ElevationLine
 import com.z_company.domain.track.LegMatch
 import com.z_company.domain.track.LivePosition
@@ -32,7 +33,10 @@ internal enum class ProfileEmpty { LOADING, NO_LOCATION, NO_SECTIONS, NO_NEARBY,
  * живая позиция на профиле. Координаты нигде не логируются, на сервер ничего не уходит.
  */
 @Stable
-internal class ProfileModel(private val repo: SectionProfileRepository) {
+internal class ProfileModel(
+    private val repo: SectionProfileRepository,
+    private val calibrations: ProfileCalibrationStore,
+) {
     var sections by mutableStateOf<List<SectionProfile>>(emptyList())
         private set
     var loaded by mutableStateOf(false)
@@ -179,10 +183,29 @@ internal class ProfileModel(private val repo: SectionProfileRepository) {
         val cur = live
         if (cur == null || cur.section.id != s.id || cur.reversed != rev || cur.section !== s) {
             val keep = cur?.takeIf { it.section.id == s.id }?.position
-            live = LiveProfile(s, rev)
-            position = keep
+            live = LiveProfile(s, rev).also { it.applyCalibration(calibrations.get(s.id, s.axisHash)) }
+            position = keep ?: live?.position
+            calibrationKm = live?.calibrationKm ?: 0.0
         }
     }
+
+    /** Поправка по оси для выбранного участка, км (0 - нет); для показа «поправка +120 м». */
+    var calibrationKm by mutableStateOf(0.0)
+        private set
+
+    /** Подбор поправки по введённому «я на [absKm]»; ничего не применяет. */
+    fun calibrationFor(absKm: Double): Calibration = live?.calibrationFor(absKm) ?: Calibration.NoPosition
+
+    /** Применить и запомнить поправку для этого участка. */
+    fun applyCalibration(shiftKm: Double) {
+        val l = live ?: return
+        l.applyCalibration(shiftKm)
+        calibrations.set(l.section.id, l.section.axisHash, shiftKm)
+        calibrationKm = shiftKm
+        position = l.position
+    }
+
+    fun resetCalibration() = applyCalibration(0.0)
 
     private fun rebuild() {
         ensureLive()
@@ -222,7 +245,8 @@ internal class ProfileModel(private val repo: SectionProfileRepository) {
 @Composable
 internal fun rememberProfileModel(fix: GeoFix?, speedKmh: Double?, fixAtMs: Long, stops: List<TrainMapStop>): ProfileModel {
     val repo: SectionProfileRepository = koinInject()
-    val model = remember { ProfileModel(repo) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val model = remember { ProfileModel(repo, ProfileCalibrationStore(context)) }
     model.stopNames = remember(stops) { stops.map { it.name }.filter { it.isNotBlank() } }
     LaunchedEffect(Unit) { model.load() }
     LaunchedEffect(fix, fixAtMs, model.loaded) { model.onFix(fix, speedKmh, if (fixAtMs > 0) fixAtMs else System.currentTimeMillis()) }
