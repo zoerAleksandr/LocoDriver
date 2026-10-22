@@ -89,4 +89,35 @@ class SectionProfileTest {
         assertTrue(SectionPicker.sameStation("Ёлкино", "елкино"))
         assertTrue(!SectionPicker.sameStation("", ""))
     }
+
+    @Test
+    fun ticks_increasing_numbering() {
+        val marks = listOf(KmMark(0.0, 142.0, 1))
+        val t = KmGrid.ticks(marks, 0.25, 0.75)
+        assertEquals(listOf(142.3, 142.4, 142.5, 142.6, 142.7), t.map { it.absKm })
+        near(0.3, t[0].axisKm)
+        assertTrue(t.none { it.isPost })
+        val withPost = KmGrid.ticks(marks, 0.9, 1.1)
+        assertEquals(listOf(true), withPost.filter { it.absKm == 143.0 }.map { it.isPost })
+    }
+
+    @Test
+    fun ticks_decreasing_numbering_and_renumber() {
+        val marks = listOf(KmMark(0.0, 100.0, 1), KmMark(10.0, 4.0, -1))
+        val t = KmGrid.ticks(marks, 9.8, 10.3)
+        assertTrue(t.any { it.absKm == 109.9 })
+        assertTrue(t.any { it.absKm == 3.9 })
+        assertTrue(t.zipWithNext().all { (a, b) -> a.axisKm <= b.axisKm })
+    }
+
+    @Test
+    fun cells_have_km_and_picket() {
+        val marks = listOf(KmMark(0.0, 142.0, 1))
+        val c = KmGrid.cells(marks, 0.0, 1.05)
+        assertEquals(142, c.first().km); assertEquals(1, c.first().picket)
+        assertEquals(142, c.first { it.picket == 10 }.km)
+        assertEquals(1, c.first { it.km == 143 }.picket)
+        val down = KmGrid.cells(listOf(KmMark(0.0, 143.0, -1)), 0.0, 0.25)
+        assertEquals(142, down.first().km); assertEquals(10, down.first().picket)
+    }
 }

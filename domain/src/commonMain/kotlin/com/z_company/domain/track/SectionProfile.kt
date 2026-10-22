@@ -180,3 +180,58 @@ data class SectionSummary(
     val hasProfile: Boolean,
     val updatedAt: Long,
 )
+
+/** Граница пикета на оси: [axisKm] - место, [absKm] - километровая координата, [isPost] - это столб км (граница целого км). */
+data class KmTick(val axisKm: Double, val absKm: Double, val isPost: Boolean)
+
+/** Ячейка пикета: от [fromAxisKm] до [toAxisKm] оси, пикет [picket] 1..10 в километре [km]. */
+data class PicketCell(val fromAxisKm: Double, val toAxisKm: Double, val km: Int, val picket: Int)
+
+object KmGrid {
+    private const val EPS = 1e-9
+
+    /**
+     * Границы пикетов (каждые 100 м) в окне оси [fromAxis; toAxis] по отметкам километража. Внутри отрезка отметки километр идёт
+     * по пути (1 км оси = 1 км); на смене нумерации ряд начинается заново. Без отметок - пусто.
+     */
+    fun ticks(marks: List<KmMark>, fromAxis: Double, toAxis: Double): List<KmTick> {
+        if (marks.isEmpty() || toAxis <= fromAxis) return emptyList()
+        val sorted = marks.sortedBy { it.km }
+        val out = ArrayList<KmTick>()
+        for ((i, m) in sorted.withIndex()) {
+            val segFrom = if (i == 0) Double.NEGATIVE_INFINITY else m.km
+            val segTo = if (i + 1 < sorted.size) sorted[i + 1].km else Double.POSITIVE_INFINITY
+            val a = maxOf(fromAxis, segFrom)
+            val b = minOf(toAxis, segTo)
+            if (b < a) continue
+            val dir = if (m.dir == 0) 1 else m.dir
+            val absA = m.kmAbs + dir * (a - m.km)
+            val absB = m.kmAbs + dir * (b - m.km)
+            val lo = minOf(absA, absB)
+            val hi = maxOf(absA, absB)
+            var n = floor(lo * 10 - EPS).toLong() + 1
+            while (n / 10.0 <= hi + EPS) {
+                val abs = n / 10.0
+                val x = m.km + (abs - m.kmAbs) / dir
+                val inSeg = x >= a - EPS && x <= b + EPS && (i + 1 >= sorted.size || x < segTo - EPS)
+                if (inSeg && x >= fromAxis - EPS && x <= toAxis + EPS) out += KmTick(x, abs, n % 10 == 0L)
+                n++
+            }
+        }
+        return out.sortedBy { it.axisKm }
+    }
+
+    /** Ячейки пикетов между соседними границами; километр и пикет по середине ячейки (пк 1 - первые 100 м после столба). */
+    fun cells(marks: List<KmMark>, fromAxis: Double, toAxis: Double): List<PicketCell> {
+        // На 100 м шире окна: у краёв ячейка видна частично, её границы лежат за окном.
+        val ticks = ticks(marks, fromAxis - 0.1, toAxis + 0.1)
+        if (ticks.size < 2) return emptyList()
+        return ticks.zipWithNext().filter { (a, b) -> b.axisKm > fromAxis && a.axisKm < toAxis }.mapNotNull { (a, b) ->
+            if (b.axisKm - a.axisKm > 0.25) return@mapNotNull null // разрыв нумерации: между границами смена отметки
+            val mid = KmMarks.toAbs(marks, (a.axisKm + b.axisKm) / 2) ?: return@mapNotNull null
+            val km = floor(mid + EPS).toInt()
+            val pk = floor((mid - floor(mid)) * 10 + EPS).toInt().coerceIn(0, 9) + 1
+            PicketCell(a.axisKm, b.axisKm, km, pk)
+        }
+    }
+}
