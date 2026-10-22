@@ -145,6 +145,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getBreakDuration
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTimeWithinWork
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTimeOutsideWork
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkStartWaitingInterval
 import com.z_company.domain.entities.route.UtilsForEntities.getPureWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.util.minus
@@ -1173,6 +1174,37 @@ fun FormScreen(
                                                 )
                                                 Text(
                                                     text = ConverterLongToTime.getTimeInStringFormat(passengerOutsideWork),
+                                                    style = MaterialTheme.typography.titleLarge.copy(
+                                                        fontFamily = MonoFont,
+                                                        fontWeight = FontWeight.Bold
+                                                    ),
+                                                    color = MaterialTheme.colorScheme.tertiary
+                                                )
+                                            }
+                                            HorizontalDivider(
+                                                thickness = 1.dp,
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                            )
+                                        }
+                                        // Зазор между прибытием и явкой (> 1 мин) — ожидание 018M: время
+                                        // идёт в оплату и в «отработано» по месяцу, но не входит в окно
+                                        // явка–сдача, поэтому показываем отдельной строкой.
+                                        val startWaiting = route.getWorkStartWaitingInterval()?.durationMillis ?: 0L
+                                        if (startWaiting > 0L) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(
+                                                    text = "Ожидание до явки",
+                                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                                        fontWeight = FontWeight.SemiBold
+                                                    ),
+                                                    color = MaterialTheme.colorScheme.tertiary
+                                                )
+                                                Text(
+                                                    text = ConverterLongToTime.getTimeInStringFormat(startWaiting),
                                                     style = MaterialTheme.typography.titleLarge.copy(
                                                         fontFamily = MonoFont,
                                                         fontWeight = FontWeight.Bold
@@ -2511,6 +2543,9 @@ private fun CalcBottomSheet(
             val passengerOutsideHint = timeRateHint(
                 passengerOutsideTime, "следование пассажиром до явки"
             )
+            val passengerWaitingHint = timeRateHint(
+                salaryForRouteState.passengerWaitingTime, "ожидание следования пассажиром"
+            )
             val holidayHint = holidayTime
                 ?.takeIf { it > 0L }
                 ?.let { "${ConverterLongToTime.getTimeInStringFormat(it)} в праздничные дни" }
@@ -2525,6 +2560,7 @@ private fun CalcBottomSheet(
                 add("Ночные", nightHint, salaryForRouteState.paymentAtNightTime)
                 add("Пассажиром", passengerHint, salaryForRouteState.paymentAtPassengerTime)
                 add("Пассажиром до явки", passengerOutsideHint, salaryForRouteState.paymentAtPassengerOutsideTime)
+                add("Ожидание пассажиром", passengerWaitingHint, salaryForRouteState.paymentAtPassengerWaiting)
                 salaryForRouteState.linearMileageAccruals.forEach { accrual ->
                     val distance = if (accrual.distance % 1.0 == 0.0) {
                         accrual.distance.toLong().toString()

@@ -477,6 +477,9 @@ class FormViewModel(
             val deferredMoneyAtPassengerWaiting = async {
                 salaryCalculationHelper.getMoneyAtPassengerWaitingFlow().first()
             }
+            val deferredPassengerWaitingTime = async {
+                salaryCalculationHelper.getPassengerWaitingTimeFlow().first()
+            }
             // Оплата проезда пассажиром до явки — по тарифу, отдельно от работы.
             val deferredMoneyAtPassengerOutside = async {
                 salaryCalculationHelper.getMoneyAtPassengerOutsideWorkFlow().first()
@@ -584,6 +587,7 @@ class FormViewModel(
             val zonalSurchargeMoney = deferredZonalSurchargeMoney.await()
             val moneyAtPassengerTime = deferredMoneyAtPassengerTime.await()
             val moneyAtPassengerWaiting = deferredMoneyAtPassengerWaiting.await()
+            val passengerWaitingTime = deferredPassengerWaitingTime.await()
             val moneyAtPassengerOutside = deferredMoneyAtPassengerOutside.await()
             val moneyAtHoliday = deferredMoneyAtHoliday.await()
             val linearMileageDistance = deferredLinearMileageDistance.await()
@@ -669,6 +673,8 @@ class FormViewModel(
                     zonalSurchargeMoney = zonalSurchargeMoney,
                     paymentAtPassengerTime = moneyAtPassengerTime,
                     paymentAtPassengerOutsideTime = moneyAtPassengerOutside,
+                    paymentAtPassengerWaiting = moneyAtPassengerWaiting,
+                    passengerWaitingTime = passengerWaitingTime,
                     paymentHolidayMoney = moneyAtHoliday,
                     linearMileageDistance = linearMileageDistance,
                     linearMileageMoney = linearMileageMoney,
