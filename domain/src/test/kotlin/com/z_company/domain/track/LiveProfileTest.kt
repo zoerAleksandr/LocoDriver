@@ -82,4 +82,42 @@ class LiveProfileTest {
         assertNull(LegMatch.fits(s, emptyList()))
         assertEquals(listOf("s"), LegMatch.sections(listOf(s), listOf("Александровка", "Борки")).map { it.id })
     }
+
+    @Test
+    fun calibration_shifts_position_and_km() {
+        val lp = LiveProfile(section(), reversed = false)
+        lp.onFix(1_000, lat0, lon(2.0), 60.0, 5f)
+        // GPS показывает 102 км; пользователь на самом деле у 102 км пк 6 (+0,5 км)
+        val c = lp.calibrationFor(102.5) as Calibration.Ok
+        assertEquals(0.5, c.shiftKm, 0.02)
+        assertEquals(0.5, c.diffKm, 0.02)
+        lp.applyCalibration(c.shiftKm)
+        assertEquals(2.5, lp.position!!.kmAxis, 0.02)
+        assertEquals("102 км пк 6", lp.position!!.kmText?.substringBefore(" +"))
+        // следующие фиксы тоже со сдвигом
+        val p = lp.onFix(61_000, lat0, lon(3.0), 60.0, 5f)
+        assertEquals(3.5, p!!.kmAxis, 0.02)
+        lp.applyCalibration(0.0)
+        assertEquals(3.0, lp.position!!.kmAxis, 0.02)
+    }
+
+    @Test
+    fun calibration_edge_cases() {
+        val lp = LiveProfile(section(), reversed = false)
+        assertEquals(Calibration.NoPosition, lp.calibrationFor(102.0))
+        lp.onFix(1_000, lat0, lon(2.0), 60.0, 5f)
+        assertEquals(Calibration.NotOnSection, lp.calibrationFor(500.0))
+        // за пределами участка по нумерации (до 100 км и после 110 км) тоже нет
+        assertEquals(Calibration.NotOnSection, lp.calibrationFor(99.0))
+    }
+
+    @Test
+    fun repeated_numbering_picks_nearest_to_current() {
+        val s = section().copy(kmMarks = listOf(KmMark(0.0, 100.0, 1), KmMark(5.0, 100.0, 1)))
+        val lp = LiveProfile(s, reversed = false)
+        lp.onFix(1_000, lat0, lon(6.0), 60.0, 5f)
+        val c = lp.calibrationFor(100.5) as Calibration.Ok
+        assertEquals(5.5, 5.5 + 0.0 * c.shiftKm, 1e-9) // кандидаты: 0.5 и 5.5 - ближайший к 6.0 это 5.5
+        assertEquals(0.5, c.diffKm, 0.02)
+    }
 }

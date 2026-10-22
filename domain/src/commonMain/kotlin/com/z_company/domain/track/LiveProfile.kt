@@ -50,12 +50,30 @@ data class LivePosition(
     val locked: Boolean,
 )
 
+/** Результат подбора поправки по введённому километру и пикету. */
+sealed interface Calibration {
+    /** [shiftKm] - новая поправка по оси; [diffKm] - на сколько введённое место отличается от показываемого сейчас. */
+    data class Ok(val shiftKm: Double, val diffKm: Double) : Calibration
+    /** Нет положения по GPS - не от чего считать поправку. */
+    data object NoPosition : Calibration
+    /** Такого километра нет на этом участке. */
+    data object NotOnSection : Calibration
+}
+
 /** Окно показа вдоль профиля в координатах вида (0 = начало вида; вид развёрнут при [reversed]). */
 data class ProfileWindow(val fromX: Double, val toX: Double)
 
 class LiveProfile(val section: SectionProfile, val reversed: Boolean) {
     private val tracker = AxisTracker(section.axis.locator)
     private var last: LivePosition? = null
+    private var rawKm: Double? = null
+
+    /**
+     * Поправка по оси, км: показываемое положение = положение по GPS + поправка. Нужна, когда карта нарисована со сдвигом или
+     * километраж не совпадает с реальными столбами; задаётся ручной привязкой ([applyCalibration]).
+     */
+    var calibrationKm: Double = 0.0
+        private set
 
     val position: LivePosition? get() = last
 
@@ -75,14 +93,37 @@ class LiveProfile(val section: SectionProfile, val reversed: Boolean) {
             last = last?.copy(locked = tracker.isLocked)
             return last
         }
-        last = LivePosition(
+        rawKm = km
+        last = positionAt(km, r.offRoute)
+        return last
+    }
+
+    private fun positionAt(raw: Double, offRoute: Boolean): LivePosition {
+        val km = (raw + calibrationKm).coerceIn(0.0, lengthKm)
+        return LivePosition(
             kmAxis = km,
             kmText = KmMarks.text(section.kmMarks, km),
             element = section.elements.at(km),
-            offRoute = r.offRoute,
+            offRoute = offRoute,
             locked = tracker.isLocked,
         )
-        return last
+    }
+
+    /** Поправка для места «я на [absKm]» (км + пикет/100): ближайшее к показываемому положению место с такой координатой. */
+    fun calibrationFor(absKm: Double): Calibration {
+        val raw = rawKm ?: return Calibration.NoPosition
+        val shown = (raw + calibrationKm).coerceIn(0.0, lengthKm)
+        val target = KmMarks.candidates(section.kmMarks, absKm)
+            .filter { it >= -0.05 && it <= lengthKm + 0.05 }
+            .minByOrNull { kotlin.math.abs(it - shown) } ?: return Calibration.NotOnSection
+        return Calibration.Ok(shiftKm = target - raw, diffKm = kotlin.math.abs(target - shown))
+    }
+
+    /** Применить поправку сразу к текущему положению; 0 - сбросить. */
+    fun applyCalibration(shiftKm: Double) {
+        calibrationKm = shiftKm
+        val raw = rawKm ?: return
+        last = positionAt(raw, last?.offRoute ?: false)
     }
 
     /**

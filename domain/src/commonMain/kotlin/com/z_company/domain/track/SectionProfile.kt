@@ -77,6 +77,21 @@ object KmMarks {
         return null
     }
 
+    /** Все места оси с километровой координатой [absKm] (нумерация может повторяться после смены); пусто - такой координаты нет. */
+    fun candidates(marks: List<KmMark>, absKm: Double): List<Double> {
+        if (marks.isEmpty()) return emptyList()
+        val sorted = marks.sortedBy { it.km }
+        val out = ArrayList<Double>()
+        for ((i, m) in sorted.withIndex()) {
+            val dir = if (m.dir == 0) 1 else m.dir
+            val rel = m.km + (absKm - m.kmAbs) / dir
+            val lo = if (i > 0) m.km else Double.NEGATIVE_INFINITY
+            val hi = if (i + 1 < sorted.size) sorted[i + 1].km else Double.POSITIVE_INFINITY
+            if (rel >= lo - 1e-9 && rel < hi - 1e-9) out += rel
+        }
+        return out
+    }
+
     /** 142.43 -> 142 км пк 5 +30 м (пк 1 - первые 100 м после столба). Как `km_pk_text` сервера. */
     fun position(absKm: Double): KmPosition {
         val v = (absKm * 1000.0).roundToInt() / 1000.0
