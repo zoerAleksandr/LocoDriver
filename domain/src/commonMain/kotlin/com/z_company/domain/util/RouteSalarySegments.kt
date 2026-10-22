@@ -6,6 +6,7 @@ import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.clipToMonth
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkStartWaitingInterval
 import com.z_company.domain.entities.route.UtilsForEntities.passengerTrainNumberList
 import com.z_company.domain.entities.route.UtilsForEntities.suburbanTrainNumberList
 import kotlinx.datetime.DateTimeUnit
@@ -34,7 +35,14 @@ fun Route.buildSalarySegments(
     tariffChanges: Iterable<TariffChange> = emptyList(),
     nightWindow: NightWindow? = null,
 ): List<SalarySegment> {
-    val (start, end) = clipToMonth(monthOfYear, context) ?: return emptyList()
+    val (clippedStart, end) = clipToMonth(monthOfYear, context) ?: return emptyList()
+    val shiftInterval = TimeInterval(clippedStart, end)
+    // «Явка по прибытию» со смещением: промежуток [прибытие; явка) длиннее 1 мин
+    // оплачивается как «ожидание следования пассажиром» (018M) и входит в рабочее
+    // окно. Только когда явка маршрута принадлежит этому месяцу.
+    val startWaiting = getWorkStartWaitingInterval()
+        ?.takeIf { clippedStart == basicData.timeStartWork }
+    val start = startWaiting?.startMillis ?: clippedStart
     val workInterval = TimeInterval(start, end)
     val breakInterval = validInterval(
         basicData.timeStartBreak,
@@ -48,9 +56,9 @@ fun Route.buildSalarySegments(
     // ждёт → поехал пассажиром). Считается только при наличии следования
     // пассажиром — в чисто грузовом маршруте ожидание отсутствует.
     val passengerWaitingIntervals = passengerWaitingIntervals(
-        workInterval = workInterval,
+        workInterval = shiftInterval,
         breakInterval = breakInterval,
-    )
+    ) + listOfNotNull(startWaiting)
     val nightIntervals = nightWindow?.let { window ->
         CalculateNightTime.getNightIntervals(
             startMillis = start,

@@ -677,6 +677,9 @@ actual class DatabaseDriverFactory(private val context: Context) {
             }
             val requiresStructuralRepair =
                 !hasColumn(sourceDb, "BasicData", "remoteDeletionPending") ||
+                // БД уже на целевой версии, но без смещения явки по прибытию: колонка
+                // добавлена в 13.sqm задним числом, поэтому достраиваем через repair.
+                !hasColumn(sourceDb, "Passenger", "workStartOffsetMinutes") ||
                     !hasTable(sourceDb, "RouteEvent") ||
                     !hasTable(sourceDb, "DiagnosticOutbox")
             if (sourceVersion >= targetVersion && !requiresStructuralRepair) return null

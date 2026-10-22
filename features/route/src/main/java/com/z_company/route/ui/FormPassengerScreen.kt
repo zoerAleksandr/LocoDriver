@@ -1030,7 +1030,7 @@ private fun WorkStartOffsetRow(
             )
             Text(
                 modifier = Modifier.padding(top = 3.dp),
-                text = "Время между прибытием и явкой (ЧЧ:ММ).",
+                text = "Время между прибытием и явкой.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

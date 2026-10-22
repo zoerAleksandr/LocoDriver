@@ -199,13 +199,33 @@ object UtilsForEntities {
     }
 
     /**
+     * Промежуток между прибытием пассажиром и явкой при «явке по прибытию» со смещением
+     * ([Passenger.workStartOffsetMinutes]): `[прибытие; явка)`. Это время ожидания
+     * (018M «Ожидание следования пассажиром»), а не проезд. Возвращает null, если режим
+     * выключен, нет прибытия или разница не больше [WORK_START_FREE_GAP_MILLIS] (1 мин —
+     * это технический зазор, в оплату не идёт).
+     */
+    fun Route.getWorkStartWaitingInterval(): TimeInterval? {
+        val workStart = basicData.timeStartWork?.floorToMinute() ?: return null
+        val arrival = passengers.firstOrNull { it.isWorkStartByArrival && it.timeArrival != null }
+            ?.timeArrival?.floorToMinute() ?: return null
+        return if (workStart - arrival > WORK_START_FREE_GAP_MILLIS) {
+            TimeInterval(arrival, workStart)
+        } else null
+    }
+
+    /** Зазор между прибытием и явкой, не превышающий который время не оплачивается. */
+    const val WORK_START_FREE_GAP_MILLIS = 60_000L
+
+    /**
      * Отработанное время маршрута — «чистая» работа ПЛЮС проезд пассажиром до явки
      * («явка по прибытию»), т.к. это время тоже считается отработанным (входит в
      * месячный итог, норму, переработку, карточку и оплату по тарифу).
      */
     fun Route.getWorkTime(): Long? {
         val pure = getPureWorkTime() ?: return null
-        return pure + getPassengerTimeOutsideWork()
+        return pure + getPassengerTimeOutsideWork() +
+                (getWorkStartWaitingInterval()?.durationMillis ?: 0L)
     }
 
     /**
@@ -237,7 +257,8 @@ object UtilsForEntities {
             if (bEnd > bStart) bEnd - bStart else 0L
         } else 0L
         // Проезд пассажиром до явки тоже входит в отработанное время.
-        return clippedEnd - clippedStart - breakDuration + getPassengerTimeOutsideWork()
+        return clippedEnd - clippedStart - breakDuration + getPassengerTimeOutsideWork() +
+                (getWorkStartWaitingInterval()?.durationMillis ?: 0L)
     }
 
     fun Route.getWorkTimeFlow(): Flow<Long?> {
@@ -777,7 +798,8 @@ object UtilsForEntities {
                     context
                 )
                 // Проезд пассажиром до явки тоже входит в отработанное время.
-                totalTime += time + route.getPassengerTimeOutsideWork()
+                totalTime += time + route.getPassengerTimeOutsideWork() +
+                        (route.getWorkStartWaitingInterval()?.durationMillis ?: 0L)
             } else {
                 route.getWorkTime().let { time ->
                     totalTime += time ?: 0
