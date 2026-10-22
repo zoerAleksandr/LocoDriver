@@ -344,6 +344,18 @@ class PassengerFormViewModel(
         }
     }
 
+    /** Смещение явки от прибытия (мин). Если пассажир — источник явки, переносим в маршрут. */
+    fun setWorkStartOffsetMinutes(minutes: Int) {
+        val clamped = minutes.coerceIn(0, Passenger.MAX_WORK_START_OFFSET_MINUTES)
+        currentPassenger = currentPassenger?.copy(workStartOffsetMinutes = clamped)
+        changesHave()
+        currentPassenger?.let { p ->
+            if (p.isWorkStartByArrival) {
+                viewModelScope.launch { syncWorkStartToRoute(p) }
+            }
+        }
+    }
+
     /**
      * «Явка по прибытию пассажиром». Включение делает прибытие этого пассажира
      * началом рабочего времени маршрута (timeStartWork = timeArrival) и снимает
@@ -351,7 +363,16 @@ class PassengerFormViewModel(
      * снимает флаг — timeStartWork остаётся, пользователь может изменить явку вручную.
      */
     fun setWorkStartByArrival(enabled: Boolean) {
-        val updated = currentPassenger?.copy(isWorkStartByArrival = enabled) ?: return
+        val updated = currentPassenger?.copy(
+            isWorkStartByArrival = enabled,
+            // При включении — смещение по умолчанию (1 мин); при выключении значение
+            // не трогаем, чтобы повторное включение не теряло введённое пользователем.
+            workStartOffsetMinutes = if (enabled && currentPassenger?.isWorkStartByArrival != true) {
+                Passenger.DEFAULT_WORK_START_OFFSET_MINUTES
+            } else {
+                currentPassenger?.workStartOffsetMinutes ?: 0
+            }
+        ) ?: return
         currentPassenger = updated
         changesHave()
         viewModelScope.launch { syncWorkStartToRoute(updated) }
@@ -390,7 +411,7 @@ class PassengerFormViewModel(
             currentBasic.copy(
                 timeStartWorkBeforeArrival = currentBasic.timeStartWorkBeforeArrival
                     ?: currentBasic.timeStartWork,
-                timeStartWork = current.timeArrival
+                timeStartWork = current.workStartTime
             )
         } else if (mergedPassengers.none { it.isWorkStartByArrival }) {
             // Режим выключен для всего маршрута: возвращаем прежнюю явку и чистим резерв.

@@ -193,7 +193,8 @@ Passenger(
   passengerId: String = generateId(), basicId: String = "", remoteObjectId?: String,
   trainNumber?, stationDeparture?, stationArrival?: String,
   timeArrival?: Long, timeDeparture?: Long, notes?: String,
-  isWorkStartByArrival: Boolean = false     // см. §7.2
+  isWorkStartByArrival: Boolean = false,    // см. §7.2
+  workStartOffsetMinutes: Int = 0           // смещение явки от прибытия, мин (§7.2); БД: Passenger.workStartOffsetMinutes
 )
 
 OtherWork(
@@ -1565,7 +1566,8 @@ Snackbar-сообщения экрана показываются по очер�
     BUG-18): явка подставляется молча, пользователь об этом не узнаёт);
   - `isSynchronized=false`, `updatedAt=now` (часы LWW-merge);
   - если у какого-то пассажира `isWorkStartByArrival=true` и задано прибытие —
-    `timeStartWork` принудительно = этому прибытию (§7.2).
+    `timeStartWork` принудительно = его прибытию + `workStartOffsetMinutes` минут
+    (`Passenger.workStartTime`, §7.2).
 - **`BasicData` держится в памяти**, из БД подтягиваются только под-разделы
   (`locomotives/trains/passengers/otherWorks/partners/photos`) — иначе автосейв→emit БД
   затирает ввод пользователя. Исключения, которые берутся из БД: `timeEndWork` (его
@@ -3482,6 +3484,18 @@ max(5 км, 3 × точность сети) от свежей (≤ 2 мин) с�
 от отсутствия поля у старого клиента и не допускать нескольких источников. Android
 выводит его из локальных `Passenger.isWorkStartByArrival` непосредственно перед POST;
 в локальной SQLDelight-БД отдельная копия route-level поля не хранится.
+
+**Смещение явки (`Passenger.workStartOffsetMinutes`, Int, минуты).** При включении «явки по
+прибытию» на экране «Пассажиром» появляется поле «Явка через» (формат ЧЧ:ММ, ввод цифр
+справа налево, 0:00–23:59, минуты ≤ 59). Явка маршрута = `timeArrival + смещение`; блок
+«Начало работы» показывает именно это время. Значение по умолчанию при включении — **1 мин**;
+в контракте/БД default `0` (старые записи и клиенты без поля сохраняют прежнее «явка =
+прибытие»). Поле едет в `passengers[]` (POST/GET, camelCase `workStartOffsetMinutes`),
+сервер хранит `passenger.work_start_offset_minutes` (миграция 057) и при выдаче
+`timeStartWork` считает его от прибытия источника + смещение. Проезд пассажиром до явки
+(`Pout`, §«Проезд до явки») считается до `timeStartWork`, поэтому минуты между прибытием и
+явкой в оплату не входят. Выключение режима значение не стирает (повторное включение
+незаметно сохраняет введённое).
 `Passenger.isWorkStartByArrival` сервер продолжает принимать и возвращать ради старых
 Android-клиентов, поддерживая его согласованным с route-level полем. Если старый клиент
 не прислал `workStartByArrivalPassengerId`, сервер выводит значение из пассажирского

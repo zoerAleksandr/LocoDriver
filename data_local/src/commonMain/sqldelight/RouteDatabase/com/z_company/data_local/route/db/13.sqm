@@ -19,6 +19,10 @@ ALTER TABLE BasicData ADD COLUMN deletionReason TEXT;
 ALTER TABLE BasicData ADD COLUMN remoteDeletionPending INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE BasicData ADD COLUMN remoteDeletedAt INTEGER;
 
+-- Смещение «явки по прибытию» от прибытия пассажиром (минуты): явка = прибытие + смещение.
+-- 0 — прежнее поведение (явка равна прибытию), поэтому старые записи не меняются.
+ALTER TABLE Passenger ADD COLUMN workStartOffsetMinutes INTEGER NOT NULL DEFAULT 0;
+
 CREATE TABLE IF NOT EXISTS DiagnosticInstallation (
     singletonId INTEGER NOT NULL PRIMARY KEY CHECK (singletonId = 1),
     installationId TEXT NOT NULL,

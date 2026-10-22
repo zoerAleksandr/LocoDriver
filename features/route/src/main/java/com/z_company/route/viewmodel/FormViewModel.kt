@@ -859,13 +859,13 @@ class FormViewModel(
 
     /**
      * Инвариант «явки по прибытию»: если есть пассажир с флагом isWorkStartByArrival и
-     * заданным прибытием, явка маршрута = его прибытию. Применяем при загрузке/слиянии
+     * заданным прибытием, явка маршрута = его прибытию + смещение. Применяем при загрузке/слиянии
      * маршрута, чтобы экран не зависел от тайминга записи timeStartWork в БД.
      */
     private fun Route.withWorkStartFromPassenger(): Route {
         val arrival = passengers.firstOrNull {
             it.isWorkStartByArrival && it.timeArrival != null
-        }?.timeArrival ?: return this
+        }?.workStartTime ?: return this
         return if (basicData.timeStartWork == arrival) this
         else copy(basicData = basicData.copy(timeStartWork = arrival))
     }

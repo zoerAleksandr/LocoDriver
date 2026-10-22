@@ -22,5 +22,21 @@ data class Passenger(
      * пассажиров маршрута). Default false — обратная совместимость со старыми
      * клиентами/сервером (контракт full-replace, ignoreUnknownKeys).
      */
-    var isWorkStartByArrival: Boolean = false
-)
+    var isWorkStartByArrival: Boolean = false,
+    /**
+     * Смещение явки от прибытия, минуты: при [isWorkStartByArrival] явка маршрута
+     * ([BasicData.timeStartWork]) = [timeArrival] + это значение ([workStartTime]).
+     * Default 0 — прежнее поведение (явка равна прибытию) для старых данных и
+     * клиентов; при включении режима в UI выставляется [DEFAULT_WORK_START_OFFSET_MINUTES].
+     */
+    var workStartOffsetMinutes: Int = 0
+) {
+    /** Явка маршрута по этому пассажиру: прибытие + смещение; null, если прибытия нет. */
+    val workStartTime: Long?
+        get() = timeArrival?.let { it + workStartOffsetMinutes * 60_000L }
+
+    companion object {
+        const val DEFAULT_WORK_START_OFFSET_MINUTES = 1
+        const val MAX_WORK_START_OFFSET_MINUTES = 23 * 60 + 59
+    }
+}
