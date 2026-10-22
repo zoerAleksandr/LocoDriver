@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -33,6 +34,10 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTransformGestures
+import com.z_company.domain.track.KmGrid
+import com.z_company.domain.track.ProfileWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -60,14 +65,6 @@ import kotlin.math.roundToInt
  * Профиль пути на карте поезда: полоса внизу карты и полноэкранный экран (SCREEN_SPECS §6.9, «Профиль пути»).
  * График — продольный профиль выбранного участка в направлении движения, маркер — живое положение поезда.
  */
-
-/** Окна показа полноэкранного профиля: сколько км позади и впереди; `ahead = 0` - весь участок. */
-internal enum class ProfileScale(val label: String, val behindKm: Double, val aheadKm: Double) {
-    S3("3 км", 0.5, 2.5),
-    S6("6 км", 1.0, 5.0),
-    S12("12 км", 2.0, 10.0),
-    ALL("Весь участок", 0.0, 0.0),
-}
 
 /** Окно мини-профиля в полосе: позади 1 км, впереди 5 км. */
 private const val STRIP_BEHIND_KM = 1.0
@@ -134,7 +131,7 @@ internal fun ProfileStrip(
                         Text(it, style = Pst.mono.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, maxLines = 1)
                     }
                 }
-                ProfileChart(model, STRIP_BEHIND_KM, STRIP_AHEAD_KM, detailed = false, modifier = Modifier.weight(1f).fillMaxWidth().clickable(onClickLabel = "Профиль пути на весь экран", onClick = onExpand))
+                ProfileChart(model, live.window(STRIP_BEHIND_KM, STRIP_AHEAD_KM), detailed = false, modifier = Modifier.weight(1f).fillMaxWidth().clickable(onClickLabel = "Профиль пути на весь экран", onClick = onExpand))
             } else {
                 Text("ПРОФИЛЬ ПУТИ", style = Pst.mono.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted)
                 Text(emptyText(model), style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 15.sp), color = Pst.textMuted, maxLines = 3, overflow = TextOverflow.Ellipsis)
@@ -144,12 +141,25 @@ internal fun ProfileStrip(
     }
 }
 
+/** Минимальный и максимальный размер окна профиля при зуме, км. */
+private const val MIN_SPAN_KM = 0.3
+
+/** Жест на графике: [zoom] - множитель за шаг, [panFrac] - сдвиг пальцев в долях ширины, [centerFrac] - положение центра жеста. */
+internal typealias ProfileTransform = (zoom: Float, panFrac: Float, centerFrac: Float) -> Unit
+
 /**
- * График: заливка под линией высот, живой маркер, станции и километры (при [detailed]). Окно — вокруг положения
- * ([behindKm] позади, [aheadKm] впереди); [aheadKm] = 0 — весь участок.
+ * График профиля в окне [window] (координаты вида, км). При [detailed] под ним — как на режимной карте: ряд уклонов
+ * (клетка на элемент: диагональ вверх/вниз, уклон ‰ сверху, длина в метрах снизу, площадка — «0»), ряд кривых (только
+ * если в данных есть радиусы) и линейка км и пикетов; пунктиром — столбы км. [onTransform] != null — щипок и сдвиг.
  */
 @Composable
-internal fun ProfileChart(model: ProfileModel, behindKm: Double, aheadKm: Double, detailed: Boolean, modifier: Modifier = Modifier) {
+internal fun ProfileChart(
+    model: ProfileModel,
+    window: ProfileWindow,
+    detailed: Boolean,
+    modifier: Modifier = Modifier,
+    onTransform: ProfileTransform? = null,
+) {
     val live = model.live
     val line = model.elevation()
     if (live == null || line == null || line.points.size < 2) return
@@ -160,20 +170,36 @@ internal fun ProfileChart(model: ProfileModel, behindKm: Double, aheadKm: Double
     val muted = Pst.textMuted
     val grid = Pst.border
     val accent = Pst.accent
-    val labelStyle: TextStyle = Pst.mono.copy(fontSize = if (detailed) 10.sp else 9.sp, color = muted)
+    val labelStyle: TextStyle = Pst.mono.copy(fontSize = 10.sp, color = muted)
+    val cellStyle: TextStyle = Pst.mono.copy(fontSize = 10.sp, color = ink)
+    val kmStyle: TextStyle = Pst.mono.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = ink)
     val stationStyle: TextStyle = Pst.sans.copy(fontSize = 10.sp, color = muted)
-    val marks = live.section.kmMarks
-    Canvas(modifier) {
+    val section = live.section
+    val marks = section.kmMarks
+    val hasCurves = remember(section) { section.elements.any { it.curveRadiusM > 0 } }
+    // Лямбда меняется при каждой перерисовке: ключом жеста берём только «жесты включены», иначе жест рвётся посреди движения.
+    val transform by rememberUpdatedState(onTransform)
+    val gesture = if (onTransform != null) {
+        Modifier.pointerInput(Unit) {
+            detectTransformGestures { centroid, pan, zoom, _ ->
+                transform?.invoke(zoom, pan.x / size.width, centroid.x / size.width)
+            }
+        }
+    } else Modifier
+    Canvas(modifier.then(gesture)) {
         val w = size.width
         val h = size.height
-        val labelH = if (detailed) 16f * density else 0f
-        val topPad = if (detailed) 16f * density else 4f * density
-        val plotH = h - labelH - topPad - 2f * density
+        val dp = density
+        val topPad = if (detailed) 14f * dp else 4f * dp
+        val gradeH = if (detailed) 44f * dp else 0f
+        val curveH = if (detailed && hasCurves) 24f * dp else 0f
+        val rulerH = if (detailed && marks.isNotEmpty()) 34f * dp else if (detailed) 16f * dp else 0f
+        val plotH = h - topPad - gradeH - curveH - rulerH - 2f * dp
         if (w <= 20f || plotH <= 10f) return@Canvas
-        val window = if (aheadKm <= 0.0) com.z_company.domain.track.ProfileWindow(0.0, live.lengthKm) else live.window(behindKm, aheadKm)
         val span = (window.toX - window.fromX).coerceAtLeast(1e-6)
         fun px(x: Double) = ((x - window.fromX) / span * w).toFloat()
-        val n = (w / (3f * density)).toInt().coerceIn(20, 400)
+        val plotBottom = topPad + plotH
+        val n = (w / (3f * dp)).toInt().coerceIn(20, 500)
         val xs = DoubleArray(n + 1) { window.fromX + span * it / n }
         val hs = DoubleArray(n + 1) { line.heightAt(live.toAxis(xs[it])) }
         val lo = hs.min()
@@ -184,14 +210,28 @@ internal fun ProfileChart(model: ProfileModel, behindKm: Double, aheadKm: Double
         val yMax = mid + range * 0.6
         fun py(v: Double) = topPad + plotH - ((v - yMin) / (yMax - yMin) * plotH).toFloat()
 
-        // Сетка: нижняя и верхняя линии.
+        // Видимая часть оси (для сетки км в осевых координатах).
+        val axA = minOf(live.toAxis(window.fromX), live.toAxis(window.toX))
+        val axB = maxOf(live.toAxis(window.fromX), live.toAxis(window.toX))
+        val cells = if (detailed && marks.isNotEmpty()) KmGrid.cells(marks, axA, axB) else emptyList()
+        val ticks = if (detailed && marks.isNotEmpty()) KmGrid.ticks(marks, axA - 0.1, axB + 0.1) else emptyList()
+        val pxPerPicket = w / span.toFloat() * 0.1f
+
         drawLine(grid, Offset(0f, topPad), Offset(w, topPad), strokeWidth = 1f)
-        drawLine(grid, Offset(0f, topPad + plotH), Offset(w, topPad + plotH), strokeWidth = 1f)
+        drawLine(grid, Offset(0f, plotBottom), Offset(w, plotBottom), strokeWidth = 1f)
+
+        // Столбы км пунктиром через график и ряды.
+        val dash = PathEffect.dashPathEffect(floatArrayOf(5f * dp, 5f * dp))
+        val bottomOfRows = plotBottom + gradeH + curveH
+        ticks.filter { it.isPost }.forEach { t ->
+            val xx = px(live.toView(t.axisKm))
+            if (xx in 0f..w) drawLine(grid, Offset(xx, topPad), Offset(xx, bottomOfRows), strokeWidth = 1f, pathEffect = dash)
+        }
 
         val fill = Path().apply {
-            moveTo(px(xs[0]), topPad + plotH)
+            moveTo(px(xs[0]), plotBottom)
             for (i in 0..n) lineTo(px(xs[i]), py(hs[i]))
-            lineTo(px(xs[n]), topPad + plotH)
+            lineTo(px(xs[n]), plotBottom)
             close()
         }
         drawPath(fill, accent.copy(alpha = 0.16f))
@@ -199,44 +239,114 @@ internal fun ProfileChart(model: ProfileModel, behindKm: Double, aheadKm: Double
             moveTo(px(xs[0]), py(hs[0]))
             for (i in 1..n) lineTo(px(xs[i]), py(hs[i]))
         }
-        drawPath(stroke, ink, style = Stroke(width = 2f * density, cap = StrokeCap.Round))
+        drawPath(stroke, ink, style = Stroke(width = 2f * dp, cap = StrokeCap.Round))
 
         if (detailed) {
-            // Станции: пунктир и название сверху, без наложений.
+            // Станции: подпись сверху, без наложений.
             var lastEnd = -1f
-            live.section.stations.map { live.toView(it.km) to it.name }
+            section.stations.map { live.toView(it.km) to it.name }
                 .filter { it.first in window.fromX..window.toX }
                 .sortedBy { it.first }
                 .forEach { (x, name) ->
                     val xx = px(x)
-                    drawLine(muted.copy(alpha = 0.5f), Offset(xx, topPad), Offset(xx, topPad + plotH), strokeWidth = 1f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f)))
+                    drawLine(muted.copy(alpha = 0.5f), Offset(xx, topPad), Offset(xx, plotBottom), strokeWidth = 1f, pathEffect = dash)
                     val t = measurer.measure(name, stationStyle, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    val tx = (xx + 3f * density).coerceAtMost(w - t.size.width)
+                    val tx = (xx + 3f * dp).coerceAtMost(w - t.size.width).coerceAtLeast(0f)
                     if (tx > lastEnd) {
-                        drawText(t, topLeft = Offset(tx.coerceAtLeast(0f), 0f))
-                        lastEnd = tx + t.size.width + 4f * density
+                        drawText(t, topLeft = Offset(tx, 0f))
+                        lastEnd = tx + t.size.width + 4f * dp
                     }
                 }
-            // Километры: подпись у каждого границы целого км.
-            var prevAbs: Double? = null
-            var lastLabel = -1000f
-            val step = max(span / 600.0, 0.01)
-            var x = window.fromX
-            while (x <= window.toX) {
-                val abs = KmMarks.toAbs(marks, live.toAxis(x)) ?: live.toAxis(x)
-                val pa = prevAbs
-                if (pa != null && floor(pa + 1e-9) != floor(abs + 1e-9)) {
-                    val label = max(floor(pa + 1e-9), floor(abs + 1e-9)).toInt().toString()
-                    val xx = px(x)
-                    if (xx - lastLabel > 44f * density) {
-                        drawLine(muted.copy(alpha = 0.6f), Offset(xx, topPad + plotH), Offset(xx, topPad + plotH + 4f * density), strokeWidth = 1f)
-                        val t = measurer.measure(label, labelStyle)
-                        drawText(t, topLeft = Offset((xx - t.size.width / 2f).coerceIn(0f, w - t.size.width), topPad + plotH + 3f * density))
-                        lastLabel = xx
+
+            // Ряд уклонов: клетка на элемент; диагональ - подъём/спуск, сверху ‰, снизу длина в метрах.
+            val rowTop = plotBottom
+            val rowBottom = plotBottom + gradeH
+            drawLine(grid, Offset(0f, rowBottom), Offset(w, rowBottom), strokeWidth = 1f)
+            val curPos = pos?.takeIf { !it.offRoute }?.kmAxis
+            section.elements.forEach { e ->
+                val v0 = live.toView(if (live.reversed) e.endKm else e.startKm)
+                val v1 = live.toView(if (live.reversed) e.startKm else e.endKm)
+                if (v1 < window.fromX || v0 > window.toX) return@forEach
+                val x0 = px(v0).coerceIn(-1f, w + 1f)
+                val x1 = px(v1).coerceIn(-1f, w + 1f)
+                val cw = x1 - x0
+                if (cw < 1.5f * dp) return@forEach
+                val g = live.gradeInView(e)
+                if (curPos != null && curPos >= e.startKm && curPos < e.endKm) {
+                    drawRect(accent.copy(alpha = 0.14f), Offset(x0, rowTop), androidx.compose.ui.geometry.Size(cw, gradeH))
+                }
+                drawLine(grid, Offset(x0, rowTop), Offset(x0, rowBottom), strokeWidth = 1f)
+                val y0 = rowTop + 15f * dp
+                val y1 = rowBottom - 13f * dp
+                val diag = when {
+                    g > 0.05 -> Offset(x0, y1) to Offset(x1, y0)
+                    g < -0.05 -> Offset(x0, y0) to Offset(x1, y1)
+                    else -> Offset(x0, (y0 + y1) / 2) to Offset(x1, (y0 + y1) / 2)
+                }
+                drawLine(ink, diag.first, diag.second, strokeWidth = 1.4f * dp)
+                val gv = abs(g)
+                val gText = if (gv < 0.05) "0" else fmt1(gv)
+                val tg = measurer.measure(gText, cellStyle)
+                if (cw >= tg.size.width + 4f * dp) {
+                    drawText(tg, topLeft = Offset(((x0 + x1) / 2 - tg.size.width / 2f).coerceIn(x0 + 1f, max(x0 + 1f, x1 - tg.size.width - 1f)), rowTop + 1f * dp))
+                }
+                val lenM = ((e.endKm - e.startKm) * 1000).roundToInt()
+                val tl = measurer.measure(lenM.toString(), labelStyle)
+                if (cw >= tl.size.width + 4f * dp) {
+                    drawText(tl, topLeft = Offset((x0 + x1) / 2 - tl.size.width / 2f, rowBottom - tl.size.height - 1f * dp))
+                }
+            }
+
+            // Ряд кривых: только если радиусы есть в данных.
+            if (hasCurves) {
+                val cTop = rowBottom
+                val cMid = cTop + curveH * 0.7f
+                val cHigh = cTop + curveH * 0.25f
+                drawLine(grid, Offset(0f, cMid), Offset(w, cMid), strokeWidth = 1f)
+                section.elements.filter { it.curveRadiusM > 0 }.forEach { e ->
+                    val v0 = live.toView(if (live.reversed) e.endKm else e.startKm)
+                    val v1 = live.toView(if (live.reversed) e.startKm else e.endKm)
+                    if (v1 < window.fromX || v0 > window.toX) return@forEach
+                    val x0 = px(v0).coerceIn(0f, w)
+                    val x1 = px(v1).coerceIn(0f, w)
+                    drawLine(ink, Offset(x0, cMid), Offset(x0, cHigh), strokeWidth = 1.4f * dp)
+                    drawLine(ink, Offset(x0, cHigh), Offset(x1, cHigh), strokeWidth = 1.4f * dp)
+                    drawLine(ink, Offset(x1, cHigh), Offset(x1, cMid), strokeWidth = 1.4f * dp)
+                    val tr = measurer.measure("R" + e.curveRadiusM.roundToInt(), labelStyle)
+                    if (x1 - x0 >= tr.size.width + 2f * dp) drawText(tr, topLeft = Offset((x0 + x1) / 2 - tr.size.width / 2f, cMid + 1f * dp))
+                }
+            }
+
+            // Линейка: номер км по ячейкам и пикеты 1..10 с границами.
+            val ry = bottomOfRows
+            drawLine(grid, Offset(0f, ry), Offset(w, ry), strokeWidth = 1f)
+            if (marks.isNotEmpty()) {
+                var runStart = 0
+                while (runStart < cells.size) {
+                    var runEnd = runStart
+                    while (runEnd + 1 < cells.size && cells[runEnd + 1].km == cells[runStart].km) runEnd++
+                    val vA = live.toView(cells[runStart].fromAxisKm)
+                    val vB = live.toView(cells[runEnd].toAxisKm)
+                    val xA = px(minOf(vA, vB)).coerceIn(0f, w)
+                    val xB = px(maxOf(vA, vB)).coerceIn(0f, w)
+                    val tk = measurer.measure(cells[runStart].km.toString(), kmStyle)
+                    if (xB - xA >= tk.size.width + 4f * dp) drawText(tk, topLeft = Offset((xA + xB) / 2 - tk.size.width / 2f, ry + 1f * dp))
+                    runStart = runEnd + 1
+                }
+                val pkY = ry + 17f * dp
+                ticks.forEach { t ->
+                    val xx = px(live.toView(t.axisKm))
+                    if (xx in 0f..w) drawLine(muted, Offset(xx, pkY), Offset(xx, if (t.isPost) ry + rulerH else pkY + 6f * dp), strokeWidth = if (t.isPost) 1.5f else 1f)
+                }
+                if (pxPerPicket >= 15f * dp) {
+                    cells.forEach { c ->
+                        val vA = live.toView(c.fromAxisKm)
+                        val vB = live.toView(c.toAxisKm)
+                        val cx = (px(vA) + px(vB)) / 2
+                        val t = measurer.measure(c.picket.toString(), labelStyle)
+                        if (cx - t.size.width / 2f >= 0f && cx + t.size.width / 2f <= w) drawText(t, topLeft = Offset(cx - t.size.width / 2f, pkY + 5f * dp))
                     }
                 }
-                prevAbs = abs
-                x += step
             }
         }
 
@@ -247,23 +357,33 @@ internal fun ProfileChart(model: ProfileModel, behindKm: Double, aheadKm: Double
                 val xx = px(vx)
                 val yy = py(line.heightAt(pos.kmAxis))
                 val c = if (pos.offRoute || !pos.locked) muted else accent
-                drawLine(c, Offset(xx, topPad), Offset(xx, topPad + plotH), strokeWidth = 2f * density)
-                drawCircle(c, radius = 5f * density, center = Offset(xx, yy))
+                drawLine(c, Offset(xx, topPad), Offset(xx, bottomOfRows), strokeWidth = 2f * dp)
+                drawCircle(c, radius = 5f * dp, center = Offset(xx, yy))
             }
         }
     }
 }
 
+/** Окно показа полноэкранного профиля в км (пресеты); [ALL] - весь участок. */
+internal enum class ProfileScale(val label: String, val spanKm: Double) {
+    S3("3 км", 3.0),
+    S6("6 км", 6.0),
+    S12("12 км", 12.0),
+    ALL("Весь участок", 0.0),
+}
+
 /**
  * Экран «Профиль пути» на весь экран. Только горизонтально, как график скорости: на время показа активность переводится
  * в landscape, по выходу возвращается прежняя ориентация (пересоздания нет, configChanges в манифесте).
- * Сверху одна строка: назад, участок (нажатие - список), смена направления, масштаб; затем график и строка «Сейчас».
+ * Сверху одна строка: назад, участок (нажатие - список), масштаб, «К поезду» (после сдвига), смена направления.
+ * График масштабируется щипком и сдвигается пальцем; пока окно двигали вручную, оно не следует за поездом.
  */
 @Composable
 internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
     var showPicker by rememberSaveable { mutableStateOf(false) }
-    var scaleIdx by rememberSaveable { mutableStateOf(ProfileScale.S6.ordinal) }
-    val scale = ProfileScale.values()[scaleIdx]
+    var spanKm by rememberSaveable { mutableStateOf(6f) }
+    var follow by rememberSaveable { mutableStateOf(true) }
+    var manualFrom by rememberSaveable { mutableStateOf(0f) }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
@@ -285,17 +405,26 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
                 MapButton(onClick = onDismiss, description = "Назад") { PstIcon(PstIcons.ChevronLeft, 22.dp, Pst.text) }
                 SectionHeader(model, Modifier.weight(1f)) { showPicker = true }
                 if (reason == null && live != null) {
-                    ProfileScale.values().forEach { s ->
-                        val on = s == scale
+                    val length = live.lengthKm
+                    ProfileScale.values().forEach { sc ->
+                        val target = if (sc == ProfileScale.ALL) length.toFloat() else sc.spanKm.toFloat()
+                        val on = abs(spanKm - target) < 0.05f * target.coerceAtLeast(1f)
                         Text(
-                            text = s.label,
+                            text = sc.label,
                             style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
                             color = if (on) Pst.onAccent else Pst.text,
                             modifier = Modifier
                                 .background(if (on) Pst.accent else Pst.bgSubtle, RoundedCornerShape(12.dp))
-                                .clickable { scaleIdx = s.ordinal }
+                                .clickable { spanKm = target; follow = sc != ProfileScale.ALL }
                                 .padding(horizontal = 10.dp, vertical = 8.dp),
                             maxLines = 1,
+                        )
+                    }
+                    if (!follow) {
+                        PstButton(
+                            text = "К поезду", onClick = { follow = true },
+                            kind = PstButtonKind.TONAL, height = 36.dp, fontSize = 13,
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
                         )
                     }
                     StripButton("Сменить направление", { model.toggleDirection() }) { PstIcon(PstIcons.Swap, 20.dp, Pst.text) }
@@ -311,9 +440,30 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
                 )
             }
             if (reason == null && live != null) {
+                val length = live.lengthKm
+                val span = spanKm.toDouble().coerceIn(MIN_SPAN_KM.coerceAtMost(length), length)
+                val window = if (follow) {
+                    if (span >= length) ProfileWindow(0.0, length) else live.window(span / 6, span * 5 / 6)
+                } else {
+                    val from = manualFrom.toDouble().coerceIn(0.0, (length - span).coerceAtLeast(0.0))
+                    ProfileWindow(from, from + span)
+                }
+                // Жест: масштаб вокруг точки между пальцами, сдвиг пальцем. Чистый зум не отключает слежение за поездом.
+                val onTransform: ProfileTransform = { zoom, panFrac, cFrac ->
+                    val newSpan = (span / zoom).coerceIn(MIN_SPAN_KM.coerceAtMost(length), length)
+                    val movedPan = abs(panFrac) > 0.002f
+                    if (movedPan || !follow) {
+                        val anchor = window.fromX + cFrac * span
+                        val from = anchor - cFrac * newSpan - panFrac * newSpan
+                        manualFrom = from.coerceIn(0.0, (length - newSpan).coerceAtLeast(0.0)).toFloat()
+                        follow = false
+                    }
+                    spanKm = newSpan.toFloat()
+                }
                 ProfileChart(
-                    model, scale.behindKm, scale.aheadKm, detailed = true,
+                    model, window, detailed = true,
                     modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                    onTransform = onTransform,
                 )
                 NowRow(model, live)
             } else {
