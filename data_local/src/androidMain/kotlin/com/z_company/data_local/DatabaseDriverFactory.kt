@@ -225,6 +225,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings" to "isShowPassenger",
             "UserSettings" to "passengerWagonLengthMeters",
             "UserSettings" to "minTimeRestSecond",
+            // Миграция 27: последнее смещение «явки по прибытию»
+            "UserSettings" to "workStartOffsetMinutes",
             "MonthOfYear" to "tariffRate",
             "MonthOfYear" to "dateSetTariffRate",
             "ReleaseDay" to "hours",
@@ -537,6 +539,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings.isShowPartner" to ColumnSpec("INTEGER", false, "1"),
             "UserSettings.passengerWagonLengthMeters" to ColumnSpec("REAL", false, "24.5"),
             "UserSettings.minTimeRestSecond" to ColumnSpec("INTEGER", false, "14400000"),
+            "UserSettings.workStartOffsetMinutes" to ColumnSpec("INTEGER", false, "1"),
 
             "Partner.isPermanent" to ColumnSpec("INTEGER", false, "0"),
             "StationNorm.latitude" to ColumnSpec("REAL", true, "NULL"),

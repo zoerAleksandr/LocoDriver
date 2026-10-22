@@ -25,6 +25,8 @@ data class UserSettings(
     val minTimeRestPointOfTurnoverSecond: Long = 14_400_000L,
     var minTimeHomeRest: Long = 57_600_000L,
     var lastEnteredDieselCoefficient: Double = 0.83,
+    /** Последнее введённое смещение «явки по прибытию» (мин) — подставляется при включении режима. */
+    val lastEnteredWorkStartOffsetMinutes: Int = 1,
     var nightTime: NightTime = NightTime(),
     var defaultLocoType: LocoType = LocoType.ELECTRIC,
     var defaultWorkTime: Long = 43_200_000L,

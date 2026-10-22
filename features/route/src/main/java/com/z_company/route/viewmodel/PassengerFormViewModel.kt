@@ -344,11 +344,25 @@ class PassengerFormViewModel(
         }
     }
 
+    /**
+     * Запоминает введённое смещение в настройках пользователя: оно подставится при следующем
+     * включении «явки по прибытию» (и синхронизируется с настройками на других устройствах).
+     * Пишем в фоне вне viewModelScope, чтобы выход с экрана не потерял значение.
+     */
+    private fun rememberWorkStartOffset(minutes: Int) {
+        if (_userSetting.value.lastEnteredWorkStartOffsetMinutes == minutes) return
+        _userSetting.value = _userSetting.value.copy(lastEnteredWorkStartOffsetMinutes = minutes)
+        CoroutineScope(NonCancellable + Dispatchers.IO).launch {
+            settingsUseCase.setWorkStartOffsetMinutes(minutes).collect { }
+        }
+    }
+
     /** Смещение явки от прибытия (мин). Если пассажир — источник явки, переносим в маршрут. */
     fun setWorkStartOffsetMinutes(minutes: Int) {
         val clamped = minutes.coerceIn(0, Passenger.MAX_WORK_START_OFFSET_MINUTES)
         currentPassenger = currentPassenger?.copy(workStartOffsetMinutes = clamped)
         changesHave()
+        rememberWorkStartOffset(clamped)
         currentPassenger?.let { p ->
             if (p.isWorkStartByArrival) {
                 viewModelScope.launch { syncWorkStartToRoute(p) }
@@ -368,7 +382,9 @@ class PassengerFormViewModel(
             // При включении — смещение по умолчанию (1 мин); при выключении значение
             // не трогаем, чтобы повторное включение не теряло введённое пользователем.
             workStartOffsetMinutes = if (enabled && currentPassenger?.isWorkStartByArrival != true) {
-                Passenger.DEFAULT_WORK_START_OFFSET_MINUTES
+                // Последнее введённое значение из настроек пользователя (по умолчанию 1 мин).
+                _userSetting.value.lastEnteredWorkStartOffsetMinutes
+                    .coerceIn(0, Passenger.MAX_WORK_START_OFFSET_MINUTES)
             } else {
                 currentPassenger?.workStartOffsetMinutes ?: 0
             }

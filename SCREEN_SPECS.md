@@ -276,7 +276,8 @@ UserSettings(                                // одна запись, key = "Us
   country: String = "RU", crossMonthTimezone = LOCAL,
   useStandardTimePicker: Boolean = false,               // системный пикер вместо шторки
   region?: String,                                      // ISO 3166-2, напр. "RU-TA"
-  passengerWagonLengthMeters: Double = 24.5
+  passengerWagonLengthMeters: Double = 24.5,
+  lastEnteredWorkStartOffsetMinutes: Int = 1          // запомненное смещение «явки по прибытию», мин (§7.2)
 )
 ServicePhase(id = generateId(), departureStation, arrivalStation: String,
              distance: Int /* км */, linearMileageRate: Double = 0.0 /* руб/км */)
@@ -3489,6 +3490,14 @@ max(5 км, 3 × точность сети) от свежей (≤ 2 мин) с�
 от отсутствия поля у старого клиента и не допускать нескольких источников. Android
 выводит его из локальных `Passenger.isWorkStartByArrival` непосредственно перед POST;
 в локальной SQLDelight-БД отдельная копия route-level поля не хранится.
+
+**Запоминание смещения.** Введённое в поле «Явка через» значение пишется в настройки пользователя
+(`UserSettings.lastEnteredWorkStartOffsetMinutes`, Int 0–1439, по умолчанию 1; JSON-имя то же;
+SQLDelight Settings.db миграция 27 / колонка `workStartOffsetMinutes`; сервер —
+`user_settings.lastEnteredWorkStartOffsetMinutes`, миграция 058) и подставляется при следующем
+включении режима вместо 1 мин. Синхронизируется вместе с остальными настройками (LWW по
+`updateAt`); POST без поля (старый клиент) значение на сервере не трогает. Вводится только на
+экране «Пассажиром», отдельного пункта в Настройках нет.
 
 **Смещение явки (`Passenger.workStartOffsetMinutes`, Int, минуты).** При включении «явки по
 прибытию» на экране «Пассажиром» появляется поле «Явка через» (формат ЧЧ:ММ, ввод цифр
