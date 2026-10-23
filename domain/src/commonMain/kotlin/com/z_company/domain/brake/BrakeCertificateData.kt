@@ -52,6 +52,8 @@ data class BrakeCertificateData(
     val feedDensity: String = "",
     val tailVoltage: String = "",
     val tailCar: String = "",
+    /** Фамилия осмотрщика (поле «Подпись» бланка). Необязательное: старые справки читаются без него. */
+    val inspectorName: String = "",
     // Плотность
     val chargePressure: String = "",
     val densityGroup: DensityLocoGroup? = null,

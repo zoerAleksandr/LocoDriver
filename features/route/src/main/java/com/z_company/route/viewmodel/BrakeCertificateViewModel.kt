@@ -126,6 +126,7 @@ data class BrakeCertificateUiState(
     val feedDensityText: String = "",
     val tailVoltageText: String = "",
     val tailCarText: String = "",
+    val inspectorNameText: String = "",
     // Плотность
     val chargePressureText: String = "",
     val densityGroup: DensityLocoGroup? = null,
@@ -488,7 +489,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
             d.measurements.any { it.seconds != null } || d.turnaround.isNotEmpty() || d.stationOrOtherFilled()
 
     private fun BrakeCertificateData.stationOrOtherFilled() =
-        station.isNotBlank() || tailCar.isNotBlank() || manualHave.isNotBlank() || flags.isNotEmpty() || tcpv.isNotBlank() || dpv.isNotBlank()
+        station.isNotBlank() || tailCar.isNotBlank() || inspectorName.isNotBlank() || manualHave.isNotBlank() || flags.isNotEmpty() || tcpv.isNotBlank() || dpv.isNotBlank()
 
     override fun onCleared() {
         if (persistStarted && !deleted) persist(_state.value.toData().copy(id = "", updatedAt = 0L))
@@ -810,6 +811,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     fun setFeedDensity(v: String) = _state.update { it.copy(feedDensityText = v) }
     fun setTailVoltage(v: String) = _state.update { it.copy(tailVoltageText = v) }
     fun setTailCar(v: String) = _state.update { it.copy(tailCarText = v) }
+    fun setInspectorName(v: String) = _state.update { it.copy(inspectorNameText = v) }
 
     // ── Плотность ──
     fun setChargePressure(v: String) = _state.update { it.copy(chargePressureText = v) }
@@ -1072,7 +1074,7 @@ fun BrakeCertificateUiState.toData(updatedAt: Long = 0L): BrakeCertificateData {
         avgPressure = avgPressureText, rowsMode = rowsMode, rows = rows.map { AxleRowData(it.pressureText, it.axlesText) },
         locoEnabled = locoEnabled, locoWeight = locoWeightText, locoAxles = locoAxlesText, locoPressure = locoPressureText,
         compositeShare = compositeShare, flags = flags.toList(), tcpv = tcpvText, vstr = vstrText, dpv = dpvText, vo2hv = vo2hvText,
-        manualHave = manualHaveText, feedDensity = feedDensityText, tailVoltage = tailVoltageText, tailCar = tailCarText,
+        manualHave = manualHaveText, feedDensity = feedDensityText, tailVoltage = tailVoltageText, tailCar = tailCarText, inspectorName = inspectorNameText,
         chargePressure = chargePressureText, densityGroup = densityGroup, customVolume = customVolumeText, locoCount = locoCountText,
         measurements = listOf(m(TimerKind.II, timerII), m(TimerKind.IV, timerIV), m(TimerKind.ROUTE, timerRoute)),
         turnaround = turnaround, updatedAt = updatedAt,
@@ -1098,7 +1100,7 @@ fun BrakeCertificateData.toUiState(base: BrakeCertificateUiState): BrakeCertific
         rows = rowUi, nextRowId = next,
         locoEnabled = locoEnabled, locoWeightText = locoWeight, locoAxlesText = locoAxles, locoPressureText = locoPressure,
         compositeShare = compositeShare, flags = flags.toSet(), tcpvText = tcpv, vstrText = vstr, dpvText = dpv, vo2hvText = vo2hv,
-        manualHaveText = manualHave, feedDensityText = feedDensity, tailVoltageText = tailVoltage, tailCarText = tailCar,
+        manualHaveText = manualHave, feedDensityText = feedDensity, tailVoltageText = tailVoltage, tailCarText = tailCar, inspectorNameText = inspectorName,
         chargePressureText = chargePressure, densityGroup = densityGroup, customVolumeText = customVolume, locoCountText = locoCount.ifBlank { "1" },
         timerII = timer(TimerKind.II), timerIV = timer(TimerKind.IV), timerRoute = timer(TimerKind.ROUTE),
         turnaround = turnaround,

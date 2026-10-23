@@ -944,7 +944,7 @@ private fun FrontBody(
     }
     VuFillRow {
         VuPrint("Подпись", bold = true, modifier = Modifier.padding(start = 24.dp))
-        VuInk("", Modifier.weight(1f), placeholder = "осмотрщик")
+        VuInk(state.inspectorNameText, Modifier.weight(1f), onChange = vm::setInspectorName, placeholder = "фамилия осмотрщика", maxLen = 30)
     }
     Spacer(Modifier.height(10.dp))
 }
