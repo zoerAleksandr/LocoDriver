@@ -39,6 +39,11 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathMeasure
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -226,6 +231,25 @@ internal fun MapSettingsScreen(
                             }
                         }
                     }
+                    // Пример карты: линия поезда либо выбранный значок на пути; значок меняется сразу при выборе ниже.
+                    SettingsCard {
+                        Text(
+                            text = "Так это будет выглядеть",
+                            style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
+                            color = Pst.text,
+                        )
+                        Text(
+                            text = if (trainAsLine) {
+                                "Синяя линия повторяет изгиб пути и идёт назад от положения поезда."
+                            } else {
+                                "Значок стоит на пути в положении поезда и поворачивается по ходу движения."
+                            },
+                            style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp),
+                            color = Pst.textMuted,
+                        )
+                        val previewModifier = Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(14.dp))
+                        if (trainAsLine) TrainLinePreview(previewModifier) else TrainIconPreview(positionIcon, previewModifier)
+                    }
                     // Выбор значка нужен только при показе поезда точкой: при линии значок на плане не используется.
                     if (!trainAsLine) {
                     SettingsCard {
@@ -271,21 +295,6 @@ internal fun MapSettingsScreen(
                             }
                         }
                     }
-                    } else {
-                        // Вместо выбора значка - пример того, как линия поезда выглядит на плане.
-                        SettingsCard {
-                            Text(
-                                text = "Так это будет выглядеть",
-                                style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
-                                color = Pst.text,
-                            )
-                            Text(
-                                text = "Синяя линия повторяет изгиб пути и идёт назад от положения поезда.",
-                                style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp),
-                                color = Pst.textMuted,
-                            )
-                            TrainLinePreview(Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(14.dp)))
-                        }
                     }
                     SettingsCard {
                         // Во время перетаскивания показываем выбранный уровень, применяем и сохраняем - по отпусканию.
@@ -335,31 +344,38 @@ internal fun MapSettingsScreen(
 }
 
 /**
- * Пример линии поезда на плане: мини-карта с изогнутым путём, станцией и синей линией с белой окантовкой, которая идёт
- * по изгибу пути назад от положения поезда. Рисуется на Canvas теми же цветами, что и слой состава на настоящей карте.
+ * Мини-карта для примеров в настройках: фон, зелёное пятно, изогнутый путь и станция. Рисуется на Canvas теми же цветами, что и
+ * настоящая карта; возвращает путь, по которому рисуются линия поезда или значок.
  */
+private fun DrawScope.drawPreviewMap(measurer: TextMeasurer, labelStyle: TextStyle): Path {
+    val w = size.width
+    val h = size.height
+    val dp = density
+    drawRect(Color(0xFFF7F4EF))
+    // Зелёное пятно, как лес на карте.
+    drawOval(Color(0xFFE3EED6), topLeft = Offset(w * 0.52f, h * 0.45f), size = Size(w * 0.6f, h * 0.9f))
+    // Путь: плавный изгиб слева направо вверх.
+    val rail = Path().apply {
+        moveTo(-10f, h * 0.88f)
+        cubicTo(w * 0.28f, h * 0.88f, w * 0.34f, h * 0.30f, w * 0.62f, h * 0.36f)
+        cubicTo(w * 0.80f, h * 0.40f, w * 0.88f, h * 0.18f, w + 10f, h * 0.12f)
+    }
+    drawPath(rail, Color(0xFF5A6478), style = Stroke(width = 3f * dp, cap = StrokeCap.Round))
+    // Станция.
+    val st = Offset(w * 0.12f, h * 0.875f)
+    drawCircle(Color(0xFF5A6478), radius = 5f * dp, center = st)
+    drawText(measurer.measure("Станция", labelStyle), topLeft = Offset(st.x + 10f * dp, st.y + 2f * dp))
+    return rail
+}
+
+/** Пример линии поезда на плане: синяя линия с белой окантовкой идёт по изгибу пути назад от положения поезда. */
 @Composable
 private fun TrainLinePreview(modifier: Modifier = Modifier) {
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
     val labelStyle = Pst.sans.copy(fontSize = 11.sp, color = Color(0xFF3C4654))
-    Canvas(modifier.background(Color(0xFFF7F4EF))) {
-        val w = size.width
-        val h = size.height
+    Canvas(modifier) {
+        val rail = drawPreviewMap(measurer, labelStyle)
         val dp = density
-        // Зелёное пятно, как лес на карте.
-        drawOval(Color(0xFFE3EED6), topLeft = Offset(w * 0.52f, h * 0.45f), size = Size(w * 0.6f, h * 0.9f))
-        // Путь: плавный изгиб слева направо вверх.
-        val rail = Path().apply {
-            moveTo(-10f, h * 0.88f)
-            cubicTo(w * 0.28f, h * 0.88f, w * 0.34f, h * 0.30f, w * 0.62f, h * 0.36f)
-            cubicTo(w * 0.80f, h * 0.40f, w * 0.88f, h * 0.18f, w + 10f, h * 0.12f)
-        }
-        drawPath(rail, Color(0xFF5A6478), style = Stroke(width = 3f * dp, cap = StrokeCap.Round))
-        // Станция.
-        val st = Offset(w * 0.12f, h * 0.875f)
-        drawCircle(Color(0xFF5A6478), radius = 5f * dp, center = st)
-        drawText(measurer.measure("Станция", labelStyle), topLeft = Offset(st.x + 10f * dp, st.y + 2f * dp))
-        // Поезд: участок пути длиной в долю от начала изгиба до положения, голова справа.
         val pm = PathMeasure()
         pm.setPath(rail, false)
         val total = pm.length
@@ -367,6 +383,34 @@ private fun TrainLinePreview(modifier: Modifier = Modifier) {
         pm.getSegment(total * 0.30f, total * 0.66f, train, true)
         drawPath(train, Color.White.copy(alpha = 0.95f), style = Stroke(width = 9f * dp, cap = StrokeCap.Round, join = StrokeJoin.Round))
         drawPath(train, Color(0xFF0A84FF), style = Stroke(width = 6f * dp, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    }
+}
+
+/**
+ * Пример значка на плане: выбранный значок стоит на пути и повёрнут по ходу движения, как на настоящей карте (там же берётся
+ * тот же растр вида сверху нужной высоты). Меняется сразу вместе с выбором в настройках.
+ */
+@Composable
+private fun TrainIconPreview(icon: PositionIcon, modifier: Modifier = Modifier) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val density = androidx.compose.ui.platform.LocalDensity.current.density
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val labelStyle = Pst.sans.copy(fontSize = 11.sp, color = Color(0xFF3C4654))
+    val bitmap = remember(icon, density) {
+        renderPositionIcon(context, icon, (icon.mapHeightDp * density).toInt().coerceAtLeast(1)).asImageBitmap()
+    }
+    Canvas(modifier) {
+        val rail = drawPreviewMap(measurer, labelStyle)
+        val pm = PathMeasure()
+        pm.setPath(rail, false)
+        val at = pm.length * 0.52f
+        val pos = pm.getPosition(at)
+        val tan = pm.getTangent(at)
+        // Значок нарисован носом вверх (курс 0 - на север): поворачиваем по касательной пути.
+        val degrees = Math.toDegrees(kotlin.math.atan2(tan.x.toDouble(), -tan.y.toDouble())).toFloat()
+        rotate(degrees, pivot = pos) {
+            drawImage(bitmap, topLeft = Offset(pos.x - bitmap.width / 2f, pos.y - bitmap.height / 2f))
+        }
     }
 }
 
