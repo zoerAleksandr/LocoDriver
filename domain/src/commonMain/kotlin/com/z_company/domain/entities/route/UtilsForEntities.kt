@@ -214,6 +214,30 @@ object UtilsForEntities {
         } else null
     }
 
+    /**
+     * Ночные минуты зазора «прибытие → явка» ([getWorkStartWaitingInterval]). Ожидание 018M идёт
+     * в ночную надбавку (в деньгах) так же, как обычное ожидание внутри смены, поэтому и в часах
+     * ночного времени (строка 023L, карточка «В ночное время») учитываем эту часть.
+     */
+    fun Route.getWorkStartWaitingNightTime(
+        startNightHour: Int,
+        startNightMinute: Int,
+        endNightHour: Int,
+        endNightMinute: Int,
+        offsetInMoscow: Long,
+    ): Long {
+        val gap = getWorkStartWaitingInterval() ?: return 0L
+        return CalculateNightTime.getNightIntervals(
+            startMillis = gap.startMillis,
+            endMillis = gap.endMillis,
+            hourStart = startNightHour,
+            minuteStart = startNightMinute,
+            hourEnd = endNightHour,
+            minuteEnd = endNightMinute,
+            offsetInMoscow = offsetInMoscow,
+        ).sumOf { (from, to) -> to - from }
+    }
+
     /** Зазор между прибытием и явкой, не превышающий который время не оплачивается. */
     const val WORK_START_FREE_GAP_MILLIS = 60_000L
 
@@ -890,6 +914,13 @@ object UtilsForEntities {
                     breakEndMillis = route.basicData.timeEndBreak
                 ).first()
                 nightTime = nightTime.plus(nightTimeInRoute) ?: 0L
+                // Зазор «прибытие → явка» (ожидание 018M) — только если явка маршрута в этом месяце.
+                if (clippedStart == route.basicData.timeStartWork) {
+                    nightTime += route.getWorkStartWaitingNightTime(
+                        startNightHour, startNightMinute, endNightHour, endNightMinute,
+                        userSettings.timeZone,
+                    )
+                }
             } else {
                 val nightTimeInRoute = CalculateNightTime.getNightTime(
                     startMillis = route.basicData.timeStartWork,
@@ -903,6 +934,10 @@ object UtilsForEntities {
                     breakEndMillis = route.basicData.timeEndBreak
                 ).first()
                 nightTime = nightTime.plus(nightTimeInRoute) ?: 0L
+                nightTime += route.getWorkStartWaitingNightTime(
+                    startNightHour, startNightMinute, endNightHour, endNightMinute,
+                    userSettings.timeZone,
+                )
             }
         }
         return nightTime

@@ -21,6 +21,7 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.reidentifyForImport
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.OverRestRoutes.overRestPayment
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkStartWaitingNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPureWorkTime
@@ -713,7 +714,12 @@ class FormViewModel(
                 breakStartMillis = route.basicData.timeStartBreak,
                 breakEndMillis = route.basicData.timeEndBreak
             ).first()
-            _uiState.update { it.copy(nightTime = nightMillis) }
+            // Ночная часть зазора «прибытие → явка» (ожидание 018M) — как в расчёте денег.
+            val waitingNight = route.getWorkStartWaitingNightTime(
+                time.startNightHour, time.startNightMinute, time.endNightHour, time.endNightMinute,
+                currentTimeZoneOffset ?: 0L,
+            )
+            _uiState.update { it.copy(nightTime = nightMillis?.plus(waitingNight)) }
         }
     }
 
