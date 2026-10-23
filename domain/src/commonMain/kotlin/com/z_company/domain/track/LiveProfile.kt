@@ -146,7 +146,7 @@ class LiveProfile(val section: SectionProfile, val reversed: Boolean) {
         if (last?.offRoute != false || lengthKm <= 0.0) return emptyList()
         val head = rawKm ?: return emptyList()
         val tail = toAxis((toView(head) - lengthKm).coerceAtLeast(0.0))
-        val path = AxisSlice.between(section.axis.points, tail, head)
+        val path = AxisSlice.smooth(section.axis.points, tail, head)
         // порядок «хвост -> голова»: при развороте хвост на большем км оси
         return if (tail <= head) path else path.asReversed()
     }
@@ -168,6 +168,38 @@ object AxisSlice {
         for (p in points) if (p.km > lo + 1e-9 && p.km < hi - 1e-9) out += p.lat to p.lon
         out += at(points, hi)
         return out
+    }
+
+    /**
+     * Сглаженный срез: кривая Катмулла-Рома через точки оси (точки лежат на пути, хорды между ними - нет), так линия повторяет изгиб
+     * пути, а не ломается в вершинах. Точки `(lat, lon)` по возрастанию км, шаг не больше [stepKm]; концы - ровно в [fromKm]/[toKm].
+     */
+    fun smooth(points: List<AxisPoint>, fromKm: Double, toKm: Double, stepKm: Double = 0.02): List<Pair<Double, Double>> {
+        if (points.size < 2) return emptyList()
+        val lo = minOf(fromKm, toKm).coerceAtLeast(points.first().km)
+        val hi = maxOf(fromKm, toKm).coerceAtMost(points.last().km)
+        if (hi - lo < 1e-6) return emptyList()
+        val n = kotlin.math.ceil((hi - lo) / stepKm).toInt().coerceAtLeast(2)
+        return List(n + 1) { i -> splineAt(points, lo + (hi - lo) * i / n) }
+    }
+
+    private fun splineAt(points: List<AxisPoint>, km: Double): Pair<Double, Double> {
+        var l = 0
+        var h = points.size - 1
+        while (h - l > 1) {
+            val m = (l + h) / 2
+            if (points[m].km <= km) l = m else h = m
+        }
+        val p1 = points[l]
+        val p2 = points[h]
+        val p0 = points[(l - 1).coerceAtLeast(0)]
+        val p3 = points[(h + 1).coerceAtMost(points.size - 1)]
+        val t = if (p2.km - p1.km < 1e-9) 0.0 else ((km - p1.km) / (p2.km - p1.km)).coerceIn(0.0, 1.0)
+        val t2 = t * t
+        val t3 = t2 * t
+        fun cr(a: Double, b: Double, c: Double, d: Double) =
+            0.5 * ((2 * b) + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3)
+        return cr(p0.lat, p1.lat, p2.lat, p3.lat) to cr(p0.lon, p1.lon, p2.lon, p3.lon)
     }
 
     private fun at(points: List<AxisPoint>, km: Double): Pair<Double, Double> {

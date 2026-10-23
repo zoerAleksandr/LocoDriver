@@ -1,6 +1,7 @@
 package com.z_company.route.component.servicephase
 
 import android.content.Context
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -30,8 +32,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathMeasure
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -260,6 +271,21 @@ internal fun MapSettingsScreen(
                             }
                         }
                     }
+                    } else {
+                        // Вместо выбора значка - пример того, как линия поезда выглядит на плане.
+                        SettingsCard {
+                            Text(
+                                text = "Так это будет выглядеть",
+                                style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
+                                color = Pst.text,
+                            )
+                            Text(
+                                text = "Синяя линия повторяет изгиб пути и идёт назад от положения поезда.",
+                                style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp),
+                                color = Pst.textMuted,
+                            )
+                            TrainLinePreview(Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(14.dp)))
+                        }
                     }
                     SettingsCard {
                         // Во время перетаскивания показываем выбранный уровень, применяем и сохраняем - по отпусканию.
@@ -305,6 +331,42 @@ internal fun MapSettingsScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * Пример линии поезда на плане: мини-карта с изогнутым путём, станцией и синей линией с белой окантовкой, которая идёт
+ * по изгибу пути назад от положения поезда. Рисуется на Canvas теми же цветами, что и слой состава на настоящей карте.
+ */
+@Composable
+private fun TrainLinePreview(modifier: Modifier = Modifier) {
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val labelStyle = Pst.sans.copy(fontSize = 11.sp, color = Color(0xFF3C4654))
+    Canvas(modifier.background(Color(0xFFF7F4EF))) {
+        val w = size.width
+        val h = size.height
+        val dp = density
+        // Зелёное пятно, как лес на карте.
+        drawOval(Color(0xFFE3EED6), topLeft = Offset(w * 0.52f, h * 0.45f), size = Size(w * 0.6f, h * 0.9f))
+        // Путь: плавный изгиб слева направо вверх.
+        val rail = Path().apply {
+            moveTo(-10f, h * 0.88f)
+            cubicTo(w * 0.28f, h * 0.88f, w * 0.34f, h * 0.30f, w * 0.62f, h * 0.36f)
+            cubicTo(w * 0.80f, h * 0.40f, w * 0.88f, h * 0.18f, w + 10f, h * 0.12f)
+        }
+        drawPath(rail, Color(0xFF5A6478), style = Stroke(width = 3f * dp, cap = StrokeCap.Round))
+        // Станция.
+        val st = Offset(w * 0.12f, h * 0.875f)
+        drawCircle(Color(0xFF5A6478), radius = 5f * dp, center = st)
+        drawText(measurer.measure("Станция", labelStyle), topLeft = Offset(st.x + 10f * dp, st.y + 2f * dp))
+        // Поезд: участок пути длиной в долю от начала изгиба до положения, голова справа.
+        val pm = PathMeasure()
+        pm.setPath(rail, false)
+        val total = pm.length
+        val train = Path()
+        pm.getSegment(total * 0.30f, total * 0.66f, train, true)
+        drawPath(train, Color.White.copy(alpha = 0.95f), style = Stroke(width = 9f * dp, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawPath(train, Color(0xFF0A84FF), style = Stroke(width = 6f * dp, cap = StrokeCap.Round, join = StrokeJoin.Round))
     }
 }
 

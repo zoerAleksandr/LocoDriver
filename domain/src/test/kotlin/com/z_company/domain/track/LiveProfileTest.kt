@@ -165,4 +165,29 @@ class LiveProfileTest {
         assertEquals(5.4, lp.position!!.kmAxis, 0.02)
         assertEquals(lon(5.0), lp.trainPath(0.8).last().second, 1e-5)
     }
+
+    @Test
+    fun smooth_slice_follows_curve_and_keeps_ends() {
+        // ось с поворотом на 90 градусов в точке km=1; хорда срезала бы угол, сплайн идёт плавно, но через точки оси
+        val pts = listOf(
+            AxisPoint(0.0, 55.0, 37.0), AxisPoint(0.5, 55.0, 37.007), AxisPoint(1.0, 55.0, 37.014),
+            AxisPoint(1.5, 55.004, 37.014), AxisPoint(2.0, 55.009, 37.014),
+        )
+        val smooth = AxisSlice.smooth(pts, 0.2, 1.8)
+        val straight = AxisSlice.between(pts, 0.2, 1.8)
+        assertTrue(smooth.size > straight.size)
+        // концы - ровно на заданных км
+        assertEquals(AxisSlice.between(pts, 0.2, 0.2001).first().first, smooth.first().first, 1e-6)
+        // сплайн проходит через вершину оси (km=1.0)
+        val atCorner = smooth.minByOrNull { (it.first - 55.0) * (it.first - 55.0) + (it.second - 37.014) * (it.second - 37.014) }!!
+        assertEquals(55.0, atCorner.first, 3e-4)
+        assertEquals(37.014, atCorner.second, 3e-4)
+        // шаг мелкий: соседние точки не дальше ~25 м
+        smooth.zipWithNext().forEach { (a, b) ->
+            val dy = (b.first - a.first) * FlatMetric.M_PER_DEG_LAT
+            val dx = (b.second - a.second) * FlatMetric.kx(55.0)
+            assertTrue(kotlin.math.sqrt(dx * dx + dy * dy) < 30.0)
+        }
+        assertTrue(AxisSlice.smooth(pts, 1.0, 1.0).isEmpty())
+    }
 }
