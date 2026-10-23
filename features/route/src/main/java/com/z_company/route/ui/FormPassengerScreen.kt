@@ -1048,7 +1048,12 @@ private fun WorkStartOffsetRow(
             ),
             visualTransformation = OffsetTimeTransformation,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            singleLine = true
+            singleLine = true,
+            // Карточка белая (surface) — поле заливаем фоном страницы и обводим, иначе оно сливается.
+            colorBackgroundEmptyField = MaterialTheme.colorScheme.background,
+            colorBackgroundNotEmptyField = MaterialTheme.colorScheme.background,
+            borderColor = MaterialTheme.colorScheme.outlineVariant,
+            fieldElevation = 0.dp
         )
     }
 }
