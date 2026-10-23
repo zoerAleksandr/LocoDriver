@@ -246,6 +246,7 @@ class GpsRecordingService : Service() {
             )
             GpsRecorder.setGpsAvailable(lm.isProviderEnabled(LocationManager.GPS_PROVIDER))
             listener = l
+            acquireWakeLock()
             startQuality(lm)
             startPressure()
             true
@@ -285,7 +286,27 @@ class GpsRecordingService : Service() {
         return AltitudeMath.sanitize(SensorManager.getAltitude(SensorManager.PRESSURE_STANDARD_ATMOSPHERE, hpa!!).toDouble())
     }
 
+    /** Частичная блокировка сна на время записи: при выключенном экране Samsung усыпляет процесс и фиксы идут с дырами в минуты. */
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
+
+    private fun acquireWakeLock() {
+        if (wakeLock?.isHeld == true) return
+        runCatching {
+            val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            wakeLock = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "locodriver:gps-recording").apply {
+                setReferenceCounted(false)
+                acquire(WAKE_LOCK_MAX_MS)
+            }
+        }
+    }
+
+    private fun releaseWakeLock() {
+        runCatching { if (wakeLock?.isHeld == true) wakeLock?.release() }
+        wakeLock = null
+    }
+
     private fun removeUpdates() {
+        releaseWakeLock()
         stopQuality()
         stopPressure()
         listener?.let { l ->
@@ -379,6 +400,9 @@ class GpsRecordingService : Service() {
         private const val CHANNEL_ID = "gps_recording"
         private const val NOTIFICATION_ID = 7401
         private const val UPDATE_INTERVAL_MS = 1_000L
+
+        /** Предохранитель: блокировка снимается сама, если запись забыли остановить (суммарно рейс - до 16 ч). */
+        private const val WAKE_LOCK_MAX_MS = 16 * 3_600_000L
         private const val QUALITY_TICK_MS = 1_000L
         private const val DIAG_SAVE_EVERY_TICKS = 15
     }
