@@ -965,19 +965,21 @@ internal fun TrainMapScreen(
             val railLine = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line
             val railLines = listOfNotNull(railLine) + factLines
             val raw = PathKeeper.withLive(track?.drawPoints.orEmpty(), livePoints)
+            // Настоящие разрывы записи берём из ПОЛНЫХ точек: на упрощённой линии соседние вершины далеки по времени и без разрыва.
+            val realGaps = com.z_company.domain.util.PathGaps.of(PathKeeper.withLive(track?.points.orEmpty(), livePoints))
             if (raw.isEmpty() && drawnCount.value > 0) return@LaunchedEffect
             val geo = try {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
                     MapPerf.measure(context, "trackBuild") {
                         // Стоянка -> один центроид, шипы убраны, упрощение 4 м (PathCleaner); привязка с гистерезисом по путям.
                         // GeoJSON собирается и сериализуется здесь же, вне главного потока.
-                        buildTrackGeo(ActualRails.snapMarked(cleanCache.clean(raw), railLines))
+                        buildTrackGeo(ActualRails.snapMarked(cleanCache.clean(raw), railLines), realGaps)
                     }
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                buildTrackGeo(raw.map { TrainMapRoute.SnappedPoint(it, true) })
+                buildTrackGeo(raw.map { TrainMapRoute.SnappedPoint(it, true) }, realGaps)
             }
             drawnCount.value = geo.segments
             snappedLast = geo.last
@@ -2069,7 +2071,7 @@ private class TrackGeo(
 )
 
 /** Сегменты пути со скоростью, участки «вне путей» и «нет данных» (разрыв записи > DATA_GAP_MS) - в виде GeoJSON-строк. */
-private fun buildTrackGeo(pts: List<TrainMapRoute.SnappedPoint>): TrackGeo {
+private fun buildTrackGeo(pts: List<TrainMapRoute.SnappedPoint>, realGaps: List<Pair<Long, Long>> = emptyList()): TrackGeo {
     val feats = ArrayList<Feature>(pts.size)
     val offFeats = ArrayList<Feature>()
     val noDataFeats = ArrayList<Feature>()
@@ -2084,7 +2086,7 @@ private fun buildTrackGeo(pts: List<TrainMapRoute.SnappedPoint>): TrackGeo {
                 Point.fromLngLat(b.point.longitude, b.point.latitude),
             )
         )
-        if (dt > TrackAnalysis.DATA_GAP_MS) {
+        if (dt > TrackAnalysis.DATA_GAP_MS && com.z_company.domain.util.PathGaps.spans(realGaps, a.point.timeMs, b.point.timeMs)) {
             // Через дыру линия соединяется «нет данных» (пунктир), только если смещение согласуется со скоростью.
             val dKm = com.z_company.domain.util.GnssPlausibility.distanceM(
                 a.point.latitude, a.point.longitude, b.point.latitude, b.point.longitude,

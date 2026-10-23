@@ -93,6 +93,7 @@ private fun emptyText(model: ProfileModel): String = when (model.emptyReason) {
     ProfileEmpty.LOADING -> "Загружаем профили участков…"
     ProfileEmpty.NO_LOCATION -> "Определяем местоположение…"
     ProfileEmpty.NO_SECTIONS -> "Профили участков не загружены. Проверьте интернет — после загрузки профиль появится."
+    ProfileEmpty.OFF_RAILS -> "Вы находитесь вне путей."
     ProfileEmpty.NO_NEARBY -> "Для этого места профиль пока не собран. Данные профиля собираются — скоро он появится."
     ProfileEmpty.NO_DATA -> "Для участка «${model.section?.name.orEmpty()}» данные профиля собираются. Скоро профиль появится."
     null -> ""
@@ -126,7 +127,7 @@ internal fun ProfileStrip(
                 val pos = model.position
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = if (pos?.offRoute == true) "вне участка" else pos?.kmText ?: "ПРОФИЛЬ ПУТИ",
+                        text = if (pos?.offRoute == true) (if (model.offRails == true) "вне путей" else "вне участка") else pos?.kmText ?: "ПРОФИЛЬ ПУТИ",
                         style = Pst.mono.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
                         color = if (pos?.offRoute == true) Pst.danger else Pst.textMuted,
                         maxLines = 1,
@@ -643,7 +644,7 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
             when {
                 pos == null -> Text("Положение на участке определяется…", style = Pst.sans.copy(fontSize = 13.sp), color = Pst.textMuted)
                 pos.offRoute -> Text(
-                    "Вы вне этого участка. Выберите другой или дождитесь автоподбора.",
+                    if (model.offRails == true) "Вы находитесь вне путей." else "Вы вне этого участка. Выберите другой или дождитесь автоподбора.",
                     style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold), color = Pst.danger, maxLines = 2,
                 )
                 else -> {

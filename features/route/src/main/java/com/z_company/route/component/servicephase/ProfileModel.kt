@@ -32,7 +32,7 @@ internal class SectionRow(val summary: SectionSummary, val distanceM: Double?, v
 internal data class ProfileTrain(val id: String, val number: String?, val lengthM: Int?)
 
 /** Что показывать вместо графика, когда рисовать нечего. */
-internal enum class ProfileEmpty { LOADING, NO_LOCATION, NO_SECTIONS, NO_NEARBY, NO_DATA }
+internal enum class ProfileEmpty { LOADING, NO_LOCATION, NO_SECTIONS, OFF_RAILS, NO_NEARBY, NO_DATA }
 
 /**
  * Состояние «Профиля пути» на карте: загруженные участки, выбранный участок (по положению либо вручную), направление и
@@ -43,6 +43,7 @@ internal class ProfileModel(
     private val repo: SectionProfileRepository,
     private val calibrations: ProfileCalibrationStore,
     private val scope: CoroutineScope,
+    private val railLookup: com.z_company.domain.util.RailStationLookup? = null,
 ) {
     /** Список всех участков (название, длина, габарит) - без осей; по нему выбор вручную и поиск. */
     var summaries by mutableStateOf<List<SectionSummary>>(emptyList())
@@ -92,6 +93,12 @@ internal class ProfileModel(
     var stopNames: List<String> = emptyList()
     private var lastFix: GeoFix? = null
     private var hasFix by mutableStateOf(false)
+
+    /** Точка положения не на железнодорожных путях (по серверу: дальше ~60 м от рельсов); null - неизвестно (нет сети, лимит). */
+    var offRails by mutableStateOf<Boolean?>(null)
+        private set
+    private var railCheckedAtMs = 0L
+    private var railCheckedFix: GeoFix? = null
     private var motionLastKm: Double? = null
     private var motionSum = 0.0
 
@@ -110,6 +117,7 @@ internal class ProfileModel(
             summaries.isEmpty() && sections.isEmpty() -> ProfileEmpty.NO_SECTIONS
             section == null && !hasFix -> ProfileEmpty.NO_LOCATION
             section == null && loadingNear -> ProfileEmpty.LOADING
+            section == null && offRails == true -> ProfileEmpty.OFF_RAILS
             section == null -> ProfileEmpty.NO_NEARBY
             section?.hasProfile != true -> ProfileEmpty.NO_DATA
             else -> null
@@ -164,6 +172,7 @@ internal class ProfileModel(
         hasFix = fix != null
         if (fix == null) return
         ensureNear(fix)
+        if (section == null || position?.offRoute == true) checkRails(fix, timeMs) else offRails = false
         if (sections.isEmpty()) return
         if (manualId == null) autoPick(fix)
         ensureLive()
@@ -173,6 +182,32 @@ internal class ProfileModel(
         detectMotionDirection(p)
         // Участок выбран автоматически, а мы вне его оси - возможно, поезд уехал на другой участок: подберём заново.
         if (manualId == null && p?.offRoute == true) autoPick(fix, force = true)
+    }
+
+    /**
+     * Проверка «на путях ли я» (когда участка рядом нет или мы ушли с его оси): запрос к серверу не чаще раза в 60 с и при сдвиге
+     * не меньше 100 м; результат - [offRails]. Положение уходит только в этом запросе и не логируется.
+     */
+    private fun checkRails(fix: GeoFix, nowMs: Long) {
+        val lookup = railLookup ?: return
+        val prev = railCheckedFix
+        if (prev != null) {
+            val dLat = (fix.latitude - prev.latitude) * com.z_company.domain.track.FlatMetric.M_PER_DEG_LAT
+            val dLon = (fix.longitude - prev.longitude) * com.z_company.domain.track.FlatMetric.kx(fix.latitude)
+            val moved = dLat * dLat + dLon * dLon >= RAIL_RECHECK_M * RAIL_RECHECK_M
+            if (!moved && nowMs - railCheckedAtMs < RAIL_RECHECK_MS) return
+            if (nowMs - railCheckedAtMs < RAIL_RECHECK_MS) return
+        }
+        railCheckedAtMs = nowMs
+        railCheckedFix = fix
+        scope.launch {
+            val r = runCatching { lookup.nearestAlongRail(fix.latitude, fix.longitude, 500.0, emptyList()) }.getOrNull()
+            offRails = when (r) {
+                is com.z_company.domain.util.RailLookupResult.NoStation -> if (r.reason == "off_rails") true else false
+                is com.z_company.domain.util.RailLookupResult.Found -> false
+                else -> null
+            }
+        }
     }
 
     /** Пользователь выбрал участок: автоподбор отключается, пока не вызван [useAuto]. Ось незагруженного участка подгружается. */
@@ -329,6 +364,8 @@ internal class ProfileModel(
         const val MOTION_KM = 0.3
         const val MAX_STEP_KM = 1.0
         const val NEAR_RELOAD_M = 2_000.0
+        const val RAIL_RECHECK_M = 100.0
+        const val RAIL_RECHECK_MS = 60_000L
     }
 }
 
@@ -348,7 +385,8 @@ internal fun rememberProfileModel(
     val repo: SectionProfileRepository = koinInject()
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    val model = remember { ProfileModel(repo, ProfileCalibrationStore(context), scope) }
+    val railLookup: com.z_company.domain.util.RailStationLookup = koinInject()
+    val model = remember { ProfileModel(repo, ProfileCalibrationStore(context), scope, railLookup) }
     model.stopNames = remember(stops) { stops.map { it.name }.filter { it.isNotBlank() } }
     LaunchedEffect(trains, trainId) { model.initTrains(trains, trainId) }
     LaunchedEffect(Unit) { model.load() }

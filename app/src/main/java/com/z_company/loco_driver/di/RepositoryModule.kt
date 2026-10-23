@@ -132,6 +132,14 @@ val repositoryModule = module {
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
         )
     }
+    // «Рядом с путями ли я»: для профиля пути (сообщение «Вы находитесь вне путей»); тот же запрос ближайшей станции по рельсам.
+    single<com.z_company.domain.util.RailStationLookup> {
+        val tokens: SecureTokenStorage = get()
+        com.z_company.repository.remote_rest.RemoteRailStationLookup(
+            api = get(),
+            bearerToken = { tokens.getAuthBearerTokenFlow().first() },
+        )
+    }
     // Единое определение названия станции по месту (GO, «Добавить станцию», АВТО, карта, трек; SCREEN_SPECS §6.2 п.6а).
     single {
         val tokens: SecureTokenStorage = get()

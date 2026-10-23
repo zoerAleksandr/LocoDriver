@@ -1,5 +1,6 @@
 package com.z_company.domain.util
 
+import com.z_company.domain.track.TrackAnalysis
 import com.z_company.domain.track.TrackPoint
 import kotlin.math.hypot
 
@@ -167,4 +168,26 @@ object RailRefetch {
 
     /** Подпись «Нет интернета» на плашке показывается только пока сети нет. */
     fun showOfflineCaption(online: Boolean): Boolean = !online
+}
+
+/**
+ * Настоящие разрывы записи пути (между СОСЕДНИМИ записанными точками дольше [TrackAnalysis.DATA_GAP_MS], но не дольше
+ * [TrackAnalysis.GAP_MS]). Линия на карте упрощается (прореживание + Дуглас-Пекер), и после упрощения соседние вершины
+ * на прямом участке отстоят друг от друга на минуты - это не «нет данных»: серый пунктир рисуется только там, где разрыв
+ * был в самой записи.
+ */
+object PathGaps {
+    /** Разрывы записи в виде пар (время последней точки до разрыва, время первой точки после), мс. */
+    fun of(points: List<TrackPoint>): List<Pair<Long, Long>> {
+        val out = ArrayList<Pair<Long, Long>>()
+        for (i in 1 until points.size) {
+            val dt = points[i].timeMs - points[i - 1].timeMs
+            if (dt > TrackAnalysis.DATA_GAP_MS && dt <= TrackAnalysis.GAP_MS) out += points[i - 1].timeMs to points[i].timeMs
+        }
+        return out
+    }
+
+    /** Содержит ли отрезок упрощённой линии от [fromMs] до [toMs] настоящий разрыв записи. */
+    fun spans(gaps: List<Pair<Long, Long>>, fromMs: Long, toMs: Long): Boolean =
+        gaps.any { (a, b) -> a >= fromMs && b <= toMs }
 }

@@ -94,7 +94,8 @@ fun GnssSignalIndicator(
             .clickable(role = Role.Button, onClickLabel = "Пояснить уровень сигнала GPS") { showTip = true },
         contentAlignment = Alignment.Center,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // Горизонтальные отступы: подпись «Помеха GPS» шире иконки и не должна упираться в края плашки.
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)) {
         Canvas(modifier = Modifier.size(22.dp)) {
             val barW = size.width * 0.22f
             val gap = (size.width - 3 * barW) / 2f
