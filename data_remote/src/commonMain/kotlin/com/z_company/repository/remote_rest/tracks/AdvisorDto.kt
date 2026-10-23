@@ -32,6 +32,8 @@ data class AdvisorElementDto(
     val gradePermille: Double = 0.0,
     val curveRadiusM: Double = 0.0,
     val speedLimitKmh: Int = 0,
+    /** Профиль на этом месте неизвестен (данные собираются): рисуется серая зона вместо уклона. */
+    val noData: Boolean = false,
 )
 
 /** Отметка километража: в месте `km` оси координата `kmAbs`, дальше нумерация `dir` (+1 растёт, −1 убывает). */

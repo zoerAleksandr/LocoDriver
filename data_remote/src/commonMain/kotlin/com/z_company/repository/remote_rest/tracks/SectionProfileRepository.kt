@@ -135,7 +135,7 @@ class SectionProfileRepository(
             lengthKm = d.lengthKm,
             axisHash = hash,
             axis = SectionAxis(d.id, hash, d.geometry.map { AxisPoint(it.km, it.lat, it.lon) }),
-            elements = d.elements.map { ProfileElement(it.startKm, it.endKm, it.gradePermille, it.curveRadiusM, it.speedLimitKmh) },
+            elements = d.elements.map { ProfileElement(it.startKm, it.endKm, it.gradePermille, it.curveRadiusM, it.speedLimitKmh, it.noData) },
             kmMarks = d.kmMarks.map { KmMark(it.km, it.kmAbs, it.dir, it.note) },
             stations = d.stations.map { SectionStation(it.km, it.name, it.lat, it.lon) },
         )

@@ -134,4 +134,16 @@ class SectionProfileTest {
         assertNull(SectionBox.of(listOf(56.0, 37.0, 55.0, 38.0)))
         assertNull(SectionBox.of(listOf(Double.NaN, 37.0, 55.0, 38.0)))
     }
+
+    @Test
+    fun no_data_zone_keeps_height_and_hasProfile_needs_real_data() {
+        val line = ElevationLine.fromElements(
+            listOf(ProfileElement(0.0, 1.0, 10.0), ProfileElement(1.0, 3.0, 99.0, noData = true), ProfileElement(3.0, 4.0, -5.0)),
+        )
+        near(10.0, line.heightAt(1.0)); near(10.0, line.heightAt(3.0)); near(5.0, line.heightAt(4.0))
+        val axis = SectionAxis("s", "h", listOf(AxisPoint(0.0, 55.0, 37.0), AxisPoint(1.0, 55.0, 37.01)))
+        fun sec(els: List<ProfileElement>) = SectionProfile("s", "n", "a", "b", 4.0, "h", axis, els, emptyList(), emptyList())
+        assertTrue(sec(listOf(ProfileElement(0.0, 1.0, 1.0))).hasProfile)
+        assertTrue(!sec(listOf(ProfileElement(0.0, 1.0, 0.0, noData = true))).hasProfile)
+    }
 }

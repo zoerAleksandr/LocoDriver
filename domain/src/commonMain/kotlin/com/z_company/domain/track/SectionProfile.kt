@@ -16,6 +16,8 @@ data class ProfileElement(
     val gradePermille: Double = 0.0,
     val curveRadiusM: Double = 0.0,
     val speedLimitKmh: Int = 0,
+    /** Уклон на этом месте неизвестен (данные собираются): в профиле серая зона, высота по нему не меняется. */
+    val noData: Boolean = false,
 )
 
 /**
@@ -41,7 +43,7 @@ data class SectionProfile(
     val stations: List<SectionStation>,
 ) {
     /** Есть ли что рисовать: хотя бы один элемент профиля. Иначе - «данные профиля собираются». */
-    val hasProfile: Boolean get() = elements.isNotEmpty()
+    val hasProfile: Boolean get() = elements.any { !it.noData }
 }
 
 /** Километр и пикет: «142 км пк 5 +30 м». */
@@ -136,7 +138,7 @@ class ElevationLine(val points: List<Pair<Double, Double>>) {
             for (e in sorted) {
                 if (e.startKm > x + 1e-9) { x = e.startKm; out += x to h }
                 val len = (e.endKm - maxOf(e.startKm, x)).coerceAtLeast(0.0)
-                h += e.gradePermille * len // промилле * км = метры
+                if (!e.noData) h += e.gradePermille * len // промилле * км = метры; в зоне «нет данных» высота не меняется
                 x = maxOf(x, e.endKm)
                 out += x to h
             }

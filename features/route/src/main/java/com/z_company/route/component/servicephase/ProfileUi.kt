@@ -80,6 +80,7 @@ private fun fmt1(v: Double): String = ((v * 10).roundToInt() / 10.0).toString().
 /** «↑ 4,0 ‰» (подъём в направлении движения), «↓ 2,5 ‰», «площадка». */
 internal fun gradeText(live: LiveProfile, e: ProfileElement?): String? {
     e ?: return null
+    if (e.noData) return "нет данных"
     val g = live.gradeInView(e)
     return when {
         abs(g) < 0.05 -> "площадка"
@@ -179,6 +180,7 @@ internal fun ProfileChart(
     val cellStyle: TextStyle = Pst.mono.copy(fontSize = 10.sp, color = ink)
     val kmStyle: TextStyle = Pst.mono.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = ink)
     val stationStyle: TextStyle = Pst.sans.copy(fontSize = 10.sp, color = muted)
+    val noDataStyle: TextStyle = Pst.sans.copy(fontSize = if (detailed) 12.sp else 10.sp, color = ink.copy(alpha = 0.7f))
     val section = live.section
     val marks = section.kmMarks
     val hasCurves = remember(section) { section.elements.any { it.curveRadiusM > 0 } }
@@ -240,6 +242,25 @@ internal fun ProfileChart(
             for (i in 1..n) lineTo(px(xs[i]), py(hs[i]))
         }
         drawPath(stroke, ink, style = Stroke(width = 2f * dp, cap = StrokeCap.Round))
+
+        // Зоны «нет данных»: серая полоса во всю высоту графика и подпись (профиль на этом месте неизвестен, данные собираются).
+        val noDataColor = muted.copy(alpha = 0.22f)
+        section.elements.filter { it.noData }.forEach { e ->
+            val v0 = live.toView(if (live.reversed) e.endKm else e.startKm)
+            val v1 = live.toView(if (live.reversed) e.startKm else e.endKm)
+            if (v1 < window.fromX || v0 > window.toX) return@forEach
+            val x0 = px(v0).coerceIn(0f, w)
+            val x1 = px(v1).coerceIn(0f, w)
+            if (x1 - x0 < 1f) return@forEach
+            drawRect(noDataColor, Offset(x0, topPad), androidx.compose.ui.geometry.Size(x1 - x0, plotH))
+            val caption = measurer.measure(
+                if (detailed) "Данные профиля собираются, скоро он появится" else "Данные собираются",
+                noDataStyle,
+                maxLines = 2, overflow = TextOverflow.Ellipsis,
+                constraints = androidx.compose.ui.unit.Constraints(maxWidth = (x1 - x0 - 8f * dp).toInt().coerceAtLeast(0)),
+            )
+            if (x1 - x0 > 60f * dp) drawText(caption, topLeft = Offset(x0 + 4f * dp, topPad + 4f * dp + (if (detailed) 14f * dp else 0f)))
+        }
 
         // Границы км: от линейки вверх до линии профиля (поверх заливки, чтобы были видны).
         if (detailed) {
@@ -303,6 +324,11 @@ internal fun ProfileChart(
                     drawRect(accent.copy(alpha = 0.14f), Offset(x0, rowTop), androidx.compose.ui.geometry.Size(cw, gradeH))
                 }
                 drawLine(grid, Offset(x0, rowTop), Offset(x0, rowBottom), strokeWidth = 1f)
+                if (c.e.noData) {
+                    drawRect(noDataColor, Offset(x0, rowTop), androidx.compose.ui.geometry.Size(cw, gradeH))
+                    prev = c
+                    return@forEach
+                }
                 drawLine(rowInk, Offset(x0, c.yStart), Offset(x1, c.yEnd), strokeWidth = lineW)
                 prev?.let { p ->
                     // соединение с предыдущим элементом, если они стыкуются и уровни различаются
