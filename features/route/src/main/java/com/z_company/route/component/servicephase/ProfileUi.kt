@@ -604,10 +604,8 @@ private fun SectionHeader(model: ProfileModel, modifier: Modifier = Modifier, on
                 color = Pst.text, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             if (s != null && live != null) {
-                val from = if (live.reversed) s.toStation else s.fromStation
-                val to = if (live.reversed) s.fromStation else s.toStation
                 Text(
-                    text = "$from → $to · " + if (model.manualId != null) "выбран вручную" else "по местоположению",
+                    text = if (model.manualId != null) "выбран вручную" else "по местоположению",
                     style = Pst.sans.copy(fontSize = 11.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }

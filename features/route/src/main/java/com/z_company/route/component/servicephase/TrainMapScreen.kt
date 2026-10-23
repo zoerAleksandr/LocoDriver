@@ -321,6 +321,7 @@ internal fun TrainMapScreen(
         }
         // Экран «Цель»: открыт ли и точка, выбранная тапом на карте (сразу шаг 2).
         var showTarget by remember { mutableStateOf(false) }
+        var showSpeedEta by remember { mutableStateOf(false) }
         var targetPreselect by remember { mutableStateOf<PlanTarget?>(null) }
         var planNote by remember { mutableStateOf<String?>(null) }
         var planOpen by remember { mutableStateOf(true) }
@@ -1388,7 +1389,7 @@ internal fun TrainMapScreen(
             ) {
                 // Ряд: блок «Следующая / Конечная» (только когда позиция на пути следования, не дальше 50 м от линии) и кнопка «Цель».
                 if ((progress != null && !offNow) || (!viewOnly && hasRoute)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.height(androidx.compose.foundation.layout.IntrinsicSize.Min)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min)) {
                         if (progress != null && !offNow) {
                             val nowEta = System.currentTimeMillis()
                             val nextEta = TrainMapRoute.Eta.arrivalMs(nowEta, progress.nextDistanceM, etaSpeed)
@@ -1402,9 +1403,11 @@ internal fun TrainMapScreen(
                                     terminalDistanceM = progress.terminalDistanceM,
                                     terminalEtaMs = termEta,
                                     zone = zone,
+                                    onClick = { showSpeedEta = true },
                                 )
                             }
                         }
+                        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
                         if (!viewOnly && hasRoute) {
                             TargetButton(active = plan != null, onClick = { targetPreselect = null; showTarget = true })
                         }
@@ -1790,6 +1793,17 @@ internal fun TrainMapScreen(
                 }
             }
 
+            if (showSpeedEta && !viewOnly) {
+                val etaAhead = remember(stops, railLineNow, nowMs, alongFix) { ArrivalPlan.stopsAhead(stops, railLineNow, alongFix) }
+                val openSpeed = remember { if (liveFresh) liveSpeed else null }
+                TrainMapSpeedEtaScreen(
+                    ahead = etaAhead,
+                    initialSpeedKmh = openSpeed,
+                    nowMs = nowMs,
+                    zone = zone,
+                    onDismiss = { showSpeedEta = false },
+                )
+            }
             if (showTarget && !viewOnly) {
                 val targetAhead = remember(stops, railLineNow, nowMs, alongFix) { ArrivalPlan.stopsAhead(stops, railLineNow, alongFix) }
                 TrainMapTargetScreen(
@@ -1990,24 +2004,26 @@ private fun EtaRibbon(
     terminalDistanceM: Double,
     terminalEtaMs: Long?,
     zone: String,
+    onClick: () -> Unit,
 ) {
     Column(
         modifier = Modifier
             .shadow(4.dp, RoundedCornerShape(16.dp))
             .background(Pst.surface, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        EtaLine(if (terminalName == null) "Конечная" else "Следующая", nextName, nextDistanceM, nextEtaMs, zone, strong = true)
-        if (terminalName != null) EtaLine("Конечная", terminalName, terminalDistanceM, terminalEtaMs, zone, strong = false)
+        EtaLine(nextName, nextDistanceM, nextEtaMs, zone, strong = true)
+        if (terminalName != null) EtaLine(terminalName, terminalDistanceM, terminalEtaMs, zone, strong = false)
     }
 }
 
 @Composable
-private fun EtaLine(label: String, name: String, distanceM: Double, etaMs: Long?, zone: String, strong: Boolean) {
+private fun EtaLine(name: String, distanceM: Double, etaMs: Long?, zone: String, strong: Boolean) {
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(
-            text = "$label $name",
+            text = name,
             style = Pst.sans.copy(fontSize = if (strong) 13.sp else 12.sp, fontWeight = if (strong) FontWeight.SemiBold else FontWeight.Normal),
             color = if (strong) Pst.text else Pst.textMuted,
             maxLines = 1,
