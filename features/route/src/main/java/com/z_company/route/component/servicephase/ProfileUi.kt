@@ -530,6 +530,7 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
             if (reason == null && live != null) {
                 val length = live.lengthKm
                 val span = spanKm.toDouble().coerceIn(MIN_SPAN_KM.coerceAtMost(length), length)
+                val followKm = model.position?.kmAxis // подписка на положение: окно сдвигается за поездом при каждом новом фиксе
                 val window = if (follow) {
                     if (span >= length) {
                         ProfileWindow(0.0, length)
@@ -616,7 +617,7 @@ private fun SectionHeader(model: ProfileModel, modifier: Modifier = Modifier, on
 
 /**
  * Строка «Сейчас» в одну линию: километр и пикет (нажатие или «Уточнить» - ручная привязка), уклон, ближайшая станция
- * впереди и поправка, если она задана; вне участка - предупреждение.
+ * впереди; вне участка - предупреждение.
  */
 @Composable
 private fun NowRow(model: ProfileModel, live: LiveProfile) {
@@ -655,7 +656,6 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
                     }
                     val tail = buildList {
                         ahead?.let { add("До «${it.first}» — ${pstKm(it.second)}") }
-                        if (abs(model.calibrationKm) > 1e-6) add("поправка ${if (model.calibrationKm > 0) "+" else "−"}${(abs(model.calibrationKm) * 1000).roundToInt()} м")
                         if (ahead == null && pos.kmText == null) add("Нет километровой привязки — показано расстояние от начала.")
                     }.joinToString(" · ")
                     Text(tail, style = Pst.sans.copy(fontSize = 13.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))

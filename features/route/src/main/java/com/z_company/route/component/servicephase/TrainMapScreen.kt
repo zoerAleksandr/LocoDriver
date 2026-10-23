@@ -1693,6 +1693,7 @@ internal fun TrainMapScreen(
             if (showChart) {
                 SpeedChartScreen(
                     track = track,
+                    railKmAt = { lat, lon -> profileModel.live?.absKmAt(lat, lon) },
                     profile = speedProfile,
                     loadRecordingState = loadRecordingState,
                     makeTarget = makeTarget,

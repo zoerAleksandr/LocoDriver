@@ -151,6 +151,17 @@ class LiveProfile(val section: SectionProfile, val reversed: Boolean) {
         return if (tail <= head) path else path.asReversed()
     }
 
+    /**
+     * Железнодорожный километр в точке [lat], [lon] по картам участка: проекция на ось + ручная поправка + отметки километража.
+     * null - точка дальше [maxOffsetM] от оси или у участка нет отметок километража.
+     */
+    fun absKmAt(lat: Double, lon: Double, maxOffsetM: Double = 300.0): Double? {
+        val hit = section.axis.locator.project(lat, lon) ?: return null
+        if (kotlin.math.abs(hit.offsetM) > maxOffsetM) return null
+        val km = (hit.kmM / 1000.0 + calibrationKm).coerceIn(0.0, lengthKm)
+        return KmMarks.toAbs(section.kmMarks, km)
+    }
+
     /** Уклон в виде: при развороте подъём становится спуском. */
     fun gradeInView(e: ProfileElement): Double = if (reversed) -e.gradePermille else e.gradePermille
 }

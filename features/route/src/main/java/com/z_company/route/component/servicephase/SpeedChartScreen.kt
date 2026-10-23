@@ -113,6 +113,11 @@ internal fun SpeedChartScreen(
     recordingOn: Boolean = false,
     /** Живая карта: кнопка «Начать запись» в пустом графике; null - кнопки нет. */
     onStartRecording: (() -> Unit)? = null,
+    /**
+     * Железнодорожный километр в точке (широта, долгота) по картам участка с поправкой пользователя; null - не определён.
+     * Если задан и определён во всех подписях оси «Путь», вместо километров от начала записи подписываются жд-километры.
+     */
+    railKmAt: ((Double, Double) -> Double?)? = null,
     onDismiss: () -> Unit,
 ) {
     Dialog(
@@ -130,6 +135,14 @@ internal fun SpeedChartScreen(
         val dark = Pst.surface.luminance() < 0.5f
         val points = track?.points.orEmpty()
         val samples = remember(track) { SpeedChart.buildSeries(points) }
+        // Жд-километр по расстоянию от начала записи: точка трека -> проекция на ось участка -> км с поправкой пользователя.
+        val railAtDist: ((Double) -> Double?)? = railKmAt?.let { f ->
+            { x: Double ->
+                val si = samples.indexOfLast { it.distM <= x }.coerceAtLeast(0)
+                val p = points.getOrNull(samples.getOrNull(si)?.index ?: -1)
+                p?.let { f(it.latitude, it.longitude) }
+            }
+        }
         val zone = track?.zone ?: "GMT+3"
         var axisName by rememberSaveable { mutableStateOf(ChartAxis.PATH.name) }
         val axis = ChartAxis.valueOf(axisName)
@@ -345,6 +358,7 @@ internal fun SpeedChartScreen(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
+                    railKmAtDist = railAtDist,
                     onLayout = { l, w -> plotLeft = l; plotWidth = w },
                     onTransform = { centroidX, panX, zoom ->
                         val g = geo.value
@@ -380,6 +394,8 @@ private fun SpeedPlot(
     profile: SpeedProfile,
     dark: Boolean,
     modifier: Modifier,
+    /** Жд-километр на расстоянии x (м) от начала записи; null - не определён (подписи оси «Путь» тогда в км от начала). */
+    railKmAtDist: ((Double) -> Double?)? = null,
     onLayout: (left: Float, width: Float) -> Unit,
     onTransform: (centroidX: Float, panX: Float, zoom: Float) -> Unit,
     onTap: (x: Float) -> Unit,
@@ -521,9 +537,14 @@ private fun SpeedPlot(
         // Подписи оси X.
         val maxTicks = (plotW / (64f * d)).toInt().coerceAtLeast(2)
         val ticks: List<Pair<Double, String>> = if (axis == ChartAxis.PATH) {
-            SpeedChart.niceTicks(window.start / 1000.0, window.end / 1000.0, maxTicks).map { km ->
+            val fromStart = SpeedChart.niceTicks(window.start / 1000.0, window.end / 1000.0, maxTicks).map { km ->
                 (km * 1000.0) to (if (km == km.toLong().toDouble()) km.toLong().toString() else "%.1f".format(java.util.Locale("ru"), km))
             }
+            // Жд-километры по карте участка (если определены во всех подписях), иначе км от начала записи.
+            val rail = railKmAtDist?.let { f ->
+                fromStart.map { (x, _) -> f(x)?.let { x to "%.1f".format(java.util.Locale("ru"), it) } }
+            }
+            if (rail != null && rail.isNotEmpty() && rail.all { it != null }) rail.filterNotNull() else fromStart
         } else {
             SpeedChart.timeTicks(t0, window.start, window.end, maxTicks, zoneOffset).map { ms ->
                 ms to TrackAnalysis.clock(t0 + ms.toLong(), zone)

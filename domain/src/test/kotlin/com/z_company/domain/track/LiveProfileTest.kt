@@ -190,4 +190,15 @@ class LiveProfileTest {
         }
         assertTrue(AxisSlice.smooth(pts, 1.0, 1.0).isEmpty())
     }
+
+    @Test
+    fun abs_km_at_point_uses_marks_and_calibration() {
+        val lp = LiveProfile(section(), reversed = false)
+        lp.onFix(1_000, lat0, lon(2.0), 60.0, 5f)
+        assertEquals(102.0, lp.absKmAt(lat0, lon(2.0))!!, 0.02)
+        lp.applyCalibration(0.5)
+        assertEquals(102.5, lp.absKmAt(lat0, lon(2.0))!!, 0.02)
+        assertNull(lp.absKmAt(lat0 + 0.01, lon(2.0)))              // дальше 300 м от оси
+        assertNull(LiveProfile(section(withMarks = false), false).absKmAt(lat0, lon(2.0)))
+    }
 }
