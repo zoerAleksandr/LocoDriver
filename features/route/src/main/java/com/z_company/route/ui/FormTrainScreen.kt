@@ -351,6 +351,8 @@ fun FormTrainScreen(
                 autoRecording = autoRecordState.enabled,
                 onToggleRecording = onAutoToggle,
                 onDismiss = { showTrainMap = false },
+                profileTrains = viewModel.trainMapTrains(),
+                profileTrainId = viewModel.currentTrain?.trainId,
             )
         }
 

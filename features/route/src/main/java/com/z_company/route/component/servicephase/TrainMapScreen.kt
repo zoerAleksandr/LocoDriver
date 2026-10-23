@@ -200,6 +200,10 @@ internal fun TrainMapScreen(
     title: String = "Карта поезда",
     /** Только просмотр записанного трека (§17.8): без геолокации, живой скорости и обновления по таймеру. */
     viewOnly: Boolean = false,
+    /** Поезда маршрута для линии поезда на профиле (длина - по условной длине); пусто - линии нет, только точка. */
+    profileTrains: List<ProfileTrain> = emptyList(),
+    /** С каким поездом открыта карта (из «Поезда» или с Главного - поезд текущего маршрута); null - последний из списка. */
+    profileTrainId: String? = null,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -233,7 +237,7 @@ internal fun TrainMapScreen(
         var permGranted by remember { mutableStateOf(DeviceLocation.hasPermission(context)) }
         var selection by remember { mutableStateOf<TrainMapSelection?>(null) }
         // Профиль пути: живое положение на профиле участка (выбор по местоположению и плечу, SCREEN_SPECS §6.9).
-        val profileModel = rememberProfileModel(myFix, liveSpeed, liveAtMs, stops)
+        val profileModel = rememberProfileModel(myFix, liveSpeed, liveAtMs, stops, profileTrains, profileTrainId)
         var showChart by rememberSaveable { mutableStateOf(false) }
         // Метки первого открытия карты + кнопка «?» для повтора (ONBOARDING_MATERIALS §2): один раз, не во время записи.
         val onboardingHints = com.z_company.route.component.rememberOnboardingHints()

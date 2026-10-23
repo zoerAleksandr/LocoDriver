@@ -182,6 +182,9 @@ object SectionPicker {
     /** Одно ли название станции (без регистра, ё=е, пробелов, кавычек и знаков) - для сверки с полем «Плечо». */
     fun sameStation(a: String, b: String): Boolean = norm(a).let { it.isNotEmpty() && it == norm(b) }
 
+    /** Упоминается ли [name] в тексте [text] (без регистра, ё=е, пробелов и знаков): «Белогорск — Завитая — Архара» упоминает «Завитая». */
+    fun mentions(text: String, name: String): Boolean = norm(name).let { it.isNotEmpty() && norm(text).contains(it) }
+
     private fun norm(s: String) = s.lowercase().replace('ё', 'е').filter { it.isLetterOrDigit() }
 }
 

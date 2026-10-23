@@ -578,6 +578,25 @@ class TrainFormViewModel(
     }
 
     /** Станции выбранного плеча с координатами по порядку для будущего маршрута на карте поезда (§6.9, состояние 2). */
+    /**
+     * Поезда маршрута для линии поезда на профиле карты: id, номер и длина в метрах по условной длине (у пассажирского номера -
+     * число вагонов × длина вагона из настроек, у остальных × 14 м). Редактируемый сейчас поезд берётся со своими несохранёнными
+     * значениями; поездов в маршруте нет - только он.
+     */
+    internal fun trainMapTrains(): List<com.z_company.route.component.servicephase.ProfileTrain> {
+        val wagon = uiState.value.passengerWagonLengthMeters
+        val current = currentTrain
+        val all = route.trains.map { if (current != null && it.trainId == current.trainId) current else it }
+            .let { list -> if (current != null && list.none { it.trainId == current.trainId }) list + current else list }
+        return all.map { t ->
+            com.z_company.route.component.servicephase.ProfileTrain(
+                id = t.trainId,
+                number = t.number,
+                lengthM = com.z_company.route.ui.conditionalLengthToMeters(t.conditionalLength, t.number, wagon),
+            )
+        }
+    }
+
     fun trainMapStops(): List<com.z_company.domain.util.TrainMapStop> =
         fullSelectedPhase()?.let { stationDirectory.resolve(it) }?.let(com.z_company.domain.util.TrainMapRoute::stops).orEmpty()
 

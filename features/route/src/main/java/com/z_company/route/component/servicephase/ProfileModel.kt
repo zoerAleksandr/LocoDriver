@@ -13,17 +13,23 @@ import com.z_company.domain.track.LegMatch
 import com.z_company.domain.track.LivePosition
 import com.z_company.domain.track.LiveProfile
 import com.z_company.domain.track.SectionPicker
+import com.z_company.domain.track.SectionSummary
 import com.z_company.domain.track.SectionProfile
 import com.z_company.domain.util.GeoFix
 import com.z_company.domain.util.TrainMapStop
 import com.z_company.repository.remote_rest.tracks.SectionProfileRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 import kotlin.math.abs
 
 /** Строка списка выбора участка. */
-internal class SectionRow(val section: SectionProfile, val distanceM: Double?, val fitsLeg: Boolean?)
+internal class SectionRow(val summary: SectionSummary, val distanceM: Double?, val fitsLeg: Boolean?)
+
+/** Поезд маршрута для линии на профиле; [lengthM] null - длина не указана (линия не рисуется, остаётся точка). */
+internal data class ProfileTrain(val id: String, val number: String?, val lengthM: Int?)
 
 /** Что показывать вместо графика, когда рисовать нечего. */
 internal enum class ProfileEmpty { LOADING, NO_LOCATION, NO_SECTIONS, NO_NEARBY, NO_DATA }
@@ -36,11 +42,37 @@ internal enum class ProfileEmpty { LOADING, NO_LOCATION, NO_SECTIONS, NO_NEARBY,
 internal class ProfileModel(
     private val repo: SectionProfileRepository,
     private val calibrations: ProfileCalibrationStore,
+    private val scope: CoroutineScope,
 ) {
+    /** Список всех участков (название, длина, габарит) - без осей; по нему выбор вручную и поиск. */
+    var summaries by mutableStateOf<List<SectionSummary>>(emptyList())
+        private set
+
+    /** Участки с загруженной осью и профилем: ближние к положению и выбранные вручную. */
     var sections by mutableStateOf<List<SectionProfile>>(emptyList())
         private set
     var loaded by mutableStateOf(false)
         private set
+    private var loadingNear by mutableStateOf(false)
+    private var nearCenter: GeoFix? = null
+
+    /** Не удалось загрузить выбранный вручную участок (нет сети и нет в кэше). */
+    var chooseError by mutableStateOf<String?>(null)
+        private set
+
+    /** Поезда маршрута и выбранный из них: по длине рисуется линия поезда на профиле. */
+    var trains by mutableStateOf<List<ProfileTrain>>(emptyList())
+    var selectedTrainId by mutableStateOf<String?>(null)
+        private set
+    val train: ProfileTrain? get() = trains.firstOrNull { it.id == selectedTrainId } ?: trains.firstOrNull()
+    val trainLengthKm: Double? get() = train?.lengthM?.takeIf { it > 0 }?.let { it / 1000.0 }
+    fun chooseTrain(id: String) { selectedTrainId = id }
+    fun initTrains(list: List<ProfileTrain>, initialId: String?) {
+        trains = list
+        if (selectedTrainId == null || list.none { it.id == selectedTrainId }) {
+            selectedTrainId = initialId?.takeIf { id -> list.any { it.id == id } } ?: list.lastOrNull()?.id
+        }
+    }
 
     /** Участок, выбранный пользователем; null - подбирается автоматически по положению и плечу. */
     var manualId by mutableStateOf<String?>(null)
@@ -75,8 +107,9 @@ internal class ProfileModel(
     val emptyReason: ProfileEmpty?
         get() = when {
             !loaded -> ProfileEmpty.LOADING
-            sections.isEmpty() -> ProfileEmpty.NO_SECTIONS
+            summaries.isEmpty() && sections.isEmpty() -> ProfileEmpty.NO_SECTIONS
             section == null && !hasFix -> ProfileEmpty.NO_LOCATION
+            section == null && loadingNear -> ProfileEmpty.LOADING
             section == null -> ProfileEmpty.NO_NEARBY
             section?.hasProfile != true -> ProfileEmpty.NO_DATA
             else -> null
@@ -92,20 +125,46 @@ internal class ProfileModel(
         return ElevationLine.fromElements(s.elements).also { elevationCache = key to it }
     }
 
+    /** Список участков: сначала с диска (мгновенно, без сети), затем обновление. Оси подгружаются по положению ([ensureNear]). */
     suspend fun load() {
-        // Сначала то, что на диске (мгновенно и без сети), затем обновление.
-        sections = withContext(Dispatchers.Default) { repo.allSections(refresh = false) }
-        if (sections.isNotEmpty()) { loaded = true; rebuild() }
-        val fresh = withContext(Dispatchers.Default) { repo.allSections(refresh = true) }
-        if (fresh.isNotEmpty() || sections.isEmpty()) sections = fresh
+        summaries = withContext(Dispatchers.Default) { repo.summaries(refresh = false) }
+        if (summaries.isNotEmpty()) loaded = true
+        val fresh = withContext(Dispatchers.Default) { repo.summaries(refresh = true) }
+        if (fresh.isNotEmpty() || summaries.isEmpty()) summaries = fresh
         loaded = true
-        rebuild()
+        lastFix?.let { ensureNear(it) }
+    }
+
+    /** Оси ближних участков (по габариту из списка; старый сервер без габарита - все). Не чаще, чем при сдвиге на 2 км. */
+    private fun ensureNear(fix: GeoFix) {
+        if (!loaded || loadingNear) return
+        nearCenter?.let { c ->
+            val dLat = (fix.latitude - c.latitude) * com.z_company.domain.track.FlatMetric.M_PER_DEG_LAT
+            val dLon = (fix.longitude - c.longitude) * com.z_company.domain.track.FlatMetric.kx(fix.latitude)
+            if (dLat * dLat + dLon * dLon < NEAR_RELOAD_M * NEAR_RELOAD_M) return
+        }
+        loadingNear = true
+        scope.launch {
+            val found = runCatching { withContext(Dispatchers.Default) { repo.sectionsNear(fix.latitude, fix.longitude) } }.getOrDefault(emptyList())
+            merge(found)
+            nearCenter = fix
+            loadingNear = false
+            rebuild()
+        }
+    }
+
+    private fun merge(list: List<SectionProfile>) {
+        if (list.isEmpty()) return
+        val ids = list.map { it.id }.toSet()
+        sections = sections.filter { it.id !in ids } + list
     }
 
     fun onFix(fix: GeoFix?, speedKmh: Double?, timeMs: Long) {
         lastFix = fix
         hasFix = fix != null
-        if (fix == null || sections.isEmpty()) return
+        if (fix == null) return
+        ensureNear(fix)
+        if (sections.isEmpty()) return
         if (manualId == null) autoPick(fix)
         ensureLive()
         val l = live ?: return
@@ -116,8 +175,22 @@ internal class ProfileModel(
         if (manualId == null && p?.offRoute == true) autoPick(fix, force = true)
     }
 
-    /** Пользователь выбрал участок: автоподбор отключается, пока не вызван [useAuto]. */
+    /** Пользователь выбрал участок: автоподбор отключается, пока не вызван [useAuto]. Ось незагруженного участка подгружается. */
     fun choose(id: String) {
+        chooseError = null
+        if (sections.any { it.id == id }) { applyChoice(id); return }
+        scope.launch {
+            val loadedSection = runCatching { withContext(Dispatchers.Default) { repo.section(id, refresh = false) } }.getOrNull()
+            if (loadedSection == null) {
+                chooseError = "Не удалось загрузить участок. Проверьте интернет."
+            } else {
+                merge(listOf(loadedSection))
+                applyChoice(id)
+            }
+        }
+    }
+
+    private fun applyChoice(id: String) {
         manualId = id
         manualReversed = null
         motionReversed = null
@@ -126,6 +199,7 @@ internal class ProfileModel(
     }
 
     fun useAuto() {
+        chooseError = null
         manualId = null
         manualReversed = null
         motionReversed = null
@@ -139,26 +213,42 @@ internal class ProfileModel(
         rebuild()
     }
 
-    /** Список для выбора: по расстоянию до положения (если есть), иначе по названию; [query] - по названию, станциям. */
+    /**
+     * Список для выбора: сверху участки плеча поезда, затем по расстоянию до положения (до оси - если ось загружена, иначе до
+     * габарита), без положения - по названию; [query] - по названию и станциям (станции - у загруженных).
+     */
     fun rows(query: String): List<SectionRow> {
         val fix = lastFix
         val q = query.trim().lowercase().replace('ё', 'е')
-        val near = fix?.let { SectionPicker.nearest(sections.map { it.axis }, it.latitude, it.longitude, maxDistanceM = Double.MAX_VALUE / 4, limit = Int.MAX_VALUE) }
-            ?.associate { it.sectionId to it.distanceM }.orEmpty()
-        return sections
-            .filter { q.isEmpty() || matches(it, q) }
-            .map { SectionRow(it, near[it.id], LegMatch.fits(it, stopNames)) }
+        val loadedById = sections.associateBy { it.id }
+        fun n(t: String) = t.lowercase().replace('ё', 'е')
+        return summaries
+            .filter { sum ->
+                q.isEmpty() || n(sum.name).contains(q) || n(sum.fromStation).contains(q) || n(sum.toStation).contains(q) ||
+                    loadedById[sum.id]?.stations?.any { n(it.name).contains(q) } == true
+            }
+            .map { sum ->
+                val loadedSection = loadedById[sum.id]
+                val dist = when {
+                    fix == null -> null
+                    loadedSection != null -> SectionPicker.nearest(listOf(loadedSection.axis), fix.latitude, fix.longitude, maxDistanceM = Double.MAX_VALUE / 4, limit = 1).firstOrNull()?.distanceM
+                    else -> sum.box?.distanceM(fix.latitude, fix.longitude)
+                }
+                val fits = loadedSection?.let { LegMatch.fits(it, stopNames) } ?: legGuess(sum)
+                SectionRow(sum, dist, fits)
+            }
             .sortedWith(
                 compareBy<SectionRow> { if (it.fitsLeg == true) 0 else 1 }
                     .thenBy { it.distanceM ?: Double.MAX_VALUE }
-                    .thenBy { it.section.name },
+                    .thenBy { it.summary.name },
             )
     }
 
-    private fun matches(s: SectionProfile, q: String): Boolean {
-        fun n(t: String) = t.lowercase().replace('ё', 'е')
-        return n(s.name).contains(q) || n(s.fromStation).contains(q) || n(s.toStation).contains(q) ||
-            s.stations.any { n(it.name).contains(q) }
+    /** Участок ещё не загружен: плечо угадываем по названию (в нём обе крайние станции плеча); null - плеча нет или не видно. */
+    private fun legGuess(sum: SectionSummary): Boolean? {
+        if (stopNames.size < 2) return null
+        val text = "${sum.name} ${sum.fromStation} ${sum.toStation}"
+        return if (SectionPicker.mentions(text, stopNames.first()) && SectionPicker.mentions(text, stopNames.last())) true else null
     }
 
     private fun autoPick(fix: GeoFix, force: Boolean = false) {
@@ -238,16 +328,29 @@ internal class ProfileModel(
     private companion object {
         const val MOTION_KM = 0.3
         const val MAX_STEP_KM = 1.0
+        const val NEAR_RELOAD_M = 2_000.0
     }
 }
 
-/** Модель профиля на жизнь карты; живой фикс подаётся с каждым обновлением геолокации. */
+/**
+ * Модель профиля на жизнь карты; живой фикс подаётся с каждым обновлением геолокации. [trains] - поезда маршрута (линия
+ * поезда на профиле), [trainId] - с каким поездом открыта карта (иначе последний в списке).
+ */
 @Composable
-internal fun rememberProfileModel(fix: GeoFix?, speedKmh: Double?, fixAtMs: Long, stops: List<TrainMapStop>): ProfileModel {
+internal fun rememberProfileModel(
+    fix: GeoFix?,
+    speedKmh: Double?,
+    fixAtMs: Long,
+    stops: List<TrainMapStop>,
+    trains: List<ProfileTrain> = emptyList(),
+    trainId: String? = null,
+): ProfileModel {
     val repo: SectionProfileRepository = koinInject()
     val context = androidx.compose.ui.platform.LocalContext.current
-    val model = remember { ProfileModel(repo, ProfileCalibrationStore(context)) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val model = remember { ProfileModel(repo, ProfileCalibrationStore(context), scope) }
     model.stopNames = remember(stops) { stops.map { it.name }.filter { it.isNotBlank() } }
+    LaunchedEffect(trains, trainId) { model.initTrains(trains, trainId) }
     LaunchedEffect(Unit) { model.load() }
     LaunchedEffect(fix, fixAtMs, model.loaded) { model.onFix(fix, speedKmh, if (fixAtMs > 0) fixAtMs else System.currentTimeMillis()) }
     return model

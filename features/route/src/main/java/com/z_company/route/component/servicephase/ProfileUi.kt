@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -373,6 +374,32 @@ internal fun ProfileChart(
             }
         }
 
+        // Линия поезда: от головы (положение) назад по ходу на длину поезда, вдоль линии профиля.
+        val trainKm = model.trainLengthKm
+        if (pos != null && trainKm != null && !pos.offRoute) {
+            val head = live.toView(pos.kmAxis)
+            val tail = (head - trainKm).coerceAtLeast(0.0)
+            val a = max(tail, window.fromX)
+            val b = minOf(head, window.toX)
+            if (b > a) {
+                val steps = max(2, ((b - a) / span * w / (2f * dp)).toInt())
+                val trainPath = Path().apply {
+                    for (i in 0..steps) {
+                        val x = a + (b - a) * i / steps
+                        val xx = px(x)
+                        val yy = py(line.heightAt(live.toAxis(x)))
+                        if (i == 0) moveTo(xx, yy) else lineTo(xx, yy)
+                    }
+                }
+                val trainColor = if (pos.locked) accent else muted
+                drawPath(trainPath, trainColor, style = Stroke(width = (if (detailed) 6f else 5f) * dp, cap = StrokeCap.Round))
+                if (tail >= window.fromX) {
+                    val tx = px(tail)
+                    drawLine(trainColor, Offset(tx, py(line.heightAt(live.toAxis(tail))) - 6f * dp), Offset(tx, py(line.heightAt(live.toAxis(tail))) + 6f * dp), strokeWidth = 2f * dp)
+                }
+            }
+        }
+
         // Живой маркер.
         if (pos != null) {
             val vx = live.toView(pos.kmAxis)
@@ -453,6 +480,14 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
                     StripButton("Сменить направление", { model.toggleDirection() }) { PstIcon(PstIcons.Swap, 20.dp, Pst.text) }
                 }
             }
+            model.chooseError?.let {
+                Text(
+                    text = it,
+                    style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 15.sp),
+                    color = Pst.danger,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+                )
+            }
             if (model.fitsLeg == false) {
                 Text(
                     text = "Этот участок не совпадает с плечом поезда. Выберите другой или оставьте, если едете не по плечу.",
@@ -501,7 +536,7 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
                         color = Pst.textMuted,
                         textAlign = TextAlign.Center,
                     )
-                    if (model.sections.isNotEmpty()) {
+                    if (model.summaries.isNotEmpty()) {
                         PstButton(text = "Выбрать участок", onClick = { showPicker = true }, kind = PstButtonKind.TONAL)
                     }
                 }
@@ -551,6 +586,7 @@ private fun SectionHeader(model: ProfileModel, modifier: Modifier = Modifier, on
 private fun NowRow(model: ProfileModel, live: LiveProfile) {
     val pos = model.position
     var showCalibrate by rememberSaveable { mutableStateOf(false) }
+    var showTrains by rememberSaveable { mutableStateOf(false) }
     val ahead = pos?.let { p ->
         val vx = live.toView(p.kmAxis)
         live.section.stations.map { live.toView(it.km) to it.name }.filter { it.first > vx + 0.05 }.minByOrNull { it.first }
@@ -590,6 +626,18 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
                 }
             }
         }
+        model.train?.let { tr ->
+            Text(
+                text = trainLabel(tr),
+                style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
+                color = Pst.text,
+                maxLines = 1,
+                modifier = Modifier
+                    .background(Pst.bgSubtle, RoundedCornerShape(12.dp))
+                    .clickable(onClickLabel = "Выбрать поезд") { showTrains = true }
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+            )
+        }
         if (live.section.kmMarks.isNotEmpty()) {
             PstButton(
                 text = "Уточнить км", onClick = { showCalibrate = true },
@@ -599,6 +647,44 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
         }
     }
     if (showCalibrate) CalibrateDialog(model, live, onDismiss = { showCalibrate = false })
+    if (showTrains) TrainPickerDialog(model, onDismiss = { showTrains = false })
+}
+
+/** «№2552 · 340 м»; без длины - «№2552 · длина не указана». */
+private fun trainLabel(t: ProfileTrain): String {
+    val num = t.number?.takeIf { it.isNotBlank() }?.let { "№$it" } ?: "Поезд без номера"
+    return num + " · " + (t.lengthM?.takeIf { it > 0 }?.let { "$it м" } ?: "длина не указана")
+}
+
+/** Выбор поезда маршрута: по его длине (условная длина поезда) рисуется линия поезда на профиле. */
+@Composable
+private fun TrainPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(
+            modifier = Modifier.fillMaxWidth(0.6f).background(Pst.bg, RoundedCornerShape(20.dp)).padding(vertical = 16.dp),
+        ) {
+            Text("Поезд на профиле", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+            Text(
+                "Длина линии поезда — по условной длине из данных поезда (у пассажирского поезда — число вагонов).",
+                style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+            )
+            LazyColumn(Modifier.heightIn(max = 240.dp)) {
+                items(model.trains, key = { it.id }) { t ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { model.chooseTrain(t.id); onDismiss() }.padding(horizontal = 20.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(trainLabel(t), style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, modifier = Modifier.weight(1f))
+                        if (t.id == model.train?.id) PstIcon(PstIcons.Check, 20.dp, Pst.accent)
+                    }
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(Pst.border))
+                }
+            }
+            PstButton("Закрыть", onDismiss, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14, modifier = Modifier.align(Alignment.End).padding(horizontal = 12.dp))
+        }
+    }
 }
 
 /**
@@ -672,7 +758,7 @@ private const val FAR_KM = 2.0
 @Composable
 private fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
     var query by remember { mutableStateOf(TextFieldValue("")) }
-    val rows = remember(query.text, model.sections, model.manualId) { model.rows(query.text) }
+    val rows = remember(query.text, model.summaries, model.sections, model.manualId) { model.rows(query.text) }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
@@ -705,7 +791,7 @@ private fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
             if (rows.isEmpty()) {
                 Box(Modifier.weight(1f).fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                     Text(
-                        text = if (model.sections.isEmpty()) "Участки не загружены. Проверьте интернет." else "Ничего не найдено. Данные профилей собираются — список пополняется.",
+                        text = if (model.summaries.isEmpty()) "Участки не загружены. Проверьте интернет." else "Ничего не найдено. Данные профилей собираются — список пополняется.",
                         style = Pst.sans.copy(fontSize = 14.sp),
                         color = Pst.textMuted,
                         textAlign = TextAlign.Center,
@@ -713,8 +799,8 @@ private fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
                 }
             } else {
                 LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
-                    items(rows, key = { it.section.id }) { row ->
-                        val s = row.section
+                    items(rows, key = { it.summary.id }) { row ->
+                        val s = row.summary
                         val chosen = s.id == model.section?.id
                         Row(
                             modifier = Modifier.fillMaxWidth()
