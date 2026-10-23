@@ -137,6 +137,49 @@ class LiveProfile(val section: SectionProfile, val reversed: Boolean) {
         return ProfileWindow(from, from + width)
     }
 
+    /**
+     * Линия поезда вдоль оси для географической карты: от головы назад по ходу на [lengthKm], точки `(lat, lon)` от хвоста к голове.
+     * Голова - положение по GPS БЕЗ ручной поправки (поправка двигает положение на профиле, а на карте поезд там, где GPS и значок).
+     * У начала/конца участка линия обрезается по участку. Пусто - положения нет, вне оси или длина не больше нуля.
+     */
+    fun trainPath(lengthKm: Double): List<Pair<Double, Double>> {
+        if (last?.offRoute != false || lengthKm <= 0.0) return emptyList()
+        val head = rawKm ?: return emptyList()
+        val tail = toAxis((toView(head) - lengthKm).coerceAtLeast(0.0))
+        val path = AxisSlice.between(section.axis.points, tail, head)
+        // порядок «хвост -> голова»: при развороте хвост на большем км оси
+        return if (tail <= head) path else path.asReversed()
+    }
+
     /** Уклон в виде: при развороте подъём становится спуском. */
     fun gradeInView(e: ProfileElement): Double = if (reversed) -e.gradePermille else e.gradePermille
+}
+
+/** Срез ломаной оси по диапазону километров с интерполяцией концов. */
+object AxisSlice {
+    /** Точки `(lat, lon)` оси между [fromKm] и [toKm] (в любом порядке) по возрастанию км; пусто - диапазон вырожден или ось короче двух точек. */
+    fun between(points: List<AxisPoint>, fromKm: Double, toKm: Double): List<Pair<Double, Double>> {
+        if (points.size < 2) return emptyList()
+        val lo = minOf(fromKm, toKm).coerceAtLeast(points.first().km)
+        val hi = maxOf(fromKm, toKm).coerceAtMost(points.last().km)
+        if (hi - lo < 1e-6) return emptyList()
+        val out = ArrayList<Pair<Double, Double>>()
+        out += at(points, lo)
+        for (p in points) if (p.km > lo + 1e-9 && p.km < hi - 1e-9) out += p.lat to p.lon
+        out += at(points, hi)
+        return out
+    }
+
+    private fun at(points: List<AxisPoint>, km: Double): Pair<Double, Double> {
+        var l = 0
+        var h = points.size - 1
+        while (h - l > 1) {
+            val m = (l + h) / 2
+            if (points[m].km <= km) l = m else h = m
+        }
+        val a = points[l]
+        val b = points[h]
+        val t = if (b.km - a.km < 1e-9) 0.0 else ((km - a.km) / (b.km - a.km)).coerceIn(0.0, 1.0)
+        return (a.lat + (b.lat - a.lat) * t) to (a.lon + (b.lon - a.lon) * t)
+    }
 }

@@ -665,7 +665,7 @@ private fun TrainPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
         ) {
             Text("Поезд на профиле", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
             Text(
-                "Длина линии поезда — по условной длине из данных поезда (у пассажирского поезда — число вагонов).",
+                "Длина линии поезда — по условной длине из данных поезда.",
                 style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
             )

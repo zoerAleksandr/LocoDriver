@@ -120,4 +120,49 @@ class LiveProfileTest {
         assertEquals(5.5, 5.5 + 0.0 * c.shiftKm, 1e-9) // кандидаты: 0.5 и 5.5 - ближайший к 6.0 это 5.5
         assertEquals(0.5, c.diffKm, 0.02)
     }
+
+    @Test
+    fun train_path_runs_back_from_head_and_clamps_at_start() {
+        val lp = LiveProfile(section(), reversed = false)
+        lp.onFix(1_000, lat0, lon(5.0), 60.0, 5f)
+        val path = lp.trainPath(0.8)
+        assertTrue(path.size >= 2)
+        // хвост на 0,8 км западнее головы, всё на одной широте
+        assertEquals(lon(4.2), path.first().second, 1e-5)
+        assertEquals(lon(5.0), path.last().second, 1e-5)
+        assertTrue(path.all { kotlin.math.abs(it.first - lat0) < 1e-9 })
+        // у начала участка обрезается по участку
+        val near = LiveProfile(section(), reversed = false)
+        near.onFix(1_000, lat0, lon(0.3), 60.0, 5f)
+        assertEquals(lon(0.0), near.trainPath(0.8).first().second, 1e-5)
+    }
+
+    @Test
+    fun train_path_reversed_tail_is_at_larger_km() {
+        val lp = LiveProfile(section(), reversed = true)
+        lp.onFix(1_000, lat0, lon(5.0), 60.0, 5f)
+        val path = lp.trainPath(0.8)
+        // едем к началу оси: хвост восточнее (больший км), порядок хвост -> голова
+        assertEquals(lon(5.8), path.first().second, 1e-5)
+        assertEquals(lon(5.0), path.last().second, 1e-5)
+    }
+
+    @Test
+    fun train_path_empty_without_position_or_off_route_or_zero_length() {
+        val lp = LiveProfile(section(), reversed = false)
+        assertTrue(lp.trainPath(0.5).isEmpty())
+        lp.onFix(1_000, lat0, lon(5.0), 60.0, 5f)
+        assertTrue(lp.trainPath(0.0).isEmpty())
+        assertTrue(AxisSlice.between(section().axis.points, 3.0, 3.0).isEmpty())
+    }
+
+    @Test
+    fun train_path_ignores_manual_calibration() {
+        val lp = LiveProfile(section(), reversed = false)
+        lp.onFix(1_000, lat0, lon(5.0), 60.0, 5f)
+        lp.applyCalibration(0.4)
+        // на профиле положение сдвинуто, а линия на карте по-прежнему заканчивается у GPS
+        assertEquals(5.4, lp.position!!.kmAxis, 0.02)
+        assertEquals(lon(5.0), lp.trainPath(0.8).last().second, 1e-5)
+    }
 }

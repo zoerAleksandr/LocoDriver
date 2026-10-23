@@ -123,6 +123,7 @@ private const val TRAIN_TRACK_SOURCE = "train-map-track"
 private const val TRAIN_MARKS_SOURCE = "train-map-marks"
 private const val TRAIN_SEL_SOURCE = "train-map-sel"
 private const val TRAIN_TAIL_SOURCE = "train-map-tail"
+private const val TRAIN_BODY_SOURCE = "train-map-body"
 private const val TRAIN_OFF_SOURCE = "train-map-off"
 private const val TRAIN_NODATA_SOURCE = "train-map-nodata"
 private const val TRAIN_PLAN_SOURCE = "train-map-plan"
@@ -534,6 +535,27 @@ internal fun TrainMapScreen(
                                 PropertyFactory.lineColor("#0A0E14"),
                                 PropertyFactory.lineWidth(1.6f),
                                 PropertyFactory.lineDasharray(arrayOf(1.5f, 2f)),
+                            ),
+                            "train-map-stops-layer",
+                        )
+                        // Состав: линия длиной с поезд от положения назад вдоль оси участка профиля (белая окантовка + синяя линия).
+                        style.addSource(GeoJsonSource(TRAIN_BODY_SOURCE, FeatureCollection.fromFeatures(emptyList())))
+                        style.addLayerBelow(
+                            LineLayer("train-map-body-casing", TRAIN_BODY_SOURCE).withProperties(
+                                PropertyFactory.lineColor("#FFFFFF"),
+                                PropertyFactory.lineOpacity(0.95f),
+                                PropertyFactory.lineWidth(casingWidth),
+                                PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                            ),
+                            "train-map-stops-layer",
+                        )
+                        style.addLayerBelow(
+                            LineLayer("train-map-body-layer", TRAIN_BODY_SOURCE).withProperties(
+                                PropertyFactory.lineColor("#0A84FF"),
+                                PropertyFactory.lineWidth(lineWidth),
+                                PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
                             ),
                             "train-map-stops-layer",
                         )
@@ -1018,6 +1040,20 @@ internal fun TrainMapScreen(
                     LineString.fromLngLats(listOf(Point.fromLngLat(last.longitude, last.latitude), Point.fromLngLat(endLon, endLat)))
                 ).apply { addNumberProperty("speed", liveSpeed ?: last.speedKmh ?: -1.0) }
             )
+        }
+        // Состав на карте: линия длиной с поезд вдоль оси участка профиля от положения назад; нет длины/положения/участка - пусто.
+        val bodyLive = profileModel.live
+        val bodyPos = profileModel.position
+        val bodyLengthKm = profileModel.trainLengthKm
+        LaunchedEffect(styleGen, styleReady, bodyLive, bodyPos, bodyLengthKm) {
+            if (!styleReady) return@LaunchedEffect
+            val src = map?.style?.getSourceAs<GeoJsonSource>(TRAIN_BODY_SOURCE) ?: return@LaunchedEffect
+            val path = if (bodyLive != null && bodyLengthKm != null) bodyLive.trainPath(bodyLengthKm) else emptyList()
+            if (path.size < 2) {
+                src.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+            } else {
+                src.setGeoJson(Feature.fromGeometry(LineString.fromLngLats(path.map { (lat, lon) -> Point.fromLngLat(lon, lat) })))
+            }
         }
         LaunchedEffect(Unit) { displayZone = runCatching { loadZone() }.getOrDefault(displayZone) }
         // Флажок на карте: точка плана или ещё не рассчитанная выбранная точка.
