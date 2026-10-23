@@ -221,13 +221,8 @@ internal fun ProfileChart(
         drawLine(grid, Offset(0f, topPad), Offset(w, topPad), strokeWidth = 1f)
         drawLine(grid, Offset(0f, plotBottom), Offset(w, plotBottom), strokeWidth = 1f)
 
-        // Столбы км пунктиром через график и ряды.
         val dash = PathEffect.dashPathEffect(floatArrayOf(5f * dp, 5f * dp))
         val bottomOfRows = plotBottom + gradeH + curveH
-        ticks.filter { it.isPost }.forEach { t ->
-            val xx = px(live.toView(t.axisKm))
-            if (xx in 0f..w) drawLine(grid, Offset(xx, topPad), Offset(xx, bottomOfRows), strokeWidth = 1f, pathEffect = dash)
-        }
 
         val fill = Path().apply {
             moveTo(px(xs[0]), plotBottom)
@@ -241,6 +236,17 @@ internal fun ProfileChart(
             for (i in 1..n) lineTo(px(xs[i]), py(hs[i]))
         }
         drawPath(stroke, ink, style = Stroke(width = 2f * dp, cap = StrokeCap.Round))
+
+        // Границы км: от линейки вверх до линии профиля (поверх заливки, чтобы были видны).
+        if (detailed) {
+            ticks.filter { it.isPost }.forEach { t ->
+                val xx = px(live.toView(t.axisKm))
+                if (xx in 0f..w) {
+                    val yTop = py(line.heightAt(t.axisKm))
+                    drawLine(muted.copy(alpha = 0.7f), Offset(xx, yTop), Offset(xx, bottomOfRows), strokeWidth = 1f * dp, pathEffect = dash)
+                }
+            }
+        }
 
         if (detailed) {
             // Станции: подпись сверху, без наложений.
@@ -264,34 +270,50 @@ internal fun ProfileChart(
             val rowBottom = plotBottom + gradeH
             drawLine(grid, Offset(0f, rowBottom), Offset(w, rowBottom), strokeWidth = 1f)
             val curPos = pos?.takeIf { !it.offRoute }?.kmAxis
-            section.elements.forEach { e ->
+            // Линия ряда тоньше и светлее линии профиля; между соседними элементами - вертикальные соединения.
+            val rowInk = ink.copy(alpha = 0.55f)
+            val lineW = 1f * dp
+            val y0 = rowTop + 15f * dp
+            val y1 = rowBottom - 13f * dp
+            val yMid = (y0 + y1) / 2
+            data class Cell(val e: ProfileElement, val v0: Double, val v1: Double, val g: Double, val yStart: Float, val yEnd: Float)
+            val visible = section.elements.mapNotNull { e ->
                 val v0 = live.toView(if (live.reversed) e.endKm else e.startKm)
                 val v1 = live.toView(if (live.reversed) e.startKm else e.endKm)
-                if (v1 < window.fromX || v0 > window.toX) return@forEach
-                val x0 = px(v0).coerceIn(-1f, w + 1f)
-                val x1 = px(v1).coerceIn(-1f, w + 1f)
+                if (v1 < window.fromX || v0 > window.toX) return@mapNotNull null
+                val g = live.gradeInView(e)
+                val (ys, ye) = when {
+                    g > 0.05 -> y1 to y0
+                    g < -0.05 -> y0 to y1
+                    else -> yMid to yMid
+                }
+                Cell(e, v0, v1, g, ys, ye)
+            }.sortedBy { it.v0 }
+            var prev: Cell? = null
+            visible.forEach { c ->
+                val x0 = px(c.v0).coerceIn(-1f, w + 1f)
+                val x1 = px(c.v1).coerceIn(-1f, w + 1f)
                 val cw = x1 - x0
                 if (cw < 1.5f * dp) return@forEach
-                val g = live.gradeInView(e)
-                if (curPos != null && curPos >= e.startKm && curPos < e.endKm) {
+                if (curPos != null && curPos >= c.e.startKm && curPos < c.e.endKm) {
                     drawRect(accent.copy(alpha = 0.14f), Offset(x0, rowTop), androidx.compose.ui.geometry.Size(cw, gradeH))
                 }
                 drawLine(grid, Offset(x0, rowTop), Offset(x0, rowBottom), strokeWidth = 1f)
-                val y0 = rowTop + 15f * dp
-                val y1 = rowBottom - 13f * dp
-                val diag = when {
-                    g > 0.05 -> Offset(x0, y1) to Offset(x1, y0)
-                    g < -0.05 -> Offset(x0, y0) to Offset(x1, y1)
-                    else -> Offset(x0, (y0 + y1) / 2) to Offset(x1, (y0 + y1) / 2)
+                drawLine(rowInk, Offset(x0, c.yStart), Offset(x1, c.yEnd), strokeWidth = lineW)
+                prev?.let { p ->
+                    // соединение с предыдущим элементом, если они стыкуются и уровни различаются
+                    if (abs(p.v1 - c.v0) < 1e-6 && abs(p.yEnd - c.yStart) > 0.5f && x0 in 0f..w) {
+                        drawLine(rowInk, Offset(x0, p.yEnd), Offset(x0, c.yStart), strokeWidth = lineW)
+                    }
                 }
-                drawLine(ink, diag.first, diag.second, strokeWidth = 1.4f * dp)
-                val gv = abs(g)
+                prev = c
+                val gv = abs(c.g)
                 val gText = if (gv < 0.05) "0" else fmt1(gv)
                 val tg = measurer.measure(gText, cellStyle)
                 if (cw >= tg.size.width + 4f * dp) {
                     drawText(tg, topLeft = Offset(((x0 + x1) / 2 - tg.size.width / 2f).coerceIn(x0 + 1f, max(x0 + 1f, x1 - tg.size.width - 1f)), rowTop + 1f * dp))
                 }
-                val lenM = ((e.endKm - e.startKm) * 1000).roundToInt()
+                val lenM = ((c.e.endKm - c.e.startKm) * 1000).roundToInt()
                 val tl = measurer.measure(lenM.toString(), labelStyle)
                 if (cw >= tl.size.width + 4f * dp) {
                     drawText(tl, topLeft = Offset((x0 + x1) / 2 - tl.size.width / 2f, rowBottom - tl.size.height - 1f * dp))
