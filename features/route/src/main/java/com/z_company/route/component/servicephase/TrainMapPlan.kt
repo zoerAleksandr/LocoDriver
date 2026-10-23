@@ -50,6 +50,22 @@ internal object TrainMapPlanStore {
         }
     }
 
+    /** Запомненное время на остановку (мин) и признак «на остановку» для следующих расчётов. */
+    fun stopMin(context: Context): Int = runCatching {
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt("plan_stop_min", ArrivalPlan.DEFAULT_STOP_MIN)
+    }.getOrDefault(ArrivalPlan.DEFAULT_STOP_MIN)
+
+    fun onStop(context: Context): Boolean = runCatching {
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("plan_on_stop", false)
+    }.getOrDefault(false)
+
+    fun saveStop(context: Context, onStop: Boolean, stopMin: Int) {
+        runCatching {
+            context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit().putBoolean("plan_on_stop", onStop).putInt("plan_stop_min", stopMin).apply()
+        }
+    }
+
     fun clear(context: Context, trainId: String?) {
         if (trainId == null) return
         runCatching {
@@ -97,43 +113,66 @@ private fun kmText(m: Double): String = TrainMapEta.distance(m)
 
 private fun speedText(v: Double): String = "${Math.round(v).toInt()} км/ч"
 
-/** Тексты состояний карточки планирования (SCREEN_SPECS §6.9, состояние 7). */
+/** Тексты экрана «Цель» и карточки расчёта (SCREEN_SPECS §6.9, состояние 7). */
 internal object TrainMapPlanTexts {
     const val DEFAULT_TITLE = "Точка на маршруте"
-    const val FIELD_LABEL = "Плановое время прибытия"
+    const val FIELD_LABEL = "Время прибытия"
     const val FIELD_PLACEHOLDER = "чч:мм"
     const val CALC = "Рассчитать"
     const val CLOSE = "Закрыть"
-    const val COLLAPSE = "Свернуть"
+    const val HIDE = "Скрыть"
     const val NO_LINE = "Линия пути ещё не загружена."
-    const val RESET = "Сбросить план"
     const val INPUT_ERROR = "Введите время в формате чч:мм, например 18:30."
     const val NEXT_DAY_ASK = "Это время раньше текущего. Считать на следующие сутки?"
     const val NEXT_DAY_YES = "Да, на следующие сутки"
     const val NEXT_DAY_EDIT = "Изменить"
     const val OFF_RAIL = "Расчёт прибытия недоступен: положение дальше 50 м от рельсового пути. Вернитесь на путь маршрута."
     const val NO_FIX = "Расчёт прибытия недоступен: положение не определено."
-    const val OVERDUE = "Плановое время уже прошло."
+    const val OVERDUE = "Время прибытия уже прошло."
+    const val IMPOSSIBLE = "Не успеть: с учётом разгона от текущей скорости времени не хватает."
     const val SPEED_UNKNOWN = "Текущая скорость неизвестна."
+    const val TARGET_TITLE = "Цель"
+    const val STEP1 = "Шаг 1. Выберите станцию впереди"
+    const val STEP2 = "Шаг 2. Время прибытия"
+    const val NO_STOPS = "Впереди нет станций плеча. Цель можно выбрать, когда положение определено и вы на пути маршрута."
+    const val ON_STOP = "На остановку"
+    const val STOP_MIN_LABEL = "Время на торможение и остановку, мин"
+    const val SHOW_ON_MAP = "Показывать цель на экране Карты"
+    const val CHANGE = "Сменить цель"
+    const val CANCEL_TARGET = "Отменить цель"
 }
 
 /**
- * Карточка планирования прибытия: ввод планового времени ([plan] == null) либо результат расчёта ([plan] задан).
- * [distanceM] - расстояние вдоль линии до точки (null - сейчас не определить, [note] объясняет причину).
+ * Карточка расчёта цели на карте: результат по [plan] и единственная кнопка «Скрыть» (цель снимается только на экране «Цель»).
+ * [distanceM] - расстояние вдоль линии до цели (null - сейчас не определить, [note] объясняет причину).
  */
 @Composable
 internal fun ArrivalPlanCard(
-    target: PlanTarget,
-    plan: ArrivalPlanData?,
+    plan: ArrivalPlanData,
     distanceM: Double?,
     note: String?,
     nowMs: Long,
     zone: String,
     speedKmh: Double?,
-    onSave: (Long) -> Unit,
-    onReset: () -> Unit,
-    onClose: () -> Unit,
+    onHide: () -> Unit,
 ) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        ArrivalPlanBody(plan, distanceM, note, nowMs, zone, speedKmh)
+        PstButton(TrainMapPlanTexts.HIDE, onClick = onHide, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
+    }
+}
+
+/** Заголовок цели, расстояние и результат расчёта (общая часть карточки карты и экрана «Цель»). */
+@Composable
+internal fun ArrivalPlanBody(
+    plan: ArrivalPlanData,
+    distanceM: Double?,
+    note: String?,
+    nowMs: Long,
+    zone: String,
+    speedKmh: Double?,
+) {
+    val target = plan.target
     Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             PstIcon(PstIcons.MapPin, 18.dp, Pst.accent)
@@ -155,81 +194,22 @@ internal fun ArrivalPlanCard(
         }
         if (note != null) {
             Text(note, style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 18.sp), color = Pst.textMuted)
-        }
-        if (plan == null) PlanInput(nowMs, zone, enabled = distanceM != null, onSave = onSave)
-        else if (distanceM != null) PlanResult(plan, distanceM, nowMs, zone, speedKmh)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (plan != null) {
-                PstButton(TrainMapPlanTexts.RESET, onClick = onReset, kind = PstButtonKind.DANGER, height = 40.dp, fontSize = 14)
-            }
-            PstButton(if (plan != null) TrainMapPlanTexts.COLLAPSE else TrainMapPlanTexts.CLOSE, onClick = onClose, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
+        } else if (distanceM != null) {
+            PlanResult(plan, distanceM, nowMs, zone, speedKmh)
         }
     }
 }
 
 @Composable
-private fun PlanInput(nowMs: Long, zone: String, enabled: Boolean, onSave: (Long) -> Unit) {
-    var text by remember { mutableStateOf(TextFieldValue("")) }
-    var error by remember { mutableStateOf(false) }
-    var pendingNextDay by remember { mutableStateOf<Long?>(null) }
-    PstTextField(
-        value = text,
-        onValueChange = { v ->
-            // Маска чч:мм: только цифры, двоеточие после часов ставится само (TimeMask).
-            val clean = TimeMask.format(v.text, previous = text.text)
-            text = if (clean == v.text) v else TextFieldValue(clean, TextRange(clean.length))
-            error = false
-            pendingNextDay = null
-        },
-        label = TrainMapPlanTexts.FIELD_LABEL,
-        placeholder = TrainMapPlanTexts.FIELD_PLACEHOLDER,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        mono = true,
-        isError = error,
-        modifier = Modifier.fillMaxWidth(),
-    )
-    if (error) {
-        Text(
-            TrainMapPlanTexts.INPUT_ERROR,
-            style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold),
-            color = Pst.danger,
-        )
-    }
-    val pending = pendingNextDay
-    if (pending != null) {
-        Text(TrainMapPlanTexts.NEXT_DAY_ASK, style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 18.sp), color = Pst.text)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PstButton(TrainMapPlanTexts.NEXT_DAY_YES, onClick = { onSave(pending) }, kind = PstButtonKind.CTA, height = 44.dp, fontSize = 14)
-            PstButton(TrainMapPlanTexts.NEXT_DAY_EDIT, onClick = { pendingNextDay = null }, kind = PstButtonKind.TEXT, height = 44.dp, fontSize = 14)
-        }
-    } else {
-        PstButton(
-            text = TrainMapPlanTexts.CALC,
-            kind = PstButtonKind.CTA,
-            enabled = enabled,
-            modifier = Modifier.fillMaxWidth(),
-            onClick = {
-                val hm = ArrivalPlan.parseTime(text.text)
-                if (hm == null) {
-                    error = true
-                } else {
-                    val p = ArrivalPlan.planned(System.currentTimeMillis(), hm.first, hm.second, zone)
-                    if (p.earlier) pendingNextDay = p.ms else onSave(p.ms)
-                }
-            },
-        )
-    }
-}
-
-@Composable
-private fun PlanResult(plan: ArrivalPlanData, distanceM: Double, nowMs: Long, zone: String, speedKmh: Double?) {
-    val ev = ArrivalPlan.evaluate(nowMs, distanceM, plan.plannedMs, speedKmh)
+internal fun PlanResult(plan: ArrivalPlanData, distanceM: Double, nowMs: Long, zone: String, speedKmh: Double?) {
+    val ev = ArrivalPlan.evaluate(nowMs, distanceM, plan.plannedMs, speedKmh, if (plan.onStop) plan.stopMin else 0)
     val dayOff = ArrivalPlan.dayOffset(nowMs, plan.plannedMs, zone)
     val plannedText = TrackAnalysis.clock(plan.plannedMs, zone) + if (dayOff > 0) " (следующие сутки)" else ""
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         PlanLine("Плановое прибытие", plannedText, strong = false)
+        if (plan.onStop) PlanLine("На остановку", "за ${plan.stopMin} мин", strong = false)
         if (ev.requiredKmh != null) {
-            PlanLine("Нужная средняя скорость", speedText(ev.requiredKmh!!), strong = true)
+            PlanLine("Нужная скорость хода", speedText(ev.requiredKmh!!), strong = true)
         } else {
             Text(TrainMapPlanTexts.OVERDUE, style = Pst.sans.copy(fontSize = 13.sp), color = Pst.danger)
         }
@@ -250,6 +230,8 @@ private fun PlanResult(plan: ArrivalPlanData, distanceM: Double, nowMs: Long, zo
                 )
             ArrivalPlan.Status.UNKNOWN ->
                 Text(TrainMapPlanTexts.SPEED_UNKNOWN, style = Pst.sans.copy(fontSize = 13.sp), color = Pst.textMuted)
+            ArrivalPlan.Status.IMPOSSIBLE ->
+                Text(TrainMapPlanTexts.IMPOSSIBLE, style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.danger)
             ArrivalPlan.Status.OVERDUE -> Unit
         }
     }

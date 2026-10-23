@@ -314,11 +314,13 @@ internal fun TrainMapScreen(
         val autoRunning by GpsRecorder.isRunning.collectAsState()
         // Функции, которым нужен интернет (перестроение линии), без сети показывают диалог «Нет интернета».
         val networkGate = rememberNetworkGate()
-        // Планирование прибытия (этап 5, §6.9 п.7): сохранённый план, ещё не рассчитанная точка (draft) и пояснение «недоступно».
+        // Планирование прибытия (этап 5, §6.9 п.7): сохранённый план, экран «Цель» и пояснение «недоступно».
         var plan by remember(planKey) {
             mutableStateOf(TrainMapPlanStore.load(context, planKey)?.takeIf { !ArrivalPlan.isStale(it, System.currentTimeMillis()) })
         }
-        var draft by remember { mutableStateOf<PlanTarget?>(null) }
+        // Экран «Цель»: открыт ли и точка, выбранная тапом на карте (сразу шаг 2).
+        var showTarget by remember { mutableStateOf(false) }
+        var targetPreselect by remember { mutableStateOf<PlanTarget?>(null) }
         var planNote by remember { mutableStateOf<String?>(null) }
         var planOpen by remember { mutableStateOf(true) }
         var displayZone by remember { mutableStateOf("GMT+3") }
@@ -1077,8 +1079,8 @@ internal fun TrainMapScreen(
             userZoom = null
         }
         LaunchedEffect(Unit) { displayZone = runCatching { loadZone() }.getOrDefault(displayZone) }
-        // Флажок на карте: точка плана или ещё не рассчитанная выбранная точка.
-        val activeTarget = draft ?: plan?.target
+        // Флажок на карте: цель, если включено «Показывать цель на экране Карты».
+        val activeTarget = plan?.takeIf { it.showOnMap }?.target
         LaunchedEffect(styleGen, styleReady, activeTarget) {
             if (!styleReady) return@LaunchedEffect
             val src = map?.style?.getSourceAs<GeoJsonSource>(TRAIN_PLAN_SOURCE) ?: return@LaunchedEffect
@@ -1139,7 +1141,6 @@ internal fun TrainMapScreen(
                     val fp = m.projection.toScreenLocation(LatLng(pl.target.latitude, pl.target.longitude))
                     if (Math.hypot((fp.x - tap.x).toDouble(), (fp.y - tap.y).toDouble()) <= 28 * density) {
                         planOpen = true
-                        draft = null
                         return@OnMapClickListener true
                     }
                 }
@@ -1148,7 +1149,8 @@ internal fun TrainMapScreen(
                 if (planTap is ArrivalPlan.TapResult.Ahead) {
                     selection = null
                     planNote = null
-                    draft = planTap.target
+                    targetPreselect = planTap.target
+                    showTarget = true
                     return@OnMapClickListener true
                 }
                 val t = track
@@ -1191,7 +1193,6 @@ internal fun TrainMapScreen(
                 if (gnssOn) {
                     val zoneHit = gnssZoneAt(gnssShown, latLng.latitude, latLng.longitude, mpp * 24.0)
                     if (zoneHit != null) {
-                        draft = null
                         planNote = null
                         selection = TrainMapSelection.GnssZoneSel(zoneHit)
                         return@OnMapClickListener true
@@ -1200,7 +1201,6 @@ internal fun TrainMapScreen(
                 // Положение вне путей / не определено: карточка планирования недоступна, с пояснением.
                 if (planTap == ArrivalPlan.TapResult.OffRail || planTap == ArrivalPlan.TapResult.NoFix) {
                     selection = null
-                    draft = null
                     planNote = if (planTap == ArrivalPlan.TapResult.OffRail) TrainMapPlanTexts.OFF_RAIL else TrainMapPlanTexts.NO_FIX
                     return@OnMapClickListener true
                 }
@@ -1212,7 +1212,6 @@ internal fun TrainMapScreen(
                     return@OnMapClickListener true
                 }
                 selection = null
-                draft = null
                 planNote = null
                 false
             }
@@ -1275,7 +1274,7 @@ internal fun TrainMapScreen(
         }
 
         // Планирование прибытия: расстояние до точки плана по линии пересчитывается раз в ~5 с (тик nowMs) и с первым положением.
-        val planTarget = draft ?: plan?.target
+        val planTarget = plan?.target
         val planDistance = remember(planTarget, railLineNow, nowMs, alongFix != null) {
             planTarget?.let { ArrivalPlan.distance(railLineNow, alongFix, it) }
         }
@@ -1284,12 +1283,11 @@ internal fun TrainMapScreen(
             val d = planDistance
             val p = plan
             if (p != null && (ArrivalPlan.isStale(p, System.currentTimeMillis()) ||
-                    (d == ArrivalPlan.PlanDistance.Arrived && draft == null) || d == ArrivalPlan.PlanDistance.TargetNotOnLine && draft == null)
+                    d == ArrivalPlan.PlanDistance.Arrived || d == ArrivalPlan.PlanDistance.TargetNotOnLine)
             ) {
                 plan = null
                 TrainMapPlanStore.clear(context, planKey)
             }
-            if (draft != null && (d == ArrivalPlan.PlanDistance.Arrived || d == ArrivalPlan.PlanDistance.TargetNotOnLine)) draft = null
         }
 
         // Сеть вернулась, а линия из кэша / не построена / ещё строится - перезапрашиваем автоматически (плашка исчезнет сама).
@@ -1305,8 +1303,8 @@ internal fun TrainMapScreen(
         // Возврат в слежение: через FollowReturn.RETURN_DELAY_MS без касаний камера снова ведётся за положением
         // (и «еду по карте», если было включено). Не возвращаем: открыта карточка планирования/выбранной точки/график/панель
         // значка, палец на карте, просмотр записанного трека.
-        val followBlocked = selection != null || showChart || showSettings || showProfileFull || draft != null || planNote != null ||
-            (plan != null && planOpen)
+        val followBlocked = selection != null || showChart || showSettings || showProfileFull || showTarget || planNote != null ||
+            (plan?.showOnMap == true && planOpen)
         LaunchedEffect(followBlocked) { lastInteractionMs = System.currentTimeMillis() }
         LaunchedEffect(follow, followBlocked, fingerDown, lastInteractionMs, viewOnly) {
             if (follow || viewOnly || followBlocked || fingerDown) return@LaunchedEffect
@@ -1387,20 +1385,29 @@ internal fun TrainMapScreen(
                     .padding(start = 12.dp, end = 72.dp, top = 64.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                // Блок «Следующая / Конечная» - только когда позиция на пути следования (не дальше 50 м от линии).
-                if (progress != null && !offNow) {
-                    val nowEta = System.currentTimeMillis()
-                    val nextEta = TrainMapRoute.Eta.arrivalMs(nowEta, progress.nextDistanceM, etaSpeed)
-                    val termEta = TrainMapRoute.Eta.arrivalMs(nowEta, progress.terminalDistanceM, etaSpeed)
-                    EtaRibbon(
-                        nextName = stops[progress.nextIndex].name,
-                        nextDistanceM = progress.nextDistanceM,
-                        nextEtaMs = nextEta,
-                        terminalName = stops.last().name.takeIf { progress.nextIndex != stops.lastIndex },
-                        terminalDistanceM = progress.terminalDistanceM,
-                        terminalEtaMs = termEta,
-                        zone = zone,
-                    )
+                // Ряд: блок «Следующая / Конечная» (только когда позиция на пути следования, не дальше 50 м от линии) и кнопка «Цель».
+                if ((progress != null && !offNow) || (!viewOnly && hasRoute)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
+                        if (progress != null && !offNow) {
+                            val nowEta = System.currentTimeMillis()
+                            val nextEta = TrainMapRoute.Eta.arrivalMs(nowEta, progress.nextDistanceM, etaSpeed)
+                            val termEta = TrainMapRoute.Eta.arrivalMs(nowEta, progress.terminalDistanceM, etaSpeed)
+                            Box(Modifier.weight(1f, fill = false)) {
+                                EtaRibbon(
+                                    nextName = stops[progress.nextIndex].name,
+                                    nextDistanceM = progress.nextDistanceM,
+                                    nextEtaMs = nextEta,
+                                    terminalName = stops.last().name.takeIf { progress.nextIndex != stops.lastIndex },
+                                    terminalDistanceM = progress.terminalDistanceM,
+                                    terminalEtaMs = termEta,
+                                    zone = zone,
+                                )
+                            }
+                        }
+                        if (!viewOnly && hasRoute) {
+                            TargetButton(active = plan != null, onClick = { targetPreselect = null; showTarget = true })
+                        }
+                    }
                 }
                 if (offNow) {
                     Text(
@@ -1719,8 +1726,9 @@ internal fun TrainMapScreen(
             }
 
             // Карточка планирования прибытия (этап 5): ввод времени / результат расчёта / «недоступно» с пояснением.
-            val planCardVisible = !viewOnly && ((planTarget != null && (draft != null || planOpen)) || planNote != null)
-            val planChipVisible = !viewOnly && draft == null && plan != null && !planOpen && planNote == null
+            val planShown = plan?.takeIf { it.showOnMap }
+            val planCardVisible = !viewOnly && ((planShown != null && planOpen) || planNote != null)
+            val planChipVisible = !viewOnly && planShown != null && !planOpen && planNote == null
             if (planCardVisible) {
                 Column(
                     modifier = Modifier
@@ -1737,10 +1745,9 @@ internal fun TrainMapScreen(
                         .padding(14.dp),
                 ) {
                     val d = planDistance
-                    if (planTarget != null && planNote == null) {
+                    if (planShown != null && planNote == null) {
                         ArrivalPlanCard(
-                            target = planTarget,
-                            plan = if (draft == null) plan else null,
+                            plan = planShown,
                             distanceM = (d as? ArrivalPlan.PlanDistance.Ahead)?.meters,
                             note = when (d) {
                                 ArrivalPlan.PlanDistance.OffRail -> TrainMapPlanTexts.OFF_RAIL
@@ -1751,24 +1758,7 @@ internal fun TrainMapScreen(
                             nowMs = nowMs,
                             zone = zone,
                             speedKmh = etaSpeed,
-                            onSave = { ms ->
-                                val t = draft ?: plan?.target
-                                if (t != null) {
-                                    val np = ArrivalPlanData(t, ms)
-                                    plan = np
-                                    TrainMapPlanStore.save(context, planKey, np)
-                                    draft = null
-                                    planOpen = true
-                                }
-                            },
-                            onReset = {
-                                plan = null
-                                draft = null
-                                TrainMapPlanStore.clear(context, planKey)
-                            },
-                            onClose = {
-                                if (draft != null) draft = null else planOpen = false
-                            },
+                            onHide = { planOpen = false },
                         )
                     } else {
                         Text(planNote.orEmpty(), style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 18.sp), color = Pst.text)
@@ -1797,6 +1787,35 @@ internal fun TrainMapScreen(
                             .padding(horizontal = 12.dp, vertical = 8.dp),
                     )
                 }
+            }
+
+            if (showTarget && !viewOnly) {
+                val targetAhead = remember(stops, railLineNow, nowMs, alongFix) { ArrivalPlan.stopsAhead(stops, railLineNow, alongFix) }
+                TrainMapTargetScreen(
+                    ahead = targetAhead,
+                    plan = plan,
+                    preselect = targetPreselect,
+                    distanceM = (planDistance as? ArrivalPlan.PlanDistance.Ahead)?.meters,
+                    note = when (planDistance) {
+                        ArrivalPlan.PlanDistance.OffRail -> TrainMapPlanTexts.OFF_RAIL
+                        ArrivalPlan.PlanDistance.NoFix -> TrainMapPlanTexts.NO_FIX
+                        ArrivalPlan.PlanDistance.NoLine -> TrainMapPlanTexts.NO_LINE
+                        else -> null
+                    },
+                    nowMs = nowMs,
+                    zone = zone,
+                    speedKmh = etaSpeed,
+                    onSave = { np ->
+                        plan = np
+                        TrainMapPlanStore.save(context, planKey, np)
+                        planOpen = np.showOnMap
+                    },
+                    onCancelTarget = {
+                        plan = null
+                        TrainMapPlanStore.clear(context, planKey)
+                    },
+                    onDismiss = { showTarget = false; targetPreselect = null },
+                )
             }
 
             val name = missing
@@ -1934,6 +1953,28 @@ internal fun TrainMapScreen(
                 }
             }
         }
+    }
+}
+
+/** Кнопка «Цель» в верхнем ряду карты; [active] - цель задана (акцентный фон). */
+@Composable
+private fun TargetButton(active: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .shadow(4.dp, RoundedCornerShape(16.dp))
+            .background(if (active) Pst.accent else Pst.surface, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PstIcon(PstIcons.MapPin, 16.dp, if (active) Pst.onAccent else Pst.accent)
+        Text(
+            text = TrainMapPlanTexts.TARGET_TITLE,
+            style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
+            color = if (active) Pst.onAccent else Pst.text,
+            maxLines = 1,
+        )
     }
 }
 

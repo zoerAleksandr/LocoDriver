@@ -12,8 +12,18 @@ import kotlinx.datetime.toLocalDateTime
 /** Точка плана прибытия на рельсовой линии: координаты уже привязаны к линии; [name] - станция плеча или null. */
 data class PlanTarget(val latitude: Double, val longitude: Double, val name: String? = null)
 
-/** План прибытия: точка и плановый момент (мс, UTC). Хранится локально, на сервер не уходит. */
-data class ArrivalPlanData(val target: PlanTarget, val plannedMs: Long)
+/**
+ * План прибытия («Цель»): точка и плановый момент (мс, UTC). Хранится локально, на сервер не уходит.
+ * [onStop] - прибытие на остановку: за [stopMin] минут до планового момента поезд должен подойти к точке (торможение);
+ * [showOnMap] - показывать расчёт на экране карты.
+ */
+data class ArrivalPlanData(
+    val target: PlanTarget,
+    val plannedMs: Long,
+    val onStop: Boolean = false,
+    val stopMin: Int = ArrivalPlan.DEFAULT_STOP_MIN,
+    val showOnMap: Boolean = true,
+)
 
 /**
  * Планирование прибытия на карте поезда (SCREEN_SPECS §6.9, состояние 7): расстояние вдоль рельсовой линии до
@@ -28,6 +38,12 @@ object ArrivalPlan {
 
     /** Допуск на скорость «опережаете»: текущая скорость не меньше нужной × этот множитель. */
     const val AHEAD_FACTOR = 1.15
+
+    /** Время на торможение и остановку по умолчанию, мин. */
+    const val DEFAULT_STOP_MIN = 3
+
+    /** Среднее ускорение разгона поезда, м/с² (поправка на разгон от начальной скорости до нужной). */
+    const val ACCEL_MS2 = 0.2
 
     /** Допуск, дальше которого сохранённая точка плана не считается лежащей на линии, м. */
     const val TARGET_ON_LINE_M = 200.0
@@ -81,6 +97,23 @@ object ArrivalPlan {
         val d = cand.alongM - me.alongM
         if (d <= ARRIVED_M) return TapResult.NotAhead
         return TapResult.Ahead(PlanTarget(cand.latitude, cand.longitude, name), d)
+    }
+
+    /** Станция плеча впереди и расстояние до неё вдоль линии. */
+    data class StopAhead(val stop: TrainMapStop, val target: PlanTarget, val distanceM: Double)
+
+    /** Станции плеча впереди текущего положения ([ARRIVED_M] и дальше) с расстоянием вдоль линии; пусто, если положение не на линии. */
+    fun stopsAhead(stops: List<TrainMapStop>, line: List<Pair<Double, Double>>?, fix: GeoFix?): List<StopAhead> {
+        if (line == null || line.size < 2 || fix == null) return emptyList()
+        val cum = TrainMapRoute.cumulativeM(line)
+        val me = TrainMapRoute.project(line, cum, fix.latitude, fix.longitude) ?: return emptyList()
+        if (me.offsetM > TrainMapRoute.SNAP_TOLERANCE_M) return emptyList()
+        return stops.mapNotNull { st ->
+            val p = TrainMapRoute.project(line, cum, st.latitude, st.longitude) ?: return@mapNotNull null
+            val d = p.alongM - me.alongM
+            if (d <= ARRIVED_M) null
+            else StopAhead(st, PlanTarget(p.latitude, p.longitude, st.name.takeIf { it.isNotBlank() }), d)
+        }
     }
 
     /** Расстояние до точки плана в данный момент. */
@@ -166,12 +199,14 @@ object ArrivalPlan {
         ON_TIME,
         /** Текущая меньше нужной. */
         BEHIND,
-        /** Плановое время уже прошло. */
+        /** Плановое время (с учётом времени на остановку) уже прошло. */
         OVERDUE,
+        /** Время ещё есть, но с разгоном от текущей скорости не успеть ни при какой скорости хода. */
+        IMPOSSIBLE,
     }
 
     data class Evaluation(
-        /** Нужная средняя скорость, км/ч; null - плановое время прошло. */
+        /** Нужная средняя скорость хода (после разгона), км/ч; null - время вышло. */
         val requiredKmh: Double?,
         val status: Status,
         /** На сколько км/ч нужно быстрее текущей (только [Status.BEHIND]), округлено вверх до целого. */
@@ -181,15 +216,29 @@ object ArrivalPlan {
     )
 
     /**
-     * Нужная скорость = расстояние / (плановое - сейчас); сравнение с [speedKmh] (живая или средняя, как у ETA ленты,
-     * [TrainMapRoute.etaSpeedKmh]; null - неизвестна).
+     * Нужная скорость хода v: поезд со скоростью v0 ([speedKmh]) разгоняется до v с ускорением [ACCEL_MS2] и идёт дальше,
+     * укладываясь в T = плановое - сейчас - [stopMin] минут: d/v + (v-v0)²/(2·a·v) = T (потеря времени на разгон).
+     * Если нужная скорость не выше v0, разгон не нужен: v = d/T. v0 неизвестна - расчёт без разгона.
+     * Сравнение с [speedKmh] (живая или средняя, как у ETA ленты, [TrainMapRoute.etaSpeedKmh]; null - неизвестна).
      */
-    fun evaluate(nowMs: Long, distanceM: Double, plannedMs: Long, speedKmh: Double?): Evaluation {
+    fun evaluate(nowMs: Long, distanceM: Double, plannedMs: Long, speedKmh: Double?, stopMin: Int = 0): Evaluation {
         val expected = TrainMapRoute.Eta.arrivalMs(nowMs, distanceM, speedKmh)
-        val leftMs = plannedMs - nowMs
+        val leftMs = plannedMs - nowMs - stopMin * 60_000L
         if (leftMs <= 0) return Evaluation(null, Status.OVERDUE, null, expected)
-        val required = (distanceM / 1000.0) / (leftMs / 3_600_000.0)
-        if (speedKmh == null || speedKmh <= 0.0) return Evaluation(required, Status.UNKNOWN, null, expected)
+        val t = leftMs / 1000.0
+        val plain = distanceM / t * 3.6
+        if (speedKmh == null || speedKmh <= 0.0) return Evaluation(plain, Status.UNKNOWN, null, expected)
+        val v0 = speedKmh / 3.6
+        val required: Double
+        if (plain <= speedKmh) {
+            required = plain
+        } else {
+            val a = ACCEL_MS2
+            val b = v0 + a * t
+            val disc = b * b - v0 * v0 - 2 * a * distanceM
+            if (disc < 0) return Evaluation(plain, Status.IMPOSSIBLE, null, expected)
+            required = (b - kotlin.math.sqrt(disc)) * 3.6
+        }
         return when {
             speedKmh >= required * AHEAD_FACTOR -> Evaluation(required, Status.AHEAD, null, expected)
             speedKmh >= required -> Evaluation(required, Status.ON_TIME, null, expected)
@@ -201,18 +250,28 @@ object ArrivalPlan {
 
     private const val SEP = '\t'
 
-    /** Строка для локального хранилища: «lat TAB lon TAB plannedMs TAB name». */
+    /** Строка для локального хранилища: «lat TAB lon TAB plannedMs TAB onStop TAB stopMin TAB showOnMap TAB name». */
     fun encode(plan: ArrivalPlanData): String =
-        listOf(plan.target.latitude, plan.target.longitude, plan.plannedMs, plan.target.name.orEmpty().replace(SEP, ' '))
-            .joinToString(SEP.toString())
+        listOf(
+            plan.target.latitude, plan.target.longitude, plan.plannedMs,
+            if (plan.onStop) 1 else 0, plan.stopMin, if (plan.showOnMap) 1 else 0,
+            plan.target.name.orEmpty().replace(SEP, ' '),
+        ).joinToString(SEP.toString())
 
+    /** Читает и прежний формат «lat TAB lon TAB plannedMs TAB name» (без остановки, расчёт показывается на карте). */
     fun decode(raw: String?): ArrivalPlanData? {
         if (raw.isNullOrEmpty()) return null
-        val p = raw.split(SEP, limit = 4)
+        val p = raw.split(SEP, limit = 7)
         if (p.size < 4) return null
         val lat = p[0].toDoubleOrNull() ?: return null
         val lon = p[1].toDoubleOrNull() ?: return null
         val ms = p[2].toLongOrNull() ?: return null
-        return ArrivalPlanData(PlanTarget(lat, lon, p[3].takeIf { it.isNotEmpty() }), ms)
+        if (p.size < 7) return ArrivalPlanData(PlanTarget(lat, lon, p[3].takeIf { it.isNotEmpty() }), ms)
+        return ArrivalPlanData(
+            PlanTarget(lat, lon, p[6].takeIf { it.isNotEmpty() }), ms,
+            onStop = p[3] == "1",
+            stopMin = p[4].toIntOrNull()?.coerceIn(0, 60) ?: DEFAULT_STOP_MIN,
+            showOnMap = p[5] != "0",
+        )
     }
 }

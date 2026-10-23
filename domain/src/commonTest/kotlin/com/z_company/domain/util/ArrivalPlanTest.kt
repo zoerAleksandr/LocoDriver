@@ -94,14 +94,14 @@ class ArrivalPlanTest {
     @Test fun evaluateStatuses() {
         val now = 1_000_000L
         val hour = 3_600_000L
-        // 60 км за 1 ч: нужно 60 км/ч
+        // 60 км за 1 ч: нужно чуть больше 60 км/ч (потеря времени на разгон от 45 км/ч)
         val behind = ArrivalPlan.evaluate(now, 60_000.0, now + hour, 45.0)
         assertEquals(ArrivalPlan.Status.BEHIND, behind.status)
-        assertEquals(60.0, behind.requiredKmh!!, 1e-6)
-        assertEquals(15, behind.faster)
+        assertEquals(60.05, behind.requiredKmh!!, 0.05)
+        assertEquals(16, behind.faster)
         assertEquals(now + (hour * 60.0 / 45.0).toLong(), behind.expectedMs)
         assertEquals(ArrivalPlan.Status.ON_TIME, ArrivalPlan.evaluate(now, 60_000.0, now + hour, 65.0).status)
-        assertEquals(ArrivalPlan.Status.ON_TIME, ArrivalPlan.evaluate(now, 60_000.0, now + hour, 60.0).status)
+        assertEquals(ArrivalPlan.Status.ON_TIME, ArrivalPlan.evaluate(now, 60_000.0, now + hour, 61.0).status)
         assertEquals(ArrivalPlan.Status.AHEAD, ArrivalPlan.evaluate(now, 60_000.0, now + hour, 80.0).status)
         val unknown = ArrivalPlan.evaluate(now, 60_000.0, now + hour, null)
         assertEquals(ArrivalPlan.Status.UNKNOWN, unknown.status)
@@ -111,6 +111,40 @@ class ArrivalPlanTest {
         assertEquals(ArrivalPlan.Status.OVERDUE, overdue.status)
         assertNull(overdue.requiredKmh)
         assertNotNull(overdue.expectedMs)
+    }
+
+    @Test fun evaluateAccelerationAndStop() {
+        val now = 1_000_000L
+        val hour = 3_600_000L
+        // Уже едем быстрее нужного: разгон не нужен, v = d/T
+        assertEquals(60.0, ArrivalPlan.evaluate(now, 60_000.0, now + hour, 80.0).requiredKmh!!, 1e-6)
+        // С места: потеря времени на разгон поднимает нужную скорость выше простой d/T
+        val fromStop = ArrivalPlan.evaluate(now, 10_000.0, now + hour / 4, 0.1)
+        assertEquals(40.0 < fromStop.requiredKmh!!, true)
+        // «На остановку»: 3 мин вычитаются из доступного времени, 60 км за 57 мин
+        val stop = ArrivalPlan.evaluate(now, 60_000.0, now + hour, 80.0, stopMin = 3)
+        assertEquals(60.0 * 60.0 / 57.0, stop.requiredKmh!!, 1e-6)
+        // Время вышло из-за времени на остановку
+        assertEquals(ArrivalPlan.Status.OVERDUE, ArrivalPlan.evaluate(now, 1_000.0, now + 120_000, 50.0, stopMin = 3).status)
+        // Не успеть с разгоном: 5 км за 2 мин с места
+        assertEquals(ArrivalPlan.Status.IMPOSSIBLE, ArrivalPlan.evaluate(now, 5_000.0, now + 120_000, 5.0).status)
+    }
+
+    @Test fun codecKeepsStopFieldsAndReadsOldFormat() {
+        val plan = ArrivalPlanData(PlanTarget(1.5, 2.5, "Луга"), 7L, onStop = true, stopMin = 5, showOnMap = false)
+        val back = ArrivalPlan.decode(ArrivalPlan.encode(plan))!!
+        assertEquals(plan, back)
+        val old = ArrivalPlan.decode("1.5\t2.5\t7\tЛуга")!!
+        assertEquals(ArrivalPlanData(PlanTarget(1.5, 2.5, "Луга"), 7L), old)
+    }
+
+    @Test fun stopsAheadSkipsPassedAndNeedsFix() {
+        val line = listOf(0.0 to 0.0, 0.0 to 1.0)
+        val stops = listOf(TrainMapStop("A", 0.0, 0.0), TrainMapStop("B", 0.0, 0.5), TrainMapStop("C", 0.0, 1.0))
+        val ahead = ArrivalPlan.stopsAhead(stops, line, GeoFix(0.0, 0.25))
+        assertEquals(listOf("B", "C"), ahead.map { it.stop.name })
+        assertEquals(true, ahead[0].distanceM < ahead[1].distanceM)
+        assertEquals(emptyList(), ArrivalPlan.stopsAhead(stops, line, null))
     }
 
     @Test fun staleAndCodec() {
