@@ -123,6 +123,7 @@ private const val TRAIN_TRACK_SOURCE = "train-map-track"
 private const val TRAIN_MARKS_SOURCE = "train-map-marks"
 private const val TRAIN_SEL_SOURCE = "train-map-sel"
 private const val TRAIN_TAIL_SOURCE = "train-map-tail"
+private const val TRAIN_BODY_SOURCE = "train-map-body"
 private const val TRAIN_OFF_SOURCE = "train-map-off"
 private const val TRAIN_NODATA_SOURCE = "train-map-nodata"
 private const val TRAIN_PLAN_SOURCE = "train-map-plan"
@@ -200,6 +201,10 @@ internal fun TrainMapScreen(
     title: String = "Карта поезда",
     /** Только просмотр записанного трека (§17.8): без геолокации, живой скорости и обновления по таймеру. */
     viewOnly: Boolean = false,
+    /** Поезда маршрута для линии поезда на профиле (длина - по условной длине); пусто - линии нет, только точка. */
+    profileTrains: List<ProfileTrain> = emptyList(),
+    /** С каким поездом открыта карта (из «Поезда» или с Главного - поезд текущего маршрута); null - последний из списка. */
+    profileTrainId: String? = null,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -232,6 +237,8 @@ internal fun TrainMapScreen(
         var follow by remember { mutableStateOf(true) }
         var permGranted by remember { mutableStateOf(DeviceLocation.hasPermission(context)) }
         var selection by remember { mutableStateOf<TrainMapSelection?>(null) }
+        // Профиль пути: живое положение на профиле участка (выбор по местоположению и плечу, SCREEN_SPECS §6.9).
+        val profileModel = rememberProfileModel(myFix, liveSpeed, liveAtMs, stops, profileTrains, profileTrainId)
         var showChart by rememberSaveable { mutableStateOf(false) }
         // Метки первого открытия карты + кнопка «?» для повтора (ONBOARDING_MATERIALS §2): один раз, не во время записи.
         val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
@@ -288,6 +295,7 @@ internal fun TrainMapScreen(
         val sensitivity by TrainMapPrefs.sensitivity(context).collectAsState()
         val profileVisible by TrainMapPrefs.profileVisible(context).collectAsState()
         val speedVisible by TrainMapPrefs.speedVisible(context).collectAsState()
+        val trainAsLine by TrainMapPrefs.trainAsLine(context).collectAsState()
         // Порог «едем» (км/ч) зависит от чувствительности локации: выше чувствительность - раньше считаем ход.
         val moveThresholdKmh = LocationSensitivity.stillSpeedKmh(sensitivity)
         // Поворот карты (градусы, 0 = север сверху): для кнопки-компаса.
@@ -528,6 +536,27 @@ internal fun TrainMapScreen(
                                 PropertyFactory.lineColor("#0A0E14"),
                                 PropertyFactory.lineWidth(1.6f),
                                 PropertyFactory.lineDasharray(arrayOf(1.5f, 2f)),
+                            ),
+                            "train-map-stops-layer",
+                        )
+                        // Состав: линия длиной с поезд от положения назад вдоль оси участка профиля (белая окантовка + синяя линия).
+                        style.addSource(GeoJsonSource(TRAIN_BODY_SOURCE, FeatureCollection.fromFeatures(emptyList())))
+                        style.addLayerBelow(
+                            LineLayer("train-map-body-casing", TRAIN_BODY_SOURCE).withProperties(
+                                PropertyFactory.lineColor("#FFFFFF"),
+                                PropertyFactory.lineOpacity(0.95f),
+                                PropertyFactory.lineWidth(casingWidth),
+                                PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                            ),
+                            "train-map-stops-layer",
+                        )
+                        style.addLayerBelow(
+                            LineLayer("train-map-body-layer", TRAIN_BODY_SOURCE).withProperties(
+                                PropertyFactory.lineColor("#0A84FF"),
+                                PropertyFactory.lineWidth(lineWidth),
+                                PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
                             ),
                             "train-map-stops-layer",
                         )
@@ -1012,6 +1041,38 @@ internal fun TrainMapScreen(
                     LineString.fromLngLats(listOf(Point.fromLngLat(last.longitude, last.latitude), Point.fromLngLat(endLon, endLat)))
                 ).apply { addNumberProperty("speed", liveSpeed ?: last.speedKmh ?: -1.0) }
             )
+        }
+        // Поезд на плане: либо линия длиной с поезд вдоль оси участка профиля (от положения назад), либо значок навигации - не оба
+        // сразу. Линия не строится (нет длины поезда, положения на оси или участка) - показывается значок.
+        val bodyLive = profileModel.live
+        val bodyPos = profileModel.position
+        val bodyLengthKm = profileModel.trainLengthKm
+        val bodyPath = remember(trainAsLine, bodyLive, bodyPos, bodyLengthKm) {
+            if (trainAsLine && bodyLive != null && bodyLengthKm != null) bodyLive.trainPath(bodyLengthKm) else emptyList()
+        }
+        val bodyShown = bodyPath.size >= 2
+        LaunchedEffect(styleGen, styleReady, bodyPath) {
+            if (!styleReady) return@LaunchedEffect
+            val st = map?.style ?: return@LaunchedEffect
+            val src = st.getSourceAs<GeoJsonSource>(TRAIN_BODY_SOURCE) ?: return@LaunchedEffect
+            if (bodyShown) {
+                src.setGeoJson(Feature.fromGeometry(LineString.fromLngLats(bodyPath.map { (lat, lon) -> Point.fromLngLat(lon, lat) })))
+            } else {
+                src.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+            }
+            st.getLayerAs<SymbolLayer>("train-map-me-arrow")
+                ?.setProperties(PropertyFactory.visibility(if (bodyShown) Property.NONE else Property.VISIBLE))
+        }
+        // Масштаб при открытии: видна вся длина поезда. Один раз; если камера и так охватывает маршрут или трек - их охват шире.
+        var trainFitted by remember { mutableStateOf(false) }
+        LaunchedEffect(styleGen, styleReady, bodyShown) {
+            if (!styleReady || !bodyShown || trainFitted || hasRoute || track != null) return@LaunchedEffect
+            val m = map ?: return@LaunchedEffect
+            trainFitted = true
+            val pad = (48 * density).toInt()
+            fitCameraTo(m, bodyPath, pad, pad * 2, pad * 2, pad * 3, animate = true)
+            // Дальше слежение держит этот масштаб (не меньше 14), а не прежний шаг «+»/«−».
+            userZoom = null
         }
         LaunchedEffect(Unit) { displayZone = runCatching { loadZone() }.getOrDefault(displayZone) }
         // Флажок на карте: точка плана или ещё не рассчитанная выбранная точка.
@@ -1563,6 +1624,7 @@ internal fun TrainMapScreen(
                 } else {
                     if (profileVisible) {
                         ProfileStrip(
+                            model = profileModel,
                             height = stripH,
                             onHide = { TrainMapPrefs.setProfileVisible(context, false) },
                             onExpand = { showProfileFull = true },
@@ -1617,6 +1679,8 @@ internal fun TrainMapScreen(
                     viewOnly = viewOnly,
                     gnssOn = gnssOn,
                     onGnssChange = { gnssJustEnabled = it; gnssOn = it; GnssDeadZonePrefs.set(context, it) },
+                    trainAsLine = trainAsLine,
+                    onTrainAsLine = { TrainMapPrefs.setTrainAsLine(context, it) },
                     positionIcon = positionIcon,
                     onPositionIcon = { PositionIconStore.set(context, it) },
                     sensitivity = sensitivity,
@@ -1624,7 +1688,7 @@ internal fun TrainMapScreen(
                     onDismiss = { showSettings = false },
                 )
             }
-            if (showProfileFull) ProfileFullScreen(onDismiss = { showProfileFull = false })
+            if (showProfileFull) ProfileFullScreen(profileModel, onDismiss = { showProfileFull = false })
 
             if (showChart) {
                 SpeedChartScreen(

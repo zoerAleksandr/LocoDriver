@@ -63,5 +63,7 @@ internal fun HomeTrainMap(trainId: String, basicId: String, onConsentSettings: (
         autoRecording = autoRecordState.enabled,
         onToggleRecording = onAutoToggle,
         onDismiss = onDismiss,
+        profileTrains = viewModel.trainMapTrains(),
+        profileTrainId = viewModel.currentTrain?.trainId,
     )
 }

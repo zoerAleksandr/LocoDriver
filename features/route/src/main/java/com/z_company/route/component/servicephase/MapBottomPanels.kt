@@ -53,7 +53,7 @@ internal fun mapStripHeight(screenHeight: Dp): Dp = maxOf(88.dp, screenHeight * 
 
 /** Квадратная кнопка внутри полосы: на фоне полосы, без тени. */
 @Composable
-private fun StripButton(description: String, onClick: () -> Unit, content: @Composable () -> Unit) {
+internal fun StripButton(description: String, onClick: () -> Unit, content: @Composable () -> Unit) {
     Box(
         modifier = Modifier
             .size(38.dp)
@@ -65,7 +65,7 @@ private fun StripButton(description: String, onClick: () -> Unit, content: @Comp
 
 /** Кнопки полосы по вертикали у правого края: «Развернуть» - вверху, «Скрыть» - внизу. */
 @Composable
-private fun StripButtons(expandDescription: String, onExpand: (() -> Unit)?, hideDescription: String, onHide: () -> Unit, height: Dp) {
+internal fun StripButtons(expandDescription: String, onExpand: (() -> Unit)?, hideDescription: String, onHide: () -> Unit, height: Dp) {
     Column(
         modifier = Modifier.height(height).padding(vertical = 6.dp),
         verticalArrangement = Arrangement.SpaceBetween,
@@ -224,73 +224,6 @@ private fun MiniSpeedChart(samples: List<SpeedSample>, profile: SpeedProfile, se
         if (selIdx != null) {
             val xx = px(SpeedChart.xOf(samples[selIdx], ChartAxis.PATH, t0))
             if (xx in left..(left + plotW)) drawLine(ink, Offset(xx, 0f), Offset(xx, plotH), strokeWidth = 1.5f * density)
-        }
-    }
-}
-
-/**
- * Полоса «Профиль пути»: заготовка под продольный профиль (уклоны/высоты). Сейчас показывает пояснение;
- * кнопки по вертикали у правого края: «Развернуть на весь экран» вверху, «Скрыть» внизу.
- */
-@Composable
-internal fun ProfileStrip(
-    height: Dp,
-    onHide: () -> Unit,
-    onExpand: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(height)
-            .background(Pst.surface)
-            .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(text = "ПРОФИЛЬ ПУТИ", style = Pst.mono.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted)
-            Text(
-                text = PROFILE_PLACEHOLDER,
-                style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 17.sp),
-                color = Pst.textMuted,
-                maxLines = 2,
-            )
-        }
-        StripButtons("Профиль пути на весь экран", onExpand, "Скрыть профиль пути", onHide, height)
-    }
-}
-
-internal const val PROFILE_PLACEHOLDER = "Здесь появится профиль участка: подъёмы, спуски и высота по ходу движения."
-
-/** Экран «Профиль пути» на весь экран. Пока заготовка с пояснением. */
-@Composable
-internal fun ProfileFullScreen(onDismiss: () -> Unit) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
-    ) {
-        Column(modifier = Modifier.fillMaxSize().background(Pst.bg).statusBarsPadding().navigationBarsPadding()) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                MapButton(onClick = onDismiss, description = "Назад") { PstIcon(PstIcons.ChevronLeft, 22.dp, Pst.text) }
-                Text(
-                    text = "Профиль пути",
-                    style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
-                    color = Pst.text,
-                )
-            }
-            Box(Modifier.weight(1f).fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                Text(
-                    text = PROFILE_PLACEHOLDER + "\n\nЭтот раздел в разработке.",
-                    style = Pst.sans.copy(fontSize = 15.sp, lineHeight = 21.sp),
-                    color = Pst.textMuted,
-                    textAlign = TextAlign.Center,
-                )
-            }
         }
     }
 }

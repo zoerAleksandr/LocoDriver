@@ -219,6 +219,16 @@ val repositoryModule = module {
     single<com.z_company.domain.track.AxisCache> {
         com.z_company.route.autorecord.FileAxisCache(java.io.File(androidContext().cacheDir, "advisor_axes"))
     }
+    // Профили участков для экрана «Профиль пути» (общие данные, без входа): список и участки с кэшем на диске.
+    single<com.z_company.repository.remote_rest.tracks.SectionProfileCache> {
+        com.z_company.route.autorecord.FileSectionProfileCache(java.io.File(androidContext().filesDir, "advisor_profiles"))
+    }
+    single {
+        com.z_company.repository.remote_rest.tracks.SectionProfileRepository(
+            api = RemoteRestClient.advisorApi,
+            cache = get(),
+        )
+    }
     single {
         com.z_company.repository.remote_rest.tracks.AltitudeContributor(
             api = RemoteRestClient.advisorApi,

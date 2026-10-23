@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Иконка карты: план с дорогами (бледнее) и метка с тенью. Одноцветная с разной прозрачностью: красится tint-ом в цвет
+     приложения, как остальные иконки. Исходная форма - 740x740. Дороги и отверстие метки - прозрачные (evenOdd). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="740"
+    android:viewportHeight="740">
+    <!-- план: трапеция со скруглёнными углами, из неё вырезаны три дороги -->
+    <path
+        android:fillColor="#000000"
+        android:fillAlpha="0.35"
+        android:fillType="evenOdd"
+        android:pathData="M172,342 L571,342 Q592,342 596,364 L634,640 Q638,676 602,676 L142,676 Q104,676 108,640 L143,364 Q147,342 172,342 Z
+M277,342 L313,342 L492,676 L455,676 Z
+M115,584 L338,457 L354,486 L111,614 Z
+M425,548 L608,452 L613,485 L442,577 Z" />
+    <!-- тень метки -->
+    <path
+        android:fillColor="#000000"
+        android:fillAlpha="0.45"
+        android:pathData="M410,412 a56,20 0 1 0 112,0 a56,20 0 1 0 -112,0 Z" />
+    <!-- метка с отверстием -->
+    <path
+        android:fillColor="#000000"
+        android:fillType="evenOdd"
+        android:pathData="M466,65 C395,65 338,122 338,193 C338,265 405,330 466,407 C527,330 594,265 594,193 C594,122 537,65 466,65 Z
+M372,191 a94,94 0 1 0 188,0 a94,94 0 1 0 -188,0 Z" />
+</vector>

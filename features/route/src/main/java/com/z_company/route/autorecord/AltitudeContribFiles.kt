@@ -70,3 +70,34 @@ class FileAxisCache(private val dir: File) : AxisCache {
         }
     }
 }
+
+/** Кэш профилей участков на диске: файл `<id>.json` на участок и `index.json` со списком. Пишется через временный файл. */
+class FileSectionProfileCache(private val dir: File) : com.z_company.repository.remote_rest.tracks.SectionProfileCache {
+    private fun isSafeId(id: String) = id.isNotEmpty() && id.all { it.isLetterOrDigit() || it == '-' }
+
+    private fun write(target: File, text: String) {
+        dir.mkdirs()
+        val tmp = File(dir, target.name + ".tmp")
+        tmp.writeText(text)
+        if (!tmp.renameTo(target)) tmp.delete()
+    }
+
+    override fun loadIndex(): String? = File(dir, "index.json").takeIf { it.isFile }?.let { runCatching { it.readText() }.getOrNull() }
+
+    override fun saveIndex(text: String) = write(File(dir, "index.json"), text)
+
+    override fun load(sectionId: String): String? {
+        if (!isSafeId(sectionId)) return null
+        return File(dir, "$sectionId.json").takeIf { it.isFile }?.let { runCatching { it.readText() }.getOrNull() }
+    }
+
+    override fun save(sectionId: String, text: String) {
+        if (isSafeId(sectionId)) write(File(dir, "$sectionId.json"), text)
+    }
+
+    override fun retain(keepIds: Set<String>) {
+        dir.listFiles { f -> f.name.endsWith(".json") && f.name != "index.json" }?.forEach {
+            if (it.name.removeSuffix(".json") !in keepIds) it.delete()
+        }
+    }
+}
