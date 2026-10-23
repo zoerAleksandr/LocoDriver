@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
@@ -1387,7 +1388,7 @@ internal fun TrainMapScreen(
             ) {
                 // Ряд: блок «Следующая / Конечная» (только когда позиция на пути следования, не дальше 50 м от линии) и кнопка «Цель».
                 if ((progress != null && !offNow) || (!viewOnly && hasRoute)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.height(androidx.compose.foundation.layout.IntrinsicSize.Min)) {
                         if (progress != null && !offNow) {
                             val nowEta = System.currentTimeMillis()
                             val nextEta = TrainMapRoute.Eta.arrivalMs(nowEta, progress.nextDistanceM, etaSpeed)
@@ -1961,6 +1962,7 @@ internal fun TrainMapScreen(
 private fun TargetButton(active: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
+            .fillMaxHeight()
             .shadow(4.dp, RoundedCornerShape(16.dp))
             .background(if (active) Pst.accent else Pst.surface, RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)

@@ -136,8 +136,9 @@ internal object TrainMapPlanTexts {
     const val STEP2 = "Шаг 2. Время прибытия"
     const val NO_STOPS = "Впереди нет станций плеча. Цель можно выбрать, когда положение определено и вы на пути маршрута."
     const val ON_STOP = "На остановку"
-    const val STOP_MIN_LABEL = "Время на торможение и остановку, мин"
+    const val STOP_MIN_LABEL = "Время торможения до остановки, мин"
     const val SHOW_ON_MAP = "Показывать цель на экране Карты"
+    const val DONE = "Готово"
     const val CHANGE = "Сменить цель"
     const val CANCEL_TARGET = "Отменить цель"
 }
@@ -207,7 +208,7 @@ internal fun PlanResult(plan: ArrivalPlanData, distanceM: Double, nowMs: Long, z
     val plannedText = TrackAnalysis.clock(plan.plannedMs, zone) + if (dayOff > 0) " (следующие сутки)" else ""
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         PlanLine("Плановое прибытие", plannedText, strong = false)
-        if (plan.onStop) PlanLine("На остановку", "за ${plan.stopMin} мин", strong = false)
+        if (plan.onStop) PlanLine("Торможение до остановки", "${plan.stopMin} мин", strong = false)
         if (ev.requiredKmh != null) {
             PlanLine("Нужная скорость хода", speedText(ev.requiredKmh!!), strong = true)
         } else {

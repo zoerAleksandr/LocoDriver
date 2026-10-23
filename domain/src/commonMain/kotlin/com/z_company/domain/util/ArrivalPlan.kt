@@ -216,34 +216,53 @@ object ArrivalPlan {
     )
 
     /**
-     * Нужная скорость хода v: поезд со скоростью v0 ([speedKmh]) разгоняется до v с ускорением [ACCEL_MS2] и идёт дальше,
-     * укладываясь в T = плановое - сейчас - [stopMin] минут: d/v + (v-v0)²/(2·a·v) = T (потеря времени на разгон).
-     * Если нужная скорость не выше v0, разгон не нужен: v = d/T. v0 неизвестна - расчёт без разгона.
+     * Нужная скорость хода v. Поезд со скоростью v0 ([speedKmh]) разгоняется до v с ускорением [ACCEL_MS2] (потеря времени
+     * (v-v0)²/(2·a·v)) и идёт дальше с v. [stopMin] - время торможения до остановки (с началом торможения на скорости v):
+     * замедление равномерное, торможение уходит на stopMin/2 дольше безостановочного проследования того же участка;
+     * если участка меньше тормозного пути, тормозит весь остаток (прибавка d/v). Плановое время - момент остановки,
+     * поэтому время на остановку не вычитается из доступного, а входит в время хода.
+     * Если нужная скорость не выше v0, разгон не нужен. v0 неизвестна - расчёт без разгона.
      * Сравнение с [speedKmh] (живая или средняя, как у ETA ленты, [TrainMapRoute.etaSpeedKmh]; null - неизвестна).
      */
     fun evaluate(nowMs: Long, distanceM: Double, plannedMs: Long, speedKmh: Double?, stopMin: Int = 0): Evaluation {
         val expected = TrainMapRoute.Eta.arrivalMs(nowMs, distanceM, speedKmh)
-        val leftMs = plannedMs - nowMs - stopMin * 60_000L
+        val leftMs = plannedMs - nowMs
         if (leftMs <= 0) return Evaluation(null, Status.OVERDUE, null, expected)
         val t = leftMs / 1000.0
         val plain = distanceM / t * 3.6
-        if (speedKmh == null || speedKmh <= 0.0) return Evaluation(plain, Status.UNKNOWN, null, expected)
-        val v0 = speedKmh / 3.6
-        val required: Double
-        if (plain <= speedKmh) {
-            required = plain
-        } else {
-            val a = ACCEL_MS2
-            val b = v0 + a * t
-            val disc = b * b - v0 * v0 - 2 * a * distanceM
-            if (disc < 0) return Evaluation(plain, Status.IMPOSSIBLE, null, expected)
-            required = (b - kotlin.math.sqrt(disc)) * 3.6
+        if (speedKmh == null || speedKmh <= 0.0) {
+            val r = if (stopMin > 0) requiredKmh(distanceM, t, null, stopMin) else plain
+            return Evaluation(r ?: plain, if (r == null) Status.IMPOSSIBLE else Status.UNKNOWN, null, expected)
         }
+        val required = requiredKmh(distanceM, t, speedKmh / 3.6, stopMin)
+            ?: return Evaluation(plain, Status.IMPOSSIBLE, null, expected)
         return when {
             speedKmh >= required * AHEAD_FACTOR -> Evaluation(required, Status.AHEAD, null, expected)
             speedKmh >= required -> Evaluation(required, Status.ON_TIME, null, expected)
             else -> Evaluation(required, Status.BEHIND, kotlin.math.ceil(required - speedKmh).toInt().coerceAtLeast(1), expected)
         }
+    }
+
+    /** Время прохождения [distanceM] с ходом v (м/с) из v0 (null - без разгона) и торможением [stopMin] мин, с. */
+    private fun travelSec(distanceM: Double, v: Double, v0: Double?, stopMin: Int): Double {
+        var t = distanceM / v
+        if (v0 != null && v > v0) t += (v - v0) * (v - v0) / (2 * ACCEL_MS2 * v)
+        if (stopMin > 0) t += kotlin.math.min(stopMin * 30.0, distanceM / v)
+        return t
+    }
+
+    /** Наименьшая скорость хода, км/ч, с которой успеть за [t] секунд; null - не успеть ни при какой (до 250 км/ч). */
+    private fun requiredKmh(distanceM: Double, t: Double, v0: Double?, stopMin: Int): Double? {
+        if (stopMin == 0 && (v0 == null || distanceM / t <= v0)) return distanceM / t * 3.6
+        var kmh = 1.0
+        while (kmh <= 250.0) {
+            if (travelSec(distanceM, kmh / 3.6, v0, stopMin) <= t) {
+                // Уточнение внутри шага 0,1 км/ч не нужно: точность шага достаточна для показа.
+                return kmh
+            }
+            kmh += 0.1
+        }
+        return null
     }
 
     // ─── Хранение ────────────────────────────────────────────────────────

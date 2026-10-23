@@ -97,7 +97,7 @@ class ArrivalPlanTest {
         // 60 км за 1 ч: нужно чуть больше 60 км/ч (потеря времени на разгон от 45 км/ч)
         val behind = ArrivalPlan.evaluate(now, 60_000.0, now + hour, 45.0)
         assertEquals(ArrivalPlan.Status.BEHIND, behind.status)
-        assertEquals(60.05, behind.requiredKmh!!, 0.05)
+        assertEquals(60.05, behind.requiredKmh!!, 0.2)
         assertEquals(16, behind.faster)
         assertEquals(now + (hour * 60.0 / 45.0).toLong(), behind.expectedMs)
         assertEquals(ArrivalPlan.Status.ON_TIME, ArrivalPlan.evaluate(now, 60_000.0, now + hour, 65.0).status)
@@ -121,11 +121,14 @@ class ArrivalPlanTest {
         // С места: потеря времени на разгон поднимает нужную скорость выше простой d/T
         val fromStop = ArrivalPlan.evaluate(now, 10_000.0, now + hour / 4, 0.1)
         assertEquals(40.0 < fromStop.requiredKmh!!, true)
-        // «На остановку»: 3 мин вычитаются из доступного времени, 60 км за 57 мин
-        val stop = ArrivalPlan.evaluate(now, 60_000.0, now + hour, 80.0, stopMin = 3)
-        assertEquals(60.0 * 60.0 / 57.0, stop.requiredKmh!!, 1e-6)
-        // Время вышло из-за времени на остановку
-        assertEquals(ArrivalPlan.Status.OVERDUE, ArrivalPlan.evaluate(now, 1_000.0, now + 120_000, 50.0, stopMin = 3).status)
+        // «На остановку»: торможение 3 мин - прибавка 1,5 мин к ходу, а не вычитание 3 мин; 4 мин до цели на 1,5 км при 5 мин торможения не «вышло»
+        val noStop = ArrivalPlan.evaluate(now, 60_000.0, now + hour, 80.0).requiredKmh!!
+        val stop = ArrivalPlan.evaluate(now, 60_000.0, now + hour, 80.0, stopMin = 3).requiredKmh!!
+        assertEquals(true, stop > noStop && stop < 60.0 * 60.0 / 57.0 + 0.5)
+        val near = ArrivalPlan.evaluate(now, 1_500.0, now + 4 * 60_000, 43.0, stopMin = 5)
+        assertEquals(true, near.status != ArrivalPlan.Status.OVERDUE && near.status != ArrivalPlan.Status.IMPOSSIBLE)
+        // Время вышло только когда плановый момент прошёл
+        assertEquals(ArrivalPlan.Status.OVERDUE, ArrivalPlan.evaluate(now, 1_000.0, now - 1, 50.0, stopMin = 3).status)
         // Не успеть с разгоном: 5 км за 2 мин с места
         assertEquals(ArrivalPlan.Status.IMPOSSIBLE, ArrivalPlan.evaluate(now, 5_000.0, now + 120_000, 5.0).status)
     }

@@ -86,6 +86,7 @@ internal fun TrainMapTargetScreen(
                             onShowOnMap = { onSave(plan.copy(showOnMap = it)) },
                             onChange = { changing = true },
                             onCancelTarget = onCancelTarget,
+                            onDone = onDismiss,
                         )
                         else -> TargetList(ahead, onPick = { picked = it })
                     }
@@ -136,11 +137,13 @@ private fun TargetSummary(
     onShowOnMap: (Boolean) -> Unit,
     onChange: () -> Unit,
     onCancelTarget: () -> Unit,
+    onDone: () -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(16.dp)).padding(14.dp),
     ) { ArrivalPlanBody(plan, distanceM, note, nowMs, zone, speedKmh) }
     CheckRow(TrainMapPlanTexts.SHOW_ON_MAP, plan.showOnMap) { onShowOnMap(!plan.showOnMap) }
+    PstButton(TrainMapPlanTexts.DONE, onClick = onDone, kind = PstButtonKind.CTA, modifier = Modifier.fillMaxWidth())
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         PstButton(TrainMapPlanTexts.CHANGE, onClick = onChange, kind = PstButtonKind.OUTLINED, height = 48.dp)
         PstButton(TrainMapPlanTexts.CANCEL_TARGET, onClick = onCancelTarget, kind = PstButtonKind.DANGER, height = 48.dp)
