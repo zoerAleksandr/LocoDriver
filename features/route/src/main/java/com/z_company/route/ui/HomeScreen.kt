@@ -1696,7 +1696,7 @@ fun HomeScreen(
                             item {
                                 ActionCard(
                                     title = "Карта",
-                                    iconRes = R.drawable.ic_train_map_24,
+                                    iconRes = R.drawable.ic_map_pin_color,
                                     iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
                                     widthScreen = widthScreen,
                                     interactionSource = interactionSource,

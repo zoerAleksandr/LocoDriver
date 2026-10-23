@@ -2321,10 +2321,9 @@ private fun TrainBottomAppBar(
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 TrainBottomIconButton(
                     modifier = Modifier.width(48.dp).let { m -> if (mapAnchor != null) m.coachAnchor(mapAnchor) else m },
-                    iconRes = com.z_company.route.R.drawable.ic_train_map_color_24,
+                    iconRes = com.z_company.route.R.drawable.ic_map_pin_color,
                     contentDescription = "Карта",
                     active = false,
-                    colored = true,
                     onClick = onMapClick,
                 )
             }
