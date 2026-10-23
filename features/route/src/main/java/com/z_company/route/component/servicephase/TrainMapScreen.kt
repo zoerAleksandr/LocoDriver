@@ -1384,7 +1384,7 @@ internal fun TrainMapScreen(
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .statusBarsPadding()
-                    .padding(start = 12.dp, end = 72.dp, top = 64.dp),
+                    .padding(start = 12.dp, end = 12.dp, top = 64.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 // Ряд: блок «Следующая / Конечная» (только когда позиция на пути следования, не дальше 50 м от линии) и кнопка «Цель».
@@ -1394,7 +1394,7 @@ internal fun TrainMapScreen(
                             val nowEta = System.currentTimeMillis()
                             val nextEta = TrainMapRoute.Eta.arrivalMs(nowEta, progress.nextDistanceM, etaSpeed)
                             val termEta = TrainMapRoute.Eta.arrivalMs(nowEta, progress.terminalDistanceM, etaSpeed)
-                            Box(Modifier.weight(1f, fill = false)) {
+                            Box(Modifier.weight(1f)) {
                                 EtaRibbon(
                                     nextName = stops[progress.nextIndex].name,
                                     nextDistanceM = progress.nextDistanceM,
@@ -1407,12 +1407,12 @@ internal fun TrainMapScreen(
                                 )
                             }
                         }
-                        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
                         if (!viewOnly && hasRoute) {
                             TargetButton(active = plan != null, onClick = { targetPreselect = null; showTarget = true })
                         }
                     }
                 }
+                Column(Modifier.padding(end = 60.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (offNow) {
                     Text(
                         text = "Вне путей",
@@ -1526,6 +1526,7 @@ internal fun TrainMapScreen(
                             }
                         }
                     }
+                }
                 }
             }
 
@@ -2008,6 +2009,7 @@ private fun EtaRibbon(
 ) {
     Column(
         modifier = Modifier
+            .fillMaxWidth()
             .shadow(4.dp, RoundedCornerShape(16.dp))
             .background(Pst.surface, RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)

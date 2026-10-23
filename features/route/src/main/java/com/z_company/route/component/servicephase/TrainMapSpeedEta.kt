@@ -104,7 +104,12 @@ internal fun TrainMapSpeedEtaScreen(
                     )
                     PstTextField(
                         value = speedText,
-                        onValueChange = { v -> speedText = v.copy(text = v.text.filter { it.isDigit() }.take(3)) },
+                        onValueChange = { v ->
+                            // Без ведущих нулей: «0» + «5» даёт «5», а не «05».
+                            val digits = v.text.filter { it.isDigit() }.take(3)
+                            val clean = if (digits.isEmpty()) "" else digits.trimStart('0').ifEmpty { "0" }
+                            speedText = TextFieldValue(clean, androidx.compose.ui.text.TextRange(clean.length))
+                        },
                         label = "Средняя скорость",
                         suffix = TrainMapSpeedEtaTexts.UNIT,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
