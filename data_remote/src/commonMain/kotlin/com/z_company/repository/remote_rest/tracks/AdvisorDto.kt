@@ -20,6 +20,8 @@ data class AdvisorSectionSummaryDto(
     val elementsCount: Int = 0,
     val version: Int = 0,
     val updatedAt: Double = 0.0,
+    /** Габарит оси `[minLat, minLon, maxLat, maxLon]`; null - у участка нет геометрии или сервер старый (поле не отдаёт). */
+    val bbox: List<Double>? = null,
 )
 
 /** Элемент профиля: уклон на `[startKm; endKm]` оси. */

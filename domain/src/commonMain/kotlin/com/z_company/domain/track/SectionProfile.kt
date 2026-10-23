@@ -185,7 +185,37 @@ object SectionPicker {
     private fun norm(s: String) = s.lowercase().replace('ё', 'е').filter { it.isLetterOrDigit() }
 }
 
-/** Строка списка участков (без оси и профиля): для выбора вручную и поиска. */
+/** Габарит оси участка (прямоугольник, в который она вписана); приходит в списке участков, ось для него не нужна. */
+data class SectionBox(val minLat: Double, val minLon: Double, val maxLat: Double, val maxLon: Double) {
+    /** Расстояние от точки до прямоугольника, м (0 - внутри). Плоская метрика, для сотен километров достаточно для отсева. */
+    fun distanceM(lat: Double, lon: Double): Double {
+        val dLat = when {
+            lat < minLat -> minLat - lat
+            lat > maxLat -> lat - maxLat
+            else -> 0.0
+        }
+        val dLon = when {
+            lon < minLon -> minLon - lon
+            lon > maxLon -> lon - maxLon
+            else -> 0.0
+        }
+        val dy = dLat * FlatMetric.M_PER_DEG_LAT
+        val dx = dLon * FlatMetric.kx(lat)
+        return kotlin.math.sqrt(dx * dx + dy * dy)
+    }
+
+    companion object {
+        /** `[minLat, minLon, maxLat, maxLon]` из ответа сервера; null - нет габарита или он некорректен. */
+        fun of(values: List<Double>?): SectionBox? {
+            if (values == null || values.size != 4 || values.any { !it.isFinite() }) return null
+            val (a, b, c, d) = values
+            if (a > c || b > d || a !in -90.0..90.0 || c !in -90.0..90.0 || b !in -180.0..180.0 || d !in -180.0..180.0) return null
+            return SectionBox(a, b, c, d)
+        }
+    }
+}
+
+/** Строка списка участков (без оси и профиля): для выбора вручную и поиска. [box] null - сервер габарит не отдал (старый). */
 data class SectionSummary(
     val id: String,
     val name: String,
@@ -194,6 +224,7 @@ data class SectionSummary(
     val lengthKm: Double,
     val hasProfile: Boolean,
     val updatedAt: Long,
+    val box: SectionBox? = null,
 )
 
 /** Граница пикета на оси: [axisKm] - место, [absKm] - километровая координата, [isPost] - это столб км (граница целого км). */

@@ -120,4 +120,18 @@ class SectionProfileTest {
         val down = KmGrid.cells(listOf(KmMark(0.0, 143.0, -1)), 0.0, 0.25)
         assertEquals(142, down.first().km); assertEquals(10, down.first().picket)
     }
+
+    @Test
+    fun box_distance_and_parsing() {
+        val box = SectionBox.of(listOf(55.0, 37.0, 55.1, 37.2))!!
+        assertEquals(0.0, box.distanceM(55.05, 37.1), 1e-9)
+        // севернее на 0,01° = ~1105 м
+        near(1105.4, box.distanceM(55.11, 37.1), 1.0)
+        // восточнее на 0,01° на широте 55,05 = ~640 м
+        near(0.01 * FlatMetric.kx(55.05), box.distanceM(55.05, 37.21), 1.0)
+        assertNull(SectionBox.of(null))
+        assertNull(SectionBox.of(listOf(1.0, 2.0, 3.0)))
+        assertNull(SectionBox.of(listOf(56.0, 37.0, 55.0, 38.0)))
+        assertNull(SectionBox.of(listOf(Double.NaN, 37.0, 55.0, 38.0)))
+    }
 }

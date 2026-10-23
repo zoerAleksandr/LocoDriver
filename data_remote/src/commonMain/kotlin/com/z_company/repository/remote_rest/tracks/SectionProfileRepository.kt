@@ -4,6 +4,7 @@ import com.z_company.domain.track.AxisPoint
 import com.z_company.domain.track.KmMark
 import com.z_company.domain.track.ProfileElement
 import com.z_company.domain.track.SectionAxis
+import com.z_company.domain.track.SectionBox
 import com.z_company.domain.track.SectionProfile
 import com.z_company.domain.track.SectionStation
 import com.z_company.domain.track.SectionSummary
@@ -43,8 +44,24 @@ class SectionProfileRepository(
     /** Список опубликованных участков. [refresh] - спросить сервер; ошибка сети - молча кэш (или пусто). */
     suspend fun summaries(refresh: Boolean = true): List<SectionSummary> =
         loadIndex(refresh).map {
-            SectionSummary(it.id, it.name, it.fromStation, it.toStation, it.lengthKm, it.elementsCount > 0, it.updatedAt.toLong())
+            SectionSummary(
+                it.id, it.name, it.fromStation, it.toStation, it.lengthKm, it.elementsCount > 0, it.updatedAt.toLong(),
+                SectionBox.of(it.bbox),
+            )
         }
+
+    /**
+     * Участки рядом с точкой: оси только тех, чей габарит не дальше [radiusM] (не больше [limit] ближайших). Если сервер габарит
+     * не отдаёт (старая версия) - как раньше, все участки. Сбой одного участка не мешает остальным.
+     */
+    suspend fun sectionsNear(lat: Double, lon: Double, radiusM: Double = NEAR_RADIUS_M, limit: Int = NEAR_LIMIT, refresh: Boolean = false): List<SectionProfile> {
+        val index = loadIndex(refresh)
+        val withBox = index.mapNotNull { dto -> SectionBox.of(dto.bbox)?.let { dto to it.distanceM(lat, lon) } }
+        val noBox = index.filter { SectionBox.of(it.bbox) == null }
+        val near = withBox.filter { it.second <= radiusM }.sortedBy { it.second }.take(limit).map { it.first }
+        // Участки без габарита (нет геометрии либо старый сервер) отсеять нечем - берём как есть; без геометрии section() вернёт null.
+        return (near + noBox).distinctBy { it.id }.mapNotNull { runCatching { section(it.id, refresh = false) }.getOrNull() }
+    }
 
     /** Участок целиком; null - нет ни в кэше, ни на сервере, либо у него нет геометрии. */
     suspend fun section(id: String, refresh: Boolean = true): SectionProfile? = lock.withLock {
@@ -122,5 +139,11 @@ class SectionProfileRepository(
             kmMarks = d.kmMarks.map { KmMark(it.km, it.kmAbs, it.dir, it.note) },
             stations = d.stations.map { SectionStation(it.km, it.name, it.lat, it.lon) },
         )
+    }
+
+    private companion object {
+        /** Радиус отбора участков вокруг положения: ось + запас на соседние участки и погрешность. */
+        const val NEAR_RADIUS_M = 5_000.0
+        const val NEAR_LIMIT = 8
     }
 }

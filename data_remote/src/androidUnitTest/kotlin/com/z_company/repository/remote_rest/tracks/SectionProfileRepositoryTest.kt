@@ -23,14 +23,23 @@ private class ProfileApi : AdvisorApi {
     var offline = false
     var sectionCalls = 0
 
+    var withBox = false
+    var sectionCallsById = mutableMapOf<String, Int>()
+
     override suspend fun sections(): List<AdvisorSectionSummaryDto> {
         if (offline) throw IOException("no network")
-        return listOf(AdvisorSectionSummaryDto("s1", true, "h1", "А — Б", "А", "Б", 2.0, 1, 2, updatedAt))
+        val near = if (withBox) listOf(55.0, 37.0, 55.02, 37.0) else null
+        val far = if (withBox) listOf(10.0, 10.0, 10.1, 10.0) else null
+        return listOf(
+            AdvisorSectionSummaryDto("s1", true, "h1", "А — Б", "А", "Б", 2.0, 1, 2, updatedAt, near),
+            AdvisorSectionSummaryDto("s2", true, "h2", "В — Г", "В", "Г", 2.0, 1, 2, updatedAt, far),
+        )
     }
 
     override suspend fun section(id: String): AdvisorSectionDto {
         if (offline) throw IOException("no network")
         sectionCalls++
+        sectionCallsById[id] = (sectionCallsById[id] ?: 0) + 1
         return AdvisorSectionDto(
             id = id, axisHash = "h1",
             geometry = listOf(AdvisorGeoPointDto(0.0, 55.0, 37.0), AdvisorGeoPointDto(2.0, 55.02, 37.0)),
@@ -73,12 +82,31 @@ class SectionProfileRepositoryTest {
         SectionProfileRepository(api, cache).apply { section("s1"); summaries() }
         api.offline = true
         val offline = SectionProfileRepository(api, cache)
-        assertEquals(1, offline.summaries().size)
+        assertEquals(2, offline.summaries().size)
         assertTrue(offline.section("s1")!!.hasProfile)
         assertEquals(1, offline.allSections().size)
 
         val empty = SectionProfileRepository(api, MemProfileCache())
         assertEquals(0, empty.summaries().size)
         assertNull(empty.section("s1"))
+    }
+
+    @Test
+    fun near_loads_only_close_sections_when_server_gives_bbox() = runBlocking {
+        val api = ProfileApi().apply { withBox = true }
+        val repo = SectionProfileRepository(api, MemProfileCache())
+        repo.summaries()
+        val near = repo.sectionsNear(55.01, 37.0)
+        assertEquals(listOf("s1"), near.map { it.id })
+        assertEquals(null, api.sectionCallsById["s2"])
+        assertEquals(55.0, repo.summaries(refresh = false).first().box!!.minLat)
+    }
+
+    @Test
+    fun near_falls_back_to_all_sections_for_old_server() = runBlocking {
+        val api = ProfileApi().apply { withBox = false }
+        val repo = SectionProfileRepository(api, MemProfileCache())
+        repo.summaries()
+        assertEquals(setOf("s1", "s2"), repo.sectionsNear(55.01, 37.0).map { it.id }.toSet())
     }
 }
