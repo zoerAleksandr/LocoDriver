@@ -72,6 +72,9 @@ import kotlin.math.roundToInt
 private const val STRIP_BEHIND_KM = 1.0
 private const val STRIP_AHEAD_KM = 5.0
 
+/** Запас позади хвоста поезда: окно профиля всегда включает поезд целиком. */
+private const val TRAIN_MARGIN_KM = 0.15
+
 private fun fmt1(v: Double): String = ((v * 10).roundToInt() / 10.0).toString().replace('.', ',')
 
 /** «↑ 4,0 ‰» (подъём в направлении движения), «↓ 2,5 ‰», «площадка». */
@@ -133,7 +136,7 @@ internal fun ProfileStrip(
                         Text(it, style = Pst.mono.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, maxLines = 1)
                     }
                 }
-                ProfileChart(model, live.window(STRIP_BEHIND_KM, STRIP_AHEAD_KM), detailed = false, modifier = Modifier.weight(1f).fillMaxWidth().clickable(onClickLabel = "Профиль пути на весь экран", onClick = onExpand))
+                ProfileChart(model, live.window(max(STRIP_BEHIND_KM, (model.trainLengthKm ?: 0.0) + TRAIN_MARGIN_KM), STRIP_AHEAD_KM), detailed = false, modifier = Modifier.weight(1f).fillMaxWidth().clickable(onClickLabel = "Профиль пути на весь экран", onClick = onExpand))
             } else {
                 Text("ПРОФИЛЬ ПУТИ", style = Pst.mono.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted)
                 Text(emptyText(model), style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 15.sp), color = Pst.textMuted, maxLines = 3, overflow = TextOverflow.Ellipsis)
@@ -393,9 +396,10 @@ internal fun ProfileChart(
                 }
                 val trainColor = if (pos.locked) accent else muted
                 drawPath(trainPath, trainColor, style = Stroke(width = (if (detailed) 6f else 5f) * dp, cap = StrokeCap.Round))
+                // Хвост: вертикаль от линии профиля вниз до километровой разметки (вверх линию не продолжаем).
                 if (tail >= window.fromX) {
                     val tx = px(tail)
-                    drawLine(trainColor, Offset(tx, py(line.heightAt(live.toAxis(tail))) - 6f * dp), Offset(tx, py(line.heightAt(live.toAxis(tail))) + 6f * dp), strokeWidth = 2f * dp)
+                    drawLine(trainColor, Offset(tx, py(line.heightAt(live.toAxis(tail)))), Offset(tx, bottomOfRows), strokeWidth = 2f * dp)
                 }
             }
         }
@@ -407,7 +411,7 @@ internal fun ProfileChart(
                 val xx = px(vx)
                 val yy = py(line.heightAt(pos.kmAxis))
                 val c = if (pos.offRoute || !pos.locked) muted else accent
-                drawLine(c, Offset(xx, topPad), Offset(xx, bottomOfRows), strokeWidth = 2f * dp)
+                drawLine(c, Offset(xx, yy), Offset(xx, bottomOfRows), strokeWidth = 2f * dp)
                 drawCircle(c, radius = 5f * dp, center = Offset(xx, yy))
             }
         }
@@ -501,7 +505,13 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
                 val length = live.lengthKm
                 val span = spanKm.toDouble().coerceIn(MIN_SPAN_KM.coerceAtMost(length), length)
                 val window = if (follow) {
-                    if (span >= length) ProfileWindow(0.0, length) else live.window(span / 6, span * 5 / 6)
+                    if (span >= length) {
+                        ProfileWindow(0.0, length)
+                    } else {
+                        // Позади головы - не меньше длины поезда с запасом: поезд виден целиком при любом масштабе.
+                        val behind = max(span / 6, (model.trainLengthKm ?: 0.0) + TRAIN_MARGIN_KM).coerceAtMost(span * 0.8)
+                        live.window(behind, span - behind)
+                    }
                 } else {
                     val from = manualFrom.toDouble().coerceIn(0.0, (length - span).coerceAtLeast(0.0))
                     ProfileWindow(from, from + span)

@@ -50,10 +50,12 @@ internal object TrainMapPrefs {
     private const val KEY_SENSITIVITY = "location_sensitivity"
     private const val KEY_PROFILE = "profile_visible"
     private const val KEY_SPEED = "speed_visible"
+    private const val KEY_TRAIN_LINE = "train_as_line"
 
     private val _sensitivity = MutableStateFlow(LocationSensitivity.DEFAULT)
     private val _profileVisible = MutableStateFlow(true)
     private val _speedVisible = MutableStateFlow(true)
+    private val _trainAsLine = MutableStateFlow(true)
     private var loaded = false
 
     fun sensitivity(context: Context): StateFlow<Int> {
@@ -92,6 +94,18 @@ internal object TrainMapPrefs {
         _speedVisible.value = value
     }
 
+    /** Поезд на плане: линией (true, по умолчанию) или точкой со значком навигации (false). */
+    fun trainAsLine(context: Context): StateFlow<Boolean> {
+        ensureLoaded(context)
+        return _trainAsLine.asStateFlow()
+    }
+
+    fun setTrainAsLine(context: Context, value: Boolean) {
+        ensureLoaded(context)
+        runCatching { prefs(context).edit().putBoolean(KEY_TRAIN_LINE, value).apply() }
+        _trainAsLine.value = value
+    }
+
     private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     @Synchronized
@@ -103,6 +117,7 @@ internal object TrainMapPrefs {
             _sensitivity.value = LocationSensitivity.clamp(p.getInt(KEY_SENSITIVITY, LocationSensitivity.DEFAULT))
             _profileVisible.value = p.getBoolean(KEY_PROFILE, true)
             _speedVisible.value = p.getBoolean(KEY_SPEED, true)
+            _trainAsLine.value = p.getBoolean(KEY_TRAIN_LINE, true)
         }
     }
 }
@@ -116,6 +131,8 @@ internal fun MapSettingsScreen(
     viewOnly: Boolean,
     gnssOn: Boolean,
     onGnssChange: (Boolean) -> Unit,
+    trainAsLine: Boolean,
+    onTrainAsLine: (Boolean) -> Unit,
     positionIcon: PositionIcon,
     onPositionIcon: (PositionIcon) -> Unit,
     sensitivity: Int,
@@ -165,6 +182,39 @@ internal fun MapSettingsScreen(
                     }
                 }
                 if (!viewOnly) {
+                    SettingsCard {
+                        Text(
+                            text = "Поезд на плане",
+                            style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
+                            color = Pst.text,
+                        )
+                        Text(
+                            text = if (trainAsLine) {
+                                "Линия длиной с поезд вдоль участка. Если длина поезда не указана или участок не найден, показывается значок."
+                            } else {
+                                "Точка с выбранным ниже значком навигации."
+                            },
+                            style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp),
+                            color = Pst.textMuted,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+                            listOf(true to "Линией", false to "Точкой со значком").forEach { (line, label) ->
+                                val on = line == trainAsLine
+                                Text(
+                                    text = label,
+                                    style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+                                    color = if (on) Pst.onAccent else Pst.text,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .background(if (on) Pst.accent else Pst.bgSubtle, RoundedCornerShape(12.dp))
+                                        .clickable(onClickLabel = label) { onTrainAsLine(line) }
+                                        .padding(vertical = 10.dp),
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                    }
                     SettingsCard {
                         Text(
                             text = "Значок навигации",

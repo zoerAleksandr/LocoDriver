@@ -295,6 +295,7 @@ internal fun TrainMapScreen(
         val sensitivity by TrainMapPrefs.sensitivity(context).collectAsState()
         val profileVisible by TrainMapPrefs.profileVisible(context).collectAsState()
         val speedVisible by TrainMapPrefs.speedVisible(context).collectAsState()
+        val trainAsLine by TrainMapPrefs.trainAsLine(context).collectAsState()
         // Порог «едем» (км/ч) зависит от чувствительности локации: выше чувствительность - раньше считаем ход.
         val moveThresholdKmh = LocationSensitivity.stillSpeedKmh(sensitivity)
         // Поворот карты (градусы, 0 = север сверху): для кнопки-компаса.
@@ -1041,19 +1042,37 @@ internal fun TrainMapScreen(
                 ).apply { addNumberProperty("speed", liveSpeed ?: last.speedKmh ?: -1.0) }
             )
         }
-        // Состав на карте: линия длиной с поезд вдоль оси участка профиля от положения назад; нет длины/положения/участка - пусто.
+        // Поезд на плане: либо линия длиной с поезд вдоль оси участка профиля (от положения назад), либо значок навигации - не оба
+        // сразу. Линия не строится (нет длины поезда, положения на оси или участка) - показывается значок.
         val bodyLive = profileModel.live
         val bodyPos = profileModel.position
         val bodyLengthKm = profileModel.trainLengthKm
-        LaunchedEffect(styleGen, styleReady, bodyLive, bodyPos, bodyLengthKm) {
+        val bodyPath = remember(trainAsLine, bodyLive, bodyPos, bodyLengthKm) {
+            if (trainAsLine && bodyLive != null && bodyLengthKm != null) bodyLive.trainPath(bodyLengthKm) else emptyList()
+        }
+        val bodyShown = bodyPath.size >= 2
+        LaunchedEffect(styleGen, styleReady, bodyPath) {
             if (!styleReady) return@LaunchedEffect
-            val src = map?.style?.getSourceAs<GeoJsonSource>(TRAIN_BODY_SOURCE) ?: return@LaunchedEffect
-            val path = if (bodyLive != null && bodyLengthKm != null) bodyLive.trainPath(bodyLengthKm) else emptyList()
-            if (path.size < 2) {
-                src.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+            val st = map?.style ?: return@LaunchedEffect
+            val src = st.getSourceAs<GeoJsonSource>(TRAIN_BODY_SOURCE) ?: return@LaunchedEffect
+            if (bodyShown) {
+                src.setGeoJson(Feature.fromGeometry(LineString.fromLngLats(bodyPath.map { (lat, lon) -> Point.fromLngLat(lon, lat) })))
             } else {
-                src.setGeoJson(Feature.fromGeometry(LineString.fromLngLats(path.map { (lat, lon) -> Point.fromLngLat(lon, lat) })))
+                src.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
             }
+            st.getLayerAs<SymbolLayer>("train-map-me-arrow")
+                ?.setProperties(PropertyFactory.visibility(if (bodyShown) Property.NONE else Property.VISIBLE))
+        }
+        // Масштаб при открытии: видна вся длина поезда. Один раз; если камера и так охватывает маршрут или трек - их охват шире.
+        var trainFitted by remember { mutableStateOf(false) }
+        LaunchedEffect(styleGen, styleReady, bodyShown) {
+            if (!styleReady || !bodyShown || trainFitted || hasRoute || track != null) return@LaunchedEffect
+            val m = map ?: return@LaunchedEffect
+            trainFitted = true
+            val pad = (48 * density).toInt()
+            fitCameraTo(m, bodyPath, pad, pad * 2, pad * 2, pad * 3, animate = true)
+            // Дальше слежение держит этот масштаб (не меньше 14), а не прежний шаг «+»/«−».
+            userZoom = null
         }
         LaunchedEffect(Unit) { displayZone = runCatching { loadZone() }.getOrDefault(displayZone) }
         // Флажок на карте: точка плана или ещё не рассчитанная выбранная точка.
@@ -1660,6 +1679,8 @@ internal fun TrainMapScreen(
                     viewOnly = viewOnly,
                     gnssOn = gnssOn,
                     onGnssChange = { gnssJustEnabled = it; gnssOn = it; GnssDeadZonePrefs.set(context, it) },
+                    trainAsLine = trainAsLine,
+                    onTrainAsLine = { TrainMapPrefs.setTrainAsLine(context, it) },
                     positionIcon = positionIcon,
                     onPositionIcon = { PositionIconStore.set(context, it) },
                     sensitivity = sensitivity,
