@@ -30,6 +30,7 @@ class SqlDelightSettingRepository : SettingsRepository, KoinComponent {
             settingsKey = us.key,
             minTimeRest = us.minTimeRestPointOfTurnover,
             minTimeRestSecond = us.minTimeRestPointOfTurnoverSecond,
+            workStartOffsetMinutes = us.lastEnteredWorkStartOffsetMinutes.toLong(),
             minTimeHomeRest = us.minTimeHomeRest,
             lastEnteredDieselCoefficient = us.lastEnteredDieselCoefficient,
             nightTime = SettingsMapper.encodeNightTime(us.nightTime),
@@ -146,6 +147,10 @@ class SqlDelightSettingRepository : SettingsRepository, KoinComponent {
 
     override fun setDieselCoefficient(value: Double): Flow<ResultState<Unit>> {
         return flowRequest { editLocally { it.copy(lastEnteredDieselCoefficient = value) } }
+    }
+
+    override fun setWorkStartOffsetMinutes(value: Int): Flow<ResultState<Unit>> {
+        return flowRequest { editLocally { it.copy(lastEnteredWorkStartOffsetMinutes = value) } }
     }
 
     override fun updateSubscriptionPeriod(time: Long): Flow<ResultState<Unit>> {

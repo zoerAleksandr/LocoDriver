@@ -108,6 +108,7 @@ object SchemaSpecs {
             listOf(
                 "minTimeRest" to "INTEGER NOT NULL",
                 "minTimeRestSecond" to "INTEGER NOT NULL DEFAULT 14400000",
+                "workStartOffsetMinutes" to "INTEGER NOT NULL DEFAULT 1",
                 "minTimeHomeRest" to "INTEGER NOT NULL",
                 "lastEnteredDieselCoefficient" to "REAL NOT NULL",
                 "nightTime" to "TEXT NOT NULL",

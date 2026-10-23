@@ -14,6 +14,7 @@ internal object PassengerMapper {
         timeArrival = row.timeArrival,
         timeDeparture = row.timeDeparture,
         notes = row.notes,
-        isWorkStartByArrival = row.isWorkStartByArrival != 0L
+        isWorkStartByArrival = row.isWorkStartByArrival != 0L,
+        workStartOffsetMinutes = row.workStartOffsetMinutes.toInt()
     )
 }

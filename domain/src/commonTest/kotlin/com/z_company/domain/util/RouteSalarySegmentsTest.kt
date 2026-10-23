@@ -412,4 +412,81 @@ class RouteSalarySegmentsTest {
             )
         }
     }
+
+    // ── «Явка по прибытию» со смещением: зазор [прибытие; явка) > 1 мин = ожидание 018M ──
+
+    private fun arrivalRoute(arrival: Long, offsetMinutes: Int, shiftHours: Int = 8) = Route(
+        basicData = BasicData(
+            timeStartWork = arrival + offsetMinutes * 60_000L,
+            timeEndWork = arrival + offsetMinutes * 60_000L + shiftHours * hour,
+        ),
+        passengers = mutableListOf(
+            Passenger(
+                timeDeparture = arrival - 2 * hour,
+                timeArrival = arrival,
+                isWorkStartByArrival = true,
+                workStartOffsetMinutes = offsetMinutes,
+            ),
+        ),
+    )
+
+    private fun segmentsOf(route: Route, nightWindow: NightWindow? = null) =
+        route.buildSalarySegments(
+            monthOfYear = MonthOfYear(year = 2025, month = 0),
+            context = context,
+            initialTariffRatePerHour = 100.0,
+            nightWindow = nightWindow,
+        )
+
+    @Test
+    fun workStartGapOfOneMinuteIsNotPaid() {
+        val arrival = instant(month = 1, day = 10, hour = 8)
+        val segments = segmentsOf(arrivalRoute(arrival, offsetMinutes = 1))
+
+        assertEquals(8 * hour, segments.sumOf { it.interval.durationMillis })
+        assertTrue(segments.none { AccrualCondition.PASSENGER_WAITING in it.conditions })
+    }
+
+    @Test
+    fun workStartGapOverOneMinuteIsPassengerWaiting() {
+        val arrival = instant(month = 1, day = 10, hour = 8)
+        val segments = segmentsOf(arrivalRoute(arrival, offsetMinutes = 5))
+
+        val waiting = segments.filter { AccrualCondition.PASSENGER_WAITING in it.conditions }
+        assertEquals(5 * 60_000L, waiting.sumOf { it.interval.durationMillis })
+        assertEquals(arrival, waiting.minOf { it.interval.startMillis })
+        assertEquals(arrival + 5 * 60_000L, waiting.maxOf { it.interval.endMillis })
+        // Смена + ожидание оплачиваются по тарифу.
+        assertEquals(8 * hour + 5 * 60_000L, segments.sumOf { it.interval.durationMillis })
+    }
+
+    @Test
+    fun workStartWaitingAtNightIsNightToo() {
+        val arrival = instant(month = 1, day = 10, hour = 21, minute = 50)
+        val segments = segmentsOf(
+            arrivalRoute(arrival, offsetMinutes = 20, shiftHours = 2),
+            nightWindow = NightWindow(22, 0, 6, 0, 0L),
+        )
+
+        val waiting = segments.filter { AccrualCondition.PASSENGER_WAITING in it.conditions }
+        assertEquals(20 * 60_000L, waiting.sumOf { it.interval.durationMillis })
+        // Ночь с 22:00: из ожидания 21:50–22:10 ночных 10 минут.
+        assertEquals(
+            10 * 60_000L,
+            waiting.filter { AccrualCondition.NIGHT in it.conditions }
+                .sumOf { it.interval.durationMillis },
+        )
+    }
+
+    @Test
+    fun routeWithoutArrivalWorkStartHasNoWorkStartWaiting() {
+        val start = instant(month = 1, day = 10, hour = 8)
+        val route = Route(
+            basicData = BasicData(timeStartWork = start, timeEndWork = start + 8 * hour),
+            passengers = mutableListOf(
+                Passenger(timeDeparture = start - 2 * hour, timeArrival = start - 10 * 60_000L),
+            ),
+        )
+        assertTrue(segmentsOf(route).none { AccrualCondition.PASSENGER_WAITING in it.conditions })
+    }
 }

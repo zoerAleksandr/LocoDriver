@@ -26,6 +26,9 @@ data class SalaryForRouteState(
     val paymentAtPassengerTime: Double? = null,
     // Оплата проезда пассажиром до явки (по тарифу, отдельно от работы)
     val paymentAtPassengerOutsideTime: Double? = null,
+    // Ожидание следования пассажиром (018M): оплата и время.
+    val paymentAtPassengerWaiting: Double? = null,
+    val passengerWaitingTime: Long? = null,
     val paymentHolidayMoney: Double? = null,
     val linearMileageDistance: Double? = null,
     val linearMileageMoney: Double? = null,

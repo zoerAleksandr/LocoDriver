@@ -345,13 +345,50 @@ class PassengerFormViewModel(
     }
 
     /**
+     * Запоминает введённое смещение в настройках пользователя: оно подставится при следующем
+     * включении «явки по прибытию» (и синхронизируется с настройками на других устройствах).
+     * Пишем в фоне вне viewModelScope, чтобы выход с экрана не потерял значение.
+     */
+    private fun rememberWorkStartOffset(minutes: Int) {
+        if (_userSetting.value.lastEnteredWorkStartOffsetMinutes == minutes) return
+        _userSetting.value = _userSetting.value.copy(lastEnteredWorkStartOffsetMinutes = minutes)
+        CoroutineScope(NonCancellable + Dispatchers.IO).launch {
+            settingsUseCase.setWorkStartOffsetMinutes(minutes).collect { }
+        }
+    }
+
+    /** Смещение явки от прибытия (мин). Если пассажир — источник явки, переносим в маршрут. */
+    fun setWorkStartOffsetMinutes(minutes: Int) {
+        val clamped = minutes.coerceIn(0, Passenger.MAX_WORK_START_OFFSET_MINUTES)
+        currentPassenger = currentPassenger?.copy(workStartOffsetMinutes = clamped)
+        changesHave()
+        rememberWorkStartOffset(clamped)
+        currentPassenger?.let { p ->
+            if (p.isWorkStartByArrival) {
+                viewModelScope.launch { syncWorkStartToRoute(p) }
+            }
+        }
+    }
+
+    /**
      * «Явка по прибытию пассажиром». Включение делает прибытие этого пассажира
      * началом рабочего времени маршрута (timeStartWork = timeArrival) и снимает
      * флаг с остальных пассажиров (единственная точка отсчёта). Выключение просто
      * снимает флаг — timeStartWork остаётся, пользователь может изменить явку вручную.
      */
     fun setWorkStartByArrival(enabled: Boolean) {
-        val updated = currentPassenger?.copy(isWorkStartByArrival = enabled) ?: return
+        val updated = currentPassenger?.copy(
+            isWorkStartByArrival = enabled,
+            // При включении — смещение по умолчанию (1 мин); при выключении значение
+            // не трогаем, чтобы повторное включение не теряло введённое пользователем.
+            workStartOffsetMinutes = if (enabled && currentPassenger?.isWorkStartByArrival != true) {
+                // Последнее введённое значение из настроек пользователя (по умолчанию 1 мин).
+                _userSetting.value.lastEnteredWorkStartOffsetMinutes
+                    .coerceIn(0, Passenger.MAX_WORK_START_OFFSET_MINUTES)
+            } else {
+                currentPassenger?.workStartOffsetMinutes ?: 0
+            }
+        ) ?: return
         currentPassenger = updated
         changesHave()
         viewModelScope.launch { syncWorkStartToRoute(updated) }
@@ -390,7 +427,7 @@ class PassengerFormViewModel(
             currentBasic.copy(
                 timeStartWorkBeforeArrival = currentBasic.timeStartWorkBeforeArrival
                     ?: currentBasic.timeStartWork,
-                timeStartWork = current.timeArrival
+                timeStartWork = current.workStartTime
             )
         } else if (mergedPassengers.none { it.isWorkStartByArrival }) {
             // Режим выключен для всего маршрута: возвращаем прежнюю явку и чистим резерв.

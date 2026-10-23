@@ -225,6 +225,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings" to "isShowPassenger",
             "UserSettings" to "passengerWagonLengthMeters",
             "UserSettings" to "minTimeRestSecond",
+            // Миграция 27: последнее смещение «явки по прибытию»
+            "UserSettings" to "workStartOffsetMinutes",
             "MonthOfYear" to "tariffRate",
             "MonthOfYear" to "dateSetTariffRate",
             "ReleaseDay" to "hours",
@@ -537,6 +539,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings.isShowPartner" to ColumnSpec("INTEGER", false, "1"),
             "UserSettings.passengerWagonLengthMeters" to ColumnSpec("REAL", false, "24.5"),
             "UserSettings.minTimeRestSecond" to ColumnSpec("INTEGER", false, "14400000"),
+            "UserSettings.workStartOffsetMinutes" to ColumnSpec("INTEGER", false, "1"),
 
             "Partner.isPermanent" to ColumnSpec("INTEGER", false, "0"),
             "StationNorm.latitude" to ColumnSpec("REAL", true, "NULL"),
@@ -580,6 +583,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "Train.carInspector" to ColumnSpec("TEXT", true, "NULL"),
             // Route — Passenger (миграция 9)
             "Passenger.isWorkStartByArrival" to ColumnSpec("INTEGER", false, "0"),
+            "Passenger.workStartOffsetMinutes" to ColumnSpec("INTEGER", false, "0"),
             // SalarySetting
             "SalarySetting.nightTimePercent" to ColumnSpec("REAL", false, "40.0"),
             "SalarySetting.surchargeLongTrainsList" to ColumnSpec("TEXT", false, "'[]'"),
@@ -676,6 +680,9 @@ actual class DatabaseDriverFactory(private val context: Context) {
             }
             val requiresStructuralRepair =
                 !hasColumn(sourceDb, "BasicData", "remoteDeletionPending") ||
+                // БД уже на целевой версии, но без смещения явки по прибытию: колонка
+                // добавлена в 13.sqm задним числом, поэтому достраиваем через repair.
+                !hasColumn(sourceDb, "Passenger", "workStartOffsetMinutes") ||
                     !hasTable(sourceDb, "RouteEvent") ||
                     !hasTable(sourceDb, "DiagnosticOutbox")
             if (sourceVersion >= targetVersion && !requiresStructuralRepair) return null
@@ -1145,7 +1152,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
                 "Train" to "doubleTraction",
                 "Train" to "doubledTrain",
                 "Train" to "carInspector",
-                "Passenger" to "isWorkStartByArrival"
+                "Passenger" to "isWorkStartByArrival",
+                "Passenger" to "workStartOffsetMinutes"
             )
             for ((table, column) in routeChecks) {
                 if (!hasTable(db, table)) continue

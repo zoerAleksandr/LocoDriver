@@ -193,7 +193,8 @@ Passenger(
   passengerId: String = generateId(), basicId: String = "", remoteObjectId?: String,
   trainNumber?, stationDeparture?, stationArrival?: String,
   timeArrival?: Long, timeDeparture?: Long, notes?: String,
-  isWorkStartByArrival: Boolean = false     // см. §7.2
+  isWorkStartByArrival: Boolean = false,    // см. §7.2
+  workStartOffsetMinutes: Int = 0           // смещение явки от прибытия, мин (§7.2); БД: Passenger.workStartOffsetMinutes
 )
 
 OtherWork(
@@ -275,7 +276,8 @@ UserSettings(                                // одна запись, key = "Us
   country: String = "RU", crossMonthTimezone = LOCAL,
   useStandardTimePicker: Boolean = false,               // системный пикер вместо шторки
   region?: String,                                      // ISO 3166-2, напр. "RU-TA"
-  passengerWagonLengthMeters: Double = 24.5
+  passengerWagonLengthMeters: Double = 24.5,
+  lastEnteredWorkStartOffsetMinutes: Int = 1          // запомненное смещение «явки по прибытию», мин (§7.2)
 )
 ServicePhase(id = generateId(), departureStation, arrivalStation: String,
              distance: Int /* км */, linearMileageRate: Double = 0.0 /* руб/км */)
@@ -1565,7 +1567,8 @@ Snackbar-сообщения экрана показываются по очер�
     BUG-18): явка подставляется молча, пользователь об этом не узнаёт);
   - `isSynchronized=false`, `updatedAt=now` (часы LWW-merge);
   - если у какого-то пассажира `isWorkStartByArrival=true` и задано прибытие —
-    `timeStartWork` принудительно = этому прибытию (§7.2).
+    `timeStartWork` принудительно = его прибытию + `workStartOffsetMinutes` минут
+    (`Passenger.workStartTime`, §7.2).
 - **`BasicData` держится в памяти**, из БД подтягиваются только под-разделы
   (`locomotives/trains/passengers/otherWorks/partners/photos`) — иначе автосейв→emit БД
   затирает ввод пользователя. Исключения, которые берутся из БД: `timeEndWork` (его
@@ -1642,6 +1645,10 @@ Snackbar-сообщения экрана показываются по очер�
    - **Голубая шапка** (`primaryContainer`) — только если явка и сдача заданы:
      - «Пассажиром до явки» · `HH:MM` — если есть следование пассажиром вне окна
        «явка–сдача» (`getPassengerTimeOutsideWork() > 0`), с разделителем снизу;
+     - «Ожидание до явки» · `HH:MM` — зазор «прибытие → явка» при «явке по прибытию»
+       больше 1 мин (`getWorkStartWaitingInterval()`), с разделителем снизу. Сумма трёх
+       строк («Пассажиром до явки» + «Ожидание до явки» + «Отработано») = отработанное
+       время маршрута в списке/месяце (`getWorkTime()`);
      - **«Отработано»** · значение `getPureWorkTime()` = `floorToMinute(сдача) −
        floorToMinute(явка) − длительность перерыва`, в формате `HH:MM` или десятичном
        (`UserSettings.isDecimalTime`), крупно mono;
@@ -1721,6 +1728,7 @@ Snackbar-сообщения экрана показываются по очер�
   командировка.
 - Строки шторки (показываются только ненулевые, в этом порядке): «Почасовая оплата»,
   «Праздничные», «Зональная надбавка», «Ночные», «Пассажиром», «Пассажиром до явки»,
+  «Ожидание пассажиром» (018M; `ЧЧ:ММ × ставка/ч`, оплата по тарифу без надбавок зоны),
   по строке «Доплата за пробег» на каждое плечо («{плечо}: {км} км × {ставка}/км»),
   «Одно лицо», «Доплаты за поезд» (пояснение — перечень применённых видов:
   «тяжеловесный, длинносоставный, удлинённое плечо, сдвоенный»), «Прочие доплаты»,
@@ -3482,6 +3490,30 @@ max(5 км, 3 × точность сети) от свежей (≤ 2 мин) с�
 от отсутствия поля у старого клиента и не допускать нескольких источников. Android
 выводит его из локальных `Passenger.isWorkStartByArrival` непосредственно перед POST;
 в локальной SQLDelight-БД отдельная копия route-level поля не хранится.
+
+**Запоминание смещения.** Введённое в поле «Явка через» значение пишется в настройки пользователя
+(`UserSettings.lastEnteredWorkStartOffsetMinutes`, Int 0–1439, по умолчанию 1; JSON-имя то же;
+SQLDelight Settings.db миграция 27 / колонка `workStartOffsetMinutes`; сервер —
+`user_settings.lastEnteredWorkStartOffsetMinutes`, миграция 058) и подставляется при следующем
+включении режима вместо 1 мин. Синхронизируется вместе с остальными настройками (LWW по
+`updateAt`); POST без поля (старый клиент) значение на сервере не трогает. Вводится только на
+экране «Пассажиром», отдельного пункта в Настройках нет.
+
+**Смещение явки (`Passenger.workStartOffsetMinutes`, Int, минуты).** При включении «явки по
+прибытию» на экране «Пассажиром» появляется поле «Явка через» (формат ЧЧ:ММ, ввод цифр
+справа налево, 0:00–23:59, минуты ≤ 59). Явка маршрута = `timeArrival + смещение`; блок
+«Начало работы» показывает именно это время. Значение по умолчанию при включении — **1 мин**;
+в контракте/БД default `0` (старые записи и клиенты без поля сохраняют прежнее «явка =
+прибытие»). Поле едет в `passengers[]` (POST/GET, camelCase `workStartOffsetMinutes`),
+сервер хранит `passenger.work_start_offset_minutes` (миграция 057) и при выдаче
+`timeStartWork` считает его от прибытия источника + смещение. Проезд пассажиром до явки
+(`Pout`, §«Проезд до явки») считается до `timeStartWork`. Зазор `[прибытие; явка)`:
+если он **больше 1 мин** — целиком оплачивается как «ожидание следования пассажиром»
+(018M, `PASSENGER_WAITING`; `UtilsForEntities.getWorkStartWaitingInterval`), входит в рабочее
+окно сегментов (ночные/праздничные/надбавки как у ожидания) и в отработанное время
+(`getWorkTime`, норма/переработка); из ожидания одного лица (153L) исключается. Зазор ≤ 1 мин
+(значение по умолчанию) не оплачивается и в время не входит. Выключение режима значение не стирает (повторное включение
+незаметно сохраняет введённое).
 `Passenger.isWorkStartByArrival` сервер продолжает принимать и возвращать ради старых
 Android-клиентов, поддерживая его согласованным с route-level полем. Если старый клиент
 не прислал `workStartByArrivalPassengerId`, сервер выводит значение из пассажирского

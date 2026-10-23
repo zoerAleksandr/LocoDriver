@@ -72,6 +72,10 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
         return settingsRepository.setDieselCoefficient(coefficient)
     }
 
+    fun setWorkStartOffsetMinutes(minutes: Int): Flow<ResultState<Unit>> {
+        return settingsRepository.setWorkStartOffsetMinutes(minutes)
+    }
+
     fun updateSubscriptionPeriod(time: Long): Flow<ResultState<Unit>> {
         return settingsRepository.updateSubscriptionPeriod(time)
     }

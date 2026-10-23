@@ -325,7 +325,7 @@ class RouteUseCase(
     }
 
     /**
-     * Приводит [Route.basicData]`.timeStartWork` к времени прибытия пассажира,
+     * Приводит [Route.basicData]`.timeStartWork` к явке по прибытию (прибытие + смещение) пассажира,
      * помеченного [Passenger.isWorkStartByArrival]. Если таких нет — возвращает
      * маршрут без изменений. Берётся первый подходящий пассажир (флаг взаимо-
      * исключающий, выставляется на экране «Пассажиром»).
@@ -334,9 +334,9 @@ class RouteUseCase(
         val workStart = route.passengers.firstOrNull {
             it.isWorkStartByArrival && it.timeArrival != null
         } ?: return route
-        if (route.basicData.timeStartWork == workStart.timeArrival) return route
+        if (route.basicData.timeStartWork == workStart.workStartTime) return route
         return route.copy(
-            basicData = route.basicData.copy(timeStartWork = workStart.timeArrival)
+            basicData = route.basicData.copy(timeStartWork = workStart.workStartTime)
         )
     }
 
