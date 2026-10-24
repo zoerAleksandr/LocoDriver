@@ -3,6 +3,20 @@ package com.z_company.route.component
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.composed
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.z_company.route.component.servicephase.Pst
+import com.z_company.route.component.servicephase.PstIcon
+import com.z_company.route.component.servicephase.PstIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,9 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -91,21 +103,25 @@ class CoachAnchor {
 @Composable
 fun rememberCoachAnchor(): CoachAnchor = remember { CoachAnchor() }
 
-fun Modifier.coachAnchor(anchor: CoachAnchor): Modifier =
+fun Modifier.coachAnchor(anchor: CoachAnchor): Modifier = composed {
+    // Элемент ушёл с экрана - границы сбрасываются, иначе подсказка осталась бы висеть на старом месте.
+    DisposableEffect(anchor) { onDispose { anchor.bounds = null } }
     onGloballyPositioned { anchor.bounds = it.boundsInWindow() }
+}
 
-private val BUBBLE_WIDTH: Dp = 280.dp
+private val BUBBLE_WIDTH: Dp = 300.dp
 private val ARROW_HEIGHT: Dp = 8.dp
 private val ARROW_HALF: Dp = 9.dp
 private val EDGE: Dp = 12.dp
 
 /**
- * Облачко подсказки со стрелкой к элементу [anchor] и кнопкой «Понятно» (ONBOARDING_MATERIALS §2).
+ * Облачко подсказки (заголовок + текст) со стрелкой к элементу [anchor] и кнопкой «Понятно» (ONBOARDING_MATERIALS §2).
  * Не блокирует экран (popup без фокуса и без закрытия по нажатию снаружи); закрывается только кнопкой.
  */
 @Composable
 fun CoachMarkPopup(
     anchor: Rect?,
+    title: String,
     text: String,
     onDismiss: () -> Unit,
     tag: String = "coach_mark",
@@ -113,7 +129,8 @@ fun CoachMarkPopup(
     val target = anchor ?: return
     // Элемент прокручен за пределы экрана - не показываем (облачко повисло бы в углу).
     val heightPx = with(LocalDensity.current) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
-    if (target.top < 0f || target.bottom > heightPx) return
+    val widthPx = with(LocalDensity.current) { LocalConfiguration.current.screenWidthDp.dp.toPx() }
+    if (target.top < 0f || target.bottom > heightPx || target.right < 0f || target.left > widthPx) return
     val density = LocalDensity.current
     val screenW = LocalConfiguration.current.screenWidthDp.dp
     val screenH = LocalConfiguration.current.screenHeightDp.dp
@@ -141,26 +158,57 @@ fun CoachMarkPopup(
             }
         }
     }
-    val bubbleColor = MaterialTheme.colorScheme.inverseSurface
-    val textColor = MaterialTheme.colorScheme.inverseOnSurface
+    val bubbleColor = Pst.surface
     Popup(
         popupPositionProvider = provider,
         properties = PopupProperties(focusable = false, dismissOnBackPress = false, dismissOnClickOutside = false),
     ) {
         Column(modifier = Modifier.width(bubbleW).testTag(tag)) {
             if (below) Arrow(arrowX, up = true, color = bubbleColor)
-            Surface(shape = RoundedCornerShape(14.dp), color = bubbleColor, shadowElevation = 6.dp) {
-                Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp)) {
-                    Text(text = text, style = MaterialTheme.typography.bodyMedium, color = textColor)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = onDismiss) {
-                            Text(OnboardingHints.BUTTON_OK, color = MaterialTheme.colorScheme.inversePrimary)
-                        }
+            Column(
+                modifier = Modifier
+                    .shadow(8.dp, RoundedCornerShape(18.dp))
+                    .background(bubbleColor, RoundedCornerShape(18.dp))
+                    .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+                    HintBadgeIcon()
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(title, style = Pst.sans.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+                        Text(text, style = Pst.sans.copy(fontSize = 14.sp, lineHeight = 20.sp), color = Pst.textMuted)
                     }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    HintPrimaryButton(OnboardingHints.BUTTON_OK, onDismiss)
                 }
             }
             if (!below) Arrow(arrowX, up = false, color = bubbleColor)
         }
+    }
+}
+
+/** Круглая акцентная метка с «i» - общий знак подсказок (облачко и экскурсия по карте). */
+@Composable
+internal fun HintBadgeIcon() {
+    Box(Modifier.size(32.dp).background(Pst.accentSoft, CircleShape), contentAlignment = Alignment.Center) {
+        PstIcon(PstIcons.Info, 18.dp, Pst.accent)
+    }
+}
+
+/** Основная кнопка подсказок: заливка акцентным цветом приложения. */
+@Composable
+internal fun HintPrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .height(40.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(Pst.accent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text, style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold), color = Pst.onAccent, maxLines = 1)
     }
 }
 
@@ -179,4 +227,22 @@ private fun Arrow(centerPx: Float, up: Boolean, color: androidx.compose.ui.graph
         }
         drawPath(path, color)
     }
+}
+
+/**
+ * Разовая подсказка на месте для экрана с одной подсказкой: показывается, пока [id] не помечена и пользователь уже видел «Главную».
+ * Закрывается «Понятно»; [onShown] можно вызвать из самого элемента (нажали - тоже показ), поэтому хранилище отдаётся наружу.
+ */
+@Composable
+fun OnceCoachMark(
+    id: HintId,
+    anchor: CoachAnchor,
+    title: String,
+    text: String,
+    store: OnboardingHintsStore = rememberOnboardingHints(),
+    blocked: Boolean = false,
+    tag: String = "coach_" + id.key,
+) {
+    if (!OnboardingHints.canShow(id, store.shown, store.homeReached, recording = false, blocked = blocked)) return
+    CoachMarkPopup(anchor = anchor.bounds, title = title, text = text, onDismiss = { store.markShown(id) }, tag = tag)
 }

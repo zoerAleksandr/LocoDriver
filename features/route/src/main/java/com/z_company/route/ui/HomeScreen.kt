@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.coachAnchor
 import androidx.compose.ui.zIndex
 import com.z_company.route.component.reorderStep
 import com.z_company.route.component.detectReorderDrag
@@ -280,6 +281,9 @@ fun HomeScreen(
 
     // Подсказки на месте включаются только после того, как пользователь увидел «Главную» (ONBOARDING_MATERIALS §2).
     val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
+    // Подсказка про плитку «Карта» - только тем, кто уже видел «Главную» раньше (новичка первым запуском не перегружаем).
+    val homeSeenBefore = remember { onboardingHints.homeReached }
+    val mapTileAnchor = com.z_company.route.component.rememberCoachAnchor()
     LaunchedEffect(Unit) { onboardingHints.markHomeReached() }
 
     val sheetState = rememberModalBottomSheetState(
@@ -1694,7 +1698,17 @@ fun HomeScreen(
                             // Плитка «Карта» (после «Календаря», §4): поезд текущего маршрута -> экран «Поезд» с картой;
                             // иначе только карта с текущим положением (без записи данных).
                             item {
+                                if (homeSeenBefore && !showBareMap) {
+                                    com.z_company.route.component.OnceCoachMark(
+                                        id = com.z_company.domain.onboarding.HintId.HOME_MAP_TILE,
+                                        anchor = mapTileAnchor,
+                                        title = com.z_company.domain.onboarding.OnboardingHints.TITLE_HOME_MAP_TILE,
+                                        text = com.z_company.domain.onboarding.OnboardingHints.TEXT_HOME_MAP_TILE,
+                                        store = onboardingHints,
+                                    )
+                                }
                                 ActionCard(
+                                    modifier = Modifier.coachAnchor(mapTileAnchor),
                                     title = "Карта",
                                     iconRes = R.drawable.ic_map_pin_color,
                                     iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -1707,6 +1721,7 @@ fun HomeScreen(
                                     },
                                     minHeightDp = maxHeightBox.toDp(),
                                     onClick = {
+                                        onboardingHints.markShown(com.z_company.domain.onboarding.HintId.HOME_MAP_TILE)
                                         val target = com.z_company.domain.autorecord.TrainOrdering
                                             .pickHomeMapTarget(currentRoute?.trains)
                                         if (target != null) {

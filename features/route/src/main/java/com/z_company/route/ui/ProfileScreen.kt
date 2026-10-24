@@ -220,6 +220,7 @@ fun ProfileScreen(
     var showReferrals by rememberSaveable { mutableStateOf(false) }
     // Подсказка на строку «Пригласить друга» (ONBOARDING_MATERIALS §2): один раз; строка есть только в авторизованном профиле.
     val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
+    val tracksAnchor = com.z_company.route.component.rememberCoachAnchor()
     val referralAnchor = com.z_company.route.component.rememberCoachAnchor()
     var showTrash by rememberSaveable { mutableStateOf(false) }
     // Рефералы и Корзина открываются поверх хаба Профиля — глубже основного экрана, меню скрыто (SCREEN_SPECS §3.1).
@@ -1263,6 +1264,7 @@ fun ProfileScreen(
                                 ) {
                                     com.z_company.route.component.CoachMarkPopup(
                                         anchor = referralAnchor.bounds,
+                                        title = com.z_company.domain.onboarding.OnboardingHints.TITLE_PROFILE_REFERRAL,
                                         text = com.z_company.domain.onboarding.OnboardingHints.TEXT_PROFILE_REFERRAL,
                                         onDismiss = { onboardingHints.markShown(com.z_company.domain.onboarding.HintId.PROFILE_REFERRAL) },
                                         tag = "coach_profile_referral",
@@ -1373,6 +1375,9 @@ fun ProfileScreen(
                                         .shadow(1.dp, Shapes.medium)
                                         .background(MaterialTheme.colorScheme.secondary, Shapes.medium),
                                 ) {
+                                    // Сначала «Пригласить друга» (если ещё не показана), затем эта подсказка.
+                                    val referralPending = com.z_company.domain.onboarding.HintId.PROFILE_REFERRAL.key !in onboardingHints.shown
+                                    Box(Modifier.coachAnchor(tracksAnchor)) {
                                     ProfileDataRow(
                                         iconRes = R.drawable.outline_history_24,
                                         title = "Мои треки",
@@ -1380,7 +1385,19 @@ fun ProfileScreen(
                                         titleStyle = styleData,
                                         subtitleStyle = styleHint,
                                         titleColor = primaryColor,
-                                        onClick = onOpenTrackHistory,
+                                        onClick = {
+                                            onboardingHints.markShown(com.z_company.domain.onboarding.HintId.PROFILE_TRACKS)
+                                            onOpenTrackHistory()
+                                        },
+                                    )
+                                    }
+                                    com.z_company.route.component.OnceCoachMark(
+                                        id = com.z_company.domain.onboarding.HintId.PROFILE_TRACKS,
+                                        anchor = tracksAnchor,
+                                        title = com.z_company.domain.onboarding.OnboardingHints.TITLE_PROFILE_TRACKS,
+                                        text = com.z_company.domain.onboarding.OnboardingHints.TEXT_PROFILE_TRACKS,
+                                        store = onboardingHints,
+                                        blocked = referralPending || showReferrals || showTrash,
                                     )
                                     ProfileDataDivider()
                                     ProfileDataRow(

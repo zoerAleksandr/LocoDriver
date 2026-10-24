@@ -129,6 +129,13 @@ import com.z_company.route.component.servicephase.SchemeMode
 import com.z_company.route.component.servicephase.StopType
 import kotlinx.coroutines.delay
 import sh.calvin.reorderable.ReorderableItem
+import com.z_company.domain.onboarding.ShoulderTourStep
+import com.z_company.route.component.CoachAnchor
+import com.z_company.route.component.CoachTour
+import com.z_company.route.component.TourStep
+import com.z_company.route.component.coachAnchor
+import com.z_company.route.component.rememberOnboardingHints
+import androidx.compose.runtime.saveable.rememberSaveable
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
 private const val KEY_DEPARTURE = "stop:departure"
@@ -182,6 +189,24 @@ fun ShoulderEditBottomSheet(
     // Остались только крайние станции — править нечего: режим «Изменить» выходит сам.
     LaunchedEffect(stations.size) { if (stations.isEmpty()) editMode = false }
     var confirmDeletePhase by remember { mutableStateOf(false) }
+
+    // Экскурсия по редактору (первый показ - один раз после обновления; «?» в шапке открывает снова).
+    val onboardingHints = rememberOnboardingHints()
+    val tourAnchors = remember { com.z_company.domain.onboarding.ShoulderTourStep.entries.associateWith { CoachAnchor() } }
+    var tourOpen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (com.z_company.domain.onboarding.OnboardingHints.canShow(
+                id = com.z_company.domain.onboarding.HintId.SHOULDER_EDITOR,
+                shown = onboardingHints.shown,
+                homeReached = onboardingHints.homeReached,
+                recording = false,
+            )
+        ) {
+            tourOpen = true
+            // Помечаем при показе: закрыли экран, не дойдя до конца, - повторно не навязываем.
+            onboardingHints.markShown(com.z_company.domain.onboarding.HintId.SHOULDER_EDITOR)
+        }
+    }
 
     // Шторка станции: editing — существующая; insertAt — позиция новой (null = по км / в конец)
     var stationSheetOpen by remember { mutableStateOf(false) }
@@ -1008,9 +1033,10 @@ fun ShoulderEditBottomSheet(
     // Отдельный полноэкранный экран (не шторка): в шторке длинный список станций при прокрутке
     // конфликтовал с жестом шторки — она «прыгала» вверх-вниз. «Назад» — закрыть с сохранением.
     Dialog(
-        onDismissRequest = ::close,
+        onDismissRequest = { if (tourOpen) tourOpen = false else close() },
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
+        Box(Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -1019,6 +1045,8 @@ fun ShoulderEditBottomSheet(
                 .imePadding()
         ) {
             EditorTopBar(
+                anchors = tourAnchors,
+                onHelp = { tourOpen = true },
                 title = if (isNew) "Новое плечо" else "Редактировать плечо",
                 onBack = ::close,
                 // Карта открывается всегда - и без координат станций (там можно указать станции нажатием на карте).
@@ -1050,6 +1078,7 @@ fun ShoulderEditBottomSheet(
                             arrivalKnown = pointFor(arrPoint, arrival.text.trim()) != null,
                             onOpenDeparture = { editingTerminal = true },
                             onOpenArrival = { editingTerminal = false },
+                            anchors = tourAnchors,
                             currency = currencySymbol(country),
                             measure = {
                                 val isMeasured = measured?.let {
@@ -1062,6 +1091,7 @@ fun ShoulderEditBottomSheet(
                     if (isNew) {
                         item(key = "reverse") {
                             Column(modifier = Modifier.padding(top = 12.dp)) {
+                                Box(Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.REVERSE))) {
                                 PstCard {
                                     Row(
                                         modifier = Modifier
@@ -1086,6 +1116,7 @@ fun ShoulderEditBottomSheet(
                                         )
                                     }
                                 }
+                                }
                                 PstNote(
                                     text = "Промежуточные станции тоже скопируются — в обратном порядке.",
                                     modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp),
@@ -1099,7 +1130,8 @@ fun ShoulderEditBottomSheet(
                     item(key = "stationsHead") {
                         PstGroupHead(
                             text = "Промежуточные станции · ${stations.size}",
-                            modifier = Modifier.animateItem().padding(top = 22.dp, bottom = 8.dp).heightIn(min = 32.dp),
+                            modifier = Modifier.animateItem().padding(top = 22.dp, bottom = 8.dp).heightIn(min = 32.dp)
+                                .coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.INTERMEDIATE)),
                             action = if (stations.isEmpty() && !editMode) null else {
                                 {
                                     PstButton(
@@ -1143,6 +1175,7 @@ fun ShoulderEditBottomSheet(
                         item(key = "empty") {
                             Box(Modifier.animateItem().padding(top = 10.dp)) {
                                 EmptyStations(
+                                    autoFillModifier = Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.AUTOFILL)),
                                     canAutoFill = canAutoFill,
                                     onAutoFill = ::startAutoFill,
                                     onAddManually = { openStation(null, null) },
@@ -1158,7 +1191,10 @@ fun ShoulderEditBottomSheet(
                                 modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp),
                             )
                         } else {
-                            Row(modifier = Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier.padding(top = 10.dp).coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.AUTOFILL)),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
                                 PstButton(
                                     text = "Найти автоматически",
                                     onClick = ::startAutoFill,
@@ -1205,6 +1241,30 @@ fun ShoulderEditBottomSheet(
                 }
             }
         }
+        if (tourOpen) {
+            CoachTour(
+                steps = com.z_company.domain.onboarding.ShoulderTourStep.entries.map { st ->
+                    val inList = st in listOf(ShoulderTourStep.STATIONS, ShoulderTourStep.DISTANCE, ShoulderTourStep.MEASURE, ShoulderTourStep.REVERSE, ShoulderTourStep.INTERMEDIATE, ShoulderTourStep.AUTOFILL)
+                    TourStep(
+                        title = st.title,
+                        text = st.text,
+                        anchor = tourAnchors.getValue(st),
+                        present = when (st) {
+                            ShoulderTourStep.REVERSE -> isNew
+                            ShoulderTourStep.INTERMEDIATE, ShoulderTourStep.AUTOFILL -> canAutoFill
+                            else -> true
+                        },
+                        // Нижние блоки (кнопки станций) - в конец списка, верхние поля - в начало.
+                        reveal = if (!inList) null else ({
+                            if (st == ShoulderTourStep.AUTOFILL) listState.scrollToItem((listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0))
+                            else listState.scrollToItem(0)
+                        }),
+                    )
+                },
+                onDismiss = { tourOpen = false },
+            )
+        }
+        }
     }
 }
 
@@ -1231,13 +1291,16 @@ private fun PhaseFields(
     arrivalKnown: Boolean,
     onOpenDeparture: () -> Unit,
     onOpenArrival: () -> Unit,
+    anchors: Map<com.z_company.domain.onboarding.ShoulderTourStep, CoachAnchor>,
     currency: String,
     measure: @Composable () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        StationNameField("От станции", departure, onDeparture, stationList, onDeleteStationName, onNext, departureFocus, departureKnown, onOpenDeparture)
-        StationNameField("До станции", arrival, onArrival, stationList, onDeleteStationName, onNext, arrivalFocus, arrivalKnown, onOpenArrival)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.coachAnchor(anchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.STATIONS)), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            StationNameField("От станции", departure, onDeparture, stationList, onDeleteStationName, onNext, departureFocus, departureKnown, onOpenDeparture)
+            StationNameField("До станции", arrival, onArrival, stationList, onDeleteStationName, onNext, arrivalFocus, arrivalKnown, onOpenArrival)
+        }
+        Row(Modifier.coachAnchor(anchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.DISTANCE)), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PstTextField(
                 value = distance,
                 onValueChange = onDistance,
@@ -1262,7 +1325,7 @@ private fun PhaseFields(
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            measure()
+            Box(Modifier.coachAnchor(anchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.MEASURE))) { measure() }
             Spacer(Modifier.weight(1f))
             // Сколько получит машинист за всё плечо: расстояние × ставка (как в расчёте зарплаты).
             val km = distance.text.toIntOrNull()?.takeIf { it > 0 }
@@ -1339,7 +1402,7 @@ private fun StationNameField(
 }
 
 @Composable
-private fun EmptyStations(canAutoFill: Boolean, onAutoFill: () -> Unit, onAddManually: () -> Unit) {
+private fun EmptyStations(autoFillModifier: Modifier, canAutoFill: Boolean, onAutoFill: () -> Unit, onAddManually: () -> Unit) {
     PstCard {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -1353,7 +1416,7 @@ private fun EmptyStations(canAutoFill: Boolean, onAutoFill: () -> Unit, onAddMan
                     onClick = onAutoFill,
                     enabled = canAutoFill,
                     icon = PstIcons.Search,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = autoFillModifier.fillMaxWidth(),
                 )
                 PstButton(
                     text = "Добавить вручную",
@@ -1601,7 +1664,13 @@ private fun pluralNames(n: Int) = when {
 }
 
 @Composable
-private fun EditorTopBar(title: String, onBack: () -> Unit, onMap: () -> Unit) {
+private fun EditorTopBar(
+    anchors: Map<com.z_company.domain.onboarding.ShoulderTourStep, CoachAnchor>,
+    onHelp: () -> Unit,
+    title: String,
+    onBack: () -> Unit,
+    onMap: () -> Unit,
+) {
     Row(
         modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1609,6 +1678,7 @@ private fun EditorTopBar(title: String, onBack: () -> Unit, onMap: () -> Unit) {
         // «Готово» — закрыть (изменения уже сохраняются автоматически), как в карточке станции.
         Box(
             modifier = Modifier
+                .coachAnchor(anchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.DONE))
                 .heightIn(min = 40.dp)
                 .clickable(onClickLabel = "Готово", onClick = onBack)
                 .padding(horizontal = 12.dp),
@@ -1630,9 +1700,19 @@ private fun EditorTopBar(title: String, onBack: () -> Unit, onMap: () -> Unit) {
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
+        Box(
+            modifier = Modifier
+                .coachAnchor(anchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.HELP))
+                .size(40.dp)
+                .clickable(onClickLabel = "Подсказки", onClick = onHelp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("?", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted)
+        }
         // Всё плечо на карте: крайние и промежуточные станции с координатами.
         Row(
             modifier = Modifier
+                .coachAnchor(anchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.MAP))
                 .heightIn(min = 40.dp)
                 .clickable(onClickLabel = "Плечо на карте", onClick = onMap)
                 .padding(horizontal = 12.dp),

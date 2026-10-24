@@ -50,6 +50,7 @@ import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.partner.Partner
 import com.z_company.route.component.AppBottomSheet
+import com.z_company.route.component.coachAnchor
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.SwipeToRevealDelete
 import com.z_company.route.ui.partner.PartnerAvatar
@@ -224,8 +225,16 @@ fun PartnersListScreen(
             }
             // Переключатель «Постоянный напарник» для отмеченного в списке напарника.
             if (mode == PartnerListMode.SELECT && partners.isNotEmpty()) {
+                val permanentAnchor = com.z_company.route.component.rememberCoachAnchor()
+                com.z_company.route.component.OnceCoachMark(
+                    id = com.z_company.domain.onboarding.HintId.PARTNER_PERMANENT,
+                    anchor = permanentAnchor,
+                    title = com.z_company.domain.onboarding.OnboardingHints.TITLE_PARTNER_PERMANENT,
+                    text = com.z_company.domain.onboarding.OnboardingHints.TEXT_PARTNER_PERMANENT,
+                )
                 Column(
                     modifier = Modifier
+                        .coachAnchor(permanentAnchor)
                         .padding(start = 12.dp, end = 12.dp, top = 4.dp)
                         .fillMaxWidth()
                         .clip(Shapes.medium)

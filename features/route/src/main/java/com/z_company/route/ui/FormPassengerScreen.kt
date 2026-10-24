@@ -88,6 +88,7 @@ import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.route.component.AppBottomSheet
+import com.z_company.route.component.coachAnchor
 import com.z_company.route.component.AppDateTimePicker
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.BottomShadow
@@ -1017,8 +1018,15 @@ private fun WorkStartOffsetRow(
     offsetMinutes: Int,
     onOffsetChanged: (Int) -> Unit
 ) {
+    val offsetAnchor = com.z_company.route.component.rememberCoachAnchor()
+    com.z_company.route.component.OnceCoachMark(
+        id = com.z_company.domain.onboarding.HintId.PASSENGER_OFFSET,
+        anchor = offsetAnchor,
+        title = com.z_company.domain.onboarding.OnboardingHints.TITLE_PASSENGER_OFFSET,
+        text = com.z_company.domain.onboarding.OnboardingHints.TEXT_PASSENGER_OFFSET,
+    )
     Row(
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier = Modifier.coachAnchor(offsetAnchor).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {

@@ -44,6 +44,7 @@ import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.norma_time.SectionNumberingType
 import com.z_company.route.R
 import com.z_company.route.component.AppInputBottomSheet
+import com.z_company.route.component.coachAnchor
 import com.z_company.route.viewmodel.SeriesEditorViewModel
 import com.z_company.route.viewmodel.SeriesNormField
 import kotlinx.coroutines.delay
@@ -382,8 +383,17 @@ fun SettingsSeriesEditorContent(
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
             modifier = Modifier.padding(start = 4.dp, top = 12.dp, bottom = 4.dp)
         )
+        val brakeDataAnchor = com.z_company.route.component.rememberCoachAnchor()
+        com.z_company.route.component.OnceCoachMark(
+            id = com.z_company.domain.onboarding.HintId.SERIES_BRAKE_DATA,
+            anchor = brakeDataAnchor,
+            title = com.z_company.domain.onboarding.OnboardingHints.TITLE_SERIES_BRAKE_DATA,
+            text = com.z_company.domain.onboarding.OnboardingHints.TEXT_SERIES_BRAKE_DATA,
+            blocked = dialogField != null || brakeDialog != null,
+        )
         Column(
             modifier = Modifier
+                .coachAnchor(brakeDataAnchor)
                 .fillMaxWidth()
                 .shadow(2.dp, Shapes.medium)
                 .background(MaterialTheme.colorScheme.secondary, Shapes.medium)

@@ -89,6 +89,8 @@ import com.z_company.domain.brake.DensityLocoGroup
 import com.z_company.domain.brake.AxleCheck
 import com.z_company.domain.brake.AxleRow
 import com.z_company.domain.brake.BrakeTable
+import com.z_company.domain.onboarding.Vu45TourStep
+import com.z_company.route.component.coachAnchor
 import com.z_company.domain.brake.AxleSumCheck
 import com.z_company.domain.brake.GradeClass
 import com.z_company.domain.brake.InstructionRef
@@ -185,6 +187,20 @@ fun BrakeCertificateScreen(
     var side by rememberSaveable { mutableIntStateOf(0) }
     var measureKind by rememberSaveable { mutableStateOf(TimerKind.II.name) }
     var sheet by remember { mutableStateOf<BrakeSheet?>(null) }
+    // Экскурсия по экрану (один раз при первом открытии; «?» в шапке открывает снова).
+    val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
+    val tourAnchors = remember { com.z_company.domain.onboarding.Vu45TourStep.entries.associateWith { com.z_company.route.component.CoachAnchor() } }
+    var tourOpen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (com.z_company.domain.onboarding.OnboardingHints.canShow(
+                id = com.z_company.domain.onboarding.HintId.VU45_SCREEN,
+                shown = onboardingHints.shown, homeReached = onboardingHints.homeReached, recording = false,
+            )
+        ) {
+            tourOpen = true
+            onboardingHints.markShown(com.z_company.domain.onboarding.HintId.VU45_SCREEN)
+        }
+    }
     var openCustomVolume by remember { mutableStateOf(false) }
     val now by viewModel.nowMs.collectAsState()
     val t = vuColors()
@@ -224,6 +240,7 @@ fun BrakeCertificateScreen(
         viewModel.consumeWrittenNotice()
         if (r == SnackbarResult.ActionPerformed) { tab = 0; side = 1 }
     }
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = t.bg,
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
@@ -236,7 +253,11 @@ fun BrakeCertificateScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { confirmDelete = true }) {
+                    Box(
+                        Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.Vu45TourStep.HELP)).size(48.dp).clickable(onClickLabel = "Подсказки") { tourOpen = true },
+                        contentAlignment = Alignment.Center,
+                    ) { Text("?", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = t.muted) }
+                    IconButton(modifier = Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.Vu45TourStep.DELETE)), onClick = { confirmDelete = true }) {
                         Icon(painter = painterResource(com.z_company.route.R.drawable.delete_24px), contentDescription = "Удалить справку", tint = t.text)
                     }
                 },
@@ -245,19 +266,21 @@ fun BrakeCertificateScreen(
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            Box(Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp)) { VuTabs(TABS, tab, { tab = it }) }
+            Box(Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.Vu45TourStep.TABS)).padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp)) { VuTabs(TABS, tab, { tab = it }) }
             when (tab) {
                 1 -> CalcTab(
                     state, category, result, viewModel,
                     onSheet = { sheet = it },
                     onOpenBlank = { tab = 0; side = 0 },
                     onOpenReference = { refOpen = brakeReference.indexOfFirst { it.title == REF_DEFICIT_TITLE }; tab = 3 },
+                    anchors = tourAnchors,
                 )
                 0 -> BlankTab(
                     state, category, result, viewModel, now, side, turnaroundApplies,
                     onSide = { side = it },
                     onSheet = { sheet = it },
                     onOpenMeasure = { tab = 2 },
+                    anchors = tourAnchors,
                 )
                 2 -> MeasureTab(
                     state, category, viewModel, now,
@@ -265,9 +288,32 @@ fun BrakeCertificateScreen(
                     onGroupClick = { sheet = BrakeSheet.DensityGroup },
                     onHelp = { sheet = BrakeSheet.Help(it) },
                     onBackToTurnaround = { tab = 0; side = 1 },
+                    anchors = tourAnchors,
                 )
-                else -> ReferenceTab(state, category, open = refOpen, onOpen = { refOpen = it }, onOpenMeasure = { tab = 2 })
+                else -> ReferenceTab(state, category, open = refOpen, onOpen = { refOpen = it }, onOpenMeasure = { tab = 2 }, anchors = tourAnchors)
             }
+        }
+    }
+        if (tourOpen) {
+            // Шаги на других вкладках: экскурсия сама переключает вкладку (reveal), пока элемента нет на экране.
+            fun tourStep(st: Vu45TourStep, present: Boolean = true, reveal: (suspend () -> Unit)? = null) =
+                com.z_company.route.component.TourStep(st.title, st.text, tourAnchors.getValue(st), present, reveal)
+            val density = category.group != TrainGroup.PASSENGER
+            com.z_company.route.component.CoachTour(
+                steps = listOf(
+                    tourStep(Vu45TourStep.TABS),
+                    tourStep(Vu45TourStep.FILL, reveal = { tab = 0 }),
+                    tourStep(Vu45TourStep.SPEED, reveal = { tab = 0 }),
+                    tourStep(Vu45TourStep.SIDE, present = turnaroundApplies, reveal = { tab = 0; side = 0 }),
+                    tourStep(Vu45TourStep.DATA, reveal = { tab = 1 }),
+                    tourStep(Vu45TourStep.DENSITY, present = density, reveal = { tab = 1 }),
+                    tourStep(Vu45TourStep.MEASURE, reveal = { tab = 2 }),
+                    tourStep(Vu45TourStep.REFERENCE, reveal = { tab = 3 }),
+                    tourStep(Vu45TourStep.DELETE),
+                    tourStep(Vu45TourStep.HELP),
+                ),
+                onDismiss = { tourOpen = false; tab = 0 },
+            )
         }
     }
 
@@ -342,6 +388,7 @@ private fun CalcTab(
     onSheet: (BrakeSheet) -> Unit,
     onOpenBlank: () -> Unit,
     onOpenReference: () -> Unit,
+    anchors: Map<Vu45TourStep, com.z_company.route.component.CoachAnchor>,
 ) {
     val t = vuColors()
     val calculated = BrakeStatusResolver.isCalculated(result)
@@ -361,6 +408,7 @@ private fun CalcTab(
             val density = category.group != TrainGroup.PASSENGER
             val rt = category.manualBrakesRequired
             // 1. ДАННЫЕ
+            Box(Modifier.coachAnchor(anchors.getValue(Vu45TourStep.DATA))) {
             VuBlock("Данные") {
                 VuInput(
                     "Категория поезда", category.title.substringBefore(" / ").substringBefore(" ("), Modifier.fillMaxWidth(), sunk = true,
@@ -386,9 +434,12 @@ private fun CalcTab(
                 if (state.rowsMode) AxleSumWarning(state, vm)
                 Box(Modifier.padding(start = 0.dp)) { VuBtn("Разное нажатие на вагонах ›", onClick = onOpenBlank, kind = VuBtnKind.Text, h = 40.dp) }
             }
+            }
             // 2. РАСЧЁТ ПЛОТНОСТИ
-            if (density) VuBlock("Расчёт плотности") {
-                DensityFields(state, vm, onGroup = { onSheet(BrakeSheet.DensityGroup) }, onHelp = onSheet)
+            if (density) Box(Modifier.coachAnchor(anchors.getValue(Vu45TourStep.DENSITY))) {
+                VuBlock("Расчёт плотности") {
+                    DensityFields(state, vm, onGroup = { onSheet(BrakeSheet.DensityGroup) }, onHelp = onSheet)
+                }
             }
             // 3. РАСЧЁТ РТ
             if (rt) VuBlock("Расчёт РТ") {
@@ -540,7 +591,7 @@ private fun DensityFields(state: BrakeCertificateUiState, vm: BrakeCertificateVi
 
 /** «Заполнить из маршрута»: нажатие сразу заменяет значения актуальными данными маршрута; итог не показывается, только короткая ошибка (нет маршрута, маршрут не найден). */
 @Composable
-private fun FillFromRoute(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel) {
+private fun FillFromRoute(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, modifier: Modifier = Modifier) {
     val t = vuColors()
     state.fillPick?.let { FillPickSheet(it, vm) }
     state.fillDialog?.let { msg ->
@@ -548,7 +599,7 @@ private fun FillFromRoute(state: BrakeCertificateUiState, vm: BrakeCertificateVi
             onDismissRequest = vm::dismissFillDialog, title = "Заполнить из маршрута", text = msg, confirmText = "Понятно", onConfirm = vm::dismissFillDialog,
         )
     }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         VuBtn(
             if (state.filling) "Заполняю…" else "Заполнить из маршрута", { vm.onFillClicked() },
             Modifier.fillMaxWidth(), kind = VuBtnKind.Tonal, enabled = !state.filling,
@@ -761,10 +812,11 @@ private fun BlankTab(
     onSide: (Int) -> Unit,
     onSheet: (BrakeSheet) -> Unit,
     onOpenMeasure: () -> Unit,
+    anchors: Map<Vu45TourStep, com.z_company.route.component.CoachAnchor>,
 ) {
     val effSide = if (turnaroundApplies) side else 0
     Column(Modifier.fillMaxSize()) {
-        Box(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) { VuSpeedBar(result) }
+        Box(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp).coachAnchor(anchors.getValue(Vu45TourStep.SPEED))) { VuSpeedBar(result) }
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -775,10 +827,10 @@ private fun BlankTab(
         ) {
             if (turnaroundApplies) {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Box(Modifier.width(240.dp)) { VuTabs(listOf("Лицевая", "Оборот"), effSide, onSide, h = 40.dp) }
+                    Box(Modifier.width(240.dp).coachAnchor(anchors.getValue(Vu45TourStep.SIDE))) { VuTabs(listOf("Лицевая", "Оборот"), effSide, onSide, h = 40.dp) }
                 }
             }
-            FillFromRoute(state, vm)
+            FillFromRoute(state, vm, Modifier.coachAnchor(anchors.getValue(Vu45TourStep.FILL)))
             VuPaper {
                 PaperHeader(state, vm, open = true, onToggle = {}, side = effSide == 1, onHelp = { onSheet(BrakeSheet.Help(it)) })
                 if (effSide == 0) {
@@ -1517,6 +1569,7 @@ private fun MeasureTab(
     onGroupClick: () -> Unit,
     onHelp: (String) -> Unit,
     onBackToTurnaround: () -> Unit,
+    anchors: Map<Vu45TourStep, com.z_company.route.component.CoachAnchor>,
 ) {
     val t = vuColors()
     val passenger = category.group == TrainGroup.PASSENGER
@@ -1536,7 +1589,9 @@ private fun MeasureTab(
             (when (k) { TimerKind.II -> "II"; TimerKind.IV -> "IV"; TimerKind.ROUTE -> "В пути" }) +
                 (state.timerOf(k).let { tm -> if (tm.running) " · идёт" else tm.recordedSec?.let { " · ${fmt(it)} с" + if (tm.manual) "*" else "" } ?: "" })
         }
-        VuTabs(labels, kinds.indexOf(active), { onKind(kinds[it]) }, mono = true)
+        Box(Modifier.coachAnchor(anchors.getValue(Vu45TourStep.MEASURE))) {
+            VuTabs(labels, kinds.indexOf(active), { onKind(kinds[it]) }, mono = true)
+        }
         val turnApplies = TurnaroundPlanner.applies(category)
         var pickSheet by remember { mutableStateOf(false) }
         state.replaceConfirm?.let { rc ->
@@ -1721,7 +1776,7 @@ private fun TimerCard(
 // ───────────────────────────── Справочник ─────────────────────────────
 
 @Composable
-private fun ReferenceTab(state: BrakeCertificateUiState, category: BrakeCategory, open: Int, onOpen: (Int) -> Unit, onOpenMeasure: () -> Unit) {
+private fun ReferenceTab(state: BrakeCertificateUiState, category: BrakeCategory, open: Int, onOpen: (Int) -> Unit, onOpenMeasure: () -> Unit, anchors: Map<Vu45TourStep, com.z_company.route.component.CoachAnchor>) {
     val t = vuColors()
     val group = state.effectiveDensityGroup()
     val axles = axlesForNorm(state)
@@ -1729,6 +1784,7 @@ private fun ReferenceTab(state: BrakeCertificateUiState, category: BrakeCategory
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         VuTag("Справочник · " + InstructionRef.SHORT)
         brakeReference.forEachIndexed { i, card ->
+            Box(if (i == 0) Modifier.coachAnchor(anchors.getValue(Vu45TourStep.REFERENCE)) else Modifier) {
             VuCard {
                 Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { onOpen(if (open == i) -1 else i) }.padding(start = 18.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("${i + 1}", Modifier.width(28.dp), fontFamily = VuMono, fontSize = 12.sp, color = t.faint)
@@ -1751,6 +1807,7 @@ private fun ReferenceTab(state: BrakeCertificateUiState, category: BrakeCategory
                         }
                     }
                 }
+            }
             }
         }
         VuHint(

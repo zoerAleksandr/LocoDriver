@@ -244,8 +244,7 @@ internal fun TrainMapScreen(
         // Метки первого открытия карты + кнопка «?» для повтора (ONBOARDING_MATERIALS §2): один раз, не во время записи.
         val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
         var mapHintsOpen by rememberSaveable { mutableStateOf(false) }
-        val positionIconAnchor = com.z_company.route.component.rememberCoachAnchor()
-        val helpAnchor = com.z_company.route.component.rememberCoachAnchor()
+        val tourAnchors = com.z_company.domain.onboarding.MapTourStep.entries.associateWith { com.z_company.route.component.rememberCoachAnchor() }
         LaunchedEffect(Unit) {
             if (!viewOnly && com.z_company.domain.onboarding.OnboardingHints.canShow(
                     id = com.z_company.domain.onboarding.HintId.MAP_FIRST_OPEN,
@@ -253,7 +252,11 @@ internal fun TrainMapScreen(
                     homeReached = onboardingHints.homeReached,
                     recording = autoRecording,
                 )
-            ) mapHintsOpen = true
+            ) {
+                mapHintsOpen = true
+                // Помечаем сразу при показе: вышли с карты, не дойдя до конца, - второй раз экскурсия уже не навязывается («?» открывает снова).
+                onboardingHints.markShown(com.z_company.domain.onboarding.HintId.MAP_FIRST_OPEN)
+            }
         }
         // «Зоны без GPS» (§6.9): личный переключатель, зоны считаются по локальным трекам.
         val trackRepo: com.z_company.domain.track.TrackRepository = org.koin.compose.koinInject()
@@ -1361,13 +1364,13 @@ internal fun TrainMapScreen(
                     }
                 }
                 if (!viewOnly) {
-                    Box(Modifier.coachAnchor(helpAnchor)) {
+                    Box(Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.MapTourStep.HELP))) {
                         MapButton(onClick = { mapHintsOpen = true }, description = "Подсказки") {
                             Text("?", style = Pst.sans.copy(fontSize = 20.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
                         }
                     }
                 }
-                Box(Modifier.coachAnchor(positionIconAnchor)) {
+                Box(Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.MapTourStep.SETTINGS))) {
                     MapButton(onClick = { showSettings = true }, description = "Настройки карты") {
                         PstIcon(PstIcons.Settings, 22.dp, Pst.text)
                     }
@@ -1394,7 +1397,7 @@ internal fun TrainMapScreen(
                             val nowEta = System.currentTimeMillis()
                             val nextEta = TrainMapRoute.Eta.arrivalMs(nowEta, progress.nextDistanceM, etaSpeed)
                             val termEta = TrainMapRoute.Eta.arrivalMs(nowEta, progress.terminalDistanceM, etaSpeed)
-                            Box(Modifier.weight(1f)) {
+                            Box(Modifier.weight(1f).coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.MapTourStep.NEXT_STATION))) {
                                 EtaRibbon(
                                     nextName = stops[progress.nextIndex].name,
                                     nextDistanceM = progress.nextDistanceM,
@@ -1408,7 +1411,11 @@ internal fun TrainMapScreen(
                             }
                         }
                         if (!viewOnly && hasRoute) {
-                            TargetButton(active = plan != null, onClick = { targetPreselect = null; showTarget = true })
+                            TargetButton(
+                                active = plan != null,
+                                onClick = { targetPreselect = null; showTarget = true },
+                                modifier = Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.MapTourStep.TARGET)),
+                            )
                         }
                     }
                 }
@@ -1430,6 +1437,7 @@ internal fun TrainMapScreen(
                     val gnss by gnssMonitor.quality.collectAsState()
                     Box(
                         modifier = Modifier
+                            .coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.MapTourStep.GPS))
                             .shadow(4.dp, RoundedCornerShape(16.dp))
                             .background(Pst.surface, RoundedCornerShape(16.dp)),
                     ) { com.z_company.route.autorecord.GnssSignalIndicator(quality = gnss, labelColor = Pst.textMuted) }
@@ -1556,6 +1564,7 @@ internal fun TrainMapScreen(
                 if (!viewOnly) {
                     // «Моё местоположение» = слежение и «еду по карте» (карта по курсу): синяя иконка-стрелка - карта ведётся за положением; серая - пользователь
                     // сдвинул карту, через FollowReturn.RETURN_DELAY_MS без касаний слежение включится само. Нажатие включает сразу.
+                    Box(Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.MapTourStep.LOCATION))) {
                     MapButton(
                         onClick = {
                             follow = true
@@ -1570,6 +1579,7 @@ internal fun TrainMapScreen(
                         description = "Моё местоположение",
                     ) {
                         PstIcon(PstIcons.Navigate, 24.dp, if (follow) Pst.accent else Pst.textFaint)
+                    }
                     }
                 }
             }
@@ -1624,7 +1634,11 @@ internal fun TrainMapScreen(
             ) {
                 if (showRecordRow) {
                     Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 8.dp)) {
-                        RecordButton(autoRecording, onClick = { onToggleRecording?.invoke() }, modifier = Modifier.weight(1f))
+                        RecordButton(
+                            autoRecording,
+                            onClick = { onToggleRecording?.invoke() },
+                            modifier = Modifier.weight(1f).coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.MapTourStep.RECORD)),
+                        )
                     }
                 }
                 if (bothHidden) {
@@ -1642,6 +1656,7 @@ internal fun TrainMapScreen(
                             height = stripH,
                             onHide = { TrainMapPrefs.setProfileVisible(context, false) },
                             onExpand = { showProfileFull = true },
+                            modifier = Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.MapTourStep.PROFILE)),
                         )
                     } else {
                         Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)) {
@@ -1666,6 +1681,7 @@ internal fun TrainMapScreen(
                             selectedTimeMs = (sel as? TrainMapSelection.PathPoint)?.point?.timeMs,
                             onExpand = if (!viewOnly || trackHasPoints) ({ showChart = true }) else null,
                             onHide = { TrainMapPrefs.setSpeedVisible(context, false) },
+                            modifier = Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.MapTourStep.SPEED)),
                         )
                         Box(Modifier.fillMaxWidth().background(Pst.surface).navigationBarsPadding())
                     } else {
@@ -1679,8 +1695,7 @@ internal fun TrainMapScreen(
             if (mapHintsOpen && !viewOnly) {
                 BackHandler { mapHintsOpen = false; onboardingHints.markShown(com.z_company.domain.onboarding.HintId.MAP_FIRST_OPEN) }
                 MapHintsOverlay(
-                    positionAnchor = positionIconAnchor,
-                    helpAnchor = helpAnchor,
+                    anchors = tourAnchors,
                     onDismiss = {
                         mapHintsOpen = false
                         onboardingHints.markShown(com.z_company.domain.onboarding.HintId.MAP_FIRST_OPEN)
@@ -1974,9 +1989,9 @@ internal fun TrainMapScreen(
 
 /** Кнопка «Цель» в верхнем ряду карты; [active] - цель задана (акцентный фон). */
 @Composable
-private fun TargetButton(active: Boolean, onClick: () -> Unit) {
+private fun TargetButton(active: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxHeight()
             .shadow(4.dp, RoundedCornerShape(16.dp))
             .background(if (active) Pst.accent else Pst.surface, RoundedCornerShape(16.dp))

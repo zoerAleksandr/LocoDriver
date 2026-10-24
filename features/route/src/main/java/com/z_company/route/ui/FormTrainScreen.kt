@@ -296,6 +296,7 @@ fun FormTrainScreen(
         val globalAutoState by autoRecordManager.state.collectAsState()
         val mapAnchor = com.z_company.route.component.rememberCoachAnchor()
         val autoAnchor = com.z_company.route.component.rememberCoachAnchor()
+        val vuAnchor = com.z_company.route.component.rememberCoachAnchor()
         val onAutoToggle: () -> Unit = {
             onboardingHints.markShown(com.z_company.domain.onboarding.HintId.AUTO_CHIP)
             onAutoToggleRaw()
@@ -2227,7 +2228,11 @@ fun FormTrainScreen(
                     showSettingsSheet = true
                 },
                 onAddStationClick = { askLocation { viewModel.startAddingNewStation() } },
-                onBrakeCertificateClick = onBrakeCertificateClick,
+                onBrakeCertificateClick = {
+                    onboardingHints.markShown(com.z_company.domain.onboarding.HintId.TRAIN_VU45)
+                    onBrakeCertificateClick()
+                },
+                vuAnchor = vuAnchor,
                 onMapClick = {
                     onboardingHints.markShown(com.z_company.domain.onboarding.HintId.TRAIN_MAP)
                     showTrainMap = true
@@ -2248,15 +2253,24 @@ fun FormTrainScreen(
             when (trainHint) {
                 com.z_company.domain.onboarding.HintId.TRAIN_MAP -> com.z_company.route.component.CoachMarkPopup(
                     anchor = mapAnchor.bounds,
+                    title = com.z_company.domain.onboarding.OnboardingHints.TITLE_TRAIN_MAP,
                     text = com.z_company.domain.onboarding.OnboardingHints.TEXT_TRAIN_MAP,
                     onDismiss = { onboardingHints.markShown(trainHint) },
                     tag = "coach_train_map",
                 )
                 com.z_company.domain.onboarding.HintId.AUTO_CHIP -> com.z_company.route.component.CoachMarkPopup(
                     anchor = autoAnchor.bounds,
+                    title = com.z_company.domain.onboarding.OnboardingHints.TITLE_AUTO_CHIP,
                     text = com.z_company.domain.onboarding.OnboardingHints.TEXT_AUTO_CHIP,
                     onDismiss = { onboardingHints.markShown(trainHint) },
                     tag = "coach_auto_chip",
+                )
+                com.z_company.domain.onboarding.HintId.TRAIN_VU45 -> com.z_company.route.component.CoachMarkPopup(
+                    anchor = vuAnchor.bounds,
+                    title = com.z_company.domain.onboarding.OnboardingHints.TITLE_TRAIN_VU45,
+                    text = com.z_company.domain.onboarding.OnboardingHints.TEXT_TRAIN_VU45,
+                    onDismiss = { onboardingHints.markShown(trainHint) },
+                    tag = "coach_train_vu45",
                 )
                 else -> Unit
             }
@@ -2287,6 +2301,7 @@ private fun TrainBottomAppBar(
     onMapClick: () -> Unit,
     onBrakeCertificateClick: () -> Unit,
     mapAnchor: com.z_company.route.component.CoachAnchor? = null,
+    vuAnchor: com.z_company.route.component.CoachAnchor? = null,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
@@ -2329,7 +2344,7 @@ private fun TrainBottomAppBar(
             }
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 TrainBottomIconButton(
-                    modifier = Modifier.width(48.dp),
+                    modifier = Modifier.width(48.dp).let { m -> if (vuAnchor != null) m.coachAnchor(vuAnchor) else m },
                     iconRes = com.z_company.route.R.drawable.ic_card_brake,
                     iconContent = { com.z_company.route.component.Vu45Icon(size = 38.dp, tint = MaterialTheme.colorScheme.primary) },
                     contentDescription = "Справка ВУ-45",
