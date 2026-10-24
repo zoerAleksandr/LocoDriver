@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -432,6 +433,15 @@ internal fun ProfileChart(
             }
         }
 
+        // Начало замера расстояния: пунктирная вертикаль на всю высоту графика.
+        model.measureStartAxisKm?.let { ax ->
+            val mx = live.toView(ax)
+            if (mx in window.fromX..window.toX) {
+                val xx = px(mx)
+                drawLine(ink, Offset(xx, topPad), Offset(xx, bottomOfRows), strokeWidth = 1.5f * dp, pathEffect = dash)
+            }
+        }
+
         // Живой маркер.
         if (pos != null) {
             val vx = live.toView(pos.kmAxis)
@@ -509,6 +519,7 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
                         )
                     }
+                    MeasureButton(model)
                     StripButton("Сменить направление", { model.toggleDirection() }) { PstIcon(PstIcons.Swap, 20.dp, Pst.text) }
                 }
             }
@@ -663,6 +674,7 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
                 }
             }
         }
+        if (model.measuring) MeasureChip(model)
         model.train?.let { tr ->
             Text(
                 text = trainLabel(tr),
@@ -685,6 +697,59 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
     }
     if (showCalibrate) CalibrateDialog(model, live, onDismiss = { showCalibrate = false })
     if (showTrains) TrainPickerDialog(model, onDismiss = { showTrains = false })
+}
+
+/** «Линейка» в шапке: включает замер от текущего места, повторное нажатие выключает. Без GPS замер не начать. */
+@Composable
+private fun MeasureButton(model: ProfileModel) {
+    val on = model.measuring
+    Box(
+        modifier = Modifier
+            .size(38.dp)
+            .background(if (on) Pst.accent else Pst.bgSubtle, RoundedCornerShape(12.dp))
+            .clickable(onClickLabel = if (on) "Выключить замер расстояния" else "Замерить расстояние") {
+                if (on) model.stopMeasure() else model.startMeasure()
+            },
+        contentAlignment = Alignment.Center,
+    ) { PstIcon(PstIcons.Ruler, 20.dp, if (on) Pst.onAccent else Pst.text) }
+}
+
+/** До километра - целые метры, дальше - километры с одним знаком. */
+private fun measureText(m: Double): String =
+    if (m < 1000) "${m.roundToInt()} м" else "${fmt1(m / 1000)} км"
+
+/**
+ * Пройденное от точки замера: число (по оси пути, при потере привязки - «по прямой»), длина поезда для сравнения (цвет
+ * акцента, когда пройдено не меньше длины: хвост вышел) и «Сброс» - начать отсчёт заново с этого места.
+ */
+@Composable
+private fun MeasureChip(model: ProfileModel) {
+    val m = model.measuredM ?: return
+    val trainM = model.trainLengthKm?.times(1000)
+    val cleared = trainM != null && m >= trainM
+    Row(
+        modifier = Modifier.background(Pst.bgSubtle, RoundedCornerShape(12.dp)).padding(start = 10.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Column {
+            Text(
+                text = measureText(m),
+                style = Pst.mono.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
+                color = if (cleared) Pst.accent else Pst.text, maxLines = 1,
+            )
+            val sub = buildList {
+                if (trainM != null) add("поезд ${trainM.roundToInt()} м")
+                if (model.measureApprox) add("по прямой")
+            }.joinToString(" · ")
+            if (sub.isNotEmpty()) Text(sub, style = Pst.sans.copy(fontSize = 10.sp), color = Pst.textMuted, maxLines = 1)
+        }
+        PstButton(
+            text = "Сброс", onClick = { model.startMeasure() },
+            kind = PstButtonKind.TONAL, height = 34.dp, fontSize = 13,
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
+        )
+    }
 }
 
 /** «№2552 · 340 м»; без длины - «№2552 · длина не указана». */

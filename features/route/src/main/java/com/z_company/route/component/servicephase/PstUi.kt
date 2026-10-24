@@ -168,6 +168,8 @@ internal object PstIcons {
     val Expand = strokeIcon("expand", "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5")
     /** «Сменить направление»: две стрелки навстречу. */
     val Swap = strokeIcon("swap", "M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7")
+    /** «Замер расстояния»: линейка. */
+    val Ruler = strokeIcon("ruler", "M3 17L17 3l4 4L7 21z", "M7 13l2 2M10 10l2 2M13 7l2 2")
     val Edit = strokeIcon("edit", "M4 20h4L18.5 9.5a2.12 2.12 0 0 0-3-3L5 17v3z", "M13.5 6.5l3 3")
 }
 

@@ -107,6 +107,54 @@ internal class ProfileModel(
     private var motionLastKm: Double? = null
     private var motionSum = 0.0
 
+    /** Начало замера пройденного расстояния: точка, где нажали «Линейку». Положение на оси участка запоминается, если привязка была. */
+    private class MeasureStart(val sectionId: String?, val axisKm: Double?, val fix: GeoFix)
+    private var measureFrom by mutableStateOf<MeasureStart?>(null)
+
+    /** Замер идёт. */
+    val measuring: Boolean get() = measureFrom != null
+
+    /** Пройдено от точки начала замера, м; null - замера нет или нет положения. */
+    var measuredM by mutableStateOf<Double?>(null)
+        private set
+
+    /** Расстояние считается по прямой от точки начала (участок сменился или привязки к оси нет), а не вдоль пути. */
+    var measureApprox by mutableStateOf(false)
+        private set
+
+    /** Точка начала замера на оси выбранного участка, км; null - замера нет или он начат на другом участке. */
+    val measureStartAxisKm: Double?
+        get() = measureFrom?.takeIf { it.sectionId != null && it.sectionId == section?.id }?.axisKm
+
+    /** Начать замер (или начать заново) от текущего положения; без фикса GPS ничего не делает. */
+    fun startMeasure() {
+        val fix = lastFix ?: return
+        val p = position?.takeIf { !it.offRoute && it.locked }
+        measureFrom = MeasureStart(if (p != null) section?.id else null, p?.kmAxis, fix)
+        measuredM = 0.0
+        measureApprox = p == null
+    }
+
+    fun stopMeasure() {
+        measureFrom = null
+        measuredM = null
+        measureApprox = false
+    }
+
+    private fun updateMeasure(fix: GeoFix, p: LivePosition?) {
+        val from = measureFrom ?: return
+        val onAxis = from.axisKm != null && from.sectionId == section?.id && p != null && !p.offRoute && p.locked
+        if (onAxis) {
+            measuredM = abs(p!!.kmAxis - from.axisKm!!) * 1000.0
+            measureApprox = false
+        } else {
+            val dLat = (fix.latitude - from.fix.latitude) * com.z_company.domain.track.FlatMetric.M_PER_DEG_LAT
+            val dLon = (fix.longitude - from.fix.longitude) * com.z_company.domain.track.FlatMetric.kx(fix.latitude)
+            measuredM = kotlin.math.sqrt(dLat * dLat + dLon * dLon)
+            measureApprox = true
+        }
+    }
+
     val section: SectionProfile? get() = live?.section
     val reversed: Boolean get() = live?.reversed ?: false
 
@@ -185,6 +233,7 @@ internal class ProfileModel(
         val p = l.onFix(timeMs, fix.latitude, fix.longitude, speedKmh, fix.accuracyMeters)
         position = p
         detectMotionDirection(p)
+        updateMeasure(fix, p)
         // Участок выбран автоматически, а мы вне его оси - возможно, поезд уехал на другой участок: подберём заново.
         if (manualId == null && p?.offRoute == true) autoPick(fix, force = true)
     }
