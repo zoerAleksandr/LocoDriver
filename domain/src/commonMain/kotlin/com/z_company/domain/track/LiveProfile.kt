@@ -42,7 +42,7 @@ object LegMatch {
 /** Кадр для рисования: что под колёсами сейчас. [kmAxis] - позиция на оси участка, км. */
 data class LivePosition(
     val kmAxis: Double,
-    /** Километровая координата («142 км пк 5 +30 м») по отметкам участка; null - у участка нет отметок. */
+    /** Километровая координата («142 км 5 пк 30 м») по отметкам участка; null - у участка нет отметок. */
     val kmText: String?,
     val element: ProfileElement?,
     val offRoute: Boolean,

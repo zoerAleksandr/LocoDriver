@@ -14,10 +14,10 @@ class SectionProfileTest {
 
     @Test
     fun pickets_match_server_text() {
-        assertEquals("142 км пк 5 +30 м", KmMarks.position(142.43).text())
-        assertEquals("142 км пк 1", KmMarks.position(142.0).text())
-        assertEquals("143 км пк 1", KmMarks.position(142.9996).text())
-        assertEquals("5 км пк 10 +99 м", KmMarks.position(5.999).text())
+        assertEquals("142 км 5 пк 30 м", KmMarks.position(142.43).text())
+        assertEquals("142 км 1 пк 0 м", KmMarks.position(142.0).text())
+        assertEquals("143 км 1 пк 0 м", KmMarks.position(142.9996).text())
+        assertEquals("5 км 10 пк 99 м", KmMarks.position(5.999).text())
     }
 
     @Test

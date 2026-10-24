@@ -21,7 +21,7 @@ data class ProfileElement(
 )
 
 /**
- * Отметка километража: в месте [km] оси километровая координата равна [kmAbs] (142.43 = 142 км пк 5 +30 м),
+ * Отметка километража: в месте [km] оси километровая координата равна [kmAbs] (142.43 = 142 км 5 пк 30 м),
  * дальше по оси нумерация растёт ([dir] = +1) или убывает (−1) до следующей отметки.
  */
 data class KmMark(val km: Double, val kmAbs: Double, val dir: Int = 1, val note: String = "")
@@ -46,9 +46,9 @@ data class SectionProfile(
     val hasProfile: Boolean get() = elements.any { !it.noData }
 }
 
-/** Километр и пикет: «142 км пк 5 +30 м». */
+/** Километр и пикет: «142 км 5 пк 30 м». */
 data class KmPosition(val km: Int, val picket: Int, val plusM: Int) {
-    fun text(): String = "$km км пк $picket" + if (plusM > 0) " +$plusM м" else ""
+    fun text(): String = "$km км $picket пк $plusM м"
 }
 
 object KmMarks {
@@ -94,7 +94,7 @@ object KmMarks {
         return out
     }
 
-    /** 142.43 -> 142 км пк 5 +30 м (пк 1 - первые 100 м после столба). Как `km_pk_text` сервера. */
+    /** 142.43 -> 142 км 5 пк 30 м (пк 1 - первые 100 м после столба). Как `km_pk_text` сервера. */
     fun position(absKm: Double): KmPosition {
         val v = (absKm * 1000.0).roundToInt() / 1000.0
         var km = floor(v + 1e-9).toInt()
