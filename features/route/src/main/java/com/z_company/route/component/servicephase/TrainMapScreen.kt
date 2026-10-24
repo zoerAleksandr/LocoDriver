@@ -223,6 +223,8 @@ internal fun TrainMapScreen(
         var determineFailed by remember { mutableStateOf(false) }
         var savedName by remember { mutableStateOf<String?>(null) }
         var myFix by remember { mutableStateOf<GeoFix?>(null) }
+        // Только живые фиксы подписки (не «последнее известное»): профиль пути до первого из них показывает «Поиск спутников».
+        var liveFix by remember { mutableStateOf<GeoFix?>(null) }
         val hasRoute = TrainMapRoute.hasRoute(stops)
         var railState by remember { mutableStateOf<ServicePhaseAutoFillViewModel.RailLineResult?>(null) }
         var loadAttempt by remember { mutableStateOf(0) }
@@ -248,7 +250,7 @@ internal fun TrainMapScreen(
             chartPick = null
         }
         // Профиль пути: живое положение на профиле участка (выбор по местоположению и плечу, SCREEN_SPECS §6.9).
-        val profileModel = rememberProfileModel(myFix, liveSpeed, liveAtMs, stops, profileTrains, profileTrainId)
+        val profileModel = rememberProfileModel(liveFix, liveSpeed, liveAtMs, stops, profileTrains, profileTrainId)
         var showChart by rememberSaveable { mutableStateOf(false) }
         // Метки первого открытия карты + кнопка «?» для повтора (ONBOARDING_MATERIALS §2): один раз, не во время записи.
         val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
@@ -851,6 +853,7 @@ internal fun TrainMapScreen(
                 val moving = (f.speedKmh ?: 0.0) >= moveThresholdKmh
                 locationDenied = false
                 myFix = GeoFix(f.latitude, f.longitude, f.accuracyM)
+                liveFix = myFix
                 gnssMonitor.onFix(f.accuracyM)
                 liveSpeed = f.speedKmh
                 liveAtMs = System.currentTimeMillis()

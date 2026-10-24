@@ -91,7 +91,7 @@ internal fun gradeText(live: LiveProfile, e: ProfileElement?): String? {
 
 private fun emptyText(model: ProfileModel): String = when (model.emptyReason) {
     ProfileEmpty.LOADING -> "Загружаем профили участков…"
-    ProfileEmpty.NO_LOCATION -> "Определяем местоположение…"
+    ProfileEmpty.NO_LOCATION -> "Поиск спутников… Определяем местоположение."
     ProfileEmpty.NO_SECTIONS -> "Профили участков не загружены. Проверьте интернет — после загрузки профиль появится."
     ProfileEmpty.OFF_RAILS -> "Вы находитесь вне путей."
     ProfileEmpty.NO_NEARBY -> "Для этого места профиль пока не собран. Данные профиля собираются — скоро он появится."
