@@ -138,7 +138,7 @@ internal fun ProfileStrip(
                         Text(it, style = Pst.mono.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, maxLines = 1)
                     }
                 }
-                ProfileChart(model, live.window(max(STRIP_BEHIND_KM, (model.trainLengthKm ?: 0.0) + TRAIN_MARGIN_KM), STRIP_AHEAD_KM), detailed = false, modifier = Modifier.weight(1f).fillMaxWidth().clickable(onClickLabel = "Профиль пути на весь экран", onClick = onExpand))
+                ProfileChart(model, model.stripWindow(live, STRIP_BEHIND_KM + STRIP_AHEAD_KM), detailed = false, modifier = Modifier.weight(1f).fillMaxWidth().clickable(onClickLabel = "Профиль пути на весь экран", onClick = onExpand))
             } else {
                 Text("ПРОФИЛЬ ПУТИ", style = Pst.mono.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted)
                 Text(emptyText(model), style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 15.sp), color = Pst.textMuted, maxLines = 3, overflow = TextOverflow.Ellipsis)
@@ -408,9 +408,10 @@ internal fun ProfileChart(
         val trainKm = model.trainLengthKm
         if (pos != null && trainKm != null && !pos.offRoute) {
             val head = live.toView(pos.kmAxis)
-            val tail = (head - trainKm).coerceAtLeast(0.0)
-            val a = max(tail, window.fromX)
-            val b = minOf(head, window.toX)
+            val flip = model.trainFlipped
+            val tail = if (flip) (head + trainKm).coerceAtMost(live.lengthKm) else (head - trainKm).coerceAtLeast(0.0)
+            val a = max(minOf(tail, head), window.fromX)
+            val b = minOf(max(tail, head), window.toX)
             if (b > a) {
                 val steps = max(2, ((b - a) / span * w / (2f * dp)).toInt())
                 val trainPath = Path().apply {
@@ -424,7 +425,7 @@ internal fun ProfileChart(
                 val trainColor = if (pos.locked) accent else muted
                 drawPath(trainPath, trainColor, style = Stroke(width = (if (detailed) 6f else 5f) * dp, cap = StrokeCap.Round))
                 // Хвост: вертикаль от линии профиля вниз до километровой разметки (вверх линию не продолжаем).
-                if (tail >= window.fromX) {
+                if (tail >= window.fromX && tail <= window.toX) {
                     val tx = px(tail)
                     drawLine(trainColor, Offset(tx, py(line.heightAt(live.toAxis(tail)))), Offset(tx, bottomOfRows), strokeWidth = 2f * dp)
                 }
@@ -537,8 +538,9 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
                         ProfileWindow(0.0, length)
                     } else {
                         // Позади головы - не меньше длины поезда с запасом: поезд виден целиком при любом масштабе.
-                        val behind = max(span / 6, (model.trainLengthKm ?: 0.0) + TRAIN_MARGIN_KM).coerceAtMost(span * 0.8)
-                        live.window(behind, span - behind)
+                        val room = ((model.trainLengthKm ?: 0.0) + TRAIN_MARGIN_KM).coerceAtMost(span * 0.8)
+                        if (model.trainFlipped) live.window(span - max(span / 6, room), max(span / 6, room))
+                        else live.window(max(span / 6, room), span - max(span / 6, room))
                     }
                 } else {
                     val from = manualFrom.toDouble().coerceIn(0.0, (length - span).coerceAtLeast(0.0))

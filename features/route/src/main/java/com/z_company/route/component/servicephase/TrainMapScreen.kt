@@ -238,6 +238,15 @@ internal fun TrainMapScreen(
         var follow by remember { mutableStateOf(true) }
         var permGranted by remember { mutableStateOf(DeviceLocation.hasPermission(context)) }
         var selection by remember { mutableStateOf<TrainMapSelection?>(null) }
+        // Точка выбрана касанием графика скорости: через RETURN_DELAY_MS без новых касаний выбор снимается,
+        // и большой/мини-график возвращаются к текущему времени и месту.
+        var chartPick by remember { mutableStateOf<Pair<Int, TrackPoint>?>(null) }
+        LaunchedEffect(chartPick) {
+            val pick = chartPick ?: return@LaunchedEffect
+            delay(FollowReturn.RETURN_DELAY_MS)
+            if ((selection as? TrainMapSelection.PathPoint)?.point == pick.second) selection = null
+            chartPick = null
+        }
         // Профиль пути: живое положение на профиле участка (выбор по местоположению и плечу, SCREEN_SPECS §6.9).
         val profileModel = rememberProfileModel(myFix, liveSpeed, liveAtMs, stops, profileTrains, profileTrainId)
         var showChart by rememberSaveable { mutableStateOf(false) }
@@ -1057,7 +1066,7 @@ internal fun TrainMapScreen(
         val bodyPos = profileModel.position
         val bodyLengthKm = profileModel.trainLengthKm
         val bodyPath = remember(trainAsLine, bodyLive, bodyPos, bodyLengthKm) {
-            if (trainAsLine && bodyLive != null && bodyLengthKm != null) bodyLive.trainPath(bodyLengthKm) else emptyList()
+            if (trainAsLine && bodyLive != null && bodyLengthKm != null) bodyLive.trainPath(bodyLengthKm, profileModel.trainFlipped) else emptyList()
         }
         val bodyShown = bodyPath.size >= 2
         LaunchedEffect(styleGen, styleReady, bodyPath) {
@@ -1191,7 +1200,7 @@ internal fun TrainMapScreen(
                     TrackAnalysis.nearestOnTrack(it.points, latLng.latitude, latLng.longitude, mpp * 30.0, mpp * 48.0)
                 }
                 if (hit != null) {
-                    selection = TrainMapSelection.PathPoint(hit)
+                    selection = TrainMapSelection.PathPoint(hit); chartPick = null
                     return@OnMapClickListener true
                 }
                 // Зона без GPS (пятно под линией): после пути и остановок, чтобы не мешать им.
@@ -1729,7 +1738,10 @@ internal fun TrainMapScreen(
                     loadConflictText = loadConflictText,
                     onEnableAuto = onEnableAuto,
                     selectedTimeMs = (selection as? TrainMapSelection.PathPoint)?.point?.timeMs,
-                    onSelect = { p -> selection = p?.let { TrainMapSelection.PathPoint(it) } },
+                    onSelect = { p ->
+                        selection = p?.let { TrainMapSelection.PathPoint(it) }
+                        chartPick = p?.let { (chartPick?.first ?: 0) + 1 to it }
+                    },
                     onOpenConsent = { showChart = false; onOpenConsentSettings() },
                     consentGranted = if (viewOnly) null else saveTracks,
                     recordingOn = autoRecording,

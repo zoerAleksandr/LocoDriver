@@ -142,10 +142,11 @@ class LiveProfile(val section: SectionProfile, val reversed: Boolean) {
      * Голова - положение по GPS БЕЗ ручной поправки (поправка двигает положение на профиле, а на карте поезд там, где GPS и значок).
      * У начала/конца участка линия обрезается по участку. Пусто - положения нет, вне оси или длина не больше нуля.
      */
-    fun trainPath(lengthKm: Double): List<Pair<Double, Double>> {
+    fun trainPath(lengthKm: Double, tailAhead: Boolean = false): List<Pair<Double, Double>> {
         if (last?.offRoute != false || lengthKm <= 0.0) return emptyList()
         val head = rawKm ?: return emptyList()
-        val tail = toAxis((toView(head) - lengthKm).coerceAtLeast(0.0))
+        val tail = if (tailAhead) toAxis((toView(head) + lengthKm).coerceAtMost(this.lengthKm))
+        else toAxis((toView(head) - lengthKm).coerceAtLeast(0.0))
         val path = AxisSlice.smooth(section.axis.points, tail, head)
         // порядок «хвост -> голова»: при развороте хвост на большем км оси
         return if (tail <= head) path else path.asReversed()

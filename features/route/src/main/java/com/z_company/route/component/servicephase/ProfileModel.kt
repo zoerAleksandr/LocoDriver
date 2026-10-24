@@ -12,6 +12,7 @@ import com.z_company.domain.track.ElevationLine
 import com.z_company.domain.track.LegMatch
 import com.z_company.domain.track.LivePosition
 import com.z_company.domain.track.LiveProfile
+import com.z_company.domain.track.ProfileWindow
 import com.z_company.domain.track.SectionPicker
 import com.z_company.domain.track.SectionSummary
 import com.z_company.domain.track.SectionProfile
@@ -83,6 +84,10 @@ internal class ProfileModel(
     /** Направление, выбранное пользователем; null - по плечу, а без плеча - по движению. */
     private var manualReversed by mutableStateOf<Boolean?>(null)
     private var motionReversed by mutableStateOf<Boolean?>(null)
+
+    /** Поезд после ручного разворота: хвост по другую сторону от головы на виде (и на карте). */
+    var trainFlipped by mutableStateOf(false)
+        private set
 
     var live by mutableStateOf<LiveProfile?>(null)
         private set
@@ -229,6 +234,7 @@ internal class ProfileModel(
         manualId = id
         manualReversed = null
         motionReversed = null
+        trainFlipped = false
         resetMotion()
         rebuild()
     }
@@ -238,13 +244,28 @@ internal class ProfileModel(
         manualId = null
         manualReversed = null
         motionReversed = null
+        trainFlipped = false
         resetMotion()
         lastFix?.let { autoPick(it, force = true) }
         rebuild()
     }
 
+    /** Окно ленты: сзади/спереди по умолчанию, но с запасом на длину поезда со стороны хвоста. */
+    fun followWindow(live: LiveProfile, behindKm: Double, aheadKm: Double): ProfileWindow {
+        val room = (trainLengthKm ?: 0.0) + 0.15
+        return if (trainFlipped) live.window(behindKm, maxOf(aheadKm, room)) else live.window(maxOf(behindKm, room), aheadKm)
+    }
+
+    /** Мини-профиль: весь поезд у правого края ленты (при развороте хвост справа от головы - край за хвостом). */
+    fun stripWindow(live: LiveProfile, widthKm: Double): ProfileWindow {
+        val margin = 0.1
+        val ahead = if (trainFlipped) (trainLengthKm ?: 0.0) + margin else margin
+        return live.window(widthKm - ahead, ahead)
+    }
+
     fun toggleDirection() {
         manualReversed = !reversed
+        trainFlipped = !trainFlipped
         rebuild()
     }
 
