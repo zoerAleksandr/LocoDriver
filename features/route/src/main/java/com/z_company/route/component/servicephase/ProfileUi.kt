@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
@@ -181,6 +182,7 @@ internal fun ProfileChart(
     val labelStyle: TextStyle = Pst.mono.copy(fontSize = 10.sp, color = muted)
     val cellStyle: TextStyle = Pst.mono.copy(fontSize = 10.sp, color = ink)
     val kmStyle: TextStyle = Pst.mono.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = ink)
+    val warningStyle: TextStyle = Pst.sans.copy(fontSize = if (detailed) 11.sp else 9.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF3D2F00))
     val stationStyle: TextStyle = Pst.sans.copy(fontSize = 10.sp, color = muted)
     val noDataStyle: TextStyle = Pst.sans.copy(fontSize = if (detailed) 12.sp else 10.sp, color = ink.copy(alpha = 0.7f))
     val section = live.section
@@ -239,6 +241,23 @@ internal fun ProfileChart(
             close()
         }
         drawPath(fill, accent.copy(alpha = 0.16f))
+        // Предупреждения: жёлтый фон на всю высоту графика с подписью вверху зоны.
+        model.activeWarnings.forEach { r ->
+            val a = max(minOf(live.toView(r.fromKm), live.toView(r.toKm)), window.fromX)
+            val b = minOf(max(live.toView(r.fromKm), live.toView(r.toKm)), window.toX)
+            if (b <= a) return@forEach
+            val x1 = px(a)
+            val x2 = max(px(b), x1 + 3f * dp)
+            drawRect(WarningYellow.copy(alpha = 0.38f), Offset(x1, topPad), androidx.compose.ui.geometry.Size(x2 - x1, bottomOfRows - topPad))
+            drawLine(WarningYellow, Offset(x1, topPad), Offset(x1, bottomOfRows), strokeWidth = 2f * dp)
+            if (x2 - x1 > 24f * dp) {
+                val tl = measurer.measure(
+                    r.warning.label, warningStyle, overflow = TextOverflow.Ellipsis, maxLines = 1,
+                    constraints = androidx.compose.ui.unit.Constraints(maxWidth = (x2 - x1 - 6f * dp).toInt().coerceAtLeast(1)),
+                )
+                drawText(tl, topLeft = Offset(x1 + 4f * dp, topPad + 2f * dp))
+            }
+        }
         val stroke = Path().apply {
             moveTo(px(xs[0]), py(hs[0]))
             for (i in 1..n) lineTo(px(xs[i]), py(hs[i]))
@@ -456,6 +475,9 @@ internal fun ProfileChart(
     }
 }
 
+/** Жёлтый фон зоны предупреждения (профиль и карта). */
+internal val WarningYellow = Color(0xFFFFD60A)
+
 /** Окно показа полноэкранного профиля в км (пресеты); [ALL] - весь участок. */
 internal enum class ProfileScale(val label: String, val spanKm: Double) {
     S3("3 км", 3.0),
@@ -476,6 +498,9 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
     var spanKm by rememberSaveable { mutableStateOf(6f) }
     var follow by rememberSaveable { mutableStateOf(true) }
     var manualFrom by rememberSaveable { mutableStateOf(0f) }
+    var showWarnings by rememberSaveable { mutableStateOf(false) }
+    var showVoice by rememberSaveable { mutableStateOf(false) }
+    var warnHint by remember { mutableStateOf(false) }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
@@ -522,6 +547,24 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
                     MeasureButton(model)
                     StripButton("Сменить направление", { model.toggleDirection() }) { PstIcon(PstIcons.Swap, 20.dp, Pst.text) }
                 }
+                // «Предупреждения»: видна всегда; без выбранного участка - пояснение вместо окна.
+                val canWarn = model.canEditWarnings
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .background(if (model.activeWarnings.isNotEmpty()) WarningYellow else Pst.bgSubtle, RoundedCornerShape(12.dp))
+                        .clickable(onClickLabel = "Предупреждения") { if (canWarn) showWarnings = true else warnHint = !warnHint },
+                    contentAlignment = Alignment.Center,
+                ) { PstIcon(PstIcons.Warning, 20.dp, if (canWarn) Pst.text else Pst.textMuted) }
+            }
+            if (warnHint && !model.canEditWarnings) {
+                Text(
+                    text = "Чтобы добавить предупреждения, выберите участок.",
+                    style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 15.sp),
+                    color = Pst.text,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).fillMaxWidth()
+                        .background(Pst.warning, RoundedCornerShape(12.dp)).padding(8.dp),
+                )
             }
             model.chooseError?.let {
                 Text(
@@ -595,6 +638,8 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
         }
     }
     if (showPicker) SectionPickerDialog(model, onDismiss = { showPicker = false })
+    if (showWarnings) WarningsDialog(model, onVoice = { showVoice = true }, onDismiss = { showWarnings = false })
+    if (showVoice) WarningVoiceDialog(model, onDismiss = { showVoice = false })
 }
 
 /** Участок и направление одной карточкой (нажатие - список участков): название, «от А к Б», способ выбора. */

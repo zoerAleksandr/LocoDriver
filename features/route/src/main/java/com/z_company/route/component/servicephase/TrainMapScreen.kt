@@ -125,6 +125,7 @@ private const val TRAIN_MARKS_SOURCE = "train-map-marks"
 private const val TRAIN_SEL_SOURCE = "train-map-sel"
 private const val TRAIN_TAIL_SOURCE = "train-map-tail"
 private const val TRAIN_BODY_SOURCE = "train-map-body"
+private const val TRAIN_WARN_SOURCE = "train-map-warnings"
 private const val TRAIN_OFF_SOURCE = "train-map-off"
 private const val TRAIN_NODATA_SOURCE = "train-map-nodata"
 private const val TRAIN_PLAN_SOURCE = "train-map-plan"
@@ -495,6 +496,32 @@ internal fun TrainMapScreen(
                                 PropertyFactory.textIgnorePlacement(true),
                             ).also { it.setFilter(Expression.eq(Expression.get("show"), 1)) },
                             "train-map-me-layer",
+                        )
+                        // Предупреждения на участке: жёлтая широкая линия под путём и подпись вдоль неё.
+                        style.addSource(GeoJsonSource(TRAIN_WARN_SOURCE, FeatureCollection.fromFeatures(emptyList())))
+                        style.addLayerBelow(
+                            LineLayer("train-map-warn-layer", TRAIN_WARN_SOURCE).withProperties(
+                                PropertyFactory.lineColor("#FFD60A"),
+                                PropertyFactory.lineOpacity(0.7f),
+                                PropertyFactory.lineWidth(16f),
+                                PropertyFactory.lineCap(Property.LINE_CAP_BUTT),
+                                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                            ),
+                            "train-map-stops-layer",
+                        )
+                        style.addLayerBelow(
+                            SymbolLayer("train-map-warn-label", TRAIN_WARN_SOURCE).withProperties(
+                                PropertyFactory.textField(Expression.get("label")),
+                                PropertyFactory.textFont(arrayOf("Noto Sans Regular")),
+                                PropertyFactory.textSize(12f),
+                                PropertyFactory.symbolPlacement(Property.SYMBOL_PLACEMENT_LINE_CENTER),
+                                PropertyFactory.textColor("#3D2F00"),
+                                PropertyFactory.textHaloColor("#FFD60A"),
+                                PropertyFactory.textHaloWidth(2f),
+                                PropertyFactory.textAllowOverlap(true),
+                                PropertyFactory.textIgnorePlacement(true),
+                            ),
+                            "train-map-stops-layer",
                         )
                         // Пройденный путь (§6.9, состояние 4): белая подложка + жирная линия цвета скорости, под точками станций.
                         style.addSource(GeoJsonSource(TRAIN_TRACK_SOURCE, FeatureCollection.fromFeatures(emptyList())))
@@ -1083,6 +1110,20 @@ internal fun TrainMapScreen(
             }
             st.getLayerAs<SymbolLayer>("train-map-me-arrow")
                 ?.setProperties(PropertyFactory.visibility(if (bodyShown) Property.NONE else Property.VISIBLE))
+        }
+        // Предупреждения на участке: жёлтая линия вдоль оси от начала до конца зоны, подпись - тип/значение.
+        val warnings = profileModel.activeWarnings
+        LaunchedEffect(styleGen, styleReady, warnings, bodyLive) {
+            if (!styleReady) return@LaunchedEffect
+            val src = map?.style?.getSourceAs<GeoJsonSource>(TRAIN_WARN_SOURCE) ?: return@LaunchedEffect
+            val axis = bodyLive?.section?.axis?.points
+            val features = if (axis == null) emptyList() else warnings.mapNotNull { r ->
+                val path = com.z_company.domain.track.AxisSlice.smooth(axis, r.fromKm, r.toKm)
+                if (path.size < 2) null
+                else Feature.fromGeometry(LineString.fromLngLats(path.map { (lat, lon) -> Point.fromLngLat(lon, lat) }))
+                    .apply { addStringProperty("label", r.warning.label) }
+            }
+            src.setGeoJson(FeatureCollection.fromFeatures(features))
         }
         // Масштаб при открытии: видна вся длина поезда. Один раз; если камера и так охватывает маршрут или трек - их охват шире.
         var trainFitted by remember { mutableStateOf(false) }
@@ -1730,6 +1771,7 @@ internal fun TrainMapScreen(
                 )
             }
             if (showProfileFull) ProfileFullScreen(profileModel, onDismiss = { showProfileFull = false })
+            WarningOfferDialog(profileModel)
 
             if (showChart) {
                 SpeedChartScreen(
