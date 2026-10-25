@@ -120,7 +120,7 @@ class KtorAdvisorApi(
         block()
     } catch (e: ResponseException) {
         val text = runCatching { e.response.bodyAsText() }.getOrNull()
-        throw AdvisorApiException(e.response.status.value, KtorTracksApi.parseErrorCode(text))
+        throw AdvisorApiException(e.response.status.value, KtorTracksApi.parseErrorCode(text) ?: advisorStringDetail(text))
     }
 }
 
@@ -138,3 +138,12 @@ internal fun decodeBase64(s: String): ByteArray = Base64.decode(s)
 
 @OptIn(ExperimentalEncodingApi::class)
 internal fun encodeBase64(b: ByteArray): String = Base64.encode(b)
+
+/** `{"detail":"device_required"}` -> `device_required` (эндпоинты советника отдают код строкой); иначе null. */
+internal fun advisorStringDetail(body: String?): String? {
+    if (body.isNullOrBlank()) return null
+    return runCatching {
+        (kotlinx.serialization.json.Json.parseToJsonElement(body) as? kotlinx.serialization.json.JsonObject)
+            ?.get("detail")?.let { it as? kotlinx.serialization.json.JsonPrimitive }?.takeIf { it.isString }?.content
+    }.getOrNull()
+}

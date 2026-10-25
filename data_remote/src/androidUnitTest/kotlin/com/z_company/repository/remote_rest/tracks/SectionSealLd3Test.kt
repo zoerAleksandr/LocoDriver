@@ -42,4 +42,14 @@ class SectionSealLd3Test {
         assertFailsWith<SectionSeal.SealException> { SectionSeal.openLd3(otherVersion, sectionId, ::unwrap) }
         assertFailsWith<SectionSeal.SealException> { SectionSeal.openLd3("LD2xxxxxxxxxxxxxxxxxxxxxxxxxxxxx".encodeToByteArray(), sectionId, ::unwrap) }
     }
+
+    @Test
+    fun errorCodeIsReadFromStringDetailToo() {
+        // Эндпоинты советника отдают {"detail":"device_required"}; общий парсер читает только detail.code
+        assertEquals("device_required", advisorStringDetail("{\"detail\":\"device_required\"}"))
+        assertEquals("challenge_mismatch", advisorStringDetail("{\"detail\":\"challenge_mismatch\"}"))
+        assertEquals(null, advisorStringDetail("{\"detail\":{\"code\":\"x\"}}"))
+        assertEquals(null, advisorStringDetail("not json"))
+        assertEquals(null, advisorStringDetail(null))
+    }
 }
