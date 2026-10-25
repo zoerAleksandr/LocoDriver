@@ -33,7 +33,7 @@ internal class SectionRow(val summary: SectionSummary, val distanceM: Double?, v
 internal data class ProfileTrain(val id: String, val number: String?, val lengthM: Int?)
 
 /** Что показывать вместо графика, когда рисовать нечего. */
-internal enum class ProfileEmpty { LOADING, NO_LOCATION, NO_SECTIONS, OFF_RAILS, NO_NEARBY, NO_DATA }
+internal enum class ProfileEmpty { LOADING, NO_LOCATION, NO_SECTIONS, OFF_RAILS, NO_NEARBY, NO_DATA, NEED_LOGIN }
 
 /**
  * Состояние «Профиля пути» на карте: загруженные участки, выбранный участок (по положению либо вручную), направление и
@@ -46,6 +46,10 @@ internal class ProfileModel(
     private val scope: CoroutineScope,
     private val railLookup: com.z_company.domain.util.RailStationLookup? = null,
 ) {
+    /** Не вошёл в аккаунт: участки отдаются только вошедшему (25.10.2026), кэш прежнего аккаунта не показываем. */
+    var needLogin by mutableStateOf(false)
+        private set
+
     /** Список всех участков (название, длина, габарит) - без осей; по нему выбор вручную и поиск. */
     var summaries by mutableStateOf<List<SectionSummary>>(emptyList())
         private set
@@ -166,6 +170,7 @@ internal class ProfileModel(
 
     val emptyReason: ProfileEmpty?
         get() = when {
+            needLogin -> ProfileEmpty.NEED_LOGIN
             !loaded -> ProfileEmpty.LOADING
             summaries.isEmpty() && sections.isEmpty() -> ProfileEmpty.NO_SECTIONS
             section == null && !hasFix -> ProfileEmpty.NO_LOCATION
@@ -188,6 +193,13 @@ internal class ProfileModel(
 
     /** Список участков: сначала с диска (мгновенно, без сети), затем обновление. Оси подгружаются по положению ([ensureNear]). */
     suspend fun load() {
+        needLogin = com.z_company.repository.remote_rest.RemoteRestClient.advisorBearerToken().isNullOrBlank()
+        if (needLogin) {
+            summaries = emptyList()
+            sections = emptyList()
+            loaded = true
+            return
+        }
         summaries = withContext(Dispatchers.Default) { repo.summaries(refresh = false) }
         if (summaries.isNotEmpty()) loaded = true
         val fresh = withContext(Dispatchers.Default) { repo.summaries(refresh = true) }
@@ -198,7 +210,7 @@ internal class ProfileModel(
 
     /** Оси ближних участков (по габариту из списка; старый сервер без габарита - все). Не чаще, чем при сдвиге на 2 км. */
     private fun ensureNear(fix: GeoFix) {
-        if (!loaded || loadingNear) return
+        if (!loaded || loadingNear || needLogin) return
         nearCenter?.let { c ->
             val dLat = (fix.latitude - c.latitude) * com.z_company.domain.track.FlatMetric.M_PER_DEG_LAT
             val dLon = (fix.longitude - c.longitude) * com.z_company.domain.track.FlatMetric.kx(fix.latitude)

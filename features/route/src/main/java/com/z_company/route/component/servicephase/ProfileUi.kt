@@ -94,6 +94,7 @@ private fun emptyText(model: ProfileModel): String = when (model.emptyReason) {
     ProfileEmpty.LOADING -> "Загружаем профили участков…"
     ProfileEmpty.NO_LOCATION -> "Поиск спутников… Определяем местоположение."
     ProfileEmpty.NO_SECTIONS -> "Профили участков не загружены. Проверьте интернет — после загрузки профиль появится."
+    ProfileEmpty.NEED_LOGIN -> "Профиль пути доступен после входа в аккаунт. Войдите в приложение (Профиль) — участки загрузятся."
     ProfileEmpty.OFF_RAILS -> "Вы находитесь вне путей."
     ProfileEmpty.NO_NEARBY -> "Для этого места профиль пока не собран. Данные профиля собираются — скоро он появится."
     ProfileEmpty.NO_DATA -> "Для участка «${model.section?.name.orEmpty()}» данные профиля собираются. Скоро профиль появится."
@@ -893,7 +894,7 @@ private fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
             if (rows.isEmpty()) {
                 Box(Modifier.weight(1f).fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                     Text(
-                        text = if (model.summaries.isEmpty()) "Участки не загружены. Проверьте интернет." else "Ничего не найдено. Данные профилей собираются — список пополняется.",
+                        text = if (model.needLogin) "Профиль пути доступен после входа в аккаунт." else if (model.summaries.isEmpty()) "Участки не загружены. Проверьте интернет." else "Ничего не найдено. Данные профилей собираются — список пополняется.",
                         style = Pst.sans.copy(fontSize = 14.sp),
                         color = Pst.textMuted,
                         textAlign = TextAlign.Center,
