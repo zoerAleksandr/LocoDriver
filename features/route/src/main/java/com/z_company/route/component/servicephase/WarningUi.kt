@@ -182,20 +182,29 @@ private fun SavedWarningRow(model: ProfileModel, section: SectionProfile, w: Tra
 }
 
 @Composable
-private fun WarningForm(model: ProfileModel, section: SectionProfile, place: WarningPlace, onBack: () -> Unit, onSaved: () -> Unit) {
+private fun WarningForm(
+    model: ProfileModel, section: SectionProfile, place: WarningPlace, existing: TrackWarning? = null,
+    onBack: () -> Unit, onSaved: () -> Unit,
+) {
     val marks = section.kmMarks
     val hasKm = marks.isNotEmpty()
     fun initial(rel: Double): Pair<String, String> =
         KmMarks.toAbs(marks, rel)?.let { TrackWarnings.split(it) }?.let { (k, p) -> k.toString() to p.toString() } ?: ("" to "")
-    val (sk, sp) = remember(place) { initial(place.startKm) }
-    val (ek, ep) = remember(place) { if (place.isStation) ("" to "") else initial(place.endKm) }
+    fun fromAbs(abs: Double?): Pair<String, String>? = abs?.let { TrackWarnings.split(it) }?.let { (k, p) -> k.toString() to p.toString() }
+    val (sk, sp) = remember(place) { existing?.let { fromAbs(it.startAbsKm) } ?: initial(place.startKm) }
+    // Зона на один пикет (конец = начало + 100 м) показывается с пустым концом - как вводилась.
+    val oneSection = existing?.let { it.startAbsKm != null && it.endAbsKm != null && kotlin.math.abs(it.endAbsKm!! - it.startAbsKm!! - 0.1) < 1e-6 } == true
+    val (ek, ep) = remember(place) {
+        if (existing != null) { if (oneSection) ("" to "") else fromAbs(existing.endAbsKm) ?: ("" to "") }
+        else if (place.isStation) ("" to "") else initial(place.endKm)
+    }
     var startKm by remember { mutableStateOf(TextFieldValue(sk)) }
     var startPk by remember { mutableStateOf(TextFieldValue(sp)) }
     var endKm by remember { mutableStateOf(TextFieldValue(ek)) }
     var endPk by remember { mutableStateOf(TextFieldValue(ep)) }
-    var type by remember { mutableStateOf(WarningType.SPEED) }
-    var speed by remember { mutableStateOf(TextFieldValue("")) }
-    var note by remember { mutableStateOf(TextFieldValue("")) }
+    var type by remember { mutableStateOf(existing?.type ?: WarningType.SPEED) }
+    var speed by remember { mutableStateOf(TextFieldValue(existing?.speedKmh?.toString() ?: "")) }
+    var note by remember { mutableStateOf(TextFieldValue(existing?.note ?: "")) }
     var error by remember { mutableStateOf<String?>(null) }
     val numeric = KeyboardOptions(keyboardType = KeyboardType.Number)
 
@@ -218,7 +227,7 @@ private fun WarningForm(model: ProfileModel, section: SectionProfile, place: War
         if (type == WarningType.SPEED && (speedV == null || speedV !in 1..200)) { error = "Введите ограничение скорости, км/ч."; return }
         if (type == WarningType.OTHER && note.text.isBlank()) { error = "Напишите примечание."; return }
         val w = TrackWarning(
-            id = UUID.randomUUID().toString(), sectionId = section.id,
+            id = existing?.id ?: UUID.randomUUID().toString(), sectionId = section.id,
             startAbsKm = aAbs, endAbsKm = bAbs, startRelKm = place.startKm,
             endRelKm = if (place.endKm - place.startKm < 0.0999) place.startKm + 0.1 else place.endKm,
             type = type, speedKmh = if (type == WarningType.SPEED) speedV else null,
@@ -227,20 +236,35 @@ private fun WarningForm(model: ProfileModel, section: SectionProfile, place: War
         val r = TrackWarnings.resolve(section, w)
         if (r == null) { error = "Такого километра нет на этом участке."; return }
         if (r.toKm < -0.001 || r.fromKm > section.lengthKm + 0.001) { error = "Место за пределами участка."; return }
-        model.addWarning(w)
+        if (existing != null) model.updateWarning(w) else model.addWarning(w)
         onSaved()
     }
 
-    WarningPanel(widthFraction = 0.8f) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(Modifier.weight(1f)) {
-                Text("Новое предупреждение", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
-                Text(place.title, style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            PstButton("Назад", onBack, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
-            PstButton("Сохранить", { save() }, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
+    val portrait = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
+    val titleBlock: @Composable (Modifier) -> Unit = { m ->
+        Column(m) {
+            Text(if (existing != null) "Предупреждение" else "Новое предупреждение", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+            Text(place.title, style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    }
+    val buttons: @Composable () -> Unit = {
+        if (existing != null) {
+            PstButton("Удалить", { model.deleteWarning(existing.id); onSaved() }, kind = PstButtonKind.DANGER, height = 40.dp, fontSize = 14)
+        }
+        PstButton(if (existing != null) "Отмена" else "Назад", onBack, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
+        PstButton("Сохранить", { save() }, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
+    }
+    WarningPanel(widthFraction = if (portrait) 0.94f else 0.8f, fill = !portrait) {
+        if (portrait) {
+            titleBlock(Modifier.fillMaxWidth())
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) { buttons() }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                titleBlock(Modifier.weight(1f))
+                buttons()
+            }
+        }
+        Column(Modifier.weight(1f, fill = !portrait).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (hasKm) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     PstTextField(startKm, { startKm = it; error = null }, "Начало, км", Modifier.weight(1f), keyboardOptions = numeric, mono = true)
@@ -248,7 +272,7 @@ private fun WarningForm(model: ProfileModel, section: SectionProfile, place: War
                     PstTextField(endKm, { endKm = it; error = null }, "Конец, км", Modifier.weight(1f), keyboardOptions = numeric, mono = true)
                     PstTextField(endPk, { endPk = it; error = null }, "Конец, пикет", Modifier.weight(1f), placeholder = "1", keyboardOptions = numeric, mono = true)
                 }
-                Text(
+                if (endKm.text.isBlank()) Text(
                     "Конец не указан — предупреждение действует на одном пикете (100 м).",
                     style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted,
                 )
@@ -258,7 +282,9 @@ private fun WarningForm(model: ProfileModel, section: SectionProfile, place: War
                     style = Pst.sans.copy(fontSize = 13.sp), color = Pst.textMuted,
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            androidx.compose.foundation.layout.FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
                 WarningType.values().forEach { t -> Chip(t.title, type == t) { type = t; error = null } }
             }
             if (type == WarningType.SPEED) {
@@ -372,5 +398,21 @@ private fun SettingBlock(title: String, content: @Composable () -> Unit) {
         androidx.compose.foundation.layout.FlowRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp),
         ) { content() }
+    }
+}
+
+/** Редактирование предупреждения по нажатию на карточку на карте или на зону на профиле (окно открывает [ProfileModel.editWarning]). */
+@Composable
+internal fun WarningEditDialog(model: ProfileModel) {
+    val w = model.editingWarning ?: return
+    val section = model.section ?: return
+    Dialog(onDismissRequest = { model.closeWarningEdit() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        WarningForm(
+            model, section,
+            WarningPlace(w.place, w.startRelKm, w.endRelKm, false),
+            existing = w,
+            onBack = { model.closeWarningEdit() },
+            onSaved = { model.closeWarningEdit() },
+        )
     }
 }

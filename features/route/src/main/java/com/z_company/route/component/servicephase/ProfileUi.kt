@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import com.z_company.domain.track.Calibration
 import com.z_company.domain.track.KmGrid
@@ -197,7 +198,20 @@ internal fun ProfileChart(
             }
         }
     } else Modifier
-    Canvas(modifier.then(gesture)) {
+    // Нажатие на жёлтую зону предупреждения - редактирование.
+    val currentWindow by rememberUpdatedState(window)
+    val tapZones = Modifier.pointerInput(Unit) {
+        detectTapGestures { o ->
+            val w = currentWindow
+            val x = w.fromX + o.x / size.width * (w.toX - w.fromX)
+            model.activeWarnings.firstOrNull { r ->
+                val a = minOf(live.toView(r.fromKm), live.toView(r.toKm))
+                val b = max(live.toView(r.fromKm), live.toView(r.toKm))
+                x in a..max(b, a + 0.03)
+            }?.let { model.editWarning(it.warning.id) }
+        }
+    }
+    Canvas(modifier.then(gesture).then(tapZones)) {
         val w = size.width
         val h = size.height
         val dp = density
@@ -640,6 +654,7 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
     if (showPicker) SectionPickerDialog(model, onDismiss = { showPicker = false })
     if (showWarnings) WarningsDialog(model, onVoice = { showVoice = true }, onDismiss = { showWarnings = false })
     if (showVoice) WarningVoiceDialog(model, onDismiss = { showVoice = false })
+    WarningEditDialog(model)
 }
 
 /** Участок и направление одной карточкой (нажатие - список участков): название, «от А к Б», способ выбора. */

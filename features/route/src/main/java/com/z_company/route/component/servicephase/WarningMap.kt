@@ -44,8 +44,10 @@ internal object RailSnap {
     }
 
     /**
-     * Линия [path] (lat, lon, с шагом около [stepM]), прижатая к ближайшим рельсам не дальше [maxOffsetM]. Возвращает куски
-     * (разрывы - где рельсов поблизости нет или точка перескочила на чужой путь); пусто - привязать нечего.
+     * Линия [path] (lat, lon, с шагом около [stepM]), прижатая к рельсам не дальше [maxOffsetM]. Идём по ОДНОМУ пути: параллельные
+     * пути и стрелки не смешиваются - пока текущий путь рядом (не дальше лучшего на [STICK_M]), остаёмся на нём; сменить его
+     * приходится только на конце куска (тайл, разветвление), тогда берём тот из ближайших, чья проекция ближе к прежней точке.
+     * Возвращает куски (разрыв - где рельсов поблизости нет); пусто - привязать нечего.
      */
     fun snap(
         path: List<Pair<Double, Double>>,
@@ -57,51 +59,74 @@ internal object RailSnap {
         val lat0 = path[0].first
         val ky = FlatMetric.M_PER_DEG_LAT
         val kx = FlatMetric.kx(lat0)
-        class Seg(val ax: Double, val ay: Double, val bx: Double, val by: Double)
-        val segs = ArrayList<Seg>()
-        for (line in rails) for (i in 0 until line.size - 1) {
-            val a = line[i]
-            val b = line[i + 1]
-            segs += Seg(a.second * kx, a.first * ky, b.second * kx, b.first * ky)
+        val lines = rails.filter { it.size >= 2 }
+        if (lines.isEmpty()) return emptyList()
+        val n = path.size
+        val k = lines.size
+        // Для каждой точки пути и каждого пути: расстояние и ближайшая точка на нём.
+        val dist = Array(n) { DoubleArray(k) { Double.MAX_VALUE } }
+        val projX = Array(n) { DoubleArray(k) }
+        val projY = Array(n) { DoubleArray(k) }
+        for (j in 0 until k) {
+            val line = lines[j]
+            for (i in 0 until n) {
+                val px = path[i].second * kx
+                val py = path[i].first * ky
+                var best = Double.MAX_VALUE
+                var qx0 = 0.0
+                var qy0 = 0.0
+                for (t in 0 until line.size - 1) {
+                    val ax = line[t].second * kx; val ay = line[t].first * ky
+                    val dx = line[t + 1].second * kx - ax
+                    val dy = line[t + 1].first * ky - ay
+                    val len2 = dx * dx + dy * dy
+                    val u = if (len2 < 1e-9) 0.0 else (((px - ax) * dx + (py - ay) * dy) / len2).coerceIn(0.0, 1.0)
+                    val qx = ax + u * dx
+                    val qy = ay + u * dy
+                    val d = hypot(px - qx, py - qy)
+                    if (d < best) { best = d; qx0 = qx; qy0 = qy }
+                }
+                dist[i][j] = best; projX[i][j] = qx0; projY[i][j] = qy0
+            }
         }
-        if (segs.isEmpty()) return emptyList()
+        // Общая «близость» каждого пути к линии зоны (для выбора главного пути в начале).
+        val total = DoubleArray(k) { j -> (0 until n).sumOf { i -> minOf(dist[i][j], maxOffsetM) } }
         val result = ArrayList<List<Pair<Double, Double>>>()
         var cur = ArrayList<Pair<Double, Double>>()
+        var line = -1
         var prevX = 0.0
         var prevY = 0.0
         var hasPrev = false
-        val jumpLimit = stepM * 3 + 150.0
-        for ((lat, lon) in path) {
-            val px = lon * kx
-            val py = lat * ky
-            var best = Double.MAX_VALUE
-            var bx = 0.0
-            var by = 0.0
-            for (s in segs) {
-                val dx = s.bx - s.ax
-                val dy = s.by - s.ay
-                val len2 = dx * dx + dy * dy
-                val t = if (len2 < 1e-9) 0.0 else (((px - s.ax) * dx + (py - s.ay) * dy) / len2).coerceIn(0.0, 1.0)
-                val qx = s.ax + t * dx
-                val qy = s.ay + t * dy
-                val d = hypot(px - qx, py - qy)
-                if (d < best) { best = d; bx = qx; by = qy }
+        for (i in 0 until n) {
+            val bestD = (0 until k).minOf { dist[i][it] }
+            if (bestD > maxOffsetM) {
+                if (cur.size >= 2) result += cur
+                cur = ArrayList(); hasPrev = false; line = -1
+                continue
             }
-            val ok = best <= maxOffsetM && (!hasPrev || hypot(bx - prevX, by - prevY) <= jumpLimit)
-            if (ok) {
-                cur += (by / ky) to (bx / kx)
-                prevX = bx; prevY = by; hasPrev = true
+            var pick = -1
+            if (line >= 0 && dist[i][line] <= bestD + STICK_M && dist[i][line] <= maxOffsetM) {
+                pick = line
             } else {
+                val near = (0 until k).filter { dist[i][it] <= bestD + STICK_M }
+                pick = if (hasPrev) near.minByOrNull { hypot(projX[i][it] - prevX, projY[i][it] - prevY) }!!
+                else near.minByOrNull { total[it] }!!
+            }
+            val x = projX[i][pick]
+            val y = projY[i][pick]
+            if (hasPrev && hypot(x - prevX, y - prevY) > stepM * 3 + 150.0) {
                 if (cur.size >= 2) result += cur
                 cur = ArrayList()
-                hasPrev = false
-                // точка, которая не прошла по скачку, начинает новый кусок, если сама лежит у рельсов
-                if (best <= maxOffsetM) { cur += (by / ky) to (bx / kx); prevX = bx; prevY = by; hasPrev = true }
             }
+            line = pick
+            cur += (y / ky) to (x / kx)
+            prevX = x; prevY = y; hasPrev = true
         }
         if (cur.size >= 2) result += cur
         return result
     }
+
+    private const val STICK_M = 40.0
 
     /** Длина ломаной, м. */
     fun lengthM(line: List<Pair<Double, Double>>): Double {

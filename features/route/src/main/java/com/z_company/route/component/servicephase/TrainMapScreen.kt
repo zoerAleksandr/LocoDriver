@@ -503,7 +503,6 @@ internal fun TrainMapScreen(
                         style.addLayerBelow(
                             LineLayer("train-map-warn-layer", TRAIN_WARN_SOURCE).withProperties(
                                 PropertyFactory.lineColor("#FFD60A"),
-                                PropertyFactory.lineOpacity(0.85f),
                                 PropertyFactory.lineWidth(9f),
                                 PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
                                 PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
@@ -1154,7 +1153,8 @@ internal fun TrainMapScreen(
                     com.z_company.domain.track.KmMarks.position(w.startAbsKm!!).text() + " — " + com.z_company.domain.track.KmMarks.position(w.endAbsKm!!).text()
                 else ""
                 st.addImage(iconId, renderWarningCallout(context, w.title, range, density))
-                labelFeatures += Feature.fromGeometry(Point.fromLngLat(anchor.second, anchor.first)).apply { addStringProperty("icon", iconId) }
+                labelFeatures += Feature.fromGeometry(Point.fromLngLat(anchor.second, anchor.first))
+                    .apply { addStringProperty("icon", iconId); addStringProperty("wid", w.id) }
             }
             lines.setGeoJson(FeatureCollection.fromFeatures(lineFeatures))
             labels.setGeoJson(FeatureCollection.fromFeatures(labelFeatures))
@@ -1228,6 +1228,12 @@ internal fun TrainMapScreen(
                 val tap = m!!.projection.toScreenLocation(latLng)
                 val mpp = m.projection.getMetersPerPixelAtLatitude(latLng.latitude) * density
                 val railLine = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line
+                // Тап по карточке предупреждения - редактирование.
+                m.queryRenderedFeatures(android.graphics.PointF(tap.x, tap.y), "train-map-warn-label").firstOrNull()
+                    ?.takeIf { it.hasProperty("wid") }?.getStringProperty("wid")?.let { id ->
+                        profileModel.editWarning(id)
+                        return@OnMapClickListener true
+                    }
                 // Тап по флажку сохранённого плана - снова открыть карточку.
                 plan?.let { pl ->
                     val fp = m.projection.toScreenLocation(LatLng(pl.target.latitude, pl.target.longitude))
@@ -1806,6 +1812,7 @@ internal fun TrainMapScreen(
             }
             if (showProfileFull) ProfileFullScreen(profileModel, onDismiss = { showProfileFull = false })
             WarningOfferDialog(profileModel)
+            if (!showProfileFull) WarningEditDialog(profileModel)
 
             if (showChart) {
                 SpeedChartScreen(

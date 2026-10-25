@@ -159,6 +159,19 @@ internal class ProfileModel(
         spokenAt.clear()
     }
 
+    /** Предупреждение, открытое для редактирования (нажатие на карточку на карте или на зону на профиле). */
+    var editingWarning by mutableStateOf<TrackWarning?>(null)
+        private set
+    fun editWarning(id: String) { editingWarning = savedWarnings.firstOrNull { it.id == id } }
+    fun closeWarningEdit() { editingWarning = null }
+
+    fun updateWarning(w: TrackWarning) {
+        val s = section ?: return
+        savedWarnings = savedWarnings.map { if (it.id == w.id) w else it }
+        warningStore?.save(s.id, savedWarnings)
+        spokenAt.remove(w.id)
+    }
+
     fun addWarning(w: TrackWarning) {
         val s = section ?: return
         savedWarnings = savedWarnings + w
@@ -169,6 +182,7 @@ internal class ProfileModel(
 
     fun deleteWarning(id: String) {
         val s = section ?: return
+        if (editingWarning?.id == id) editingWarning = null
         savedWarnings = savedWarnings.filter { it.id != id }
         warningStore?.save(s.id, savedWarnings)
         activeWarningIds = activeWarningIds + (s.id to (activeWarningIds[s.id].orEmpty() - id))
