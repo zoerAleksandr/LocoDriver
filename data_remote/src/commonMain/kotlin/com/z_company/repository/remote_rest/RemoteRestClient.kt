@@ -123,9 +123,15 @@ object RemoteRestClient {
      */
     var advisorBearerToken: suspend () -> String? = { null }
 
+    /** Идентификатор аккаунта на устройстве (ключ Keystore и токен устройства участков привязаны к нему); задаёт приложение. */
+    var advisorAccountId: suspend () -> String? = { null }
+
+    /** Ключ устройства для участков (Keystore/аттестация); задаёт платформа. null - не поддерживается. */
+    var advisorDeviceKeys: com.z_company.repository.remote_rest.tracks.DeviceKeys? = null
+
     /** Участки советника и вклад высот (согласие №2, SCREEN_SPECS §6.9/§17.7). */
     val advisorApi: com.z_company.repository.remote_rest.tracks.AdvisorApi by lazy {
-        com.z_company.repository.remote_rest.tracks.KtorAdvisorApi(createClient { BASE_URL }) { advisorBearerToken() }
+        com.z_company.repository.remote_rest.tracks.KtorAdvisorApi(createClient { BASE_URL }, { advisorBearerToken() }, { advisorAccountId() }, { advisorDeviceKeys })
     }
 
     /** Общая карта зон без GPS и вклад (согласие №2, SCREEN_SPECS §6.9, «Зоны без GPS»). */

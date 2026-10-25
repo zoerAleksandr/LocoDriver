@@ -1,4 +1,4 @@
-# Протокол запечатанных участков советника (LD2)
+# Протокол запечатанных участков советника (LD3, запасной LD2)
 
 Решение 25.10.2026. Нужен, чтобы выкачанный с сервера участок без приложения был набором случайных байтов, а утёкшую копию можно было отнести к аккаунту. Работает так же на Android (готово), iOS и PWA (делать по этому описанию).
 
@@ -28,3 +28,26 @@
 
 ## Честные пределы
 Ключ приложения извлекаем реверсом (особенно в PWA). Защита рассчитана на то, чтобы (1) посторонний без аккаунта и приложения не получил ничего читаемого, (2) массовое выкачивание упиралось в квоты, (3) утёкшая копия указывала на аккаунт. Дальше — ротация ключей и бан аккаунта.
+
+
+## LD3 и аттестация устройства (основной формат, 25.10.2026)
+Статический ключ приложения (LD2) извлекается из APK, поэтому основной формат другой: ключ шифрования участка заворачивается открытым ключом **аттестованного устройства**. Закрытая часть лежит в железе (Android Keystore, TEE/StrongBox) и не извлекается; расшифровать конверт может только телефон, на котором ключ создан нашим приложением.
+
+### Регистрация устройства (один раз на аккаунт и ключ)
+1. `GET /v1/advisor/device/challenge` (JWT) → `{"challenge": base64}` (16 байт, `HMAC(ключ сервера, user_id)`: цепочка привязана к аккаунту).
+2. Клиент создаёт RSA-2048 в Keystore (`PURPOSE_DECRYPT`, OAEP, digests SHA-256+SHA-1) с `setAttestationChallenge(challenge)`, берёт `getCertificateChain` (лист первым).
+3. `POST /v1/advisor/device` (JWT) `{"chain": [base64 DER, ...]}` → `{"deviceToken", "expiresAt"}` либо `403` с кодом причины: `challenge_mismatch` (перевыпустить ключ), `software_only`, `root_untrusted`, `package`, `signer`, `boot_state`, `revoked`, `chain_signature`, `no_attestation`, …
+4. Сервер проверяет: цепочка подписана до корня Google (закреплены SHA-256 открытых ключей корней: RSA `feb2ea75…fbae`, ECDSA `3ee44512…07ec`); в листе расширение `1.3.6.1.4.1.11129.2.1.17`: наш challenge, уровень не ниже TEE, origin=GENERATED, назначение DECRYPT, RSA; пакет и SHA-256 подписи приложения из белого списка (`ADVISOR_ATTEST_PACKAGES`, `ADVISOR_ATTEST_CERT_DIGESTS`); загрузчик Verified (`ADVISOR_ATTEST_BOOT_STATES`); сертификаты не в списке отзыва Google (`/attestation/status`, суточный кэш). Токен без БД: `LDT1.` + base64url{u: аккаунт, k: SPKI устройства, e: срок} + HMAC.
+5. Токен не принят/просрочен → `403 device_required` на запросе участка → клиент проходит регистрацию заново (один раз).
+
+### Запрос и конверт
+`GET /v1/advisor/sections/{id}` с `Authorization` и `X-Device-Token`. Без токена `403 device_required` (LD2 отдаётся только при `ADVISOR_ALLOW_LD2=true`).
+```
+"LD3" | version (4, BE) | wrappedLen (2, BE) | wrapped | nonce (12) | ChaCha20-Poly1305(JSON) + tag (16)
+```
+- `wrapped` = RSA-OAEP(SHA-256, MGF1-**SHA-1**, пустая метка) от случайного 32-байтового ключа участка (так умеет Keystore);
+- AAD = `"LD3" | version (4) | "<sectionId>"`.
+iOS: тот же протокол на App Attest/Secure Enclave (ключ создаётся в Secure Enclave, проверка на сервере другая, отдельная доработка); PWA аппаратного ключа не имеет — для неё остаётся только LD2/квоты (или отдельное решение).
+
+### Конфигурация прода
+`ADVISOR_ATTEST_CERT_DIGESTS` = SHA-256 сертификата подписи релиза (через запятую, если несколько каналов дистрибуции: свой ключ, Google Play App Signing, RuStore); `ADVISOR_ATTEST_PACKAGES=com.z_company.loco_driver`; `ADVISOR_DEVICE_TOKEN_KEY` — отдельный секрет. Для локальной отладки (эмулятор, debug-подпись): `ADVISOR_ATTEST_DEV_MODE=true` и SHA-256 debug-сертификата в `ADVISOR_ATTEST_CERT_DIGESTS` — только не на проде.

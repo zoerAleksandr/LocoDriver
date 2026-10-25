@@ -19,6 +19,28 @@ object SectionSeal {
 
     class SealException(message: String) : Exception(message)
 
+    private val MAGIC3 = byteArrayOf('L'.code.toByte(), 'D'.code.toByte(), '3'.code.toByte())
+
+    /** Конверт LD3 (ключ участка завёрнут под ключ устройства): `LD3 | version(4) | wrappedLen(2) | wrapped | nonce(12) | ct+tag`. */
+    fun isLd3(blob: ByteArray): Boolean = blob.size > 9 && blob[0] == MAGIC3[0] && blob[1] == MAGIC3[1] && blob[2] == MAGIC3[2]
+
+    /**
+     * Открыть LD3: [unwrap] достаёт 32-байтовый ключ участка закрытым ключом устройства (RSA-OAEP в Keystore). AAD =
+     * `LD3 | version | id`; любая ошибка формата/ключа/тега - [SealException].
+     */
+    fun openLd3(blob: ByteArray, sectionId: String, unwrap: (ByteArray) -> ByteArray?): String {
+        if (!isLd3(blob) || blob.size < 9 + 12 + 16) throw SealException("not an LD3 envelope")
+        val wlen = ((blob[7].toInt() and 0xff) shl 8) or (blob[8].toInt() and 0xff)
+        if (blob.size < 9 + wlen + 12 + 16) throw SealException("truncated")
+        val wrapped = blob.copyOfRange(9, 9 + wlen)
+        val key = unwrap(wrapped)?.takeIf { it.size == 32 } ?: throw SealException("device key cannot unwrap")
+        val nonce = blob.copyOfRange(9 + wlen, 9 + wlen + 12)
+        val aad = MAGIC3 + blob.copyOfRange(3, 7) + sectionId.encodeToByteArray()
+        val plain = SectionCrypto.chacha20Poly1305Open(key, nonce, aad, blob.copyOfRange(9 + wlen + 12, blob.size))
+            ?: throw SealException("authentication failed")
+        return plain.decodeToString()
+    }
+
     /** Версия участка из заголовка (без расшифровки), либо null, если это не конверт LD2. */
     fun versionOf(blob: ByteArray): Int? =
         if (blob.size >= HEADER_LEN && blob[0] == MAGIC[0] && blob[1] == MAGIC[1] && blob[2] == MAGIC[2]) {

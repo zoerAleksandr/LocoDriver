@@ -65,8 +65,12 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 /** Участки советника отдаются только вошедшему: токен берётся из защищённого хранилища на каждый запрос (смена аккаунта подхватывается). */
-private fun bindAdvisorToken(tokens: com.z_company.repository.SecureTokenStorage) {
+private fun bindAdvisorToken(tokens: com.z_company.repository.SecureTokenStorage, appContext: android.content.Context) {
     RemoteRestClient.advisorBearerToken = { tokens.getAuthBearerTokenFlow().first() }
+    RemoteRestClient.advisorAccountId = { tokens.getUserIdFlow().first() }
+    if (RemoteRestClient.advisorDeviceKeys == null) {
+        RemoteRestClient.advisorDeviceKeys = com.z_company.repository.remote_rest.tracks.AndroidDeviceKeys(appContext)
+    }
 }
 
 val repositoryModule = module {
@@ -238,14 +242,14 @@ val repositoryModule = module {
     }
     single {
         // Участки отдаются только вошедшему пользователю: токен берём из защищённого хранилища на каждый запрос.
-        bindAdvisorToken(get())
+        bindAdvisorToken(get(), androidContext())
         com.z_company.repository.remote_rest.tracks.SectionProfileRepository(
             api = RemoteRestClient.advisorApi,
             cache = get(),
         )
     }
     single {
-        bindAdvisorToken(get())
+        bindAdvisorToken(get(), androidContext())
         com.z_company.repository.remote_rest.tracks.AltitudeContributor(
             api = RemoteRestClient.advisorApi,
             store = get(),
