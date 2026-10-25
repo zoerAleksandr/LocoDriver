@@ -43,8 +43,8 @@ class FileAltitudeContribStore(private val dir: File) : AltitudeContribStore {
     private fun isSafeId(id: String) = id.isNotEmpty() && id.all { it.isLetterOrDigit() || it == '-' }
 }
 
-/** Кэш осей участков советника на диске: файл на участок, актуален по `axisHash`. */
-class FileAxisCache(private val dir: File) : AxisCache {
+/** Кэш осей участков советника на диске: файл на участок, актуален по `axisHash`; содержимое зашифровано ключом Keystore ([LocalSeal]). */
+class FileAxisCache(private val dir: File, private val seal: LocalSeal = LocalSeal.deviceBound()) : AxisCache {
     private fun file(sectionId: String) = File(dir, "$sectionId.axis")
 
     private fun isSafeId(id: String) = id.isNotEmpty() && id.all { it.isLetterOrDigit() || it == '-' }
@@ -53,14 +53,14 @@ class FileAxisCache(private val dir: File) : AxisCache {
         if (!isSafeId(sectionId)) return null
         val f = file(sectionId)
         if (!f.isFile) return null
-        return runCatching { AltitudeContribText.decodeAxis(f.readText()) }.getOrNull()
+        return runCatching { AltitudeContribText.decodeAxis(seal.open(f.readBytes())!!.decodeToString()) }.getOrNull()
     }
 
     override fun save(axis: SectionAxis) {
         if (!isSafeId(axis.sectionId)) return
         dir.mkdirs()
         val tmp = File(dir, "${axis.sectionId}.tmp")
-        tmp.writeText(AltitudeContribText.encodeAxis(axis))
+        tmp.writeBytes(seal.seal(AltitudeContribText.encodeAxis(axis).encodeToByteArray()))
         if (!tmp.renameTo(file(axis.sectionId))) tmp.delete()
     }
 
@@ -71,24 +71,24 @@ class FileAxisCache(private val dir: File) : AxisCache {
     }
 }
 
-/** Кэш профилей участков на диске: файл `<id>.json` на участок и `index.json` со списком. Пишется через временный файл. */
-class FileSectionProfileCache(private val dir: File) : com.z_company.repository.remote_rest.tracks.SectionProfileCache {
+/** Кэш профилей участков на диске: файл `<id>.json` на участок и `index.json` со списком. Содержимое зашифровано ключом Keystore ([LocalSeal]); пишется через временный файл. */
+class FileSectionProfileCache(private val dir: File, private val seal: LocalSeal = LocalSeal.deviceBound()) : com.z_company.repository.remote_rest.tracks.SectionProfileCache {
     private fun isSafeId(id: String) = id.isNotEmpty() && id.all { it.isLetterOrDigit() || it == '-' }
 
     private fun write(target: File, text: String) {
         dir.mkdirs()
         val tmp = File(dir, target.name + ".tmp")
-        tmp.writeText(text)
+        tmp.writeBytes(seal.seal(text.encodeToByteArray()))
         if (!tmp.renameTo(target)) tmp.delete()
     }
 
-    override fun loadIndex(): String? = File(dir, "index.json").takeIf { it.isFile }?.let { runCatching { it.readText() }.getOrNull() }
+    override fun loadIndex(): String? = File(dir, "index.json").takeIf { it.isFile }?.let { runCatching { seal.open(it.readBytes())?.decodeToString() }.getOrNull() }
 
     override fun saveIndex(text: String) = write(File(dir, "index.json"), text)
 
     override fun load(sectionId: String): String? {
         if (!isSafeId(sectionId)) return null
-        return File(dir, "$sectionId.json").takeIf { it.isFile }?.let { runCatching { it.readText() }.getOrNull() }
+        return File(dir, "$sectionId.json").takeIf { it.isFile }?.let { runCatching { seal.open(it.readBytes())?.decodeToString() }.getOrNull() }
     }
 
     override fun save(sectionId: String, text: String) {
