@@ -61,4 +61,18 @@ class LocomotiveNormaSerializationTest {
         assertEquals("12.5", "12.5.3".sanitizeNumericInput(allowDecimal = true))
         assertEquals("", "abc".sanitizeNumericInput(allowDecimal = true))
     }
+
+    @Test
+    fun fractionalSectionCountersSurviveServerRoundTrip() {
+        // Сервер отдаёт показания числом (3337.77 дробное, 12 целое); на сервер клиент шлёт строкой.
+        val decoded = json.decodeFromString<SectionElectric>(
+            """{"sectionId":"s","acceptedEnergy":3337.77,"deliveryEnergy":3400,"acceptedRecovery":"12.5"}"""
+        )
+        assertEquals(3337.77, decoded.acceptedEnergy)
+        assertEquals(3400.0, decoded.deliveryEnergy)
+        assertEquals(12.5, decoded.acceptedRecovery)
+        val encoded = json.encodeToString(decoded)
+        assertTrue(encoded.contains("\"acceptedEnergy\":\"3337.77\""), encoded)
+        assertTrue(encoded.contains("\"deliveryEnergy\":\"3400\""), encoded)
+    }
 }
