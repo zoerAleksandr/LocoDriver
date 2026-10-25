@@ -117,9 +117,15 @@ object RemoteRestClient {
         com.z_company.repository.remote_rest.tracks.KtorTracksApi(createClient { BASE_URL })
     }
 
+    /**
+     * Токен входа для участков советника (они отдаются только вошедшему). Задаёт приложение при старте (DI); читается на каждый
+     * запрос, поэтому смена аккаунта подхватывается. null/пусто - не вошёл.
+     */
+    var advisorBearerToken: suspend () -> String? = { null }
+
     /** Участки советника и вклад высот (согласие №2, SCREEN_SPECS §6.9/§17.7). */
     val advisorApi: com.z_company.repository.remote_rest.tracks.AdvisorApi by lazy {
-        com.z_company.repository.remote_rest.tracks.KtorAdvisorApi(createClient { BASE_URL })
+        com.z_company.repository.remote_rest.tracks.KtorAdvisorApi(createClient { BASE_URL }) { advisorBearerToken() }
     }
 
     /** Общая карта зон без GPS и вклад (согласие №2, SCREEN_SPECS §6.9, «Зоны без GPS»). */
