@@ -188,7 +188,7 @@ private fun WarningForm(model: ProfileModel, section: SectionProfile, place: War
     fun initial(rel: Double): Pair<String, String> =
         KmMarks.toAbs(marks, rel)?.let { TrackWarnings.split(it) }?.let { (k, p) -> k.toString() to p.toString() } ?: ("" to "")
     val (sk, sp) = remember(place) { initial(place.startKm) }
-    val (ek, ep) = remember(place) { initial(place.endKm) }
+    val (ek, ep) = remember(place) { if (place.isStation) ("" to "") else initial(place.endKm) }
     var startKm by remember { mutableStateOf(TextFieldValue(sk)) }
     var startPk by remember { mutableStateOf(TextFieldValue(sp)) }
     var endKm by remember { mutableStateOf(TextFieldValue(ek)) }
@@ -205,19 +205,22 @@ private fun WarningForm(model: ProfileModel, section: SectionProfile, place: War
         if (hasKm) {
             val k1 = startKm.text.trim().toIntOrNull()
             val p1 = startPk.text.trim().ifEmpty { "1" }.toIntOrNull()
-            val k2 = endKm.text.trim().toIntOrNull()
-            val p2 = endPk.text.trim().ifEmpty { "1" }.toIntOrNull()
-            if (k1 == null || k2 == null || k1 < 0 || k2 < 0) { error = "Введите километры начала и конца."; return }
+            val noEnd = endKm.text.isBlank()
+            val k2 = if (noEnd) k1 else endKm.text.trim().toIntOrNull()
+            val p2 = if (noEnd) p1 else endPk.text.trim().ifEmpty { "1" }.toIntOrNull()
+            if (k1 == null || k2 == null || k1 < 0 || k2 < 0) { error = "Введите километр начала (и конца, если зона длиннее пикета)."; return }
             if (p1 == null || p2 == null || p1 !in 1..10 || p2 !in 1..10) { error = "Пикет — число от 1 до 10."; return }
             aAbs = TrackWarnings.absKm(k1, p1)
-            bAbs = TrackWarnings.absKm(k2, p2)
+            // конец не указан или совпал с началом - предупреждение действует на одном пикете (100 м)
+            bAbs = TrackWarnings.absKm(k2, p2).let { if (noEnd || it == aAbs) aAbs + 0.1 else it }
         } else { aAbs = null; bAbs = null }
         val speedV = speed.text.trim().toIntOrNull()
         if (type == WarningType.SPEED && (speedV == null || speedV !in 1..200)) { error = "Введите ограничение скорости, км/ч."; return }
         if (type == WarningType.OTHER && note.text.isBlank()) { error = "Напишите примечание."; return }
         val w = TrackWarning(
             id = UUID.randomUUID().toString(), sectionId = section.id,
-            startAbsKm = aAbs, endAbsKm = bAbs, startRelKm = place.startKm, endRelKm = place.endKm,
+            startAbsKm = aAbs, endAbsKm = bAbs, startRelKm = place.startKm,
+            endRelKm = if (place.endKm - place.startKm < 0.0999) place.startKm + 0.1 else place.endKm,
             type = type, speedKmh = if (type == WarningType.SPEED) speedV else null,
             note = note.text.trim(), place = place.title,
         )
@@ -245,6 +248,10 @@ private fun WarningForm(model: ProfileModel, section: SectionProfile, place: War
                     PstTextField(endKm, { endKm = it; error = null }, "Конец, км", Modifier.weight(1f), keyboardOptions = numeric, mono = true)
                     PstTextField(endPk, { endPk = it; error = null }, "Конец, пикет", Modifier.weight(1f), placeholder = "1", keyboardOptions = numeric, mono = true)
                 }
+                Text(
+                    "Конец не указан — предупреждение действует на одном пикете (100 м).",
+                    style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted,
+                )
             } else {
                 Text(
                     "У участка нет километровой привязки — предупреждение займёт весь выбранный отрезок.",

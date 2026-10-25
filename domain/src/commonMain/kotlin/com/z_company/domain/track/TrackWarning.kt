@@ -40,6 +40,9 @@ data class TrackWarning(
             WarningType.OTHER -> note.ifBlank { "предупреждение" }
         }
 
+    /** Заголовок карточки на карте: «Ограничение 40 км/ч». */
+    val title: String get() = label.replaceFirstChar { it.uppercase() }
+
     /** Текст для озвучки; [meters] - расстояние до начала. */
     fun spoken(meters: Int): String {
         val what = when (type) {
