@@ -40,11 +40,21 @@ class OnboardingRulesTest {
     }
 
     @Test
-    fun trainScreenOrderIsMapThenAuto() {
+    fun trainScreenOrderIsMapThenAutoThenVu45() {
+        // Одна подсказка за раз, по порядку: «Карта» -> «АВТО» -> «Справка ВУ-45»; когда показаны все три - null.
         assertEquals(HintId.TRAIN_MAP, OnboardingHints.nextOnTrainScreen(emptySet(), true, false, false))
         assertEquals(HintId.AUTO_CHIP, OnboardingHints.nextOnTrainScreen(setOf("train_map"), true, false, false))
-        assertNull(OnboardingHints.nextOnTrainScreen(setOf("train_map", "auto_chip"), true, false, false))
-        assertNull(OnboardingHints.nextOnTrainScreen(emptySet(), true, true, false))
+        assertEquals(HintId.TRAIN_VU45, OnboardingHints.nextOnTrainScreen(setOf("train_map", "auto_chip"), true, false, false))
+        assertNull(OnboardingHints.nextOnTrainScreen(setOf("train_map", "auto_chip", "train_vu45"), true, false, false))
+        // Показанные в другом порядке подсказки не мешают: берётся первая из непоказанных.
+        assertEquals(HintId.AUTO_CHIP, OnboardingHints.nextOnTrainScreen(setOf("train_map", "train_vu45"), true, false, false))
+    }
+
+    @Test
+    fun trainScreenHintsWaitForHomeAndStayOutOfTheWay() {
+        assertNull(OnboardingHints.nextOnTrainScreen(emptySet(), homeReached = false, recording = false, blocked = false))
+        assertNull(OnboardingHints.nextOnTrainScreen(emptySet(), homeReached = true, recording = true, blocked = false))
+        assertNull(OnboardingHints.nextOnTrainScreen(emptySet(), homeReached = true, recording = false, blocked = true))
     }
 
     // --- Напоминание про «АВТО» ---
