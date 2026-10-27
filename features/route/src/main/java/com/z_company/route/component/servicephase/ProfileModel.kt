@@ -226,8 +226,15 @@ internal class ProfileModel(
     private class MeasureStart(val sectionId: String?, val axisKm: Double?, val fix: GeoFix)
     private var measureFrom by mutableStateOf<MeasureStart?>(null)
 
-    /** Замер идёт. */
-    val measuring: Boolean get() = measureFrom != null
+    /** Замер остановлен кнопкой «Стоп»: число заморожено до «Сброс». */
+    var measureStopped by mutableStateOf(false)
+        private set
+
+    /** Замер идёт (считает). */
+    val measuring: Boolean get() = measureFrom != null && !measureStopped
+
+    /** Есть замер - идёт или остановлен, число показывается. */
+    val hasMeasure: Boolean get() = measureFrom != null
 
     /** Пройдено от точки начала замера, м; null - замера нет или нет положения. */
     var measuredM by mutableStateOf<Double?>(null)
@@ -241,23 +248,32 @@ internal class ProfileModel(
     val measureStartAxisKm: Double?
         get() = measureFrom?.takeIf { it.sectionId != null && it.sectionId == section?.id }?.axisKm
 
-    /** Начать замер (или начать заново) от текущего положения; без фикса GPS ничего не делает. */
+    /** Начать замер от текущего положения; без фикса GPS ничего не делает. */
     fun startMeasure() {
         val fix = lastFix ?: return
         val p = position?.takeIf { !it.offRoute && it.locked }
         measureFrom = MeasureStart(if (p != null) section?.id else null, p?.kmAxis, fix)
         measuredM = 0.0
         measureApprox = p == null
+        measureStopped = false
     }
 
+    /** «Стоп»: перестать считать, число остаётся на экране. */
     fun stopMeasure() {
+        if (measureFrom != null) measureStopped = true
+    }
+
+    /** «Сброс»: убрать замер; следующий - «Старт». */
+    fun resetMeasure() {
         measureFrom = null
         measuredM = null
         measureApprox = false
+        measureStopped = false
     }
 
     private fun updateMeasure(fix: GeoFix, p: LivePosition?) {
         val from = measureFrom ?: return
+        if (measureStopped) return
         val onAxis = from.axisKm != null && from.sectionId == section?.id && p != null && !p.offRoute && p.locked
         if (onAxis) {
             measuredM = abs(p!!.kmAxis - from.axisKm!!) * 1000.0

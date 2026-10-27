@@ -734,7 +734,7 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
                 }
             }
         }
-        if (model.measuring) MeasureChip(model)
+        if (model.hasMeasure) MeasureChip(model)
         model.train?.let { tr ->
             Text(
                 text = trainLabel(tr),
@@ -759,19 +759,33 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
     if (showTrains) TrainPickerDialog(model, onDismiss = { showTrains = false })
 }
 
-/** «Линейка» в шапке: включает замер от текущего места, повторное нажатие выключает. Без GPS замер не начать. */
+/**
+ * Кнопка замера в шапке с подписью по состоянию: «Старт» (замера нет или он сброшен) → «Стоп» (идёт, число растёт) → «Сброс»
+ * (остановлен, число заморожено) → «Старт». Без фикса GPS «Старт» ничего не делает.
+ */
 @Composable
 private fun MeasureButton(model: ProfileModel) {
-    val on = model.measuring
-    Box(
+    val running = model.measuring
+    val stopped = model.measureStopped && model.hasMeasure
+    val label = when { running -> "Стоп"; stopped -> "Сброс"; else -> "Старт" }
+    Row(
         modifier = Modifier
-            .size(38.dp)
-            .background(if (on) Pst.accent else Pst.bgSubtle, RoundedCornerShape(12.dp))
-            .clickable(onClickLabel = if (on) "Выключить замер расстояния" else "Замерить расстояние") {
-                if (on) model.stopMeasure() else model.startMeasure()
-            },
-        contentAlignment = Alignment.Center,
-    ) { PstIcon(PstIcons.Ruler, 20.dp, if (on) Pst.onAccent else Pst.text) }
+            .height(38.dp)
+            .background(if (running) Pst.accent else Pst.bgSubtle, RoundedCornerShape(12.dp))
+            .clickable(onClickLabel = label) {
+                when { running -> model.stopMeasure(); stopped -> model.resetMeasure(); else -> model.startMeasure() }
+            }
+            .padding(horizontal = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        PstIcon(PstIcons.Ruler, 20.dp, if (running) Pst.onAccent else Pst.text)
+        Text(
+            text = label,
+            style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
+            color = if (running) Pst.onAccent else Pst.text, maxLines = 1,
+        )
+    }
 }
 
 /** До километра - целые метры, дальше - километры с одним знаком. */
@@ -780,7 +794,7 @@ private fun measureText(m: Double): String =
 
 /**
  * Пройденное от точки замера: число (по оси пути, при потере привязки - «по прямой»), длина поезда для сравнения (цвет
- * акцента, когда пройдено не меньше длины: хвост вышел) и «Сброс» - начать отсчёт заново с этого места.
+ * акцента, когда пройдено не меньше длины: хвост вышел). Кнопки - в шапке ([MeasureButton]).
  */
 @Composable
 private fun MeasureChip(model: ProfileModel) {
@@ -788,7 +802,7 @@ private fun MeasureChip(model: ProfileModel) {
     val trainM = model.trainLengthKm?.times(1000)
     val cleared = trainM != null && m >= trainM
     Row(
-        modifier = Modifier.background(Pst.bgSubtle, RoundedCornerShape(12.dp)).padding(start = 10.dp, end = 4.dp),
+        modifier = Modifier.background(Pst.bgSubtle, RoundedCornerShape(12.dp)).padding(horizontal = 10.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -804,11 +818,6 @@ private fun MeasureChip(model: ProfileModel) {
             }.joinToString(" · ")
             if (sub.isNotEmpty()) Text(sub, style = Pst.sans.copy(fontSize = 10.sp), color = Pst.textMuted, maxLines = 1)
         }
-        PstButton(
-            text = "Сброс", onClick = { model.startMeasure() },
-            kind = PstButtonKind.TONAL, height = 34.dp, fontSize = 13,
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
-        )
     }
 }
 
