@@ -73,7 +73,9 @@ class SectionProfileRepository(
             memory[id] = cached
             return cached.second
         }
-        val fresh = if (refresh || cached == null) download(id) else null
+        // Кэш устарел (у списка `updatedAt` новее) или его нет - качаем независимо от [refresh]: список уже обновлён,
+        // и дополнения автора участка должны доходить до карты. Сбой сети - остаётся прежний кэш.
+        val fresh = download(id)
         val result = fresh ?: cached
         result?.let { memory[id] = it }
         result?.second
@@ -89,6 +91,20 @@ class SectionProfileRepository(
     /** Удалить с диска участки, снятые с публикации. */
     suspend fun cleanUp() = lock.withLock {
         val ids = loadIndexLocked(false).map { it.id }.toSet()
+    /**
+     * Синхронизация профилей участков (в общей синхронизации приложения): обновить список, перекачать уже сохранённые участки,
+     * изменившиеся на сервере (сравнение `updatedAt` списка с сохранённым), убрать с диска снятые с публикации.
+     * true - сервер ответил; false - сети нет (кэш не тронут). Сбой одного участка не мешает остальным.
+     */
+    suspend fun syncAll(): Boolean {
+        val fresh = runCatching { api.sections() }.getOrNull() ?: return false
+        lock.withLock { storeIndexLocked(fresh) }
+        // Только участки, уже сохранённые на этом телефоне: новые по-прежнему качаются по положению (габарит, квоты сервера).
+        fresh.filter { it.hasGeometry && readCached(it.id) != null }.forEach { runCatching { section(it.id, refresh = false) } }
+        cleanUp()
+        return true
+    }
+
         if (ids.isNotEmpty()) cache.retain(ids)
     }
 
@@ -97,9 +113,13 @@ class SectionProfileRepository(
     private suspend fun loadIndexLocked(refresh: Boolean): List<AdvisorSectionSummaryDto> {
         if (refresh) {
             val fresh = runCatching { api.sections() }.getOrNull()
+    private fun storeIndexLocked(fresh: List<AdvisorSectionSummaryDto>) {
+        index = fresh
+        runCatching { cache.saveIndex(json.encodeToString(ListSerializer(AdvisorSectionSummaryDto.serializer()), fresh)) }
+    }
+
             if (fresh != null) {
-                index = fresh
-                runCatching { cache.saveIndex(json.encodeToString(ListSerializer(AdvisorSectionSummaryDto.serializer()), fresh)) }
+                storeIndexLocked(fresh)
                 return fresh
             }
         }

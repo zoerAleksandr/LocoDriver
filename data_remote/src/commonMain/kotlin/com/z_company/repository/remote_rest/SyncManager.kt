@@ -100,6 +100,8 @@ class SyncManager(
     private val clientVersion: String? = null,
     /** Справки ВУ-45: слияние (LWW) справок, пришедших вместе с рейсом. */
     private val brakeCertificates: com.z_company.domain.brake.storage.BrakeCertificateUseCase? = null,
+    /** Профили участков для «Профиля пути» (Android): обновляются в общей синхронизации; null - не используются (iOS). */
+    private val sectionProfiles: com.z_company.repository.remote_rest.tracks.SectionProfileRepository? = null,
 ) {
 
     private val syncMutex = Mutex()
@@ -465,6 +467,7 @@ class SyncManager(
         // 1.5. Нормы времени: слияние с сервером (серии и станции).
         syncLocomotiveSeries(bearerToken)
         syncStationNorms(bearerToken)
+        syncSectionProfiles()
         // Справочник напарников: если локально пусто — GET с сервера и сохранить.
         val localPartnersForDownload = partnerRepository.getAll()
         if (localPartnersForDownload.isEmpty()) {
@@ -902,6 +905,7 @@ class SyncManager(
         if (!syncLocomotiveSeries(bearerToken)) settingsUploadSucceeded = false
         // Станции сливаются с сервером при каждой синхронизации (не только при pending).
         if (!syncStationNorms(bearerToken)) settingsUploadSucceeded = false
+        syncSectionProfiles()
         val localPartners = partnerRepository.getAll()
         if (settingsPending) {
             settingManager.savePartnersInRemote(localPartners, bearerToken)
@@ -1173,6 +1177,21 @@ class SyncManager(
      * (сервер принял бы его за full-replace старого клиента). Возвращает false, если сеть
      * не отдала справочник или отправка не удалась; тогда локальное не меняем.
      */
+    /**
+     * Профили участков советника (общие данные): подтянуть изменения автора по `updatedAt`. Необязательный шаг:
+     * сбой или отсутствие сети синхронизацию не ломают и пользователю не показываются.
+     */
+    private suspend fun syncSectionProfiles() {
+        val repo = sectionProfiles ?: return
+        try {
+            repo.syncAll()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            println("SyncManager: syncSectionProfiles skipped: ${e::class.simpleName}")
+        }
+    }
+
     private suspend fun syncStationNorms(bearerToken: String): Boolean = try {
         syncStationNormsUnsafe(bearerToken)
     } catch (e: kotlinx.coroutines.CancellationException) {

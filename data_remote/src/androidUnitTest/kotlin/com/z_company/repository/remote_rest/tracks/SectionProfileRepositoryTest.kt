@@ -109,4 +109,42 @@ class SectionProfileRepositoryTest {
         repo.summaries()
         assertEquals(setOf("s1", "s2"), repo.sectionsNear(55.01, 37.0).map { it.id }.toSet())
     }
+
+    @Test
+    fun near_redownloads_section_changed_on_server() = runBlocking {
+        val api = ProfileApi().apply { withBox = true }
+        val cache = MemProfileCache()
+        SectionProfileRepository(api, cache).apply { summaries(); sectionsNear(55.01, 37.0) }
+        assertEquals(1, api.sectionCallsById["s1"])
+
+        // Автор дополнил участок: updatedAt вырос. Карта берёт оси через sectionsNear - старый кэш отдавать нельзя.
+        api.updatedAt = 2000.0
+        val repo = SectionProfileRepository(api, cache)
+        repo.summaries()
+        repo.sectionsNear(55.01, 37.0)
+        assertEquals(2, api.sectionCallsById["s1"])
+        repo.sectionsNear(55.01, 37.0)
+        assertEquals(2, api.sectionCallsById["s1"])
+    }
+
+    @Test
+    fun syncAll_updates_only_saved_sections_and_reports_network() = runBlocking {
+        val api = ProfileApi()
+        val cache = MemProfileCache()
+        SectionProfileRepository(api, cache).section("s1")
+        assertEquals(1, api.sectionCallsById["s1"])
+
+        // Ничего не менялось - ничего не качаем; чужие (не сохранённые) участки не качаем никогда.
+        assertTrue(SectionProfileRepository(api, cache).syncAll())
+        assertEquals(1, api.sectionCallsById["s1"])
+        assertNull(api.sectionCallsById["s2"])
+
+        api.updatedAt = 3000.0
+        assertTrue(SectionProfileRepository(api, cache).syncAll())
+        assertEquals(2, api.sectionCallsById["s1"])
+        assertNull(api.sectionCallsById["s2"])
+
+        api.offline = true
+        assertEquals(false, SectionProfileRepository(api, cache).syncAll())
+    }
 }

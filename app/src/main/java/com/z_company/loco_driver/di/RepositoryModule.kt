@@ -357,6 +357,7 @@ val repositoryModule = module {
             partnerRepository = get(),
             remoteRestApi = get(),
             brakeCertificates = get(),
+            sectionProfiles = get(),
             clientPlatform = "android",
             clientVersion = BuildConfig.VERSION_NAME,
         )
