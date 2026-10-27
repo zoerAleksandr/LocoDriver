@@ -113,9 +113,11 @@ internal class WarningVoice(context: Context, private val settings: WarningVoice
         }
     }
 
-    fun speak(text: String) {
+    /** [append] - не обрывать то, что говорится сейчас (заход/выход из зоны не должны перебивать друг друга). */
+    fun speak(text: String, append: Boolean = false) {
         if (!ready || !settings.enabled) return
-        runCatching { tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "warning") }
+        val mode = if (append) TextToSpeech.QUEUE_ADD else TextToSpeech.QUEUE_FLUSH
+        runCatching { tts?.speak(text, mode, null, "warning") }
     }
 
     fun shutdown() {

@@ -8,7 +8,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -78,6 +82,41 @@ private fun WarningPanel(widthFraction: Float = 0.85f, fill: Boolean = true, con
     ) { content() }
 }
 
+/** Отдельный экран предупреждений: на весь экран (не диалог-карточка), с отступами под системные панели и клавиатуру. */
+@Composable
+private fun WarningScreen(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Pst.bg)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .imePadding()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) { content() }
+}
+
+/**
+ * На время показа экрана предупреждений снимает горизонтальную блокировку профиля: экран поворачивается вслед за телефоном
+ * (в любую сторону); возвращает действие «Повернуть» - переключает вертикаль и горизонталь вручную. На выходе прежняя ориентация.
+ */
+@Composable
+private fun rememberWarningRotation(): () -> Unit {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val activity = remember(context) { context.findActivity() }
+    androidx.compose.runtime.DisposableEffect(activity) {
+        val previous = activity?.requestedOrientation
+        activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+        onDispose { previous?.let { activity.requestedOrientation = it } }
+    }
+    val portrait = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
+    return {
+        activity?.requestedOrientation = if (portrait) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+    }
+}
+
 @Composable
 private fun Chip(text: String, on: Boolean, onClick: () -> Unit) {
     Text(
@@ -104,20 +143,35 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
     var place by remember { mutableStateOf<WarningPlace?>(null) }
     var added by remember { mutableStateOf(0) }
     val places = remember(section.id, live.reversed) { warningPlaces(section, live.reversed) }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        // Экран предупреждений поворачивается вслед за телефоном и кнопкой «Повернуть» (профиль на время показа не держит горизонталь).
+        val rotate = rememberWarningRotation()
+        val portrait = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
         val p = place
         if (p == null) {
-            WarningPanel {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Column(Modifier.weight(1f)) {
+            WarningScreen {
+                val titleBlock: @Composable (Modifier) -> Unit = { m ->
+                    Column(m) {
                         Text("Предупреждения", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
                         Text(
                             text = section.name + if (added > 0) " · добавлено: $added" else "",
                             style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }
+                }
+                val buttons: @Composable () -> Unit = {
+                    PstButton("Повернуть", rotate, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
                     PstButton("Голос", onVoice, kind = PstButtonKind.TONAL, height = 40.dp, fontSize = 14)
                     PstButton("Готово", onDismiss, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
+                }
+                if (portrait) {
+                    titleBlock(Modifier.fillMaxWidth())
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) { buttons() }
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        titleBlock(Modifier.weight(1f))
+                        buttons()
+                    }
                 }
                 LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (model.savedWarnings.isNotEmpty()) {
@@ -147,7 +201,7 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
                 }
             }
         } else {
-            WarningForm(model, section, p, onBack = { place = null }, onSaved = { added++; place = null })
+            WarningForm(model, section, p, onBack = { place = null }, onSaved = { added++; place = null }, onRotate = rotate)
         }
     }
 }
@@ -184,20 +238,27 @@ private fun SavedWarningRow(model: ProfileModel, section: SectionProfile, w: Tra
 @Composable
 private fun WarningForm(
     model: ProfileModel, section: SectionProfile, place: WarningPlace, existing: TrackWarning? = null,
-    onBack: () -> Unit, onSaved: () -> Unit,
+    onBack: () -> Unit, onSaved: () -> Unit, onRotate: () -> Unit = {},
 ) {
     val marks = section.kmMarks
     val hasKm = marks.isNotEmpty()
     fun initial(rel: Double): Pair<String, String> =
         KmMarks.toAbs(marks, rel)?.let { TrackWarnings.split(it) }?.let { (k, p) -> k.toString() to p.toString() } ?: ("" to "")
     fun fromAbs(abs: Double?): Pair<String, String>? = abs?.let { TrackWarnings.split(it) }?.let { (k, p) -> k.toString() to p.toString() }
-    val (sk, sp) = remember(place) { existing?.let { fromAbs(it.startAbsKm) } ?: initial(place.startKm) }
+    // Поля км/пикета на перегоне не предзаполняются (машинист вводит границы сам); у станции предзаполнено только начало.
+    val (sk, sp) = remember(place) { existing?.let { fromAbs(it.startAbsKm) } ?: if (place.isStation) initial(place.startKm) else ("" to "") }
     // Зона на один пикет (конец = начало + 100 м) показывается с пустым концом - как вводилась.
     val oneSection = existing?.let { it.startAbsKm != null && it.endAbsKm != null && kotlin.math.abs(it.endAbsKm!! - it.startAbsKm!! - 0.1) < 1e-6 } == true
     val (ek, ep) = remember(place) {
         if (existing != null) { if (oneSection) ("" to "") else fromAbs(existing.endAbsKm) ?: ("" to "") }
-        else if (place.isStation) ("" to "") else initial(place.endKm)
+        else ("" to "")
     }
+    // Подсказка вместо предзаполнения: где проходят границы перегона (станция и редактирование - без неё).
+    val placeHint = if (existing == null && !place.isStation && hasKm) {
+        val a = KmMarks.toAbs(marks, place.startKm)?.let { KmMarks.position(it).text() }
+        val b = KmMarks.toAbs(marks, place.endKm)?.let { KmMarks.position(it).text() }
+        if (a != null && b != null) "Перегон: $a — $b" else null
+    } else null
     var startKm by remember { mutableStateOf(TextFieldValue(sk)) }
     var startPk by remember { mutableStateOf(TextFieldValue(sp)) }
     var endKm by remember { mutableStateOf(TextFieldValue(ek)) }
@@ -251,10 +312,11 @@ private fun WarningForm(
         if (existing != null) {
             PstButton("Удалить", { model.deleteWarning(existing.id); onSaved() }, kind = PstButtonKind.DANGER, height = 40.dp, fontSize = 14)
         }
+        PstButton("Повернуть", onRotate, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
         PstButton(if (existing != null) "Отмена" else "Назад", onBack, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
         PstButton("Сохранить", { save() }, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
     }
-    WarningPanel(widthFraction = if (portrait) 0.94f else 0.8f, fill = !portrait) {
+    WarningScreen {
         if (portrait) {
             titleBlock(Modifier.fillMaxWidth())
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) { buttons() }
@@ -264,8 +326,9 @@ private fun WarningForm(
                 buttons()
             }
         }
-        Column(Modifier.weight(1f, fill = !portrait).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (hasKm) {
+                placeHint?.let { Text(it, style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted) }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     PstTextField(startKm, { startKm = it; error = null }, "Начало, км", Modifier.weight(1f), keyboardOptions = numeric, mono = true)
                     PstTextField(startPk, { startPk = it; error = null }, "Начало, пикет", Modifier.weight(1f), placeholder = "1", keyboardOptions = numeric, mono = true)
@@ -406,13 +469,15 @@ private fun SettingBlock(title: String, content: @Composable () -> Unit) {
 internal fun WarningEditDialog(model: ProfileModel) {
     val w = model.editingWarning ?: return
     val section = model.section ?: return
-    Dialog(onDismissRequest = { model.closeWarningEdit() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = { model.closeWarningEdit() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        val rotate = rememberWarningRotation()
         WarningForm(
             model, section,
             WarningPlace(w.place, w.startRelKm, w.endRelKm, false),
             existing = w,
             onBack = { model.closeWarningEdit() },
             onSaved = { model.closeWarningEdit() },
+            onRotate = rotate,
         )
     }
 }

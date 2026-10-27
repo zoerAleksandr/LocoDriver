@@ -134,6 +134,8 @@ internal class ProfileModel(
     private var activeWarningIds by mutableStateOf<Map<String, Set<String>>>(emptyMap())
     private var offeredSections by mutableStateOf<Set<String>>(emptySet())
     private val spokenAt = HashMap<String, Long>()
+    private val passes = com.z_company.domain.track.WarningPassTracker()
+    private var passDir = 0
 
     /** Сохранённые предупреждения, действующие сейчас на выбранном участке. */
     val activeWarnings: List<ResolvedWarning>
@@ -169,6 +171,7 @@ internal class ProfileModel(
         warningsSectionId = s.id
         savedWarnings = warningStore?.load(s.id).orEmpty()
         spokenAt.clear()
+        passes.reset()
     }
 
     /** Предупреждение, открытое для редактирования (нажатие на карточку на карте или на зону на профиле). */
@@ -182,6 +185,7 @@ internal class ProfileModel(
         savedWarnings = savedWarnings.map { if (it.id == w.id) w else it }
         warningStore?.save(s.id, savedWarnings)
         spokenAt.remove(w.id)
+        passes.forget(w.id)
     }
 
     fun addWarning(w: TrackWarning) {
@@ -196,6 +200,7 @@ internal class ProfileModel(
         val s = section ?: return
         if (editingWarning?.id == id) editingWarning = null
         savedWarnings = savedWarnings.filter { it.id != id }
+        passes.forget(id)
         warningStore?.save(s.id, savedWarnings)
         activeWarningIds = activeWarningIds + (s.id to (activeWarningIds[s.id].orEmpty() - id))
     }
@@ -204,6 +209,7 @@ internal class ProfileModel(
         val s = section ?: return
         val cur = activeWarningIds[s.id].orEmpty()
         activeWarningIds = activeWarningIds + (s.id to if (on) cur + id else cur - id)
+        passes.forget(id)
         offeredSections = offeredSections + s.id
     }
 
@@ -220,7 +226,15 @@ internal class ProfileModel(
         val v = voice ?: return
         if (!settings.enabled || p == null || p.offRoute || !p.locked) return
         val dir = if (reversed) -1 else 1
+        if (dir != passDir) { passDir = dir; passes.reset() }
         activeWarnings.forEach { r ->
+            // Заход головы и (у ограничения скорости) выход всей длиной поезда; вход в зону озвучивается один раз.
+            passes.update(r, p.kmAxis, dir, trainLengthKm).forEach { e ->
+                when (e) {
+                    com.z_company.domain.track.WarningEvent.ENTER -> v.speak(r.warning.spokenEnter(), append = true)
+                    com.z_company.domain.track.WarningEvent.EXIT -> r.warning.spokenExit()?.let { v.speak(it, append = true) }
+                }
+            }
             val d = TrackWarnings.distanceAheadM(r, p.kmAxis, dir)
             val id = r.warning.id
             if (d == null || d > settings.distanceM * 1.15) { spokenAt.remove(id); return@forEach }
