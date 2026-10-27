@@ -97,26 +97,6 @@ private fun WarningScreen(content: @Composable androidx.compose.foundation.layou
     ) { content() }
 }
 
-/**
- * На время показа экрана предупреждений снимает горизонтальную блокировку профиля: экран поворачивается вслед за телефоном
- * (в любую сторону); возвращает действие «Повернуть» - переключает вертикаль и горизонталь вручную. На выходе прежняя ориентация.
- */
-@Composable
-private fun rememberWarningRotation(): () -> Unit {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val activity = remember(context) { context.findActivity() }
-    androidx.compose.runtime.DisposableEffect(activity) {
-        val previous = activity?.requestedOrientation
-        activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
-        onDispose { previous?.let { activity.requestedOrientation = it } }
-    }
-    val portrait = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
-    return {
-        activity?.requestedOrientation = if (portrait) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-    }
-}
-
 @Composable
 private fun Chip(text: String, on: Boolean, onClick: () -> Unit) {
     Text(
@@ -144,8 +124,6 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
     var added by remember { mutableStateOf(0) }
     val places = remember(section.id, live.reversed) { warningPlaces(section, live.reversed) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        // Экран предупреждений поворачивается вслед за телефоном и кнопкой «Повернуть» (профиль на время показа не держит горизонталь).
-        val rotate = rememberWarningRotation()
         val portrait = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
         val p = place
         if (p == null) {
@@ -160,7 +138,6 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
                     }
                 }
                 val buttons: @Composable () -> Unit = {
-                    PstButton("Повернуть", rotate, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
                     PstButton("Голос", onVoice, kind = PstButtonKind.TONAL, height = 40.dp, fontSize = 14)
                     PstButton("Готово", onDismiss, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
                 }
@@ -201,7 +178,7 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
                 }
             }
         } else {
-            WarningForm(model, section, p, onBack = { place = null }, onSaved = { added++; place = null }, onRotate = rotate)
+            WarningForm(model, section, p, onBack = { place = null }, onSaved = { added++; place = null })
         }
     }
 }
@@ -238,7 +215,7 @@ private fun SavedWarningRow(model: ProfileModel, section: SectionProfile, w: Tra
 @Composable
 private fun WarningForm(
     model: ProfileModel, section: SectionProfile, place: WarningPlace, existing: TrackWarning? = null,
-    onBack: () -> Unit, onSaved: () -> Unit, onRotate: () -> Unit = {},
+    onBack: () -> Unit, onSaved: () -> Unit,
 ) {
     val marks = section.kmMarks
     val hasKm = marks.isNotEmpty()
@@ -312,7 +289,6 @@ private fun WarningForm(
         if (existing != null) {
             PstButton("Удалить", { model.deleteWarning(existing.id); onSaved() }, kind = PstButtonKind.DANGER, height = 40.dp, fontSize = 14)
         }
-        PstButton("Повернуть", onRotate, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
         PstButton(if (existing != null) "Отмена" else "Назад", onBack, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
         PstButton("Сохранить", { save() }, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
     }
@@ -470,14 +446,12 @@ internal fun WarningEditDialog(model: ProfileModel) {
     val w = model.editingWarning ?: return
     val section = model.section ?: return
     Dialog(onDismissRequest = { model.closeWarningEdit() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        val rotate = rememberWarningRotation()
         WarningForm(
             model, section,
             WarningPlace(w.place, w.startRelKm, w.endRelKm, false),
             existing = w,
             onBack = { model.closeWarningEdit() },
             onSaved = { model.closeWarningEdit() },
-            onRotate = rotate,
         )
     }
 }

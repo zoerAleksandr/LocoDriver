@@ -31,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -567,7 +568,8 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
         val activity = LocalContext.current.findActivity()
         DisposableEffect(activity) {
             val previous = activity?.requestedOrientation
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            // Экран профиля принимает положение устройства (вертикаль и горизонталь, в любую сторону).
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
             onDispose { previous?.let { activity.requestedOrientation = it } }
         }
         val live = model.live
@@ -773,10 +775,13 @@ private fun SectionHeader(model: ProfileModel, modifier: Modifier = Modifier, on
     val live = model.live
     val s = live?.section
     Row(
+        // Высота и форма как у соседней кнопки «Назад» (MapButton: 48 dp, скругление 16 dp, тень 4 dp).
         modifier = modifier
-            .background(Pst.surface, RoundedCornerShape(14.dp))
+            .height(48.dp)
+            .shadow(4.dp, RoundedCornerShape(16.dp))
+            .background(Pst.surface, RoundedCornerShape(16.dp))
             .clickable(onClickLabel = "Выбрать участок", onClick = onPick)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
