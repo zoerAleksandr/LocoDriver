@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -58,7 +59,6 @@ object TrackConsentTexts {
     const val INTRO_TEXT = "АВТО сам записывает стоянки и отправления вашего поезда по скорости и месту. " +
         "Время считается по тому моменту, когда поезд остановился или тронулся. Режим выключится сам через 12 часов."
     const val CANCEL = "Отмена"
-    const val DETAILS = "Подробнее"
     const val REVOKE_TITLE = "Отозвать согласие?"
     const val REVOKE_TEXT = "Новые треки сохраняться не будут. Уже записанные треки останутся в разделе «Мои треки» — " +
         "удалить их можно там."
@@ -88,8 +88,6 @@ fun TrackConsentDialog(
     onContinue: (saveTracks: Boolean, shareAltitudes: Boolean) -> Unit,
     onDismiss: () -> Unit,
     initialAltitudeChecked: Boolean = false,
-    /** «Подробнее» → «Данные и конфиденциальность»; null - ссылки нет. */
-    onOpenDetails: (() -> Unit)? = null,
 ) {
     var checked by remember { mutableStateOf(initialChecked) }
     var altChecked by remember { mutableStateOf(initialAltitudeChecked) }
@@ -126,11 +124,13 @@ fun TrackConsentDialog(
                         onClick = { onContinue(checked, altChecked) },
                         modifier = Modifier.fillMaxWidth().testTag("track_consent_continue"),
                     ) { Text(TrackConsentTexts.CONTINUE) }
-                    TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text(TrackConsentTexts.CANCEL) }
-                    onOpenDetails?.let {
-                        TextButton(onClick = it, modifier = Modifier.fillMaxWidth().testTag("track_consent_details")) {
-                            Text(TrackConsentTexts.DETAILS)
-                        }
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth().testTag("track_consent_cancel"),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+                    ) {
+                        Text(TrackConsentTexts.CANCEL)
                     }
                     HorizontalDivider()
                     Text(

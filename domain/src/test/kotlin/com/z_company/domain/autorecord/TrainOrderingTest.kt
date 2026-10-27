@@ -113,4 +113,35 @@ class TrainOrderingTest {
     fun `record target - no route yields no-train target`() {
         assertEquals(TrainOrdering.RecordTarget.NoTrain, TrainOrdering.pickRecordTarget(null, null, null))
     }
+
+    private val trio = listOf(t("a", dep = 100), t("b", dep = 200), t("empty"))
+
+    @Test
+    fun `home map - recording train wins`() {
+        val r = TrainOrdering.pickHomeMapTargetByActivity(trio, "a", mapOf("b" to 500L))
+        assertEquals("a", r?.trainId)
+    }
+
+    @Test
+    fun `home map - recording train from another route is ignored`() {
+        val r = TrainOrdering.pickHomeMapTargetByActivity(trio, "zzz", mapOf("a" to 900L, "b" to 500L))
+        assertEquals("a", r?.trainId)
+    }
+
+    @Test
+    fun `home map - latest track wins over empty train`() {
+        val r = TrainOrdering.pickHomeMapTargetByActivity(trio, null, mapOf("a" to 100L, "b" to 300L))
+        assertEquals("b", r?.trainId)
+    }
+
+    @Test
+    fun `home map - no tracks falls back to empty train`() {
+        assertEquals("empty", TrainOrdering.pickHomeMapTargetByActivity(trio, null, emptyMap())?.trainId)
+    }
+
+    @Test
+    fun `home map - no route or no trains gives null`() {
+        assertNull(TrainOrdering.pickHomeMapTargetByActivity(null, "a", emptyMap()))
+        assertNull(TrainOrdering.pickHomeMapTargetByActivity(emptyList(), null, emptyMap()))
+    }
 }

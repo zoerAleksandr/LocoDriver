@@ -288,7 +288,7 @@ fun FormTrainScreen(
         val autoRecordManager: com.z_company.route.autorecord.AutoRecordManager = org.koin.compose.koinInject()
         val autoRecordState = com.z_company.route.autorecord.rememberAutoStateFor(autoRecordManager, currentTrain?.trainId)
         val onAutoToggleRaw = com.z_company.route.autorecord.rememberAutoRecordToggle(
-            autoRecordManager, currentTrain?.trainId, onOpenPrivacy = onConsentSettings,
+            autoRecordManager, currentTrain?.trainId,
         )
 
         // Подсказки на месте (ONBOARDING_MATERIALS §2): «Карта», затем «АВТО»; один раз, не во время записи.

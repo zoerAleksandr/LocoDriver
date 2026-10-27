@@ -55,6 +55,27 @@ object TrainOrdering {
      */
     fun pickHomeMapTarget(routeTrains: List<Train>?): Train? = routeTrains?.let { pickAutoTarget(it) }
 
+    /**
+     * Поезд, с которым плитка «Карта» открывается на Главном (SCREEN_SPECS §4, §6.9), по активности:
+     * 1) поезд, который пишется сейчас ([recordingTrainId] - только если запись идёт и поезд есть в [routeTrains]);
+     * 2) поезд с самым свежим записанным треком ([lastTrackEndMs]: trainId -> конец последнего трека; поезда без треков не участвуют);
+     * 3) иначе [pickHomeMapTarget] (последний пустой, затем последний в порядке UI).
+     * null - в маршруте нет поездов.
+     */
+    fun pickHomeMapTargetByActivity(
+        routeTrains: List<Train>?,
+        recordingTrainId: String?,
+        lastTrackEndMs: Map<String, Long>,
+    ): Train? {
+        val trains = routeTrains ?: return null
+        trains.firstOrNull { it.trainId == recordingTrainId }?.let { return it }
+        val sorted = sortForDisplay(trains)
+        sorted.filter { lastTrackEndMs.containsKey(it.trainId) }
+            .maxByOrNull { lastTrackEndMs.getValue(it.trainId) }
+            ?.let { return it }
+        return pickHomeMapTarget(trains)
+    }
+
     /** Куда писать трек по кнопке записи на карте (SCREEN_SPECS §6.9). */
     sealed interface RecordTarget {
         /** Писать в существующий поезд. */

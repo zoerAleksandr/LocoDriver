@@ -208,11 +208,16 @@ internal fun TrainMapScreen(
     profileTrains: List<ProfileTrain> = emptyList(),
     /** С каким поездом открыта карта (из «Поезда» или с Главного - поезд текущего маршрута); null - последний из списка. */
     profileTrainId: String? = null,
+    /** Чипы поездов маршрута (карта с Главного); меньше двух - ряда нет. */
+    trainChips: List<MapTrainChip> = emptyList(),
+    onSelectTrain: (String) -> Unit = {},
 ) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
+        // Смена поезда на Главном (чипы) пересоздаёт содержимое, а само окно карты остаётся: без закрытия и мигания Главного.
+        androidx.compose.runtime.key(profileTrainId) {
         val context = LocalContext.current
         remember { MapLibre.getInstance(context); true }
         var map by remember { mutableStateOf<MapLibreMap?>(null) }
@@ -1471,6 +1476,19 @@ internal fun TrainMapScreen(
             }
 
 
+            val chipsShown = trainChips.size >= 2 && !viewOnly
+            if (chipsShown) {
+                MapTrainChips(
+                    chips = trainChips,
+                    selectedId = profileTrainId,
+                    onSelect = onSelectTrain,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .statusBarsPadding()
+                        .padding(start = 12.dp, end = 12.dp, top = 64.dp),
+                )
+            }
+
             // Текущая скорость (живая точка записи, иначе последняя точка трека) и карточка выбранного (§6.9).
             val lastPoint = track?.points?.lastOrNull()
             val liveFresh = liveSpeed != null && nowMs - liveAtMs < 15_000
@@ -1480,7 +1498,7 @@ internal fun TrainMapScreen(
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .statusBarsPadding()
-                    .padding(start = 12.dp, end = 12.dp, top = 64.dp),
+                    .padding(start = 12.dp, end = 12.dp, top = if (chipsShown) 64.dp + MapTrainChipsHeight else 64.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 // Ряд: блок «Следующая / Конечная» (только когда позиция на пути следования, не дальше 50 м от линии) и кнопка «Цель».
@@ -1632,8 +1650,9 @@ internal fun TrainMapScreen(
             }
 
             // Правая колонка: компас (только при повороте карты), «+», «−», «Моё местоположение».
+            // Приподнята над центром: плашка состояния пути/«нет интернета» над нижними полосами не должна закрывать нижнюю кнопку.
             Column(
-                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp),
+                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp, bottom = 180.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 CompassSlot(
@@ -2082,6 +2101,7 @@ internal fun TrainMapScreen(
                 }
             }
         }
+    }
     }
 }
 

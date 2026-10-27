@@ -170,6 +170,8 @@ import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import com.z_company.route.viewmodel.home_view_model.ItemState
 import com.z_company.route.viewmodel.home_view_model.RestBlockType
 import com.z_company.route.viewmodel.home_view_model.UpdateEvent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
@@ -441,6 +443,8 @@ fun HomeScreen(
 
     var isShowDialogConfirmRemoveRoute by remember { mutableStateOf(false) }
     // Плитка «Карта» без поезда: только карта с текущим положением (TrainMapScreen, состояние 1), без записи данных.
+    val autoRecordForMap: com.z_company.route.autorecord.AutoRecordManager = koinInject()
+    val trackRepoForMap: com.z_company.domain.track.TrackRepository = koinInject()
     var showBareMap by rememberSaveable { mutableStateOf(false) }
     // Плитка «Карта» с поездом: карта поезда открывается сразу поверх Главного (без формы «Поезд»).
     var mapTrainId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -448,6 +452,8 @@ fun HomeScreen(
     mapTrainId?.let { id ->
         HomeTrainMap(
             trainId = id, basicId = mapBasicId,
+            routeTrains = currentRoute?.trains.orEmpty(),
+            onSelectTrain = { t -> mapBasicId = t.basicId; mapTrainId = t.trainId },
             onConsentSettings = onConsentSettings,
             onDismiss = { mapTrainId = null },
         )
@@ -460,7 +466,6 @@ fun HomeScreen(
         val bareToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(
             bareAutoManager,
             resolveTarget = { bareAutoManager.resolveRecordTarget(null) },
-            onOpenPrivacy = onConsentSettings,
         )
         TrainMapScreen(
             missingStation = { null },
@@ -1294,7 +1299,7 @@ fun HomeScreen(
                                 val autoState by autoManager.state.collectAsState()
                                 com.z_company.route.autorecord.AutoRecordChip(
                                     state = autoState,
-                                    onToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(autoManager, onOpenPrivacy = onConsentSettings),
+                                    onToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(autoManager),
                                 )
                             }
                             LazyRow(
@@ -1722,12 +1727,22 @@ fun HomeScreen(
                                     minHeightDp = maxHeightBox.toDp(),
                                     onClick = {
                                         onboardingHints.markShown(com.z_company.domain.onboarding.HintId.HOME_MAP_TILE)
-                                        val target = com.z_company.domain.autorecord.TrainOrdering
-                                            .pickHomeMapTarget(currentRoute?.trains)
-                                        if (target != null) {
-                                            mapBasicId = target.basicId
-                                            mapTrainId = target.trainId
-                                        } else showBareMap = true
+                                        val routeTrains = currentRoute?.trains
+                                        scope.launch {
+                                            // Поезд с идущей записью, затем с самым свежим треком, затем пустой (SCREEN_SPECS §6.9).
+                                            val recordingId = if (autoRecordForMap.state.value.enabled) autoRecordForMap.targetTrainId() else null
+                                            val lastEnds = withContext(Dispatchers.Default) {
+                                                routeTrains.orEmpty().mapNotNull { t ->
+                                                    trackRepoForMap.tracksForTrain(t.trainId).maxOfOrNull { it.endedAt }?.let { t.trainId to it }
+                                                }.toMap()
+                                            }
+                                            val target = com.z_company.domain.autorecord.TrainOrdering
+                                                .pickHomeMapTargetByActivity(routeTrains, recordingId, lastEnds)
+                                            if (target != null) {
+                                                mapBasicId = target.basicId
+                                                mapTrainId = target.trainId
+                                            } else showBareMap = true
+                                        }
                                     }
                                 )
                             }

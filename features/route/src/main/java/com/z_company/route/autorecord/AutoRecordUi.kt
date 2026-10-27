@@ -67,8 +67,6 @@ fun rememberAutoRecordToggle(
      * null - берётся [trainId]. Вызывается только когда геолокация уже разрешена.
      */
     resolveTarget: (suspend () -> String?)? = null,
-    /** «Подробнее» на экране первого включения: открыть «Данные и конфиденциальность»; null - ссылки нет. */
-    onOpenPrivacy: (() -> Unit)? = null,
 ): () -> Unit {
     val currentTrainId by rememberUpdatedState(trainId)
     val currentResolver by rememberUpdatedState(resolveTarget)
@@ -139,7 +137,6 @@ fun rememberAutoRecordToggle(
                 startEnable()
             },
             onDismiss = { showConsent = false },
-            onOpenDetails = onOpenPrivacy?.let { open -> { showConsent = false; open() } },
         )
     }
     // «Единственное активное АВТО»: включение на другом поезде, пока пишется трек для поезда № X, - диалог.
