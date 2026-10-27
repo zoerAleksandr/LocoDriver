@@ -54,6 +54,20 @@ data class AdvisorStationDto(
     val lon: Double? = null,
 )
 
+/**
+ * Светофор на оси участка. `track` - литер: "E" (Ч, чётное направление) или "O" (Н, нечётное); `kind` - "pass" | "station" |
+ * "shunt" | "distant"; `facing` - в какую сторону оси виден лицом (+1 по возрастанию км, −1 против). Поле необязательное:
+ * старый сервер его не отдаёт, участок без светофоров тоже.
+ */
+@Serializable
+data class AdvisorSignalDto(
+    val km: Double,
+    val label: String,
+    val track: String = "E",
+    val kind: String = "pass",
+    val facing: Int = 0,
+)
+
 /** Точка оси участка: `km` - от начала оси, высота клиенту не нужна. */
 @Serializable
 data class AdvisorGeoPointDto(val km: Double, val lat: Double, val lon: Double)
@@ -73,6 +87,7 @@ data class AdvisorSectionDto(
     val elements: List<AdvisorElementDto> = emptyList(),
     val kmMarks: List<AdvisorKmMarkDto> = emptyList(),
     val stations: List<AdvisorStationDto> = emptyList(),
+    val signals: List<AdvisorSignalDto> = emptyList(),
 )
 
 /**

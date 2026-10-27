@@ -41,6 +41,8 @@ data class SectionProfile(
     val elements: List<ProfileElement>,
     val kmMarks: List<KmMark>,
     val stations: List<SectionStation>,
+    /** Светофоры на оси; пусто - данных нет (старый сервер или участок ещё не оцифрован). */
+    val signals: List<TrackSignal> = emptyList(),
 ) {
     /** Есть ли что рисовать: хотя бы один элемент профиля. Иначе - «данные профиля собираются». */
     val hasProfile: Boolean get() = elements.any { !it.noData }

@@ -1,0 +1,708 @@
+{
+ "sectionId": "e0a19260-8c8a-4db3-ac8e-872ab2e28ea4",
+ "sectionName": "Лужская — Будогощь",
+ "axisHash": "374530a33ca68c1fda62ff5b523baeee",
+ "note": "Только проходные светофоры на перегонах (цифры), Лужская — Мга, ось 0…177,3 км; оцифровка лент режимных карт ТЧЭ-14 (PDF стр. 51→39), 24.10.2026. Станционные, маневровые и предупредительные пока не вносятся. Исключены: пара у Лужской (ось<0,1, граница станции) и дублирующая пара «2/1» у Мги (~171,9 км). track: E=Ч, O=Н; facing: +1 по росту оси. Чётное направление = от Лужской к Мге.",
+ "signals": [
+  {
+   "km": 2.26,
+   "label": "2",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 2.26,
+   "label": "5",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 7.003,
+   "label": "6",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 7.003,
+   "label": "1",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 9.024,
+   "label": "4",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 9.024,
+   "label": "3",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 10.987,
+   "label": "2",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 10.987,
+   "label": "5",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 43.044,
+   "label": "8",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 43.044,
+   "label": "1",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 45.154,
+   "label": "6",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 45.154,
+   "label": "3",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 47.341,
+   "label": "4",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 47.341,
+   "label": "5",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 49.459,
+   "label": "2",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 49.858,
+   "label": "7",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 54.926,
+   "label": "22",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 54.926,
+   "label": "1",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 56.882,
+   "label": "20",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 56.953,
+   "label": "3",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 58.883,
+   "label": "18",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 59.121,
+   "label": "5",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 61.231,
+   "label": "16",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 61.231,
+   "label": "7",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 63.283,
+   "label": "14",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 63.424,
+   "label": "9",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 64.86,
+   "label": "12",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 65.527,
+   "label": "11",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 66.393,
+   "label": "10",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 66.887,
+   "label": "13",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 68.644,
+   "label": "8",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 68.644,
+   "label": "15",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 70.78,
+   "label": "17",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 70.877,
+   "label": "6",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 72.532,
+   "label": "4",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 72.975,
+   "label": "19",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 74.649,
+   "label": "2",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 74.886,
+   "label": "21",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 80.93,
+   "label": "6",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 80.93,
+   "label": "1",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 82.355,
+   "label": "4",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 82.355,
+   "label": "3",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 83.65,
+   "label": "2",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 84.594,
+   "label": "5",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 88.912,
+   "label": "1",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 88.931,
+   "label": "6",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 90.548,
+   "label": "3",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 90.702,
+   "label": "4",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 92.389,
+   "label": "5",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 92.928,
+   "label": "2",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 97.913,
+   "label": "8",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 97.913,
+   "label": "1",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 100.191,
+   "label": "3",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 100.287,
+   "label": "6",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 102.307,
+   "label": "4",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 102.307,
+   "label": "5",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 104.22,
+   "label": "7",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 104.464,
+   "label": "2",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 105.721,
+   "label": "9",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 110.02,
+   "label": "2",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 110.02,
+   "label": "1",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 120.5,
+   "label": "10",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 121.578,
+   "label": "1",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 122.087,
+   "label": "8",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 123.457,
+   "label": "6",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 123.928,
+   "label": "3",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 125.534,
+   "label": "4",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 125.771,
+   "label": "5",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 127.096,
+   "label": "7",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 127.717,
+   "label": "2",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 128.383,
+   "label": "9",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 132.587,
+   "label": "1",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 132.593,
+   "label": "8",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 133.9,
+   "label": "3",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 133.912,
+   "label": "6",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 135.268,
+   "label": "4",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 135.404,
+   "label": "5",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 136.835,
+   "label": "2",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 136.835,
+   "label": "7",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 142.225,
+   "label": "2",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 142.348,
+   "label": "1",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 147.964,
+   "label": "8",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 148.099,
+   "label": "1",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 149.435,
+   "label": "6",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 149.515,
+   "label": "3",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 151.381,
+   "label": "4",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 151.467,
+   "label": "5",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 153.462,
+   "label": "2",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 153.462,
+   "label": "7",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 154.745,
+   "label": "9",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 157.504,
+   "label": "2",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 157.845,
+   "label": "1",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 162.768,
+   "label": "6",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 163.338,
+   "label": "1",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 164.801,
+   "label": "4",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 164.937,
+   "label": "3",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 166.961,
+   "label": "2",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 167.031,
+   "label": "5",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  },
+  {
+   "km": 171.714,
+   "label": "2",
+   "track": "E",
+   "kind": "pass",
+   "facing": 1
+  },
+  {
+   "km": 171.714,
+   "label": "1",
+   "track": "O",
+   "kind": "pass",
+   "facing": -1
+  }
+ ]
+}

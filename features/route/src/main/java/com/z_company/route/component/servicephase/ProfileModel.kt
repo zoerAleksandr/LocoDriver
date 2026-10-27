@@ -19,6 +19,10 @@ import com.z_company.domain.track.ResolvedWarning
 import com.z_company.domain.track.TrackWarning
 import com.z_company.domain.track.TrackWarnings
 import com.z_company.domain.track.SectionProfile
+import com.z_company.domain.track.SignalAhead
+import com.z_company.domain.track.SignalRules
+import com.z_company.domain.track.TrackSignal
+import com.z_company.domain.track.TravelParity
 import com.z_company.domain.util.GeoFix
 import com.z_company.domain.util.TrainMapStop
 import com.z_company.repository.remote_rest.tracks.SectionProfileRepository
@@ -94,6 +98,10 @@ internal class ProfileModel(
     /** Направление, выбранное пользователем; null - по плечу, а без плеча - по движению. */
     private var manualReversed by mutableStateOf<Boolean?>(null)
     private var motionReversed by mutableStateOf<Boolean?>(null)
+
+    /** Едем по неправильному пути (чётное направление по нечётному и наоборот): показываются светофоры другого литера. */
+    var wrongTrack by mutableStateOf(false)
+        private set
 
     /** Поезд после ручного разворота: хвост по другую сторону от головы на виде (и на карте). */
     var trainFlipped by mutableStateOf(false)
@@ -301,6 +309,36 @@ internal class ProfileModel(
     val section: SectionProfile? get() = live?.section
     val reversed: Boolean get() = live?.reversed ?: false
 
+    /** Есть ли у участка светофоры (иначе блок чётности и слой светофоров не показываются). */
+    val hasSignals: Boolean get() = section?.signals?.isNotEmpty() == true
+
+    /** Направление выбрано пользователем (иначе по плечу или по движению). */
+    val directionIsManual: Boolean get() = manualReversed != null
+
+    /** Сторона оси, в которую идёт поезд сейчас: +1 к росту км оси, −1 к убыли. */
+    val travelAxisDir: Int get() = if (reversed) -1 else 1
+
+    private val signalsKm: Double get() = position?.takeIf { !it.offRoute }?.kmAxis ?: 0.0
+
+    /** Чётность направления движения по светофорам участка; null - светофоров нет. */
+    val parity: TravelParity? get() = section?.let { SignalRules.parity(it.signals, signalsKm, travelAxisDir) }
+
+    /** Светофоры, которые нужны сейчас: нужного литера для выбранного направления и пути. */
+    val shownSignals: List<TrackSignal>
+        get() {
+            val s = section ?: return emptyList()
+            val p = parity ?: return emptyList()
+            return SignalRules.visible(s.signals, p, wrongTrack)
+        }
+
+    /** Ближайшие светофоры впереди по ходу (для строки «Сейчас»). */
+    fun signalsAhead(limit: Int = 2): List<SignalAhead> {
+        val s = section ?: return emptyList()
+        val p = parity ?: return emptyList()
+        val pos = position?.takeIf { !it.offRoute } ?: return emptyList()
+        return SignalRules.ahead(s.signals, pos.kmAxis, travelAxisDir, p, wrongTrack, limit)
+    }
+
     /** Плечо поезда заполнено (есть отправление и прибытие). */
     val hasLeg: Boolean get() = stopNames.size >= 2
 
@@ -434,6 +472,7 @@ internal class ProfileModel(
 
     private fun applyChoice(id: String) {
         manualId = id
+        wrongTrack = false
         manualReversed = null
         motionReversed = null
         trainFlipped = false
@@ -443,6 +482,7 @@ internal class ProfileModel(
 
     fun useAuto() {
         chooseError = null
+        wrongTrack = false
         manualId = null
         manualReversed = null
         motionReversed = null
@@ -470,6 +510,29 @@ internal class ProfileModel(
         trainFlipped = !trainFlipped
         rebuild()
     }
+
+    /** Направление по чётности: выбор пользователя («Чётное»/«Нечётное»), поверх плеча и движения. */
+    fun chooseParity(target: TravelParity) {
+        val s = section ?: return
+        val dir = SignalRules.axisDir(s.signals, signalsKm, target) ?: return
+        val wantReversed = dir < 0
+        if (wantReversed != reversed) trainFlipped = !trainFlipped
+        manualReversed = wantReversed
+        rebuild()
+    }
+
+    /** Вернуть автоматическое направление (по плечу поезда, а без плеча - по движению). */
+    fun useAutoDirection() {
+        if (manualReversed == null) return
+        val before = reversed
+        manualReversed = null
+        motionReversed = null
+        resetMotion()
+        rebuild()
+        if (reversed != before) trainFlipped = !trainFlipped
+    }
+
+    fun chooseWrongTrack(wrong: Boolean) { wrongTrack = wrong }
 
     /**
      * Список для выбора: сверху участки плеча поезда, затем по расстоянию до положения (до оси - если ось загружена, иначе до
@@ -530,6 +593,7 @@ internal class ProfileModel(
         val rev = reversedNow(s)
         val cur = live
         if (cur == null || cur.section.id != s.id || cur.reversed != rev || cur.section !== s) {
+            if (cur?.section?.id != s.id) wrongTrack = false
             val keep = cur?.takeIf { it.section.id == s.id }?.position
             live = LiveProfile(s, rev).also { it.applyCalibration(calibrations.get(s.id, s.axisHash)) }
             position = keep ?: live?.position

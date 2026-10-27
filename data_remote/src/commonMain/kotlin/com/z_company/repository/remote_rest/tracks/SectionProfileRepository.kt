@@ -8,6 +8,9 @@ import com.z_company.domain.track.SectionBox
 import com.z_company.domain.track.SectionProfile
 import com.z_company.domain.track.SectionStation
 import com.z_company.domain.track.SectionSummary
+import com.z_company.domain.track.SignalKind
+import com.z_company.domain.track.SignalTrack
+import com.z_company.domain.track.TrackSignal
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -88,9 +91,6 @@ class SectionProfileRepository(
     suspend fun allSections(refresh: Boolean = true): List<SectionProfile> =
         loadIndex(refresh).mapNotNull { runCatching { section(it.id, refresh = false) }.getOrNull() }
 
-    /** Удалить с диска участки, снятые с публикации. */
-    suspend fun cleanUp() = lock.withLock {
-        val ids = loadIndexLocked(false).map { it.id }.toSet()
     /**
      * Синхронизация профилей участков (в общей синхронизации приложения): обновить список, перекачать уже сохранённые участки,
      * изменившиеся на сервере (сравнение `updatedAt` списка с сохранённым), убрать с диска снятые с публикации.
@@ -105,19 +105,22 @@ class SectionProfileRepository(
         return true
     }
 
+    /** Удалить с диска участки, снятые с публикации. */
+    suspend fun cleanUp() = lock.withLock {
+        val ids = loadIndexLocked(false).map { it.id }.toSet()
         if (ids.isNotEmpty()) cache.retain(ids)
     }
 
     private suspend fun loadIndex(refresh: Boolean) = lock.withLock { loadIndexLocked(refresh) }
 
-    private suspend fun loadIndexLocked(refresh: Boolean): List<AdvisorSectionSummaryDto> {
-        if (refresh) {
-            val fresh = runCatching { api.sections() }.getOrNull()
     private fun storeIndexLocked(fresh: List<AdvisorSectionSummaryDto>) {
         index = fresh
         runCatching { cache.saveIndex(json.encodeToString(ListSerializer(AdvisorSectionSummaryDto.serializer()), fresh)) }
     }
 
+    private suspend fun loadIndexLocked(refresh: Boolean): List<AdvisorSectionSummaryDto> {
+        if (refresh) {
+            val fresh = runCatching { api.sections() }.getOrNull()
             if (fresh != null) {
                 storeIndexLocked(fresh)
                 return fresh
@@ -158,6 +161,20 @@ class SectionProfileRepository(
             elements = d.elements.map { ProfileElement(it.startKm, it.endKm, it.gradePermille, it.curveRadiusM, it.speedLimitKmh, it.noData) },
             kmMarks = d.kmMarks.map { KmMark(it.km, it.kmAbs, it.dir, it.note) },
             stations = d.stations.map { SectionStation(it.km, it.name, it.lat, it.lon) },
+            signals = d.signals.map {
+                TrackSignal(
+                    km = it.km,
+                    label = it.label,
+                    track = if (it.track.equals("O", ignoreCase = true)) SignalTrack.ODD else SignalTrack.EVEN,
+                    kind = when (it.kind.lowercase()) {
+                        "station" -> SignalKind.STATION
+                        "shunt" -> SignalKind.SHUNT
+                        "distant" -> SignalKind.DISTANT
+                        else -> SignalKind.PASS
+                    },
+                    facing = it.facing.coerceIn(-1, 1),
+                )
+            }.sortedBy { it.km },
         )
     }
 
