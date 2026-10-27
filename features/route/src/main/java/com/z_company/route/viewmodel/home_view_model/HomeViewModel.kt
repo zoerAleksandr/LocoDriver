@@ -143,6 +143,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
     private val routesManager: RoutesManager by inject()
     private val shareRouteManager: ShareRouteManager by inject()
     private val syncManager: SyncManager by inject()
+    private val stationDirectory: com.z_company.domain.use_cases.StationDirectoryUseCase by inject()
     private val widgetUpdater: WidgetUpdater by inject()
 
     var timeWithoutHoliday by mutableLongStateOf(0L)
@@ -1726,6 +1727,38 @@ class HomeViewModel : ViewModel(), KoinComponent {
     }
 
     /**
+     * Разовая чистка списка станций от обрывков ввода («Ж», «Жа»), осевших в 3.0.6 из-за
+     * автосохранения форм. Защищены названия, использованные в маршрутах или заведённые в
+     * справочнике станций. Без маршрутов (свежая установка до синхронизации) не помечаем
+     * выполненной — повторим при следующем запуске.
+     */
+    private suspend fun cleanStationListFragments() {
+        if (sharedPreferenceStorage.isStationFragmentsCleaned()) return
+        try {
+            val routes = routeUseCase.getListRoutes()
+            if (routes.isEmpty()) return
+            val protectedNames = mutableListOf<String>()
+            protectedNames += stationDirectory.stations().map { it.name }
+            routes.forEach { route ->
+                route.trains.forEach { train -> train.stations.forEach { s -> s.stationName?.let(protectedNames::add) } }
+                route.passengers.forEach { p ->
+                    p.stationDeparture?.let(protectedNames::add)
+                    p.stationArrival?.let(protectedNames::add)
+                }
+                route.otherWorks.forEach { w -> w.station?.let(protectedNames::add) }
+            }
+            val current = settingsUseCase.getUserSettingFlow().first().stationList
+            val cleaned = com.z_company.domain.util.StationListCleanup.removeFragments(current, protectedNames)
+            if (cleaned.size != current.size) {
+                settingsUseCase.replaceStations(cleaned)
+            }
+            sharedPreferenceStorage.setStationFragmentsCleaned(true)
+        } catch (e: Exception) {
+            e.sendToSentry("HomeViewModel", "cleanStationListFragments")
+        }
+    }
+
+    /**
      * Реактивно наблюдает за нормой часов через NormaUseCase.
      * Пересчитывается при любом изменении выбранного месяца,
      * региональных праздников или дней отвлечений.
@@ -1759,6 +1792,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch(Dispatchers.IO) {
             loadMonthList()
             initListStationAndLocomotiveSeries()
+            cleanStationListFragments()
             sharedPreferenceStorage.enableShowingUpdatePresentation()
             initUpdateManager()
             initLoading()

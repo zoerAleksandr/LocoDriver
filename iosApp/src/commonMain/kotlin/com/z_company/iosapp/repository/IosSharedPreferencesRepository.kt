@@ -99,6 +99,9 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     override fun setTokenIsFirstAppEntry(value: Boolean) { tokenIsFirstAppEntry = value }
     override fun tokenIsLoadStationAndLocomotiveSeries(): Boolean = tokenIsLoadStationAndLocomotiveSeries
     override fun setTokenIsLoadStationAndLocomotiveSeries(value: Boolean) { tokenIsLoadStationAndLocomotiveSeries = value }
+    private var stationFragmentsCleaned: Boolean = false
+    override fun isStationFragmentsCleaned(): Boolean = stationFragmentsCleaned
+    override fun setStationFragmentsCleaned(value: Boolean) { stationFragmentsCleaned = value }
     override fun toggleStationsSortOrder(value: Boolean) { stationsReversed = value }
     override fun isReversedSortStationList(): Boolean = stationsReversed
     override fun setShowSegments(value: Boolean) { showSegments = value }

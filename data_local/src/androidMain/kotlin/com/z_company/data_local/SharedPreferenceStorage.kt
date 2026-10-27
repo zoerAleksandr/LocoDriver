@@ -26,6 +26,7 @@ private const val TOKEN_SUBSCRIPTION_EXPIRATION_TAG = "TOKEN_SUBSCRIPTION_EXPIRA
 private const val TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16 =
     "TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16"
 private const val STATION_SORT_REVERSED = "STATION_SORT_REVERSED"
+private const val STATION_FRAGMENTS_CLEANED = "STATION_FRAGMENTS_CLEANED"
 private const val SHOW_SEGMENTS = "SHOW_SEGMENTS"
 private const val LAST_OTHER_WORK_TYPE_TAG = "LAST_OTHER_WORK_TYPE_TAG"
 private const val TOKEN_INPUT_DIESEL_IN_KILO = "TOKEN_INPUT_DIESEL_IN_KILO"
@@ -179,6 +180,13 @@ class SharedPreferenceStorage(application: Application) : SharedPreferencesRepos
 
     override fun setTokenIsLoadStationAndLocomotiveSeries(value: Boolean) {
         editor.putBoolean(TOKEN_IS_LOAD_STATION_NAME_AND_LOCOMOTIVE_SERIES, value).apply()
+    }
+
+    override fun isStationFragmentsCleaned(): Boolean =
+        sharedpref.getBoolean(STATION_FRAGMENTS_CLEANED, false)
+
+    override fun setStationFragmentsCleaned(value: Boolean) {
+        editor.putBoolean(STATION_FRAGMENTS_CLEANED, value).apply()
     }
 
     override fun toggleStationsSortOrder(value: Boolean) {

@@ -21,6 +21,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import com.z_company.route.util.stationNameMatches
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -46,14 +54,18 @@ fun SettingsStationListContent(
     // показываем прочерком). «Без норм» — где не задано ничего.
     fun hasAnyNorm(s: StationNorm) = s.appearanceToStartMin != null || s.endToBarrierMin != null ||
         s.barrierToStartMin != null || s.endToWorkEndMin != null
-    val withNorms = stations.filter { hasAnyNorm(it) }
-    val withoutNormsRecords = stations.filter { !hasAnyNorm(it) }
+    var query by remember { mutableStateOf("") }
+    // Обе группы сортируются по алфавиту без учёта регистра; поиск — по началу названия
+    // или любого слова («Глав» находит «Санкт-Петербург-Главный»).
+    val withNorms = stations.filter { hasAnyNorm(it) && stationNameMatches(it.name, query) }
+        .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+    val withoutNormsRecords = stations.filter { !hasAnyNorm(it) && stationNameMatches(it.name, query) }
 
     // Раздел «без норм» = записи с неполными нормами (открываются по id) + «старые»
     // имена из stationList, которым не сопоставлена запись (открываются по имени).
     // Для частично заполненных станций показываем, какие нормы уже заданы.
     val recordNames = stations.map { it.name.trim().lowercase() }.toSet()
-    val noNormItems: List<StationNoNorm> =
+    val noNormItems: List<StationNoNorm> = (
         withoutNormsRecords.map { s ->
             val hasAny = s.appearanceToStartMin != null || s.endToBarrierMin != null ||
                 s.barrierToStartMin != null || s.endToWorkEndMin != null
@@ -66,9 +78,10 @@ fun SettingsStationListContent(
         } +
             legacyNames
                 .map { it.trim() }
-                .filter { it.isNotBlank() && it.lowercase() !in recordNames }
+                .filter { it.isNotBlank() && it.lowercase() !in recordNames && stationNameMatches(it, query) }
                 .distinct()
                 .map { StationNoNorm(it, null, null) }
+    ).sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
 
     // Кнопка «Добавить станцию» уезжает вниз при прокрутке списка вверх и возвращается при
     // прокрутке назад — как нижняя панель в форме «Поезд».
@@ -86,6 +99,18 @@ fun SettingsStationListContent(
             .padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            singleLine = true,
+            placeholder = { Text("Поиск станции") },
+            trailingIcon = {
+                if (query.isNotEmpty()) TextButton(onClick = { query = "" }) { Text("Сбросить") }
+            },
+            shape = Shapes.medium,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+        )
         if (withNorms.isEmpty() && noNormItems.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -95,14 +120,14 @@ fun SettingsStationListContent(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "Нет сохранённых станций",
+                        text = if (query.isBlank()) "Нет сохранённых станций" else "Ничего не найдено",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                         textAlign = TextAlign.Center
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Добавьте станции с нормами интервалов",
+                        text = if (query.isBlank()) "Добавьте станции с нормами интервалов" else "Измените запрос",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
                         textAlign = TextAlign.Center

@@ -200,6 +200,10 @@ class PassengerFormViewModel(
                     if (isNewPassenger && isPassengerEmpty(passenger)) return@launch
                     syncWorkStartToRoute(passenger)
                     passengerUseCase.savePassenger(passenger).collect {}
+                    // Названия станций регистрируем в общем списке только финальным значением
+                    // при выходе, а не при автосохранении: иначе промежуточный ввод («Ж», «Жа»)
+                    // оседает в справочнике мусором.
+                    registerStationNames(passenger.stationDeparture, passenger.stationArrival)
                 }
             }
         }
@@ -262,7 +266,6 @@ class PassengerFormViewModel(
                         // попасть в БД как одна логическая операция.
                         syncWorkStartToRoute(passenger)
                         passengerUseCase.savePassenger(passenger).collect { resultState ->
-                            saveStationsName(passenger.stationDeparture, passenger.stationArrival)
                             _uiState.update {
                                 it.copy(
                                     savePassengerState = resultState
@@ -518,18 +521,10 @@ class PassengerFormViewModel(
             }
         }
 
-    private fun saveStationsName(departureStation: String?, arrivalStation: String?) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val stations = mutableListOf<String>()
-            departureStation?.let {
-                stations.add(it)
-            }
-            arrivalStation?.let {
-                stations.add(it)
-            }
-            if (stations.isNotEmpty()) {
-                settingsUseCase.setStations(stations)
-            }
+    private suspend fun registerStationNames(departureStation: String?, arrivalStation: String?) {
+        val stations = listOfNotNull(departureStation, arrivalStation).filter { it.isNotBlank() }
+        if (stations.isNotEmpty()) {
+            settingsUseCase.setStations(stations)
         }
     }
 

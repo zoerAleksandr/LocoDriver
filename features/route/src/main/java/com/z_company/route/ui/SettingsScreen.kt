@@ -245,6 +245,10 @@ fun SettingsScreen(
     // every time. A constant "new" key would reuse the previous new partner and
     // overwrite it until SettingsScreen's ViewModelStore is destroyed.
     var partnerEditorSession by remember { mutableIntStateOf(0) }
+    // Номер открытия редактора станции/серии: без него «новая» запись получала один и тот же
+    // ключ ViewModel, и вторая добавленная станция перезаписывала первую (тот же id).
+    var stationEditorSession by remember { mutableIntStateOf(0) }
+    var seriesEditorSession by remember { mutableIntStateOf(0) }
     // Название «старой» серии (из locomotiveSeriesList, без норм), открываемой
     // в редакторе для добавления норм приёмки/сдачи. null — обычная новая серия.
     var prefillSeriesName by remember { mutableStateOf(initState.seriesName) }
@@ -594,12 +598,14 @@ fun SettingsScreen(
                                     viewModel = vm,
                                     legacyNames = settings.locomotiveSeriesList,
                                     onOpenEditor = { id ->
+                                        seriesEditorSession++
                                         selectedSeriesId = id
                                         prefillSeriesName = null
                                         editorEnteredDirectly = false
                                         currentSubScreen = SettingsSubScreen.SERIES_EDITOR
                                     },
                                     onOpenLegacy = { name ->
+                                        seriesEditorSession++
                                         selectedSeriesId = null
                                         prefillSeriesName = name
                                         editorEnteredDirectly = false
@@ -611,7 +617,7 @@ fun SettingsScreen(
 
                         SettingsSubScreen.SERIES_EDITOR -> {
                             val editorVm = koinViewModel<SeriesEditorViewModel>(
-                                key = "series_editor_${selectedSeriesId ?: prefillSeriesName ?: "new"}",
+                                key = "series_editor_${selectedSeriesId ?: prefillSeriesName ?: "new"}_$seriesEditorSession",
                                 parameters = { parametersOf(selectedSeriesId, prefillSeriesName) }
                             )
                             LaunchedEffect(editorVm) { activeSeriesEditor = editorVm }
@@ -630,12 +636,14 @@ fun SettingsScreen(
                                     viewModel = vm,
                                     legacyNames = settings.stationList,
                                     onOpenEditor = { id ->
+                                        stationEditorSession++
                                         selectedStationId = id
                                         prefillStationName = null
                                         editorEnteredDirectly = false
                                         currentSubScreen = SettingsSubScreen.STATION_EDITOR
                                     },
                                     onOpenLegacy = { name ->
+                                        stationEditorSession++
                                         selectedStationId = null
                                         prefillStationName = name
                                         editorEnteredDirectly = false
@@ -647,7 +655,7 @@ fun SettingsScreen(
 
                         SettingsSubScreen.STATION_EDITOR -> {
                             val editorVm = koinViewModel<StationNormEditorViewModel>(
-                                key = "station_editor_${selectedStationId ?: prefillStationName ?: "new"}",
+                                key = "station_editor_${selectedStationId ?: prefillStationName ?: "new"}_$stationEditorSession",
                                 parameters = { parametersOf(selectedStationId, prefillStationName) }
                             )
                             LaunchedEffect(editorVm) { activeStationEditor = editorVm }

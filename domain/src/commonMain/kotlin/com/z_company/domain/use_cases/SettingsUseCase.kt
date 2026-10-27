@@ -68,6 +68,11 @@ class SettingsUseCase(private val settingsRepository: SettingsRepository) {
         }
     }
 
+    /** Заменяет список станций целиком (setStations только дополняет). */
+    suspend fun replaceStations(stations: List<String>) {
+        settingsRepository.setStations(stations).collect()
+    }
+
     fun setDieselCoefficient(coefficient: Double): Flow<ResultState<Unit>> {
         return settingsRepository.setDieselCoefficient(coefficient)
     }
