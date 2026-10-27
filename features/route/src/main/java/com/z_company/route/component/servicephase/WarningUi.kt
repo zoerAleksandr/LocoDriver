@@ -97,6 +97,21 @@ private fun WarningScreen(content: @Composable androidx.compose.foundation.layou
     ) { content() }
 }
 
+/**
+ * На время показа экрана предупреждений снимает горизонтальную блокировку профиля: экран поворачивается вслед за телефоном
+ * (в любую сторону). На выходе возвращается прежняя ориентация (у профиля - горизонталь).
+ */
+@Composable
+private fun FollowDeviceOrientation() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val activity = remember(context) { context.findActivity() }
+    androidx.compose.runtime.DisposableEffect(activity) {
+        val previous = activity?.requestedOrientation
+        activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+        onDispose { previous?.let { activity.requestedOrientation = it } }
+    }
+}
+
 @Composable
 private fun Chip(text: String, on: Boolean, onClick: () -> Unit) {
     Text(
@@ -124,6 +139,7 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
     var added by remember { mutableStateOf(0) }
     val places = remember(section.id, live.reversed) { warningPlaces(section, live.reversed) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        FollowDeviceOrientation()
         val portrait = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
         val p = place
         if (p == null) {
@@ -446,6 +462,7 @@ internal fun WarningEditDialog(model: ProfileModel) {
     val w = model.editingWarning ?: return
     val section = model.section ?: return
     Dialog(onDismissRequest = { model.closeWarningEdit() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        FollowDeviceOrientation()
         WarningForm(
             model, section,
             WarningPlace(w.place, w.startRelKm, w.endRelKm, false),

@@ -568,8 +568,7 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
         val activity = LocalContext.current.findActivity()
         DisposableEffect(activity) {
             val previous = activity?.requestedOrientation
-            // Экран профиля принимает положение устройства (вертикаль и горизонталь, в любую сторону).
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             onDispose { previous?.let { activity.requestedOrientation = it } }
         }
         val live = model.live
