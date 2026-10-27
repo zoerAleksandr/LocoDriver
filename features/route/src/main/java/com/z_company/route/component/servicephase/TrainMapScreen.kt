@@ -125,6 +125,8 @@ private const val TRAIN_MARKS_SOURCE = "train-map-marks"
 private const val TRAIN_SEL_SOURCE = "train-map-sel"
 private const val TRAIN_TAIL_SOURCE = "train-map-tail"
 private const val TRAIN_BODY_SOURCE = "train-map-body"
+private const val TRAIN_WARN_SOURCE = "train-map-warnings"
+private const val TRAIN_WARN_LABEL_SOURCE = "train-map-warnings-label"
 private const val TRAIN_OFF_SOURCE = "train-map-off"
 private const val TRAIN_NODATA_SOURCE = "train-map-nodata"
 private const val TRAIN_PLAN_SOURCE = "train-map-plan"
@@ -495,6 +497,26 @@ internal fun TrainMapScreen(
                                 PropertyFactory.textIgnorePlacement(true),
                             ).also { it.setFilter(Expression.eq(Expression.get("show"), 1)) },
                             "train-map-me-layer",
+                        )
+                        // Предупреждения на участке: жёлтая широкая линия под путём и подпись вдоль неё.
+                        style.addSource(GeoJsonSource(TRAIN_WARN_SOURCE, FeatureCollection.fromFeatures(emptyList())))
+                        style.addLayerBelow(
+                            LineLayer("train-map-warn-layer", TRAIN_WARN_SOURCE).withProperties(
+                                PropertyFactory.lineColor("#FFD60A"),
+                                PropertyFactory.lineWidth(9f),
+                                PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                            ),
+                            "train-map-stops-layer",
+                        )
+                        style.addSource(GeoJsonSource(TRAIN_WARN_LABEL_SOURCE, FeatureCollection.fromFeatures(emptyList())))
+                        style.addLayer(
+                            SymbolLayer("train-map-warn-label", TRAIN_WARN_LABEL_SOURCE).withProperties(
+                                PropertyFactory.iconImage(Expression.get("icon")),
+                                PropertyFactory.iconAnchor(Property.ICON_ANCHOR_BOTTOM),
+                                PropertyFactory.iconAllowOverlap(true),
+                                PropertyFactory.iconIgnorePlacement(true),
+                            )
                         )
                         // Пройденный путь (§6.9, состояние 4): белая подложка + жирная линия цвета скорости, под точками станций.
                         style.addSource(GeoJsonSource(TRAIN_TRACK_SOURCE, FeatureCollection.fromFeatures(emptyList())))
@@ -1084,6 +1106,59 @@ internal fun TrainMapScreen(
             st.getLayerAs<SymbolLayer>("train-map-me-arrow")
                 ?.setProperties(PropertyFactory.visibility(if (bodyShown) Property.NONE else Property.VISIBLE))
         }
+        // Предупреждения на участке: жёлтая линия по рельсам подложки (ось участка редкая и уходит с путей) и карточка-подпись.
+        val warnings = profileModel.activeWarnings
+        var warnRails by remember { mutableStateOf<List<List<Pair<Double, Double>>>>(emptyList()) }
+        DisposableEffect(map, warnings.isNotEmpty()) {
+            val on = warnings.isNotEmpty()
+            fun refresh() {
+                val m = map ?: return
+                warnRails = RailSnap.railLines(m, mapView.width, mapView.height)
+            }
+            val idle = MapLibreMap.OnCameraIdleListener { refresh() }
+            val mapIdle = MapView.OnDidBecomeIdleListener { refresh() }
+            if (on && map != null) {
+                refresh()
+                map?.addOnCameraIdleListener(idle)
+                mapView.addOnDidBecomeIdleListener(mapIdle)
+            }
+            onDispose {
+                map?.removeOnCameraIdleListener(idle)
+                mapView.removeOnDidBecomeIdleListener(mapIdle)
+            }
+        }
+        LaunchedEffect(styleGen, styleReady, warnings, bodyLive, warnRails) {
+            if (!styleReady) return@LaunchedEffect
+            val st = map?.style ?: return@LaunchedEffect
+            val lines = st.getSourceAs<GeoJsonSource>(TRAIN_WARN_SOURCE) ?: return@LaunchedEffect
+            val labels = st.getSourceAs<GeoJsonSource>(TRAIN_WARN_LABEL_SOURCE) ?: return@LaunchedEffect
+            val live = bodyLive
+            val axis = live?.section?.axis?.points
+            val lineFeatures = ArrayList<Feature>()
+            val labelFeatures = ArrayList<Feature>()
+            if (axis != null) warnings.forEach { r ->
+                val lenKm = (r.toKm - r.fromKm).coerceAtLeast(0.0)
+                val step = (lenKm / 40).coerceIn(0.005, 0.02)
+                val path = com.z_company.domain.track.AxisSlice.smooth(axis, r.fromKm, r.toKm, step)
+                if (path.size < 2) return@forEach
+                val snapped = RailSnap.snap(path, warnRails, step * 1000)
+                val segments = snapped.ifEmpty { listOf(path) }
+                segments.forEach { seg ->
+                    lineFeatures += Feature.fromGeometry(LineString.fromLngLats(seg.map { (lat, lon) -> Point.fromLngLat(lon, lat) }))
+                }
+                val anchor = RailSnap.midpoint(segments.maxByOrNull { RailSnap.lengthM(it) } ?: path)
+                val w = r.warning
+                val iconId = "warn-${w.id}"
+                val range = if (w.startAbsKm != null && w.endAbsKm != null)
+                    com.z_company.domain.track.KmMarks.position(w.startAbsKm!!).text() + " — " + com.z_company.domain.track.KmMarks.position(w.endAbsKm!!).text()
+                else ""
+                st.addImage(iconId, renderWarningCallout(context, w.title, range, density))
+                labelFeatures += Feature.fromGeometry(Point.fromLngLat(anchor.second, anchor.first))
+                    .apply { addStringProperty("icon", iconId); addStringProperty("wid", w.id) }
+            }
+            lines.setGeoJson(FeatureCollection.fromFeatures(lineFeatures))
+            labels.setGeoJson(FeatureCollection.fromFeatures(labelFeatures))
+        }
         // Масштаб при открытии: видна вся длина поезда. Один раз; если камера и так охватывает маршрут или трек - их охват шире.
         var trainFitted by remember { mutableStateOf(false) }
         LaunchedEffect(styleGen, styleReady, bodyShown) {
@@ -1153,6 +1228,12 @@ internal fun TrainMapScreen(
                 val tap = m!!.projection.toScreenLocation(latLng)
                 val mpp = m.projection.getMetersPerPixelAtLatitude(latLng.latitude) * density
                 val railLine = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line
+                // Тап по карточке предупреждения - редактирование.
+                m.queryRenderedFeatures(android.graphics.PointF(tap.x, tap.y), "train-map-warn-label").firstOrNull()
+                    ?.takeIf { it.hasProperty("wid") }?.getStringProperty("wid")?.let { id ->
+                        profileModel.editWarning(id)
+                        return@OnMapClickListener true
+                    }
                 // Тап по флажку сохранённого плана - снова открыть карточку.
                 plan?.let { pl ->
                     val fp = m.projection.toScreenLocation(LatLng(pl.target.latitude, pl.target.longitude))
@@ -1730,6 +1811,8 @@ internal fun TrainMapScreen(
                 )
             }
             if (showProfileFull) ProfileFullScreen(profileModel, onDismiss = { showProfileFull = false })
+            WarningOfferDialog(profileModel)
+            if (!showProfileFull) WarningEditDialog(profileModel)
 
             if (showChart) {
                 SpeedChartScreen(

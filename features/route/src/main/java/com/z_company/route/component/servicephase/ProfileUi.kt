@@ -32,11 +32,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import com.z_company.domain.track.Calibration
 import com.z_company.domain.track.KmGrid
@@ -182,6 +184,7 @@ internal fun ProfileChart(
     val labelStyle: TextStyle = Pst.mono.copy(fontSize = 10.sp, color = muted)
     val cellStyle: TextStyle = Pst.mono.copy(fontSize = 10.sp, color = ink)
     val kmStyle: TextStyle = Pst.mono.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = ink)
+    val warningStyle: TextStyle = Pst.sans.copy(fontSize = if (detailed) 11.sp else 9.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF3D2F00))
     val stationStyle: TextStyle = Pst.sans.copy(fontSize = 10.sp, color = muted)
     val noDataStyle: TextStyle = Pst.sans.copy(fontSize = if (detailed) 12.sp else 10.sp, color = ink.copy(alpha = 0.7f))
     val section = live.section
@@ -196,7 +199,20 @@ internal fun ProfileChart(
             }
         }
     } else Modifier
-    Canvas(modifier.then(gesture)) {
+    // Нажатие на жёлтую зону предупреждения - редактирование.
+    val currentWindow by rememberUpdatedState(window)
+    val tapZones = Modifier.pointerInput(Unit) {
+        detectTapGestures { o ->
+            val w = currentWindow
+            val x = w.fromX + o.x / size.width * (w.toX - w.fromX)
+            model.activeWarnings.firstOrNull { r ->
+                val a = minOf(live.toView(r.fromKm), live.toView(r.toKm))
+                val b = max(live.toView(r.fromKm), live.toView(r.toKm))
+                x in a..max(b, a + 0.03)
+            }?.let { model.editWarning(it.warning.id) }
+        }
+    }
+    Canvas(modifier.then(gesture).then(tapZones)) {
         val w = size.width
         val h = size.height
         val dp = density
@@ -240,6 +256,23 @@ internal fun ProfileChart(
             close()
         }
         drawPath(fill, accent.copy(alpha = 0.16f))
+        // Предупреждения: жёлтый фон на всю высоту графика с подписью вверху зоны.
+        model.activeWarnings.forEach { r ->
+            val a = max(minOf(live.toView(r.fromKm), live.toView(r.toKm)), window.fromX)
+            val b = minOf(max(live.toView(r.fromKm), live.toView(r.toKm)), window.toX)
+            if (b <= a) return@forEach
+            val x1 = px(a)
+            val x2 = max(px(b), x1 + 3f * dp)
+            drawRect(WarningYellow.copy(alpha = 0.38f), Offset(x1, topPad), androidx.compose.ui.geometry.Size(x2 - x1, bottomOfRows - topPad))
+            drawLine(WarningYellow, Offset(x1, topPad), Offset(x1, bottomOfRows), strokeWidth = 2f * dp)
+            if (x2 - x1 > 24f * dp) {
+                val tl = measurer.measure(
+                    r.warning.label, warningStyle, overflow = TextOverflow.Ellipsis, maxLines = 1,
+                    constraints = androidx.compose.ui.unit.Constraints(maxWidth = (x2 - x1 - 6f * dp).toInt().coerceAtLeast(1)),
+                )
+                drawText(tl, topLeft = Offset(x1 + 4f * dp, topPad + 2f * dp))
+            }
+        }
         val stroke = Path().apply {
             moveTo(px(xs[0]), py(hs[0]))
             for (i in 1..n) lineTo(px(xs[i]), py(hs[i]))
@@ -457,6 +490,9 @@ internal fun ProfileChart(
     }
 }
 
+/** Жёлтый фон зоны предупреждения (профиль и карта). */
+internal val WarningYellow = Color(0xFFFFD60A)
+
 /** Окно показа полноэкранного профиля в км (пресеты); [ALL] - весь участок. */
 internal enum class ProfileScale(val label: String, val spanKm: Double) {
     S3("3 км", 3.0),
@@ -477,6 +513,9 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
     var spanKm by rememberSaveable { mutableStateOf(6f) }
     var follow by rememberSaveable { mutableStateOf(true) }
     var manualFrom by rememberSaveable { mutableStateOf(0f) }
+    var showWarnings by rememberSaveable { mutableStateOf(false) }
+    var showVoice by rememberSaveable { mutableStateOf(false) }
+    var warnHint by remember { mutableStateOf(false) }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
@@ -523,6 +562,24 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
                     MeasureButton(model)
                     StripButton("Сменить направление", { model.toggleDirection() }) { PstIcon(PstIcons.Swap, 20.dp, Pst.text) }
                 }
+                // «Предупреждения»: видна всегда; без выбранного участка - пояснение вместо окна.
+                val canWarn = model.canEditWarnings
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .background(if (model.activeWarnings.isNotEmpty()) WarningYellow else Pst.bgSubtle, RoundedCornerShape(12.dp))
+                        .clickable(onClickLabel = "Предупреждения") { if (canWarn) showWarnings = true else warnHint = !warnHint },
+                    contentAlignment = Alignment.Center,
+                ) { PstIcon(PstIcons.Warning, 20.dp, if (canWarn) Pst.text else Pst.textMuted) }
+            }
+            if (warnHint && !model.canEditWarnings) {
+                Text(
+                    text = "Чтобы добавить предупреждения, выберите участок.",
+                    style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 15.sp),
+                    color = Pst.text,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).fillMaxWidth()
+                        .background(Pst.warning, RoundedCornerShape(12.dp)).padding(8.dp),
+                )
             }
             model.chooseError?.let {
                 Text(
@@ -596,6 +653,9 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
         }
     }
     if (showPicker) SectionPickerDialog(model, onDismiss = { showPicker = false })
+    if (showWarnings) WarningsDialog(model, onVoice = { showVoice = true }, onDismiss = { showWarnings = false })
+    if (showVoice) WarningVoiceDialog(model, onDismiss = { showVoice = false })
+    WarningEditDialog(model)
 }
 
 /** Участок и направление одной карточкой (нажатие - список участков): название, «от А к Б», способ выбора. */
@@ -675,7 +735,7 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
                 }
             }
         }
-        if (model.measuring) MeasureChip(model)
+        if (model.measureShown) MeasureChip(model)
         model.train?.let { tr ->
             Text(
                 text = trainLabel(tr),
@@ -700,17 +760,15 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
     if (showTrains) TrainPickerDialog(model, onDismiss = { showTrains = false })
 }
 
-/** «Линейка» в шапке: включает замер от текущего места, повторное нажатие выключает. Без GPS замер не начать. */
+/** Кнопка-линейка в шапке: показывает/прячет панель замера внизу (замер сама не запускает; при скрытии замер сбрасывается). */
 @Composable
 private fun MeasureButton(model: ProfileModel) {
-    val on = model.measuring
+    val on = model.measureShown
     Box(
         modifier = Modifier
             .size(38.dp)
             .background(if (on) Pst.accent else Pst.bgSubtle, RoundedCornerShape(12.dp))
-            .clickable(onClickLabel = if (on) "Выключить замер расстояния" else "Замерить расстояние") {
-                if (on) model.stopMeasure() else model.startMeasure()
-            },
+            .clickable(onClickLabel = if (on) "Скрыть замер расстояния" else "Показать замер расстояния") { model.toggleMeasurePanel() },
         contentAlignment = Alignment.Center,
     ) { PstIcon(PstIcons.Ruler, 20.dp, if (on) Pst.onAccent else Pst.text) }
 }
@@ -720,14 +778,17 @@ private fun measureText(m: Double): String =
     if (m < 1000) "${m.roundToInt()} м" else "${fmt1(m / 1000)} км"
 
 /**
- * Пройденное от точки замера: число (по оси пути, при потере привязки - «по прямой»), длина поезда для сравнения (цвет
- * акцента, когда пройдено не меньше длины: хвост вышел) и «Сброс» - начать отсчёт заново с этого места.
+ * Панель замера в строке «Сейчас»: пройденное расстояние (по оси пути, при потере привязки - «по прямой»; цвет акцента, когда
+ * пройдено не меньше длины поезда: хвост вышел) и кнопка по состоянию: «Старт» (замера нет / сброшен) → «Стоп» (идёт) → «Сброс»
+ * (остановлен, число заморожено) → «Старт». Без фикса GPS «Старт» ничего не делает.
  */
 @Composable
 private fun MeasureChip(model: ProfileModel) {
-    val m = model.measuredM ?: return
+    val m = model.measuredM ?: 0.0
     val trainM = model.trainLengthKm?.times(1000)
     val cleared = trainM != null && m >= trainM
+    val running = model.measuring
+    val stopped = model.measureStopped && model.hasMeasure
     Row(
         modifier = Modifier.background(Pst.bgSubtle, RoundedCornerShape(12.dp)).padding(start = 10.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -746,8 +807,9 @@ private fun MeasureChip(model: ProfileModel) {
             if (sub.isNotEmpty()) Text(sub, style = Pst.sans.copy(fontSize = 10.sp), color = Pst.textMuted, maxLines = 1)
         }
         PstButton(
-            text = "Сброс", onClick = { model.startMeasure() },
-            kind = PstButtonKind.TONAL, height = 34.dp, fontSize = 13,
+            text = when { running -> "Стоп"; stopped -> "Сброс"; else -> "Старт" },
+            onClick = { when { running -> model.stopMeasure(); stopped -> model.resetMeasure(); else -> model.startMeasure() } },
+            kind = if (running) PstButtonKind.FILLED else PstButtonKind.TONAL, height = 34.dp, fontSize = 13,
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
         )
     }

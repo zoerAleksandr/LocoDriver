@@ -15,6 +15,9 @@ import com.z_company.domain.track.LiveProfile
 import com.z_company.domain.track.ProfileWindow
 import com.z_company.domain.track.SectionPicker
 import com.z_company.domain.track.SectionSummary
+import com.z_company.domain.track.ResolvedWarning
+import com.z_company.domain.track.TrackWarning
+import com.z_company.domain.track.TrackWarnings
 import com.z_company.domain.track.SectionProfile
 import com.z_company.domain.util.GeoFix
 import com.z_company.domain.util.TrainMapStop
@@ -45,6 +48,9 @@ internal class ProfileModel(
     private val calibrations: ProfileCalibrationStore,
     private val scope: CoroutineScope,
     private val railLookup: com.z_company.domain.util.RailStationLookup? = null,
+    private val warningStore: TrackWarningStore? = null,
+    private val voice: WarningVoice? = null,
+    val voiceSettings: WarningVoiceSettings? = null,
 ) {
     /** Не вошёл в аккаунт: участки отдаются только вошедшему (25.10.2026), кэш прежнего аккаунта не показываем. */
     var needLogin by mutableStateOf(false)
@@ -111,12 +117,136 @@ internal class ProfileModel(
     private var motionLastKm: Double? = null
     private var motionSum = 0.0
 
+    // --- Предупреждения на участке (ограничения скорости, токоприёмники, ток, прочее) ---
+
+    /** Сохранённые предупреждения текущего участка (с прошлых проездов тоже). */
+    var savedWarnings by mutableStateOf<List<TrackWarning>>(emptyList())
+        private set
+    private var warningsSectionId: String? = null
+    private var activeWarningIds by mutableStateOf<Map<String, Set<String>>>(emptyMap())
+    private var offeredSections by mutableStateOf<Set<String>>(emptySet())
+    private val spokenAt = HashMap<String, Long>()
+
+    /** Сохранённые предупреждения, действующие сейчас на выбранном участке. */
+    val activeWarnings: List<ResolvedWarning>
+        get() {
+            val s = section ?: return emptyList()
+            val ids = activeWarningIds[s.id] ?: return emptyList()
+            return savedWarnings.filter { it.id in ids }.mapNotNull { TrackWarnings.resolve(s, it) }
+        }
+
+    fun isWarningActive(id: String): Boolean = section?.let { activeWarningIds[it.id]?.contains(id) } == true
+
+    /** Участок выбран и поддерживает предупреждения. */
+    val canEditWarnings: Boolean get() = live != null && warningStore != null
+
+    /** Прошлые предупреждения этого участка, которые ещё не применили и не отклонили в этом проезде. */
+    val warningOffer: List<TrackWarning>
+        get() {
+            val s = section ?: return emptyList()
+            if (s.id in offeredSections || !activeWarningIds[s.id].isNullOrEmpty()) return emptyList()
+            return savedWarnings
+        }
+
+    fun voices(): List<android.speech.tts.Voice> = voice?.voices().orEmpty()
+    fun applyVoice() { voice?.apply() }
+    fun testVoice() {
+        voice?.apply()
+        voice?.speak("Через 500 метров ограничение скорости 40 километров в час")
+    }
+
+    private fun syncWarnings() {
+        val s = section ?: return
+        if (warningsSectionId == s.id) return
+        warningsSectionId = s.id
+        savedWarnings = warningStore?.load(s.id).orEmpty()
+        spokenAt.clear()
+    }
+
+    /** Предупреждение, открытое для редактирования (нажатие на карточку на карте или на зону на профиле). */
+    var editingWarning by mutableStateOf<TrackWarning?>(null)
+        private set
+    fun editWarning(id: String) { editingWarning = savedWarnings.firstOrNull { it.id == id } }
+    fun closeWarningEdit() { editingWarning = null }
+
+    fun updateWarning(w: TrackWarning) {
+        val s = section ?: return
+        savedWarnings = savedWarnings.map { if (it.id == w.id) w else it }
+        warningStore?.save(s.id, savedWarnings)
+        spokenAt.remove(w.id)
+    }
+
+    fun addWarning(w: TrackWarning) {
+        val s = section ?: return
+        savedWarnings = savedWarnings + w
+        warningStore?.save(s.id, savedWarnings)
+        activeWarningIds = activeWarningIds + (s.id to (activeWarningIds[s.id].orEmpty() + w.id))
+        offeredSections = offeredSections + s.id
+    }
+
+    fun deleteWarning(id: String) {
+        val s = section ?: return
+        if (editingWarning?.id == id) editingWarning = null
+        savedWarnings = savedWarnings.filter { it.id != id }
+        warningStore?.save(s.id, savedWarnings)
+        activeWarningIds = activeWarningIds + (s.id to (activeWarningIds[s.id].orEmpty() - id))
+    }
+
+    fun setWarningActive(id: String, on: Boolean) {
+        val s = section ?: return
+        val cur = activeWarningIds[s.id].orEmpty()
+        activeWarningIds = activeWarningIds + (s.id to if (on) cur + id else cur - id)
+        offeredSections = offeredSections + s.id
+    }
+
+    /** Применить выбранные из прошлых предупреждений (пустой набор - не нужны). */
+    fun answerOffer(ids: Set<String>) {
+        val s = section ?: return
+        activeWarningIds = activeWarningIds + (s.id to ids)
+        offeredSections = offeredSections + s.id
+    }
+
+    /** Озвучка на подходе: один раз за [WarningVoiceSettings.distanceM] до зоны, затем с периодом повтора, пока зона впереди. */
+    private fun announceWarnings(p: LivePosition?, nowMs: Long) {
+        val settings = voiceSettings ?: return
+        val v = voice ?: return
+        if (!settings.enabled || p == null || p.offRoute || !p.locked) return
+        val dir = if (reversed) -1 else 1
+        activeWarnings.forEach { r ->
+            val d = TrackWarnings.distanceAheadM(r, p.kmAxis, dir)
+            val id = r.warning.id
+            if (d == null || d > settings.distanceM * 1.15) { spokenAt.remove(id); return@forEach }
+            if (d > settings.distanceM) return@forEach
+            val last = spokenAt[id]
+            val due = last == null || (settings.repeatSec > 0 && nowMs - last >= settings.repeatSec * 1000L)
+            if (due) {
+                spokenAt[id] = nowMs
+                v.speak(r.warning.spoken(TrackWarnings.roundedMeters(d)))
+            }
+        }
+    }
+
     /** Начало замера пройденного расстояния: точка, где нажали «Линейку». Положение на оси участка запоминается, если привязка была. */
     private class MeasureStart(val sectionId: String?, val axisKm: Double?, val fix: GeoFix)
     private var measureFrom by mutableStateOf<MeasureStart?>(null)
 
-    /** Замер идёт. */
-    val measuring: Boolean get() = measureFrom != null
+    /** Панель замера показана (кнопка-линейка в шапке); сам замер запускает «Старт» на панели. */
+    var measureShown by mutableStateOf(false)
+        private set
+
+    fun toggleMeasurePanel() {
+        if (measureShown) { resetMeasure(); measureShown = false } else measureShown = true
+    }
+
+    /** Замер остановлен кнопкой «Стоп»: число заморожено до «Сброс». */
+    var measureStopped by mutableStateOf(false)
+        private set
+
+    /** Замер идёт (считает). */
+    val measuring: Boolean get() = measureFrom != null && !measureStopped
+
+    /** Есть замер - идёт или остановлен, число показывается. */
+    val hasMeasure: Boolean get() = measureFrom != null
 
     /** Пройдено от точки начала замера, м; null - замера нет или нет положения. */
     var measuredM by mutableStateOf<Double?>(null)
@@ -130,23 +260,32 @@ internal class ProfileModel(
     val measureStartAxisKm: Double?
         get() = measureFrom?.takeIf { it.sectionId != null && it.sectionId == section?.id }?.axisKm
 
-    /** Начать замер (или начать заново) от текущего положения; без фикса GPS ничего не делает. */
+    /** Начать замер от текущего положения; без фикса GPS ничего не делает. */
     fun startMeasure() {
         val fix = lastFix ?: return
         val p = position?.takeIf { !it.offRoute && it.locked }
         measureFrom = MeasureStart(if (p != null) section?.id else null, p?.kmAxis, fix)
         measuredM = 0.0
         measureApprox = p == null
+        measureStopped = false
     }
 
+    /** «Стоп»: перестать считать, число остаётся на экране. */
     fun stopMeasure() {
+        if (measureFrom != null) measureStopped = true
+    }
+
+    /** «Сброс»: убрать замер; следующий - «Старт». */
+    fun resetMeasure() {
         measureFrom = null
         measuredM = null
         measureApprox = false
+        measureStopped = false
     }
 
     private fun updateMeasure(fix: GeoFix, p: LivePosition?) {
         val from = measureFrom ?: return
+        if (measureStopped) return
         val onAxis = from.axisKm != null && from.sectionId == section?.id && p != null && !p.offRoute && p.locked
         if (onAxis) {
             measuredM = abs(p!!.kmAxis - from.axisKm!!) * 1000.0
@@ -246,6 +385,8 @@ internal class ProfileModel(
         position = p
         detectMotionDirection(p)
         updateMeasure(fix, p)
+        syncWarnings()
+        announceWarnings(p, timeMs)
         // Участок выбран автоматически, а мы вне его оси - возможно, поезд уехал на другой участок: подберём заново.
         if (manualId == null && p?.offRoute == true) autoPick(fix, force = true)
     }
@@ -393,6 +534,7 @@ internal class ProfileModel(
             live = LiveProfile(s, rev).also { it.applyCalibration(calibrations.get(s.id, s.axisHash)) }
             position = keep ?: live?.position
             calibrationKm = live?.calibrationKm ?: 0.0
+            syncWarnings()
         }
     }
 
@@ -468,7 +610,12 @@ internal fun rememberProfileModel(
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val railLookup: com.z_company.domain.util.RailStationLookup = koinInject()
-    val model = remember { ProfileModel(repo, ProfileCalibrationStore(context), scope, railLookup) }
+    val voiceSettings = remember { WarningVoiceSettings(context) }
+    val voice = remember { WarningVoice(context, voiceSettings) }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { voice.shutdown() } }
+    val model = remember {
+        ProfileModel(repo, ProfileCalibrationStore(context), scope, railLookup, TrackWarningStore(context), voice, voiceSettings)
+    }
     model.stopNames = remember(stops) { stops.map { it.name }.filter { it.isNotBlank() } }
     LaunchedEffect(trains, trainId) { model.initTrains(trains, trainId) }
     LaunchedEffect(Unit) { model.load() }
