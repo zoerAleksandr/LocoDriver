@@ -226,6 +226,14 @@ internal class ProfileModel(
     private class MeasureStart(val sectionId: String?, val axisKm: Double?, val fix: GeoFix)
     private var measureFrom by mutableStateOf<MeasureStart?>(null)
 
+    /** Панель замера показана (кнопка-линейка в шапке); сам замер запускает «Старт» на панели. */
+    var measureShown by mutableStateOf(false)
+        private set
+
+    fun toggleMeasurePanel() {
+        if (measureShown) { resetMeasure(); measureShown = false } else measureShown = true
+    }
+
     /** Замер остановлен кнопкой «Стоп»: число заморожено до «Сброс». */
     var measureStopped by mutableStateOf(false)
         private set

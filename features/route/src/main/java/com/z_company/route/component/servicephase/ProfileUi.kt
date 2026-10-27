@@ -734,7 +734,7 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
                 }
             }
         }
-        if (model.hasMeasure) MeasureChip(model)
+        if (model.measureShown) MeasureChip(model)
         model.train?.let { tr ->
             Text(
                 text = trainLabel(tr),
@@ -759,33 +759,17 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
     if (showTrains) TrainPickerDialog(model, onDismiss = { showTrains = false })
 }
 
-/**
- * Кнопка замера в шапке с подписью по состоянию: «Старт» (замера нет или он сброшен) → «Стоп» (идёт, число растёт) → «Сброс»
- * (остановлен, число заморожено) → «Старт». Без фикса GPS «Старт» ничего не делает.
- */
+/** Кнопка-линейка в шапке: показывает/прячет панель замера внизу (замер сама не запускает; при скрытии замер сбрасывается). */
 @Composable
 private fun MeasureButton(model: ProfileModel) {
-    val running = model.measuring
-    val stopped = model.measureStopped && model.hasMeasure
-    val label = when { running -> "Стоп"; stopped -> "Сброс"; else -> "Старт" }
-    Row(
+    val on = model.measureShown
+    Box(
         modifier = Modifier
-            .height(38.dp)
-            .background(if (running) Pst.accent else Pst.bgSubtle, RoundedCornerShape(12.dp))
-            .clickable(onClickLabel = label) {
-                when { running -> model.stopMeasure(); stopped -> model.resetMeasure(); else -> model.startMeasure() }
-            }
-            .padding(horizontal = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        PstIcon(PstIcons.Ruler, 20.dp, if (running) Pst.onAccent else Pst.text)
-        Text(
-            text = label,
-            style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
-            color = if (running) Pst.onAccent else Pst.text, maxLines = 1,
-        )
-    }
+            .size(38.dp)
+            .background(if (on) Pst.accent else Pst.bgSubtle, RoundedCornerShape(12.dp))
+            .clickable(onClickLabel = if (on) "Скрыть замер расстояния" else "Показать замер расстояния") { model.toggleMeasurePanel() },
+        contentAlignment = Alignment.Center,
+    ) { PstIcon(PstIcons.Ruler, 20.dp, if (on) Pst.onAccent else Pst.text) }
 }
 
 /** До километра - целые метры, дальше - километры с одним знаком. */
@@ -793,16 +777,19 @@ private fun measureText(m: Double): String =
     if (m < 1000) "${m.roundToInt()} м" else "${fmt1(m / 1000)} км"
 
 /**
- * Пройденное от точки замера: число (по оси пути, при потере привязки - «по прямой»), длина поезда для сравнения (цвет
- * акцента, когда пройдено не меньше длины: хвост вышел). Кнопки - в шапке ([MeasureButton]).
+ * Панель замера в строке «Сейчас»: пройденное расстояние (по оси пути, при потере привязки - «по прямой»; цвет акцента, когда
+ * пройдено не меньше длины поезда: хвост вышел) и кнопка по состоянию: «Старт» (замера нет / сброшен) → «Стоп» (идёт) → «Сброс»
+ * (остановлен, число заморожено) → «Старт». Без фикса GPS «Старт» ничего не делает.
  */
 @Composable
 private fun MeasureChip(model: ProfileModel) {
-    val m = model.measuredM ?: return
+    val m = model.measuredM ?: 0.0
     val trainM = model.trainLengthKm?.times(1000)
     val cleared = trainM != null && m >= trainM
+    val running = model.measuring
+    val stopped = model.measureStopped && model.hasMeasure
     Row(
-        modifier = Modifier.background(Pst.bgSubtle, RoundedCornerShape(12.dp)).padding(horizontal = 10.dp, vertical = 2.dp),
+        modifier = Modifier.background(Pst.bgSubtle, RoundedCornerShape(12.dp)).padding(start = 10.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -818,6 +805,12 @@ private fun MeasureChip(model: ProfileModel) {
             }.joinToString(" · ")
             if (sub.isNotEmpty()) Text(sub, style = Pst.sans.copy(fontSize = 10.sp), color = Pst.textMuted, maxLines = 1)
         }
+        PstButton(
+            text = when { running -> "Стоп"; stopped -> "Сброс"; else -> "Старт" },
+            onClick = { when { running -> model.stopMeasure(); stopped -> model.resetMeasure(); else -> model.startMeasure() } },
+            kind = if (running) PstButtonKind.FILLED else PstButtonKind.TONAL, height = 34.dp, fontSize = 13,
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
+        )
     }
 }
 
