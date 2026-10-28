@@ -132,11 +132,13 @@ fun CoachMarkPopup(
     val target = anchor ?: return
     // Показываем, только когда положение якоря не менялось ~0,6 с: при входе на экран (анимация перехода, раскладка списка)
     // границы сначала «плывут», и облачко мигало бы на промежуточном месте.
+    // Уже показанное облачко не прячем из-за сдвигов якоря: иначе мелкая перекладка при появлении гасила бы его и показывала снова по кругу.
     var stable by remember { mutableStateOf(false) }
     LaunchedEffect(target) {
-        stable = false
-        kotlinx.coroutines.delay(ANCHOR_SETTLE_MS)
-        stable = true
+        if (!stable) {
+            kotlinx.coroutines.delay(ANCHOR_SETTLE_MS)
+            stable = true
+        }
     }
     if (!stable) return
     // Элемент прокручен за пределы экрана - не показываем (облачко повисло бы в углу).
