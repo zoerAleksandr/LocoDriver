@@ -300,6 +300,7 @@ fun FormTrainScreen(
         val mapAnchor = com.z_company.route.component.rememberCoachAnchor()
         val autoAnchor = com.z_company.route.component.rememberCoachAnchor()
         val vuAnchor = com.z_company.route.component.rememberCoachAnchor()
+        val restrictionsAnchor = com.z_company.route.component.rememberCoachAnchor()
         val onAutoToggle: () -> Unit = {
             onboardingHints.markShown(com.z_company.domain.onboarding.HintId.AUTO_CHIP)
             onAutoToggleRaw()
@@ -2277,7 +2278,11 @@ fun FormTrainScreen(
                     onBrakeCertificateClick()
                 },
                 vuAnchor = vuAnchor,
-                onRestrictionsClick = { showRestrictions = true },
+                restrictionsAnchor = restrictionsAnchor,
+                onRestrictionsClick = {
+                    onboardingHints.markShown(com.z_company.domain.onboarding.HintId.TRAIN_RESTRICTIONS)
+                    showRestrictions = true
+                },
                 restrictionsCount = com.z_company.route.component.servicephase.rememberRestrictionCount(currentTrain?.trainId),
                 onMapClick = {
                     onboardingHints.markShown(com.z_company.domain.onboarding.HintId.TRAIN_MAP)
@@ -2287,7 +2292,7 @@ fun FormTrainScreen(
             )
             }
 
-            val hintBlocked = showTrainMap || showSettingsSheet || showSelectServicePhase || showEditPhaseSheet ||
+            val hintBlocked = showTrainMap || showRestrictions || showSettingsSheet || showSelectServicePhase || showEditPhaseSheet ||
                 showTrainDataHistory || formUiState.editingStationIndex != null ||
                 formUiState.editingSegmentAfterIndex != null || formUiState.showCreateServicePhaseSheet
             val trainHint = com.z_company.domain.onboarding.OnboardingHints.nextOnTrainScreen(
@@ -2301,6 +2306,7 @@ fun FormTrainScreen(
             val hintAnchorBounds = when (trainHint) {
                 com.z_company.domain.onboarding.HintId.TRAIN_MAP -> mapAnchor.bounds
                 com.z_company.domain.onboarding.HintId.AUTO_CHIP -> autoAnchor.bounds
+                com.z_company.domain.onboarding.HintId.TRAIN_RESTRICTIONS -> restrictionsAnchor.bounds
                 com.z_company.domain.onboarding.HintId.TRAIN_VU45 -> vuAnchor.bounds
                 else -> null
             }
@@ -2327,6 +2333,13 @@ fun FormTrainScreen(
                     text = com.z_company.domain.onboarding.OnboardingHints.TEXT_AUTO_CHIP,
                     onDismiss = { onboardingHints.markShown(shownHint) },
                     tag = "coach_auto_chip",
+                )
+                com.z_company.domain.onboarding.HintId.TRAIN_RESTRICTIONS -> com.z_company.route.component.CoachMarkPopup(
+                    anchor = restrictionsAnchor.bounds,
+                    title = com.z_company.domain.onboarding.OnboardingHints.TITLE_TRAIN_RESTRICTIONS,
+                    text = com.z_company.domain.onboarding.OnboardingHints.TEXT_TRAIN_RESTRICTIONS,
+                    onDismiss = { onboardingHints.markShown(shownHint) },
+                    tag = "coach_train_restrictions",
                 )
                 com.z_company.domain.onboarding.HintId.TRAIN_VU45 -> com.z_company.route.component.CoachMarkPopup(
                     anchor = vuAnchor.bounds,
@@ -2367,6 +2380,7 @@ private fun TrainBottomAppBar(
     onBrakeCertificateClick: () -> Unit,
     mapAnchor: com.z_company.route.component.CoachAnchor? = null,
     vuAnchor: com.z_company.route.component.CoachAnchor? = null,
+    restrictionsAnchor: com.z_company.route.component.CoachAnchor? = null,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
@@ -2409,7 +2423,7 @@ private fun TrainBottomAppBar(
             }
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 TrainBottomIconButton(
-                    modifier = Modifier.width(48.dp),
+                    modifier = Modifier.width(48.dp).let { m -> if (restrictionsAnchor != null) m.coachAnchor(restrictionsAnchor) else m },
                     iconRes = com.z_company.route.R.drawable.ic_restriction_24,
                     contentDescription = "ДУ-61",
                     active = false,

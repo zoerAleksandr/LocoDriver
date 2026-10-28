@@ -20,6 +20,12 @@ enum class HintId(val key: String) {
     /** «Поезд», кнопка «Справка ВУ-45» в нижней панели (после «Карта» и «АВТО»). */
     TRAIN_VU45("train_vu45"),
 
+    /** «Поезд», кнопка «ДУ-61» в нижней панели (после «Карта» и «АВТО», перед «Справкой ВУ-45»). */
+    TRAIN_RESTRICTIONS("train_restrictions"),
+
+    /** Экскурсия по экрану «ДУ-61» при первом открытии. */
+    RESTRICTIONS_SCREEN("restrictions_screen"),
+
     /** Главная → плитка «Карта» в «Инструментах». */
     HOME_MAP_TILE("home_map_tile"),
 
@@ -166,6 +172,30 @@ enum class Vu45TourStep(val title: String, val text: String) {
     ),
 }
 
+/** Шаги экскурсии по экрану «ДУ-61»; шаг без элемента на экране (например, пустой список) пропускается. */
+enum class RestrictionsTourStep(val title: String, val text: String) {
+    LEG(
+        "Плечо поезда",
+        "Места ограничений берутся из станций плеча. Плечо выбрано и проверено на карте - ограничения лягут на карту точно; не выбрано - «Определить» подберёт его.",
+    ),
+    ADD(
+        "Добавить ограничение",
+        "Откроет «Где действует»: выберите станцию или перегон, затем вид ограничения, километр и пикет. Сеть для этого не нужна.",
+    ),
+    LIST(
+        "Список ограничений",
+        "Идут по ходу движения. С «АВТО» время захода головой, выхода составом и скорость проследования запишутся сами. Нажмите на запись - правка, свайп влево - убрать.",
+    ),
+    PDF(
+        "Отчёт PDF",
+        "Можно сформировать в любое время: проследованные ограничения - со временем и скоростью, остальные - без. Ограничения без участка не отслеживаются автоматически - в отчёте они помечены.",
+    ),
+    HELP(
+        "Подсказки",
+        "Эту экскурсию можно открыть снова в любой момент.",
+    ),
+}
+
 object OnboardingHints {
     // Подсказки на месте: заголовок + короткий текст (редакция 24.10.2026).
     const val TITLE_TRAIN_MAP = "Новая карта"
@@ -179,6 +209,9 @@ object OnboardingHints {
     const val TITLE_TRAIN_VU45 = "Справка ВУ-45"
     const val TEXT_TRAIN_VU45 =
         "Расчёт тормозов поезда, замеры плотности и оборот. Справка сохраняется и синхронизируется с другими устройствами."
+    const val TITLE_TRAIN_RESTRICTIONS = "ДУ-61"
+    const val TEXT_TRAIN_RESTRICTIONS =
+        "Журнал ограничений скорости и предупреждений поезда: добавляйте их по плечу, а с «АВТО» проследование запишется само."
     const val TITLE_HOME_MAP_TILE = "Карта в «Инструментах»"
     const val TEXT_HOME_MAP_TILE =
         "Откроет карту вашего поезда или текущее положение. Пока вы сами не начнёте запись, ничего не сохраняется."
@@ -200,7 +233,7 @@ object OnboardingHints {
     const val BUTTON_SKIP = "Пропустить"
 
     /** Порядок на экране «Поезд»: за раз показывается одна подсказка. */
-    private val TRAIN_SCREEN_ORDER = listOf(HintId.TRAIN_MAP, HintId.AUTO_CHIP, HintId.TRAIN_VU45)
+    private val TRAIN_SCREEN_ORDER = listOf(HintId.TRAIN_MAP, HintId.AUTO_CHIP, HintId.TRAIN_RESTRICTIONS, HintId.TRAIN_VU45)
 
     /**
      * Можно ли показать подсказку [id] сейчас.
@@ -226,7 +259,7 @@ object OnboardingHints {
         else -> true
     }
 
-    /** Следующая подсказка экрана «Поезд» («Карта», «АВТО», «ВУ-45») или null. */
+    /** Следующая подсказка экрана «Поезд» («Карта», «АВТО», «ДУ-61», «ВУ-45») или null. */
     fun nextOnTrainScreen(shown: Set<String>, homeReached: Boolean, recording: Boolean, blocked: Boolean): HintId? =
         TRAIN_SCREEN_ORDER.firstOrNull { canShow(it, shown, homeReached, recording, blocked) }
 }

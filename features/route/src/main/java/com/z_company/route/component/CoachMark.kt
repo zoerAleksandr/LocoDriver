@@ -68,7 +68,8 @@ class OnboardingHintsStore(private val prefs: SharedPreferences) {
 
     fun markShown(id: HintId) {
         if (id.key in shown) return
-        shown = shown + id.key
+        // Хранилищ на устройстве несколько (экран «Поезд», вложенные экраны): подмешиваем записанное другими, чтобы не затереть.
+        shown = shown + prefs.getStringSet(KEY_SHOWN, emptySet()).orEmpty() + id.key
         prefs.edit().putStringSet(KEY_SHOWN, shown).apply()
     }
 

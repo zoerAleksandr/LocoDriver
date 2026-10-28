@@ -17,6 +17,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import com.z_company.domain.onboarding.HintId
+import com.z_company.domain.onboarding.OnboardingHints
+import com.z_company.domain.onboarding.RestrictionsTourStep
+import com.z_company.route.component.CoachTour
+import com.z_company.route.component.TourStep
+import com.z_company.route.component.coachAnchor
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
@@ -106,7 +113,23 @@ internal fun TrainRestrictionsScreen(
     val ready = RestrictionReport.isReady(entries)
     val left = RestrictionReport.remaining(entries)
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+    // Экскурсия по экрану: один раз при первом открытии, «?» в шапке открывает снова.
+    val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
+    val tourAnchors = remember { RestrictionsTourStep.entries.associateWith { com.z_company.route.component.CoachAnchor() } }
+    var tourOpen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (OnboardingHints.canShow(
+                id = HintId.RESTRICTIONS_SCREEN,
+                shown = onboardingHints.shown, homeReached = onboardingHints.homeReached, recording = false,
+            )
+        ) {
+            tourOpen = true
+            onboardingHints.markShown(HintId.RESTRICTIONS_SCREEN)
+        }
+    }
+
+    Dialog(onDismissRequest = { if (tourOpen) tourOpen = false else onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+      Box(Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.fillMaxSize().background(Pst.bg).statusBarsPadding().navigationBarsPadding().imePadding()
                 .padding(horizontal = 16.dp, vertical = 10.dp),
@@ -118,12 +141,17 @@ internal fun TrainRestrictionsScreen(
                     Text("ДУ-61", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
                     Text(trainTitle, style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+                Box(Modifier.coachAnchor(tourAnchors.getValue(RestrictionsTourStep.HELP))) {
+                    MapButton(onClick = { tourOpen = true }, description = "Подсказки") {
+                        Text("?", style = Pst.sans.copy(fontSize = 20.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted)
+                    }
+                }
             }
-            LegBlock(leg)
+            LegBlock(leg, Modifier.coachAnchor(tourAnchors.getValue(RestrictionsTourStep.LEG)))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 PstButton(
                     "Добавить", { showAdd = true }, kind = PstButtonKind.FILLED, enabled = legSelected, height = 44.dp, fontSize = 14,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).coachAnchor(tourAnchors.getValue(RestrictionsTourStep.ADD)),
                 )
                 PstButton(
                     if (exporting) "Формируем…" else "Отчёт PDF",
@@ -140,13 +168,14 @@ internal fun TrainRestrictionsScreen(
                             }
                         }
                     },
-                    kind = PstButtonKind.TONAL, enabled = ready && !exporting, height = 44.dp, fontSize = 14, modifier = Modifier.weight(1f),
+                    kind = PstButtonKind.TONAL, enabled = rows.isNotEmpty() && !exporting, height = 44.dp, fontSize = 14,
+                    modifier = Modifier.weight(1f).coachAnchor(tourAnchors.getValue(RestrictionsTourStep.PDF)),
                 )
             }
             val hint = when {
                 !legSelected -> "Чтобы добавлять ограничения, выберите плечо поезда: участок определяется по нему."
                 rows.isEmpty() -> "Ограничений нет. «Добавить» открывает «Где действует»: выберите станцию или перегон; при включённом «АВТО» время и скорость проследования запишутся сами."
-                !ready -> "Отчёт будет доступен, когда все ограничения проследованы (осталось: $left)."
+                !ready -> "Отчёт можно сформировать в любое время: непроследованные ограничения будут без времени (осталось проследовать: $left)."
                 entries.none { it.tracked && !it.isDeleted } -> "Ограничения без участка автоматически не отслеживаются — в отчёте они помечены. Отчёт можно сформировать."
                 else -> "Все отслеживаемые ограничения проследованы — можно сформировать отчёт."
             }
@@ -155,11 +184,11 @@ internal fun TrainRestrictionsScreen(
             val order = remember(stops, legFrom, legTo) { stops.map { it.name }.filter { it.isNotBlank() }.ifEmpty { listOfNotNull(legFrom, legTo) } }
             val sorted = remember(entries, order) { sortRestrictions(entries, order) }
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(sorted, key = { it.warningId }) { e ->
+                itemsIndexed(sorted, key = { _, e -> e.warningId }) { index, e ->
                     val row = RestrictionReport.rows(listOf(e), zone).first()
                     // Тот же свайп-удаление, что у маршрутов на Главном (красная кнопка, затем подтверждение); нажатие - правка.
                     com.z_company.route.component.SwipeToRevealDelete(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().let { if (index == 0) it.coachAnchor(tourAnchors.getValue(RestrictionsTourStep.LIST)) else it },
                         onDeleteClick = { toDelete = e },
                         onContentClick = { editing = e },
                         backgroundVerticalPadding = 0.dp,
@@ -168,6 +197,15 @@ internal fun TrainRestrictionsScreen(
                 }
             }
         }
+        if (tourOpen) {
+            CoachTour(
+                steps = RestrictionsTourStep.entries.map { st ->
+                    TourStep(st.title, st.text, tourAnchors.getValue(st), present = st != RestrictionsTourStep.LIST || entries.isNotEmpty())
+                },
+                onDismiss = { tourOpen = false },
+            )
+        }
+      }
     }
 
     editing?.let { e ->
