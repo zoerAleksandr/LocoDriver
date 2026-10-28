@@ -151,8 +151,11 @@ class RestrictionJournalRecorder(
         states.clear(); seenBefore.clear(); lastWrite.clear(); cache = emptyList(); cacheTrain = null; cacheAt = 0L
     }
 
-    /** [lengthKm] - длина поезда сейчас (null - не указана), [trainLengthM] - она же в метрах для записи. */
-    suspend fun onPoint(trainId: String, p: RestrictionSample, lengthKm: Double?, trainLengthM: Int?) {
+    /**
+     * [lengthM] - длина поезда сейчас в метрах (null - не указана); вызывается лениво, только когда у поезда есть
+     * непроследованные записи (на каждый фикс «АВТО» без них работа сводится к одному обращению к кэшу).
+     */
+    suspend fun onPoint(trainId: String, p: RestrictionSample, lengthM: () -> Int?) {
         val now = nowMs()
         if (cacheTrain != trainId || now - cacheAt > CACHE_MS) {
             cache = store.openForTrain(trainId)
@@ -160,6 +163,8 @@ class RestrictionJournalRecorder(
             cacheAt = now
         }
         if (cache.isEmpty()) return
+        val trainLengthM = lengthM()
+        val lengthKm = trainLengthM?.takeIf { it > 0 }?.let { it / 1000.0 }
         val bySection = cache.groupBy { it.sectionId }
         for ((sectionId, entries) in bySection) {
             val st = stateFor(sectionId, now) ?: continue

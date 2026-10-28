@@ -201,6 +201,13 @@ val repositoryModule = module {
             onAltitudeContrib = { com.z_company.loco_driver.track.AltitudeContribScheduler.enqueue(androidContext()) },
             gnssStore = get(),
             onGnssContrib = { com.z_company.loco_driver.track.GnssZoneContribScheduler.enqueue(androidContext()) },
+            restrictionRecorder = get(),
+        )
+    }
+    // Фоновая запись журнала проследования ограничений: участок только из кэша (без сети), поправка оси - как на профиле.
+    single {
+        com.z_company.route.autorecord.createRestrictionRecorder(
+            context = androidContext(), store = get(), sections = get(),
         )
     }
     // Согласие №1 «Сохранять мои треки и историю поездок» (SCREEN_SPECS §6.9, §17.7).

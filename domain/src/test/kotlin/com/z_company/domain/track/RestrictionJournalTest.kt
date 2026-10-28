@@ -33,7 +33,7 @@ class RestrictionJournalTest {
         val dir = if (toKm >= fromKm) 1 else -1
         while ((toKm - km) * dir >= 0) {
             val v = speed(km)
-            runBlocking { rec.onPoint("t1", sample(t, km, v), lengthM?.let { it / 1000.0 }, lengthM) }
+            runBlocking { rec.onPoint("t1", sample(t, km, v)) { lengthM } }
             val step = v / 3.6 * 5 / 1000.0 // за 5 с
             km += dir * step
             t += 5_000
