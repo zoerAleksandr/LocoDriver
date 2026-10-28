@@ -37,6 +37,7 @@ import org.junit.runner.RunWith
  *  13. FormLocoScreen — переключение Электровоз/Тепловоз
  *  14. FormTrainScreen — форма поезда
  *  15. FormPassengerScreen — форма пассажира
+ *  16. Карта (плитка на Главной) и справочник «Напарники» в Настройках
  *
  * Эффект: cold start −30-40%, исчезают JIT-spike (которые мы видели в трейсе на 154ms).
  */
@@ -127,6 +128,11 @@ class BaselineProfileGenerator {
 
         scrollHomeToActionCards()
 
+        // ===== HOME → КАРТА (плитка «Карта») → BACK =====
+        navigateMap()
+
+        scrollHomeToActionCards()
+
         // ===== HOME → СТАТИСТИКА → BACK =====
         navigateAndScroll(
             buttonText = "Статистика",
@@ -160,6 +166,9 @@ class BaselineProfileGenerator {
         // Маршрут) не берём, чтобы не раздувать длительность каждой итерации.
         tapSettingsRowAndBack("Норма и регион")
         tapSettingsRowAndBack("Основные")
+        // Справочник «Напарники» (хаб → список). Строка может быть ниже первого экрана.
+        scrollList("settings_scroll_column", times = 1)
+        tapSettingsRowAndBack("Напарники")
 
         // ===== BOTTOM NAV: PROFILE (Профиль) =====
         navigateBottomNav(
@@ -340,6 +349,29 @@ class BaselineProfileGenerator {
                 else -> return
             }
         }
+    }
+
+    /**
+     * Открывает карту с главной (плитка «Карта»: MapLibre, тайлы, текущее
+     * положение), даёт время на загрузку и возвращается. Если система показала
+     * диалог разрешения геолокации — отклоняет его. Best-effort.
+     */
+    private fun MacrobenchmarkScope.navigateMap() {
+        val btn = waitFindText("Карта") ?: return
+        btn.click()
+        Thread.sleep(500)
+        // Диалог разрешения геолокации / согласие на запись — закрываем, не соглашаясь.
+        device.findObject(By.textContains("Не разрешать"))?.click()
+        device.findObject(By.textContains("Отмена"))?.click()
+        Thread.sleep(5000)
+        val w = device.displayWidth
+        val h = device.displayHeight
+        // Панорамирование и зум прогревают жесты карты.
+        device.swipe(w / 2, h / 2, w / 2 - 200, h / 2 + 100, 20)
+        Thread.sleep(800)
+        device.pressBack()
+        device.wait(Until.hasObject(By.res(pkg, "home_lazy_column")), 5000)
+        Thread.sleep(500)
     }
 
     /**
