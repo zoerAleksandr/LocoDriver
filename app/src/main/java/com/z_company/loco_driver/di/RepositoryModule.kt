@@ -311,6 +311,19 @@ val repositoryModule = module {
             isSubscribed = { get<com.z_company.route.viewmodel.RouteActionsHelper>().hasActiveSubscription() },
         )
     }
+    // Журнал проследования ограничений: отправка/догрузка вместе с треками (тот же воркер, согласие №1 и подписка).
+    single<com.z_company.repository.remote_rest.tracks.RestrictionSyncCursor> {
+        com.z_company.route.autorecord.RestrictionSyncPrefs(androidContext())
+    }
+    single {
+        com.z_company.repository.remote_rest.tracks.RestrictionPassSyncer(
+            api = RemoteRestClient.restrictionPassApi,
+            store = get(),
+            settings = get<com.z_company.route.autorecord.TrackConsentStore>(),
+            cursor = get(),
+            isSubscribed = { get<com.z_company.route.viewmodel.RouteActionsHelper>().hasActiveSubscription() },
+        )
+    }
     single { com.z_company.repository.remote_rest.tracks.TrackHistoryLoader(api = RemoteRestClient.tracksApi, tools = get()) }
     // Продление токена при старте приложения (POST /v1/auth/refresh); зовёт StartApp.
     single { SessionRefresher(remoteRestApi = get(), secureTokenStorage = get()) }
