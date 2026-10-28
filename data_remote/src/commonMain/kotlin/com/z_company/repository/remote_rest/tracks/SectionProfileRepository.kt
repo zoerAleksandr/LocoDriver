@@ -44,6 +44,12 @@ class SectionProfileRepository(
     private val memory = HashMap<String, Pair<Double, SectionProfile>>()
     private var index: List<AdvisorSectionSummaryDto>? = null
 
+    /** Участки, которые сервер отдал, но использовать нельзя (нет оси): id -> `updatedAt`, пока он тот же - заново не качаем. */
+    private val unusable = HashMap<String, Double>()
+
+    /** После отказа сервера по лимиту (429) загрузки участков не повторяются [RATE_LIMIT_PAUSE]: повторы только продлевают блокировку. */
+    private var pausedUntil: kotlin.time.TimeMark? = null
+
     /** Список опубликованных участков. [refresh] - спросить сервер; ошибка сети - молча кэш (или пусто). */
     suspend fun summaries(refresh: Boolean = true): List<SectionSummary> =
         loadIndex(refresh).map {
@@ -60,7 +66,9 @@ class SectionProfileRepository(
     suspend fun sectionsNear(lat: Double, lon: Double, radiusM: Double = NEAR_RADIUS_M, limit: Int = NEAR_LIMIT, refresh: Boolean = false): List<SectionProfile> {
         val index = loadIndex(refresh)
         val withBox = index.mapNotNull { dto -> SectionBox.of(dto.bbox)?.let { dto to it.distanceM(lat, lon) } }
-        val noBox = index.filter { SectionBox.of(it.bbox) == null }
+        // Без габарита берём только участки с геометрией (старый сервер не отдаёт габарит): у участка без геометрии качать нечего,
+        // а раньше каждый вызов тратил на каждый такой участок запрос к серверу (лимиты загрузок аккаунта).
+        val noBox = index.filter { it.hasGeometry && SectionBox.of(it.bbox) == null }
         val near = withBox.filter { it.second <= radiusM }.sortedBy { it.second }.take(limit).map { it.first }
         // Участки без габарита (нет геометрии либо старый сервер) отсеять нечем - берём как есть; без геометрии section() вернёт null.
         return (near + noBox).distinctBy { it.id }.mapNotNull { runCatching { section(it.id, refresh = false) }.getOrNull() }
@@ -71,6 +79,7 @@ class SectionProfileRepository(
         val summary = loadIndexLocked(refresh).firstOrNull { it.id == id }
         val inMem = memory[id]
         if (inMem != null && (summary == null || inMem.first == summary.updatedAt)) return inMem.second
+        if (summary != null && unusable[id] == summary.updatedAt) return null
         val cached = readCached(id)
         if (cached != null && (summary == null || cached.first == summary.updatedAt)) {
             memory[id] = cached
@@ -151,12 +160,15 @@ class SectionProfileRepository(
         private set
 
     private suspend fun download(id: String): Pair<Double, SectionProfile>? {
+        // Пауза после 429: сети не трогаем, остаётся то, что в кэше.
+        pausedUntil?.let { if (!it.hasPassedNow()) { rateLimited = true; return null } else pausedUntil = null }
         val res = runCatching { api.section(id) }
         val error = res.exceptionOrNull()
         rateLimited = error?.message?.contains("429") == true
+        if (rateLimited) pausedUntil = kotlin.time.TimeSource.Monotonic.markNow() + RATE_LIMIT_PAUSE
         error?.let { println("SectionProfile download ${id.take(8)} failed: ${it::class.simpleName}: ${it.message?.take(80)}") }
         val dto = res.getOrNull() ?: return null
-        val profile = withContext(Dispatchers.Default) { toProfile(dto) } ?: return null
+        val profile = withContext(Dispatchers.Default) { toProfile(dto) } ?: run { unusable[id] = dto.updatedAt; return null }
         runCatching { cache.save(id, json.encodeToString(AdvisorSectionDto.serializer(), dto)) }
         return dto.updatedAt to profile
     }
@@ -196,5 +208,6 @@ class SectionProfileRepository(
         /** Радиус отбора участков вокруг положения: ось + запас на соседние участки и погрешность. */
         const val NEAR_RADIUS_M = 5_000.0
         const val NEAR_LIMIT = 8
+        val RATE_LIMIT_PAUSE = kotlin.time.Duration.parse("10m")
     }
 }

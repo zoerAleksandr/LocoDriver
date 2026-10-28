@@ -64,7 +64,7 @@ import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 
 /**
- * «Ограничения поезда» (раздел «Поезд»): журнал проследования (заход головой и выход всем составом, скорость, максимум,
+ * «ДУ-61» (раздел «Поезд», бывшие «Ограничения поезда»): журнал проследования (заход головой и выход всем составом, скорость, максимум,
  * превышение), добавление предупреждений (тот же экран «Предупреждения», что и в профиле пути; участок определяется по
  * плечу поезда - добавлять можно, только если плечо выбрано) и PDF-отчёт, когда все ограничения проследованы.
  */
@@ -101,6 +101,7 @@ internal fun TrainRestrictionsScreen(
         }
     }
     val legSelected = leg.title != null
+    val placements by rememberPlacements(entries, stops)
     val rows = remember(entries, zone) { RestrictionReport.rows(entries, zone) }
     val ready = RestrictionReport.isReady(entries)
     val left = RestrictionReport.remaining(entries)
@@ -114,7 +115,7 @@ internal fun TrainRestrictionsScreen(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 MapButton(onClick = onDismiss, description = "Назад") { PstIcon(PstIcons.ChevronLeft, 22.dp, Pst.text) }
                 Column(Modifier.weight(1f)) {
-                    Text("Ограничения поезда", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+                    Text("ДУ-61", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
                     Text(trainTitle, style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
@@ -144,7 +145,7 @@ internal fun TrainRestrictionsScreen(
             }
             val hint = when {
                 !legSelected -> "Чтобы добавлять ограничения, выберите плечо поезда: участок определяется по нему."
-                rows.isEmpty() -> "Ограничений нет. «Добавить» открывает ДУ-61: выберите станции или перегоны, где действуют предупреждения; при включённом «АВТО» время и скорость проследования запишутся сами."
+                rows.isEmpty() -> "Ограничений нет. «Добавить» открывает «Где действует»: выберите станцию или перегон; при включённом «АВТО» время и скорость проследования запишутся сами."
                 !ready -> "Отчёт будет доступен, когда все ограничения проследованы (осталось: $left)."
                 entries.none { it.tracked && !it.isDeleted } -> "Ограничения без участка автоматически не отслеживаются — в отчёте они помечены. Отчёт можно сформировать."
                 else -> "Все отслеживаемые ограничения проследованы — можно сформировать отчёт."
@@ -163,7 +164,7 @@ internal fun TrainRestrictionsScreen(
                         onContentClick = { editing = e },
                         backgroundVerticalPadding = 0.dp,
                         itemKey = e.warningId,
-                    ) { _ -> RestrictionCard(row, e) }
+                    ) { _ -> RestrictionCard(row, e, placementNote(placements[e.warningId])) }
                 }
             }
         }
@@ -211,18 +212,32 @@ internal fun TrainRestrictionsScreen(
 }
 
 @Composable
-internal fun RestrictionCard(row: RestrictionReport.Row, e: RestrictionPass) {
+internal fun RestrictionCard(row: RestrictionReport.Row, e: RestrictionPass, note: Pair<String, Boolean>? = null) {
     val isSpeed = e.kind == "speed"
     RestrictionItem(
         place = row.place.ifBlank { row.title }, limit = row.limit.takeIf { isSpeed }, exceeded = row.exceeded, kmText = row.kmText,
         boldTitle = row.title.takeIf { !isSpeed },
     ) {
+        // Не на карте (нет профиля, серая зона, нет км): выделено, чтобы машинист видел, что это ограничение только в списке.
+        note?.let { PlacementTag(it) }
         // Данные проследования - когда они уже есть.
         if (!row.untracked && e.enterAt != null) {
             Text("Заход головой: ${row.enter}", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.text)
             if (isSpeed && e.exitAt != null) Text("Выход составом: ${row.exit}", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.text)
         }
     }
+}
+
+/** Число ограничений поезда для значка на нижней панели «Поезда»; журнал меняют и другие экраны, поэтому перечитывается раз в 2 с. */
+@Composable
+internal fun rememberRestrictionCount(trainId: String?): Int {
+    val store: RestrictionJournalStore = koinInject()
+    return androidx.compose.runtime.produceState(0, trainId) {
+        while (true) {
+            value = if (trainId == null) 0 else withContext(Dispatchers.Default) { runCatching { store.forTrain(trainId).size }.getOrDefault(0) }
+            delay(2_000)
+        }
+    }.value
 }
 
 /** Карточка ограничения - общая для «Ограничений поезда» и списка добавленных на экране ДУ-61 (профиль пути, карта). */
@@ -304,10 +319,11 @@ private fun RestrictionAddHost(
         NoSectionDialog("Выберите плечо поезда: места ДУ-61 берутся из его станций.", onClose, { place = null; showForm = true }, onSelectLeg = leg.onSelect)
         return
     }
-    LegPlacesDialog(
+    WhereSheet(
         leg = leg,
-        places = places,
-        onPick = { place = it; showForm = true },
+        places = places.map { WhereItem(it, isStation = " — " !in it) },
+        hint = "Выберите станцию или перегон. Когда профиль пути загрузится на карте, ограничение появится на нём.",
+        onPick = { place = places[it]; showForm = true },
         onOther = { place = null; showForm = true },
         onClose = onClose,
     )
@@ -385,14 +401,21 @@ private fun legPlaces(stops: List<TrainMapStop>, legFrom: String?, legTo: String
     }
 }
 
-/** Места ДУ-61 плеча: станции и перегоны; выбранное идёт в форму ограничения. Шторка, как и форма. Профиль пути не нужен. */
+/** Место для списка «Где действует»: станция или перегон. */
+internal class WhereItem(val title: String, val isStation: Boolean)
+
+/**
+ * Шторка «Где действует»: станции и перегоны, выбранное идёт в форму ограничения. Одна и та же из раздела «Поезд» и из профиля пути
+ * (там места берутся с оси участка). [onOther] - «Другое место» (только в «Поезде»: место вводится вручную).
+ */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun LegPlacesDialog(
-    leg: LegContext,
-    places: List<String>,
-    onPick: (String) -> Unit,
-    onOther: () -> Unit,
+internal fun WhereSheet(
+    leg: LegContext?,
+    places: List<WhereItem>,
+    hint: String,
+    onPick: (Int) -> Unit,
+    onOther: (() -> Unit)?,
     onClose: () -> Unit,
 ) {
     androidx.compose.material3.ModalBottomSheet(
@@ -404,31 +427,29 @@ private fun LegPlacesDialog(
             Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("ДУ-61: где действует", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
-            LegBlock(leg)
-            Text(
-                "Выберите станцию или перегон. Когда профиль пути загрузится на карте, ограничение появится на нём.",
-                style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted,
-            )
+            Text("Где действует", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+            if (leg != null) LegBlock(leg)
+            Text(hint, style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted)
             LazyColumn(Modifier.weight(1f, fill = false).heightIn(max = 480.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(places) { place ->
+                items(places.size) { i ->
+                    val place = places[i]
                     Row(
-                        modifier = Modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(12.dp)).clickable { onPick(place) }.padding(horizontal = 14.dp, vertical = 12.dp),
+                        modifier = Modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(12.dp)).clickable { onPick(i) }.padding(horizontal = 14.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            if (" — " in place) "ПЕР" else "СТ",
+                            if (place.isStation) "СТ" else "ПЕР",
                             style = Pst.mono.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted,
                         )
                         Text(
-                            place, style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text,
+                            place.title, style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text,
                             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
                         )
                     }
                 }
             }
-            PstButton("Другое место", onOther, kind = PstButtonKind.TONAL, height = 44.dp, fontSize = 14, modifier = Modifier.fillMaxWidth())
+            if (onOther != null) PstButton("Другое место", onOther, kind = PstButtonKind.TONAL, height = 44.dp, fontSize = 14, modifier = Modifier.fillMaxWidth())
         }
     }
 }

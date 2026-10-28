@@ -24,6 +24,8 @@ private class ProfileApi : AdvisorApi {
     var sectionCalls = 0
 
     var withBox = false
+    var withEmptySection = false
+    var rateLimit = false
     var sectionCallsById = mutableMapOf<String, Int>()
 
     override suspend fun sections(): List<AdvisorSectionSummaryDto> {
@@ -33,11 +35,12 @@ private class ProfileApi : AdvisorApi {
         return listOf(
             AdvisorSectionSummaryDto("s1", true, "h1", "А — Б", "А", "Б", 2.0, 1, 2, updatedAt, near),
             AdvisorSectionSummaryDto("s2", true, "h2", "В — Г", "В", "Г", 2.0, 1, 2, updatedAt, far),
-        )
+        ) + if (withEmptySection) listOf(AdvisorSectionSummaryDto("s3", false, null, "Д — Е", "Д", "Е", 0.0, 0, 1, updatedAt, null)) else emptyList()
     }
 
     override suspend fun section(id: String): AdvisorSectionDto {
         if (offline) throw IOException("no network")
+        if (rateLimit) throw IOException("advisor api: 429 rate_limited")
         sectionCalls++
         sectionCallsById[id] = (sectionCallsById[id] ?: 0) + 1
         return AdvisorSectionDto(
@@ -108,6 +111,29 @@ class SectionProfileRepositoryTest {
         val repo = SectionProfileRepository(api, MemProfileCache())
         repo.summaries()
         assertEquals(setOf("s1", "s2"), repo.sectionsNear(55.01, 37.0).map { it.id }.toSet())
+    }
+
+    @Test
+    fun near_does_not_download_sections_without_geometry() = runBlocking {
+        val api = ProfileApi().apply { withBox = false; withEmptySection = true }
+        val repo = SectionProfileRepository(api, MemProfileCache())
+        repo.summaries()
+        repo.sectionsNear(55.01, 37.0)
+        repo.sectionsNear(55.01, 37.0)
+        assertEquals(null, api.sectionCallsById["s3"])
+    }
+
+    @Test
+    fun pauses_downloads_after_rate_limit() = runBlocking {
+        val api = ProfileApi().apply { rateLimit = true }
+        val repo = SectionProfileRepository(api, MemProfileCache())
+        repo.summaries()
+        assertEquals(null, repo.section("s1", refresh = false))
+        assertEquals(true, repo.rateLimited)
+        // Сервер снова отвечает, но пауза держится: запроса к нему быть не должно.
+        api.rateLimit = false
+        assertEquals(null, repo.section("s1", refresh = false))
+        assertEquals(0, api.sectionCalls)
     }
 
     @Test

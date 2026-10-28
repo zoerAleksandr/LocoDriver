@@ -1127,10 +1127,12 @@ internal fun TrainMapScreen(
         val warnings = profileModel.mapWarnings
         val warnKey = warnings.map { (sec, r) -> Triple(sec.id, r.warning, r.fromKm to r.toKm) }
         var warnRails by remember { mutableStateOf<List<List<Pair<Double, Double>>>>(emptyList()) }
-        DisposableEffect(map, warnings.isNotEmpty()) {
-            val on = warnings.isNotEmpty()
+        DisposableEffect(map, warnings.isNotEmpty(), styleReady) {
+            val on = warnings.isNotEmpty() && styleReady
             fun refresh() {
                 val m = map ?: return
+                // Запрос слоёв до готовности стиля/рендерера роняет нативный код карты.
+                if (m.style?.isFullyLoaded != true || mapView.width == 0 || mapView.height == 0) return
                 warnRails = RailSnap.railLines(m, mapView.width, mapView.height)
             }
             val idle = MapLibreMap.OnCameraIdleListener { refresh() }

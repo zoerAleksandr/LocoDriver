@@ -35,6 +35,15 @@ import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 import kotlin.math.abs
 
+/** Длина поезда, введённая вручную на профиле (SharedPreferences `profile_train_length`, ключ - id поезда); на сервер не уходит. */
+internal class TrainLengthStore(context: android.content.Context) {
+    private val prefs = context.applicationContext.getSharedPreferences("profile_train_length", android.content.Context.MODE_PRIVATE)
+    fun get(trainId: String): Int? = prefs.getInt(trainId, 0).takeIf { it > 0 }
+    fun set(trainId: String, meters: Int?) {
+        prefs.edit().apply { if (meters == null) remove(trainId) else putInt(trainId, meters) }.apply()
+    }
+}
+
 /** Строка списка выбора участка. */
 internal class SectionRow(val summary: SectionSummary, val distanceM: Double?, val fitsLeg: Boolean?)
 
@@ -60,6 +69,7 @@ internal class ProfileModel(
     /** Журнал проследования: «действующие» предупреждения привязаны к поезду и переживают закрытие карты. */
     private val journal: com.z_company.domain.track.RestrictionJournalStore? = null,
     private val nowMs: () -> Long = { System.currentTimeMillis() },
+    private val lengthStore: TrainLengthStore? = null,
 ) {
     /** Не вошёл в аккаунт: участки отдаются только вошедшему (25.10.2026), кэш прежнего аккаунта не показываем. */
     var needLogin by mutableStateOf(false)
@@ -86,7 +96,22 @@ internal class ProfileModel(
     var selectedTrainId by mutableStateOf<String?>(null)
         private set
     val train: ProfileTrain? get() = trains.firstOrNull { it.id == selectedTrainId } ?: trains.firstOrNull()
-    val trainLengthKm: Double? get() = train?.lengthM?.takeIf { it > 0 }?.let { it / 1000.0 }
+    val trainLengthKm: Double? get() = train?.let { trainLengthM(it) }?.let { it / 1000.0 }
+
+    private var lengthTick by mutableStateOf(0)
+
+    /** Длина поезда, м: из данных поезда (приоритетна), иначе введённая вручную на профиле; null - не указана. */
+    fun trainLengthM(t: ProfileTrain): Int? {
+        t.lengthM?.takeIf { it > 0 }?.let { return it }
+        lengthTick
+        return lengthStore?.get(t.id)
+    }
+
+    /** Ввести длину поезда вручную (null - сбросить). Действует, пока длины нет в данных поезда. */
+    fun setManualLength(trainId: String, meters: Int?) {
+        lengthStore?.set(trainId, meters)
+        lengthTick++
+    }
     fun chooseTrain(id: String) { selectedTrainId = id }
     fun initTrains(list: List<ProfileTrain>, initialId: String?) {
         trains = list
@@ -879,16 +904,19 @@ internal class ProfileModel(
      */
     fun ensureLeg() {
         if (!loaded || needLogin || manualId != null || stopPoints.isEmpty() || stopNames.size < 2) return
+        // Участок уже выбран (по положению) - плечо ничего не добавляет, лишних загрузок не делаем (лимиты сервера на загрузки участков).
+        if (live != null) return
         val key = stopPoints.joinToString(",") { it.name }
-        if (key == legLoadKey) { if (live == null) pickLeg(); return }
+        if (key == legLoadKey) { pickLeg(); return }
         legLoadKey = key
         scope.launch {
-            val ends = listOf(stopPoints.first(), stopPoints.last())
-            for (p in ends) {
+            // Сначала участки у начала плеча; у конца - только если подходящего плечу участка так и не нашлось.
+            for (p in listOf(stopPoints.first(), stopPoints.last())) {
                 val found = runCatching { withContext(Dispatchers.Default) { repo.sectionsNear(p.latitude, p.longitude) } }.getOrDefault(emptyList())
                 merge(found)
+                pickLeg()
+                if (live != null) break
             }
-            pickLeg()
         }
     }
 
@@ -1011,7 +1039,7 @@ internal fun rememberProfileModel(
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { voice.shutdown() } }
     val journal: com.z_company.domain.track.RestrictionJournalStore = koinInject()
     val model = remember {
-        ProfileModel(repo, ProfileCalibrationStore(context), scope, railLookup, TrackWarningStore(context), voice, voiceSettings, journal)
+        ProfileModel(repo, ProfileCalibrationStore(context), scope, railLookup, TrackWarningStore(context), voice, voiceSettings, journal, lengthStore = TrainLengthStore(context))
     }
     model.stopNames = remember(stops) { stops.map { it.name }.filter { it.isNotBlank() } }
     model.stopPoints = stops

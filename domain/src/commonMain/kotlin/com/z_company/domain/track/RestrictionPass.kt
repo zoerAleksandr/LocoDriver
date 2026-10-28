@@ -100,7 +100,7 @@ data class RestrictionPass(
     fun kmText(): String? {
         val a = startAbsKm ?: return null
         val b = endAbsKm ?: return null
-        return KmMarks.position(a).text() + " — " + KmMarks.position(b).text()
+        return KmMarks.position(a).textToPicket() + " — " + KmMarks.position(b).textToPicket()
     }
 
     companion object {

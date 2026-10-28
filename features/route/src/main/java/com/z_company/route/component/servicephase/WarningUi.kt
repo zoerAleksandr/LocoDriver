@@ -78,7 +78,7 @@ private fun warningPlaces(section: SectionProfile, reversed: Boolean, legStops: 
 private fun kmText(section: SectionProfile, w: TrackWarning): String {
     val a = w.startAbsKm
     val b = w.endAbsKm
-    if (a != null && b != null) return KmMarks.position(a).text() + " — " + KmMarks.position(b).text()
+    if (a != null && b != null) return KmMarks.position(a).textToPicket() + " — " + KmMarks.position(b).textToPicket()
     return "${fmt1(w.startRelKm)} — ${fmt1(w.endRelKm)} км от начала"
 }
 
@@ -151,6 +151,7 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
     val section = live.section
     var place by remember { mutableStateOf<WarningPlace?>(null) }
     var editing by remember { mutableStateOf<TrackWarning?>(null) }
+    var showWhere by remember { mutableStateOf(false) }
     var toRemove by remember { mutableStateOf<RestrictionPass?>(null) }
     var editingOther by remember { mutableStateOf<RestrictionPass?>(null) }
     var toForget by remember { mutableStateOf<TrackWarning?>(null) }
@@ -159,6 +160,7 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
     // Действующие - весь список поезда (его же показывает «Ограничения поезда»), не только то, что лежит на этом участке.
     val active = sortRestrictions(model.trainRestrictions, order)
     val past = model.pastWarnings
+    val placements by rememberPlacements(active, model.stopPoints)
     var added by remember { mutableStateOf(0) }
     val places = remember(section.id, live.reversed, model.stopPoints) { warningPlaces(section, live.reversed, model.stopPoints) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
@@ -176,8 +178,9 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
                 }
             }
             val buttons: @Composable () -> Unit = {
+                PstButton("Добавить", { showWhere = true }, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
                 PstButton("Голос", onVoice, kind = PstButtonKind.TONAL, height = 40.dp, fontSize = 14)
-                PstButton("Готово", onDismiss, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
+                PstButton("Готово", onDismiss, kind = PstButtonKind.TONAL, height = 40.dp, fontSize = 14)
             }
             if (portrait) {
                 titleBlock(Modifier.fillMaxWidth())
@@ -192,7 +195,7 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
             if (leg != null) LegBlock(leg)
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (active.isNotEmpty()) {
-                    item { SmallCaps("ДЕЙСТВУЮЩИЕ — общий список поезда, как в «Ограничениях поезда»") }
+                    item { SmallCaps("ДЕЙСТВУЮЩИЕ — общий список поезда") }
                     items(active, key = { "a" + it.warningId }) { e ->
                         val row = RestrictionReport.rows(listOf(e), zone).first()
                         com.z_company.route.component.SwipeToRevealDelete(
@@ -201,7 +204,7 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
                             onContentClick = { if (e.sectionId == section.id) editing = e.toWarning() else editingOther = e },
                             backgroundVerticalPadding = 0.dp,
                             itemKey = e.warningId,
-                        ) { _ -> RestrictionCard(row, e) }
+                        ) { _ -> RestrictionCard(row, e, placementNote(placements[e.warningId])) }
                     }
                 }
                 if (past.isNotEmpty()) {
@@ -210,27 +213,19 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
                         WarningItem(section, w, onClick = { model.activatePast(w.id) }, onDelete = { toForget = w })
                     }
                 }
-                item { SmallCaps("ВЫБЕРИТЕ СТАНЦИЮ ИЛИ ПЕРЕГОН") }
-                items(places) { pl ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(12.dp))
-                            .clickable { place = pl }.padding(horizontal = 14.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            if (pl.isStation) "СТ" else "ПЕР",
-                            style = Pst.mono.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted,
-                        )
-                        Text(
-                            pl.title, style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
             }
         }
         if (p != null) ProfileRestrictionForm(model, section, p, onBack = { place = null }, onSaved = { added++; place = null })
+        if (showWhere) {
+            WhereSheet(
+                leg = leg,
+                places = places.map { WhereItem(it.title, it.isStation) },
+                hint = "Выберите станцию или перегон участка.",
+                onPick = { place = places[it]; showWhere = false },
+                onOther = null,
+                onClose = { showWhere = false },
+            )
+        }
         toRemove?.let { e ->
             com.z_company.route.component.AppAlertDialog(
                 onDismissRequest = { toRemove = null },
@@ -452,10 +447,23 @@ internal fun WarningVoiceDialog(model: ProfileModel, onDismiss: () -> Unit) {
     val voices = remember { model.voices() }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         WarningPanel(widthFraction = 0.75f) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Голос ДУ-61", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, modifier = Modifier.weight(1f))
+            val portrait = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
+            val title: @Composable (Modifier) -> Unit = { m ->
+                Text("Голос ДУ-61", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, modifier = m)
+            }
+            val buttons: @Composable () -> Unit = {
                 PstButton("Проверить", { model.testVoice() }, kind = PstButtonKind.TONAL, height = 40.dp, fontSize = 14)
                 PstButton("Готово", onDismiss, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
+            }
+            if (portrait) {
+                // Вертикально: заголовок над кнопками (в одну строку он не помещается и ломается по буквам).
+                title(Modifier.fillMaxWidth())
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) { buttons() }
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    title(Modifier.weight(1f))
+                    buttons()
+                }
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

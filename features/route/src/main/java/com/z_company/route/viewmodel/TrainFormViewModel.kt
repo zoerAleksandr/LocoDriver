@@ -197,6 +197,13 @@ class TrainFormViewModel(
     private var phaseUsage: Map<String, Int> by mutableStateOf(emptyMap())
     private var phaseLastUsed: Map<String, Long> by mutableStateOf(emptyMap())
 
+    /**
+     * Страна пользователя — для автоподбора станций плеча. Объявлена выше `init`: корутина инициализации может выполниться сразу
+     * (Main.immediate) и записать значение раньше, чем отработали бы объявления ниже (иначе NPE при открытии «Поезда»).
+     */
+    var userCountry by mutableStateOf("RU")
+        private set
+
     init {
         loadUsageStats()
         refreshFix()
@@ -781,10 +788,6 @@ class TrainFormViewModel(
 
     // Правки плеч и справочника станций — read-modify-write одних настроек: по очереди.
     private val settingsMutex = Mutex()
-
-    /** Страна пользователя — для автоподбора станций плеча. */
-    var userCountry by mutableStateOf("RU")
-        private set
 
     /** Новые названия из автоподбора станций плеча — в справочник станций. */
     fun addStationNames(names: List<String>) {

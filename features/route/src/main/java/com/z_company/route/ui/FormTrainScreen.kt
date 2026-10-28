@@ -2278,6 +2278,7 @@ fun FormTrainScreen(
                 },
                 vuAnchor = vuAnchor,
                 onRestrictionsClick = { showRestrictions = true },
+                restrictionsCount = com.z_company.route.component.servicephase.rememberRestrictionCount(currentTrain?.trainId),
                 onMapClick = {
                     onboardingHints.markShown(com.z_company.domain.onboarding.HintId.TRAIN_MAP)
                     showTrainMap = true
@@ -2362,6 +2363,7 @@ private fun TrainBottomAppBar(
     onAddStationClick: () -> Unit,
     onMapClick: () -> Unit,
     onRestrictionsClick: () -> Unit,
+    restrictionsCount: Int = 0,
     onBrakeCertificateClick: () -> Unit,
     mapAnchor: com.z_company.route.component.CoachAnchor? = null,
     vuAnchor: com.z_company.route.component.CoachAnchor? = null,
@@ -2409,8 +2411,9 @@ private fun TrainBottomAppBar(
                 TrainBottomIconButton(
                     modifier = Modifier.width(48.dp),
                     iconRes = com.z_company.route.R.drawable.ic_restriction_24,
-                    contentDescription = "Ограничения поезда",
+                    contentDescription = "ДУ-61",
                     active = false,
+                    badgeCount = restrictionsCount,
                     onClick = onRestrictionsClick,
                 )
             }
@@ -2453,6 +2456,7 @@ private fun TrainBottomIconButton(
     active: Boolean,
     colored: Boolean = false,
     iconContent: (@Composable () -> Unit)? = null,
+    badgeCount: Int = 0,
     onClick: () -> Unit,
 ) {
     Box(modifier = modifier.height(48.dp), contentAlignment = Alignment.Center) {
@@ -2463,7 +2467,15 @@ private fun TrainBottomIconButton(
                 tint = if (colored) Color.Unspecified else MaterialTheme.colorScheme.primary,
             )
         }
-        if (active) {
+        if (badgeCount > 0) {
+            Badge(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-2).dp, y = 2.dp),
+                containerColor = Color(0xFFf1642e),
+                contentColor = Color.White,
+            ) { Text(if (badgeCount > 99) "99+" else badgeCount.toString()) }
+        } else if (active) {
             Badge(
                 modifier = Modifier
                     .align(Alignment.TopEnd)

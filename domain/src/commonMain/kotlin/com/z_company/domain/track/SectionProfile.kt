@@ -51,6 +51,9 @@ data class SectionProfile(
 /** Километр и пикет: «142 км 5 пк 30 м». */
 data class KmPosition(val km: Int, val picket: Int, val plusM: Int) {
     fun text(): String = "$km км $picket пк $plusM м"
+
+    /** «142 км 5 пк» - без метров (подпись места ограничения: оно задаётся с точностью до пикета). */
+    fun textToPicket(): String = "$km км $picket пк"
 }
 
 object KmMarks {

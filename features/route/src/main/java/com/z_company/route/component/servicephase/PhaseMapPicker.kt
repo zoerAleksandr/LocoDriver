@@ -337,12 +337,13 @@ internal fun PhaseMapPicker(
 }
 
 @Composable
-internal fun MapButton(onClick: () -> Unit, description: String, content: @Composable () -> Unit) {
+internal fun MapButton(onClick: () -> Unit, description: String, size: androidx.compose.ui.unit.Dp = 48.dp, content: @Composable () -> Unit) {
+    val shape = RoundedCornerShape(if (size < 44.dp) 12.dp else 16.dp)
     Box(
         modifier = Modifier
-            .size(48.dp)
-            .shadow(4.dp, RoundedCornerShape(16.dp))
-            .background(Pst.surface, RoundedCornerShape(16.dp))
+            .size(size)
+            .shadow(4.dp, shape)
+            .background(Pst.surface, shape)
             .clickable(onClickLabel = description, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { content() }

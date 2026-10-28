@@ -102,7 +102,7 @@ private fun emptyText(model: ProfileModel): String = emptyBase(model) + legHint(
 
 /** Плечо не проверено на карте: профиль без него подбирается хуже - скажем об этом, чтобы пустой профиль не выглядел нормой. */
 private fun legHint(model: ProfileModel): String =
-    if (model.legUnverified && model.emptyReason != null) " Плечо не проверено на карте: определите его в «Ограничениях поезда» (кнопка «Определить») — с проверенным плечом профиль подбирается точнее." else ""
+    if (model.legUnverified && model.emptyReason != null) " Плечо не проверено на карте: определите его в разделе «Поезд» → ДУ-61 (кнопка «Определить») — с проверенным плечом профиль подбирается точнее." else ""
 
 private fun emptyBase(model: ProfileModel): String = when (model.emptyReason) {
     ProfileEmpty.LOADING -> "Загружаем профили участков…"
@@ -549,7 +549,6 @@ internal val WarningYellow = Color(0xFFFFD60A)
 
 /** Окно показа полноэкранного профиля в км (пресеты); [ALL] - весь участок. */
 internal enum class ProfileScale(val label: String, val spanKm: Double) {
-    S3("3 км", 3.0),
     S6("6 км", 6.0),
     S12("12 км", 12.0),
     ALL("Весь участок", 0.0),
@@ -589,28 +588,33 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                MapButton(onClick = onDismiss, description = "Назад") { PstIcon(PstIcons.ChevronLeft, 22.dp, Pst.text) }
+                MapButton(onClick = onDismiss, description = "Назад", size = 38.dp) { PstIcon(PstIcons.ChevronLeft, 22.dp, Pst.text) }
                 SectionHeader(model, Modifier.weight(1f)) { showPicker = true }
                 if (reason == null && live != null) {
                     val length = live.lengthKm
                     ProfileScale.values().forEach { sc ->
                         val target = if (sc == ProfileScale.ALL) length.toFloat() else sc.spanKm.toFloat()
                         val on = abs(spanKm - target) < 0.05f * target.coerceAtLeast(1f)
-                        Text(
-                            text = sc.label,
-                            style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
-                            color = if (on) Pst.onAccent else Pst.text,
+                        Box(
                             modifier = Modifier
+                                .height(38.dp)
                                 .background(if (on) Pst.accent else Pst.bgSubtle, RoundedCornerShape(12.dp))
                                 .clickable { spanKm = target; follow = sc != ProfileScale.ALL }
-                                .padding(horizontal = 10.dp, vertical = 8.dp),
-                            maxLines = 1,
-                        )
+                                .padding(horizontal = 10.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = sc.label,
+                                style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
+                                color = if (on) Pst.onAccent else Pst.text,
+                                maxLines = 1,
+                            )
+                        }
                     }
                     if (!follow) {
                         PstButton(
                             text = "К поезду", onClick = { follow = true },
-                            kind = PstButtonKind.TONAL, height = 36.dp, fontSize = 13,
+                            kind = PstButtonKind.TONAL, height = 38.dp, fontSize = 13,
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
                         )
                     }
@@ -784,11 +788,11 @@ private fun SectionHeader(model: ProfileModel, modifier: Modifier = Modifier, on
     val live = model.live
     val s = live?.section
     Row(
-        // Высота и форма как у соседней кнопки «Назад» (MapButton: 48 dp, скругление 16 dp, тень 4 dp).
+        // Высота и форма как у «Назад» и кнопок справа (38 dp, скругление 12 dp).
         modifier = modifier
-            .height(48.dp)
-            .shadow(4.dp, RoundedCornerShape(16.dp))
-            .background(Pst.surface, RoundedCornerShape(16.dp))
+            .height(38.dp)
+            .shadow(4.dp, RoundedCornerShape(12.dp))
+            .background(Pst.surface, RoundedCornerShape(12.dp))
             .clickable(onClickLabel = "Выбрать участок", onClick = onPick)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -800,17 +804,6 @@ private fun SectionHeader(model: ProfileModel, modifier: Modifier = Modifier, on
                 style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
                 color = Pst.text, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
-            if (s != null && live != null) {
-                // Название разворачивается вместе с направлением; чётность - если у участка есть светофоры.
-                val dirText = buildList {
-                    model.parity?.let { add(it.title.lowercase()) }
-                    add(if (model.manualId != null) "выбран вручную" else "по местоположению")
-                }.joinToString(" · ")
-                Text(
-                    text = dirText,
-                    style = Pst.sans.copy(fontSize = 11.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
-            }
         }
         Text("Сменить", style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold), color = Pst.accent, maxLines = 1)
     }
@@ -825,6 +818,7 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
     val pos = model.position
     var showCalibrate by rememberSaveable { mutableStateOf(false) }
     var showTrains by rememberSaveable { mutableStateOf(false) }
+    var showLength by rememberSaveable { mutableStateOf(false) }
     val ahead = pos?.let { p ->
         val vx = live.toView(p.kmAxis)
         model.stationsOnProfile(live.section).map { live.toView(it.km) to it.name }.filter { it.first > vx + 0.05 }.minByOrNull { it.first }
@@ -868,16 +862,31 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
         }
         if (model.measureShown) MeasureChip(model)
         model.train?.let { tr ->
-            Text(
-                text = trainLabel(tr),
-                style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
-                color = Pst.text,
-                maxLines = 1,
-                modifier = Modifier
-                    .background(Pst.bgSubtle, RoundedCornerShape(12.dp))
-                    .clickable(onClickLabel = "Выбрать поезд") { showTrains = true }
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-            )
+            val dataLength = tr.lengthM?.takeIf { it > 0 }
+            val length = model.trainLengthM(tr)
+            Row(
+                modifier = Modifier.background(Pst.bgSubtle, RoundedCornerShape(12.dp)),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = tr.number?.takeIf { it.isNotBlank() }?.let { "№$it" } ?: "Поезд без номера",
+                    style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
+                    color = Pst.text,
+                    maxLines = 1,
+                    modifier = Modifier.clickable(onClickLabel = "Выбрать поезд") { showTrains = true }.padding(start = 10.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+                )
+                // Длина: из данных поезда (приоритетна, не правится здесь); нет в данных - вводится вручную, пока в данных не появится.
+                Text(
+                    text = "· " + (length?.let { "$it м" } ?: "длина не указана"),
+                    style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
+                    color = if (dataLength == null) Pst.accent else Pst.text,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .then(if (dataLength == null) Modifier.clickable(onClickLabel = "Указать длину поезда") { showLength = true } else Modifier)
+                        .padding(start = 4.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
+                )
+            }
+            if (showLength && dataLength == null) TrainLengthDialog(model, tr, onDismiss = { showLength = false })
         }
         if (live.section.kmMarks.isNotEmpty()) {
             PstButton(
@@ -943,6 +952,45 @@ private fun MeasureChip(model: ProfileModel) {
             kind = if (running) PstButtonKind.FILLED else PstButtonKind.TONAL, height = 34.dp, fontSize = 13,
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
         )
+    }
+}
+
+/** Длина поезда вручную (в данных поезда её нет): число метров; данные поезда приоритетнее - как только длина появится там, эта перестаёт использоваться. */
+@Composable
+private fun TrainLengthDialog(model: ProfileModel, t: ProfileTrain, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf(TextFieldValue(model.trainLengthM(t)?.toString().orEmpty())) }
+    var error by remember { mutableStateOf<String?>(null) }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(
+            modifier = Modifier.fillMaxWidth(0.6f).background(Pst.bg, RoundedCornerShape(20.dp)).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Длина поезда", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+            Text(
+                "В данных поезда длина не указана. Введите её, чтобы на профиле рисовался весь состав. Если длина появится в данных поезда, будет использоваться она.",
+                style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted,
+            )
+            PstTextField(
+                text, { text = it; error = null }, "Длина, м", Modifier.fillMaxWidth(),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number), mono = true,
+            )
+            error?.let { Text(it, style = Pst.sans.copy(fontSize = 13.sp), color = Pst.danger) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), modifier = Modifier.fillMaxWidth()) {
+                if (model.trainLengthM(t) != null) {
+                    PstButton("Сбросить", { model.setManualLength(t.id, null); onDismiss() }, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
+                }
+                PstButton("Отмена", onDismiss, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
+                PstButton(
+                    "Сохранить",
+                    {
+                        val m = text.text.trim().toIntOrNull()
+                        if (m == null || m !in 10..3000) error = "Длина — число метров от 10 до 3000."
+                        else { model.setManualLength(t.id, m); onDismiss() }
+                    },
+                    kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14,
+                )
+            }
+        }
     }
 }
 
