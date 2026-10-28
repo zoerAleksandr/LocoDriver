@@ -37,6 +37,41 @@ CREATE TABLE IF NOT EXISTS TrackPoint (
     PRIMARY KEY (trackId, timeMs)
 ) WITHOUT ROWID;
 
+-- Журнал проследования ограничений (миграция 3.sqm): время и скорость захода/выхода составом по предупреждениям поезда.
+-- Без координат: только время, скорость и км/пикет. Ключ (trainId, warningId); remove = надгробие (isDeleted = 1) до отправки на сервер.
+CREATE TABLE IF NOT EXISTS RestrictionPass (
+    trainId TEXT NOT NULL,
+    warningId TEXT NOT NULL,
+    routeId TEXT NOT NULL,
+    sectionId TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    title TEXT NOT NULL,
+    place TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
+    limitKmh INTEGER,
+    startAbsKm REAL,
+    endAbsKm REAL,
+    startRelKm REAL NOT NULL DEFAULT 0,
+    endRelKm REAL NOT NULL DEFAULT 0,
+    enterAt INTEGER,
+    enterSpeedKmh REAL,
+    enterApprox INTEGER NOT NULL DEFAULT 0,
+    exitAt INTEGER,
+    exitSpeedKmh REAL,
+    exitByHead INTEGER NOT NULL DEFAULT 0,
+    trainLengthM INTEGER,
+    dir INTEGER NOT NULL DEFAULT 0,
+    maxSpeedKmh REAL,
+    exceeded INTEGER NOT NULL DEFAULT 0,
+    updatedAt INTEGER NOT NULL,
+    isDeleted INTEGER NOT NULL DEFAULT 0,
+    -- 1 - изменено локально и ещё не доставлено на сервер.
+    dirty INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (trainId, warningId)
+);
+
+CREATE INDEX IF NOT EXISTS index_RestrictionPass_dirty ON RestrictionPass(dirty);
+
 insertTrack:
 INSERT OR IGNORE INTO Track(trackId, trainId, startedAt, endedAt, isFavorite) VALUES (?, ?, ?, ?, 0);
 
@@ -134,3 +169,41 @@ DELETE FROM TrackPoint WHERE trackId IN (SELECT trackId FROM Track WHERE isFavor
 
 deleteExpiredTracks:
 DELETE FROM Track WHERE isFavorite = 0 AND endedAt < :cutoff;
+
+-- Журнал проследования ограничений.
+selectPassesByTrain:
+SELECT * FROM RestrictionPass WHERE trainId = :trainId AND isDeleted = 0 ORDER BY updatedAt ASC;
+
+selectOpenPassesByTrain:
+SELECT * FROM RestrictionPass WHERE trainId = :trainId AND isDeleted = 0
+  AND (enterAt IS NULL OR (kind = 'speed' AND exitAt IS NULL))
+ORDER BY updatedAt ASC;
+
+selectPass:
+SELECT * FROM RestrictionPass WHERE trainId = :trainId AND warningId = :warningId;
+
+upsertPass:
+INSERT OR REPLACE INTO RestrictionPass(
+    trainId, warningId, routeId, sectionId, kind, title, place, note, limitKmh, startAbsKm, endAbsKm, startRelKm, endRelKm,
+    enterAt, enterSpeedKmh, enterApprox, exitAt, exitSpeedKmh, exitByHead, trainLengthM, dir, maxSpeedKmh, exceeded,
+    updatedAt, isDeleted, dirty
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+tombstonePass:
+UPDATE RestrictionPass SET isDeleted = 1, dirty = 1, updatedAt = :updatedAt WHERE trainId = :trainId AND warningId = :warningId;
+
+tombstonePassesByTrain:
+UPDATE RestrictionPass SET isDeleted = 1, dirty = 1, updatedAt = MAX(updatedAt + 1, :updatedAt) WHERE trainId = :trainId AND isDeleted = 0;
+
+selectPendingPasses:
+SELECT * FROM RestrictionPass WHERE dirty = 1 LIMIT :limit;
+
+markPassUploaded:
+UPDATE RestrictionPass SET dirty = 0 WHERE trainId = :trainId AND warningId = :warningId AND updatedAt = :updatedAt;
+
+-- Надгробия, уже доставленные на сервер, локально больше не нужны.
+purgeUploadedTombstones:
+DELETE FROM RestrictionPass WHERE isDeleted = 1 AND dirty = 0;
+
+deleteAllPasses:
+DELETE FROM RestrictionPass;

@@ -29,6 +29,10 @@ val sqlDelightRouteModule = module {
     // Локальные GPS-треки «АВТО» (отдельный файл Track.db).
     single { TrackDatabase(get<DatabaseDriverFactory>().createTrackDriver()) }
     single<TrackRepository> { SqlDelightTrackRepository(get()) }
+    // Журнал проследования ограничений (тот же Track.db, миграция 3.sqm).
+    single<com.z_company.domain.track.RestrictionJournalStore> {
+        com.z_company.data_local.track.SqlDelightRestrictionJournalStore(get()) { System.currentTimeMillis() }
+    }
 
     // Справки ВУ-45 (отдельный файл BrakeCertificate.db).
     single { BrakeCertificateDatabase(get<DatabaseDriverFactory>().createBrakeCertificateDriver()) }
