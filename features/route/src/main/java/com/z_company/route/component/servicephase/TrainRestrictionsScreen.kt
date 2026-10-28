@@ -159,7 +159,7 @@ internal fun TrainRestrictionsScreen(
                         exporting = true
                         scope.launch {
                             try {
-                                val file = withContext(Dispatchers.IO) { RestrictionPdfGenerator(context).generate(trainTitle, rows) }
+                                val file = withContext(Dispatchers.IO) { RestrictionPdfGenerator(context).generate(trainTitle, rows, RestrictionReport.progress(entries)) }
                                 pdfUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
                             } catch (e: Exception) {
                                 Toast.makeText(context, "Не удалось сформировать PDF", Toast.LENGTH_LONG).show()

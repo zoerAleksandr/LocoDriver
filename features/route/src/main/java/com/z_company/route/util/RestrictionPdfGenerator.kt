@@ -41,7 +41,7 @@ class RestrictionPdfGenerator(private val context: Context) {
     }
 
     /** [trainTitle] - подпись поезда («Поезд 2034», «Лужская — Гатчина»); [rows] - из [RestrictionReport.rows]. */
-    fun generate(trainTitle: String, rows: List<RestrictionReport.Row>): File {
+    fun generate(trainTitle: String, rows: List<RestrictionReport.Row>, progress: RestrictionReport.Progress? = null): File {
         // Прошлые отчёты в кэше не копим: в них время и скорость проследования.
         context.cacheDir.listFiles { f -> f.name.startsWith("restrictions_") && f.name.endsWith(".pdf") }?.forEach { runCatching { it.delete() } }
         val doc = PdfDocument()
@@ -71,13 +71,23 @@ class RestrictionPdfGenerator(private val context: Context) {
         val today = SimpleDateFormat("dd.MM.yyyy", Locale("ru")).format(Date())
         c.drawText("Приложение «Машинист»", ml, y, paint(11f, sub, sans))
         val meta = paint(9f, sub, mono)
-        val made = "сформирован $today"
+        val made = "сформирован $today ${SimpleDateFormat("HH:mm", Locale("ru")).format(Date())}"
         c.drawText(made, pageWidth - mr - meta.measureText(made), y, meta)
         y += 28f
         c.drawText("Проследование ограничений", ml, y, paint(22f, ink, sansBold))
         y += 20f
         c.drawText(trainTitle, ml, y, paint(12f, sub, sans))
         y += 12f
+        // Не всё проследовано - отчёт промежуточный: так его не примут за итоговый.
+        if (progress != null && !progress.complete) {
+            y += 4f
+            c.drawText(
+                "Промежуточный отчёт: проследовано ${progress.passed} из ${progress.passed + progress.inZone + progress.waiting}" +
+                    (if (progress.inZone > 0) ", в зоне ${progress.inZone}" else ""),
+                ml, y + 8f, paint(10f, danger, sansBold),
+            )
+            y += 20f
+        }
         c.drawLine(ml, y, ml + contentWidth, y, Paint().apply { color = ink; strokeWidth = 1.5f })
         y += 22f
 
@@ -89,10 +99,18 @@ class RestrictionPdfGenerator(private val context: Context) {
             if (y + cardH > pageHeight - mb) newPage()
             val top = y
             c.drawText("${i + 1}. ${r.title}", ml, y + 12f, titleP)
+            val tp = paint(9f, danger, sansBold)
+            var tagRight = ml + contentWidth
             if (r.exceeded) {
                 val tag = "ПРЕВЫШЕНИЕ"
-                val tp = paint(9f, danger, sansBold)
-                c.drawText(tag, ml + contentWidth - tp.measureText(tag), y + 12f, tp)
+                tagRight -= tp.measureText(tag)
+                c.drawText(tag, tagRight, y + 12f, tp)
+                tagRight -= 10f
+            }
+            // Состояние записи; «проследовано» не выделяем, непроследованное - акцентом.
+            if (r.statusLabel.isNotEmpty() && r.statusLabel != "ПРОСЛЕДОВАНО") {
+                val sp = paint(9f, if (r.statusLabel == "БЕЗ УЧАСТКА") sub else accent, sansBold)
+                c.drawText(r.statusLabel, tagRight - sp.measureText(r.statusLabel), y + 12f, sp)
             }
             var ly = y + 27f
             val where = listOfNotNull(r.place.ifBlank { null }, r.kmText).joinToString(" · ")
@@ -106,12 +124,17 @@ class RestrictionPdfGenerator(private val context: Context) {
             y += 14f
         }
 
-        if (y + 40f > pageHeight - mb) newPage()
+        if (y + 60f > pageHeight - mb) newPage()
         val exceeded = rows.count { it.exceeded }
         c.drawText("Всего ограничений: ${rows.size}", ml, y + 10f, paint(11f, ink, sansBold))
+        var sy = y + 26f
+        if (progress != null && !progress.complete) {
+            c.drawText("Ещё не проследовано: ${progress.waiting + progress.inZone} (данные могут измениться)", ml, sy, paint(10f, sub, sans))
+            sy += 16f
+        }
         c.drawText(
             if (exceeded == 0) "Превышений нет" else "Превышений скорости: $exceeded",
-            ml, y + 26f, paint(10f, if (exceeded == 0) accent else danger, sansBold),
+            ml, sy, paint(10f, if (exceeded == 0) accent else danger, sansBold),
         )
         footer()
         doc.finishPage(page)

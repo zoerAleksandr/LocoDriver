@@ -175,6 +175,23 @@ class RestrictionJournalTest {
     }
 
     @Test
+    fun interim_report_is_allowed_and_marks_unfinished() {
+        val done = warning().copy(enterAt = 1, exitAt = 2)
+        val inZone = warning().copy(warningId = "w2", enterAt = 3, maxSpeedKmh = 41.0)
+        val planned = warning().copy(warningId = "w3")
+        val all = listOf(done, inZone, planned)
+        assertFalse(RestrictionReport.canGenerate(emptyList()))
+        assertTrue(RestrictionReport.canGenerate(listOf(planned)))
+        val p = RestrictionReport.progress(all)
+        assertEquals(RestrictionReport.Progress(total = 3, passed = 1, inZone = 1, waiting = 1, untracked = 0), p)
+        assertFalse(p.complete)
+        assertTrue(RestrictionReport.progress(listOf(done)).complete)
+        val rows = RestrictionReport.rows(all, "UTC")
+        assertEquals(setOf("ПРОСЛЕДОВАНО", "В ЗОНЕ", "ЕЩЁ НЕ ПРОСЛЕДОВАНО"), rows.map { it.statusLabel }.toSet())
+        assertTrue(rows.first { it.statusLabel == "В ЗОНЕ" }.maxSpeed.endsWith("(пока)"))
+    }
+
+    @Test
     fun report_rows_are_formatted_in_zone() {
         val e = warning().copy(
             title = "ограничение 40 км/ч", place = "А — Б", startAbsKm = 138.0, endAbsKm = 139.4,

@@ -7,7 +7,39 @@ import kotlinx.datetime.toLocalDateTime
 /** Правила отчёта о проследовании ограничений (PDF формируется в приложении, SCREEN_SPECS §21 / «Журнал проследования»). */
 object RestrictionReport {
     /**
-     * Отчёт можно сформировать, когда у поезда есть записи и ВСЕ отслеживаемые проследованы. Ограничения без участка
+     * Отчёт формируется в любое время (решение 28.10.2026): достаточно, чтобы у поезда была хотя бы одна запись. Если не всё проследовано,
+     * отчёт промежуточный ([Progress.complete] = false): непроследованное в нём помечено, а не скрыто.
+     */
+    fun canGenerate(entries: List<RestrictionPass>): Boolean = entries.any { !it.isDeleted }
+
+    /** Где поезд относительно ограничений: для шапки и итога отчёта. */
+    data class Progress(val total: Int, val passed: Int, val inZone: Int, val waiting: Int, val untracked: Int) {
+        /** Все отслеживаемые проследованы (ограничения без участка отчёт не блокируют и в счёт «ожидают» не идут). */
+        val complete: Boolean get() = inZone == 0 && waiting == 0
+    }
+
+    fun progress(entries: List<RestrictionPass>): Progress {
+        val live = entries.filter { !it.isDeleted }
+        val tracked = live.filter { it.tracked }
+        return Progress(
+            total = live.size,
+            passed = tracked.count { it.status == RestrictionStatus.DONE },
+            inZone = tracked.count { it.status == RestrictionStatus.IN_ZONE },
+            waiting = tracked.count { it.status == RestrictionStatus.PLANNED },
+            untracked = live.size - tracked.size,
+        )
+    }
+
+    /** Подпись состояния записи в отчёте. */
+    fun statusLabel(e: RestrictionPass): String = when {
+        !e.tracked && e.enterAt == null -> "БЕЗ УЧАСТКА"
+        e.status == RestrictionStatus.DONE -> "ПРОСЛЕДОВАНО"
+        e.status == RestrictionStatus.IN_ZONE -> "В ЗОНЕ"
+        else -> "ЕЩЁ НЕ ПРОСЛЕДОВАНО"
+    }
+
+    /**
+     * Все отслеживаемые проследованы (отчёт «полный»). Ограничения без участка
      * ([RestrictionPass.tracked] = false) автоматически не отслеживаются и отчёт не блокируют (в отчёте они помечены).
      */
     fun isReady(entries: List<RestrictionPass>): Boolean {
@@ -34,6 +66,8 @@ object RestrictionReport {
         val status: RestrictionStatus,
         /** Нет участка с профилем: данные проследования автоматически не пишутся. */
         val untracked: Boolean = false,
+        /** Состояние записи на момент отчёта (см. [statusLabel]). */
+        val statusLabel: String = "",
     )
 
     /** «28.10 14:05:09»; zone - id пояса отображения ("GMT+3"), при ошибке пояса - UTC. */
@@ -63,10 +97,12 @@ object RestrictionReport {
                 limit = e.limitKmh?.let { "$it км/ч" },
                 enter = enter,
                 exit = exit,
-                maxSpeed = if (e.kind == RestrictionKind.SPEED) kmh(e.maxSpeedKmh) else "—",
+                // Пока состав в зоне, максимум ещё может вырасти: помечаем.
+                maxSpeed = if (e.kind == RestrictionKind.SPEED) kmh(e.maxSpeedKmh) + if (e.status == RestrictionStatus.IN_ZONE && e.maxSpeedKmh != null) " (пока)" else "" else "—",
                 exceeded = e.exceeded,
                 status = e.status,
                 untracked = !e.tracked,
+                statusLabel = statusLabel(e),
             )
         }
 }
