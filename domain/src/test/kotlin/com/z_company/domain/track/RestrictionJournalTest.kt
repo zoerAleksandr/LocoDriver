@@ -189,6 +189,9 @@ class RestrictionJournalTest {
         val rows = RestrictionReport.rows(all, "UTC")
         assertEquals(setOf("ПРОСЛЕДОВАНО", "В ЗОНЕ", "ЕЩЁ НЕ ПРОСЛЕДОВАНО"), rows.map { it.statusLabel }.toSet())
         assertTrue(rows.first { it.statusLabel == "В ЗОНЕ" }.maxSpeed.endsWith("(пока)"))
+        // Данные есть только у зашедшей головой (проследованной и «в зоне»); у ожидающей в отчёте одна строка «Нет данных о проследовании».
+        assertEquals(setOf("ПРОСЛЕДОВАНО", "В ЗОНЕ"), rows.filter { it.hasData }.map { it.statusLabel }.toSet())
+        assertFalse(rows.first { it.statusLabel == "ЕЩЁ НЕ ПРОСЛЕДОВАНО" }.hasData)
     }
 
     @Test

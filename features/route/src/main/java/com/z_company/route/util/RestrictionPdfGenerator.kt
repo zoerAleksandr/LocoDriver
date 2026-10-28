@@ -94,8 +94,9 @@ class RestrictionPdfGenerator(private val context: Context) {
         val titleP = paint(12f, ink, sansBold)
         val textP = paint(10f, ink, sans)
         val subP = paint(9f, sub, sans)
-        val cardH = 92f
         rows.forEachIndexed { i, r ->
+            // Без данных проследования карточка короче: вместо трёх строк одна.
+            val cardH = if (r.hasData) 92f else 60f
             if (y + cardH > pageHeight - mb) newPage()
             val top = y
             c.drawText("${i + 1}. ${r.title}", ml, y + 12f, titleP)
@@ -115,10 +116,14 @@ class RestrictionPdfGenerator(private val context: Context) {
             var ly = y + 27f
             val where = listOfNotNull(r.place.ifBlank { null }, r.kmText).joinToString(" · ")
             if (where.isNotEmpty()) { c.drawText(where, ml, ly, subP); ly += 14f }
-            c.drawText("Заход головой:", ml, ly, subP); c.drawText(r.enter, ml + 92f, ly, textP); ly += 14f
-            c.drawText("Выход составом:", ml, ly, subP); c.drawText(r.exit, ml + 92f, ly, textP); ly += 14f
-            val lim = r.limit?.let { "ограничение $it · " }.orEmpty()
-            c.drawText("Скорость:", ml, ly, subP); c.drawText(lim + "максимальная " + r.maxSpeed, ml + 92f, ly, if (r.exceeded) paint(10f, danger, sansBold) else textP)
+            if (!r.hasData) {
+                c.drawText("Нет данных о проследовании", ml, ly, paint(10f, sub, sans)); ly += 14f
+            } else {
+                c.drawText("Заход головой:", ml, ly, subP); c.drawText(r.enter, ml + 92f, ly, textP); ly += 14f
+                c.drawText("Выход составом:", ml, ly, subP); c.drawText(r.exit, ml + 92f, ly, textP); ly += 14f
+                val lim = r.limit?.let { "ограничение $it · " }.orEmpty()
+                c.drawText("Скорость:", ml, ly, subP); c.drawText(lim + "максимальная " + r.maxSpeed, ml + 92f, ly, if (r.exceeded) paint(10f, danger, sansBold) else textP)
+            }
             y = maxOf(ly + 12f, top + cardH - 10f)
             c.drawLine(ml, y, ml + contentWidth, y, Paint().apply { color = line; strokeWidth = 0.5f })
             y += 14f

@@ -66,6 +66,8 @@ object RestrictionReport {
         val status: RestrictionStatus,
         /** Нет участка с профилем: данные проследования автоматически не пишутся. */
         val untracked: Boolean = false,
+        /** Есть данные проследования (голова зашла): без них в отчёте вместо захода, выхода и скорости одна строка «Нет данных о проследовании». */
+        val hasData: Boolean = false,
         /** Состояние записи на момент отчёта (см. [statusLabel]). */
         val statusLabel: String = "",
     )
@@ -102,6 +104,7 @@ object RestrictionReport {
                 exceeded = e.exceeded,
                 status = e.status,
                 untracked = !e.tracked,
+                hasData = e.enterAt != null,
                 statusLabel = statusLabel(e),
             )
         }
