@@ -4,6 +4,9 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +18,9 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import com.z_company.domain.track.SectionSummary
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -143,7 +149,7 @@ internal fun TrainRestrictionsScreen(
     }
 
     if (showAdd) {
-        RestrictionAddHost(trainId = trainId, stops = stops, trains = trains, onClose = { showAdd = false; upload.trigger() })
+        RestrictionAddHost(trainId = trainId, stops = stops, trains = trains, onSelectLeg = onSelectLeg, onClose = { showAdd = false; upload.trigger() })
     }
     toDelete?.let { e ->
         AppAlertDialog(
@@ -204,62 +210,125 @@ private fun RestrictionCard(row: RestrictionReport.Row, e: RestrictionPass, onRe
 
 /**
  * Добавление предупреждений из раздела «Поезд»: тот же экран [WarningsDialog], что и в профиле пути. Участок определяется по
- * плечу поезда (один подходящий - берётся сам, несколько - выбор из списка). Добавленное сохраняется в хранилище предупреждений
+ * плечу поезда: берутся только участки, относящиеся к плечу ([ProfileModel.findLegSections]); один - выбирается сам, несколько -
+ * шторка выбора ([LegSectionsSheet]); плеча нет - предлагается выбрать плечо. Добавленное сохраняется в хранилище предупреждений
  * участка (видно на профиле и на карте) и привязывается к поезду (журнал).
  */
 @Composable
-private fun RestrictionAddHost(trainId: String, stops: List<TrainMapStop>, trains: List<ProfileTrain>, onClose: () -> Unit) {
+private fun RestrictionAddHost(
+    trainId: String,
+    stops: List<TrainMapStop>,
+    trains: List<ProfileTrain>,
+    onSelectLeg: () -> Unit,
+    onClose: () -> Unit,
+) {
     val model = rememberProfileModel(null, null, 0L, stops, trains, trainId)
     var showVoice by rememberSaveable { mutableStateOf(false) }
     var picked by remember { mutableStateOf(false) }
-    // Подходящие плечу участки; если по названиям не определились - все (машинист выберет сам).
-    val candidates = remember(model.loaded, model.summaries, model.stopNames) {
-        if (!model.loaded) emptyList() else model.rows("").let { all -> all.filter { it.fitsLeg == true }.ifEmpty { all } }
+    var legSections by remember { mutableStateOf<List<SectionSummary>?>(null) }
+    LaunchedEffect(model.loaded, model.needLogin, model.stopNames) {
+        legSections = if (model.loaded && !model.needLogin && model.live == null) model.findLegSections() else null
     }
 
     if (model.live != null) {
-        WarningsDialog(model, onVoice = { showVoice = true }, onDismiss = onClose)
+        WarningsDialog(model, onVoice = { showVoice = true }, onDismiss = onClose, onSelectLeg = onSelectLeg)
         if (showVoice) WarningVoiceDialog(model, onDismiss = { showVoice = false })
         WarningEditDialog(model)
         WarningOfferDialog(model)
         return
     }
+    val found = legSections
     when {
         model.needLogin -> InfoDialog("Профиль участков доступен после входа в аккаунт.", onClose)
-        !model.loaded -> Unit
-        candidates.isEmpty() -> InfoDialog("Нет доступных участков с профилем пути. Проверьте интернет или добавьте ограничения в профиле пути на карте.", onClose)
-        candidates.size == 1 -> LaunchedEffect(candidates[0].summary.id) {
-            if (!picked) { picked = true; model.choose(candidates[0].summary.id) }
+        !model.loaded || (found == null && model.stopNames.size >= 2) -> Unit
+        model.stopNames.size < 2 -> InfoDialog("Выберите плечо поезда: участок для ограничений определяется по нему.", onClose, "Выбрать плечо", onSelectLeg)
+        found.isNullOrEmpty() -> InfoDialog(
+            "Для плеча «${model.stopNames.first()} — ${model.stopNames.last()}» не нашлось участка с профилем пути. Проверьте интернет или выберите другое плечо.",
+            onClose, "Сменить плечо", onSelectLeg,
+        )
+        found.size == 1 -> LaunchedEffect(found[0].id) {
+            if (!picked) { picked = true; model.choose(found[0].id) }
         }
-        else -> Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-            Column(
-                Modifier.fillMaxWidth(0.9f).background(Pst.bg, RoundedCornerShape(20.dp)).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text("Участок плеча", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
-                candidates.forEach { r ->
-                    Text(
-                        r.summary.name, style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text,
-                        modifier = Modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(12.dp))
-                            .clickable { model.choose(r.summary.id) }.padding(14.dp),
-                    )
-                }
-                PstButton("Отмена", onClose, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
-            }
-        }
+        else -> LegSectionsSheet(
+            title = "Участок плеча",
+            subtitle = "${model.stopNames.first()} — ${model.stopNames.last()}",
+            sections = found,
+            onPick = { model.choose(it.id) },
+            onDismiss = onClose,
+        )
     }
     model.chooseError?.let { InfoDialog(it, onClose) }
 }
 
+/**
+ * Шторка выбора участка плеча - в том же стиле, что окно «Плечи» формы «Поезд»: ModalBottomSheet с ручкой, заголовок с кнопкой закрытия,
+ * прокручиваемый список; закрывается свайпом вниз, тапом вне шторки и крестиком. Высота ограничена, длинный список прокручивается.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun InfoDialog(text: String, onClose: () -> Unit) {
+internal fun LegSectionsSheet(
+    title: String,
+    subtitle: String?,
+    sections: List<SectionSummary>,
+    onPick: (SectionSummary) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = androidx.compose.material3.MaterialTheme.colorScheme.secondary,
+    ) {
+        Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).padding(bottom = 16.dp)) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 4.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = Pst.sans.copy(fontSize = 20.sp, fontWeight = FontWeight.Bold), color = Pst.text)
+                    if (subtitle != null) Text(subtitle, style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Box(
+                    Modifier.size(36.dp).clip(CircleShape).background(Pst.surface).clickable(onClick = onDismiss),
+                    contentAlignment = Alignment.Center,
+                ) { PstIcon(PstIcons.Close, 18.dp, Pst.text) }
+            }
+            LazyColumn(state = listState, modifier = Modifier.weight(1f, fill = false).fillMaxWidth()) {
+                items(sections, key = { it.id }) { s ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onPick(s) }.padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            s.name, style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = Pst.text,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                        )
+                        Text("${s.lengthKm.toInt()} км", style = Pst.mono.copy(fontSize = 12.sp), color = Pst.textMuted)
+                    }
+                    androidx.compose.material3.HorizontalDivider(Modifier.padding(horizontal = 20.dp), thickness = 0.5.dp, color = Pst.textMuted.copy(alpha = 0.3f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InfoDialog(text: String, onClose: () -> Unit, actionText: String? = null, onAction: (() -> Unit)? = null) {
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(
             Modifier.fillMaxWidth(0.85f).background(Pst.bg, RoundedCornerShape(20.dp)).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(text, style = Pst.sans.copy(fontSize = 14.sp, lineHeight = 20.sp), color = Pst.text)
-            PstButton("Понятно", onClose, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
+            if (actionText != null && onAction != null) {
+                PstButton(actionText, { onClose(); onAction() }, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
+                PstButton("Закрыть", onClose, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
+            } else {
+                PstButton("Понятно", onClose, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
+            }
         }
     }
 }

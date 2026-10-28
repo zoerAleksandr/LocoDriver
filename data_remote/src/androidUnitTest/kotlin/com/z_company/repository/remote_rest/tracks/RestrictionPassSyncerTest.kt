@@ -3,19 +3,12 @@ package com.z_company.repository.remote_rest.tracks
 import com.z_company.domain.track.InMemoryRestrictionJournalStore
 import com.z_company.domain.track.RestrictionKind
 import com.z_company.domain.track.RestrictionPass
-import com.z_company.domain.track.TrackSyncSettings
 import kotlinx.coroutines.runBlocking
 import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-
-private class RpSettings(var consent: Boolean) : TrackSyncSettings {
-    override fun localConsent() = consent
-    override fun serverConsent(): Boolean? = consent
-    override fun setServerConsent(value: Boolean?) {}
-}
 
 private class RpCursor : RestrictionSyncCursor {
     var v = 0L
@@ -63,8 +56,8 @@ class RestrictionPassSyncerTest {
         trainId = train, warningId = w, routeId = route, sectionId = "s", kind = RestrictionKind.SPEED, title = "огр", limitKmh = 40, updatedAt = at,
     )
 
-    private fun syncer(api: RpApi, store: InMemoryRestrictionJournalStore, settings: RpSettings = RpSettings(true), cursor: RpCursor = RpCursor(), sub: Boolean = true) =
-        RestrictionPassSyncer(api, store, settings, cursor, isSubscribed = { sub })
+    private fun syncer(api: RpApi, store: InMemoryRestrictionJournalStore, cursor: RpCursor = RpCursor(), sub: Boolean = true) =
+        RestrictionPassSyncer(api, store, cursor, isSubscribed = { sub })
 
     @Test
     fun push_then_pull_merges_and_marks_uploaded() = runBlocking {
@@ -81,17 +74,16 @@ class RestrictionPassSyncerTest {
     }
 
     @Test
-    fun without_consent_only_tombstones_go_and_nothing_is_pulled() = runBlocking {
+    fun consent_is_not_required_everything_is_sent() = runBlocking {
         val api = RpApi()
         val store = InMemoryRestrictionJournalStore()
         store.upsert(pass("a", 100))
         store.upsert(pass("b", 100))
         store.remove("t1", "b", 200)
-        val r = syncer(api, store, RpSettings(false)).run("Bearer x")
-        assertEquals(RestrictionPassSyncer.Outcome.NO_CONSENT, r.outcome)
-        assertEquals(setOf("t1" to "b"), api.server.keys)
-        assertEquals(1, store.pendingUpload(10).size) // активная запись осталась неотправленной
-        assertNull(api.lastSince)
+        val r = syncer(api, store).run("Bearer x")
+        assertEquals(RestrictionPassSyncer.Outcome.DONE, r.outcome)
+        assertEquals(setOf("t1" to "a", "t1" to "b"), api.server.keys)
+        assertEquals(0, store.pendingUpload(10).size)
     }
 
     @Test
@@ -128,8 +120,6 @@ class RestrictionPassSyncerTest {
         api.offline = false
         api.failWith = RestrictionPassApiException(401, null)
         assertEquals(RestrictionPassSyncer.Outcome.UNAUTHORIZED, syncer(api, store).run("Bearer x").outcome)
-        api.failWith = RestrictionPassApiException(403, "consent_required")
-        assertEquals(RestrictionPassSyncer.Outcome.NO_CONSENT, syncer(api, store).run("Bearer x").outcome)
         api.failWith = RestrictionPassApiException(429, "rate_limited")
         assertEquals(RestrictionPassSyncer.Outcome.RETRY_LATER, syncer(api, store).run("Bearer x").outcome)
         assertEquals(1, store.pendingUpload(10).size)
@@ -165,7 +155,7 @@ class RestrictionPassSyncerTest {
         val store = InMemoryRestrictionJournalStore()
         val now = 100L * 24 * 3600_000
         store.upsert(pass("old", at = now - 15L * 24 * 3600_000, route = "r-other"))
-        val r = RestrictionPassSyncer(api, store, RpSettings(true), RpCursor(), { true }, { now }).run("Bearer x")
+        val r = RestrictionPassSyncer(api, store, RpCursor(), { true }, { now }).run("Bearer x")
         assertEquals(RestrictionPassSyncer.Outcome.DONE, r.outcome)
         assertEquals(0, store.pendingUpload(10).size)
     }

@@ -1,6 +1,7 @@
 package com.z_company.data_local.track
 
 import com.zcompany.datalocal.track.db.RestrictionPass as Row
+import com.zcompany.datalocal.track.db.SelectInZoneExcept as ZoneRow
 import com.z_company.data_local.track.db.TrackDatabase
 import com.z_company.domain.track.RestrictionJournalStore
 import com.z_company.domain.track.RestrictionPass
@@ -17,6 +18,8 @@ class SqlDelightRestrictionJournalStore(
     private val q get() = db.trackQueries
 
     override fun forTrain(trainId: String): List<RestrictionPass> = q.selectPassesByTrain(trainId).executeAsList().map(::domain)
+
+    override fun inZoneExcept(trainId: String): List<RestrictionPass> = q.selectInZoneExcept(trainId).executeAsList().map(::domain)
 
     override fun openForTrain(trainId: String): List<RestrictionPass> = q.selectOpenPassesByTrain(trainId).executeAsList().map(::domain)
 
@@ -86,5 +89,13 @@ class SqlDelightRestrictionJournalStore(
         exitAt = r.exitAt, exitSpeedKmh = r.exitSpeedKmh, exitByHead = r.exitByHead != 0L,
         trainLengthM = r.trainLengthM?.toInt(), dir = r.dir.toInt(), maxSpeedKmh = r.maxSpeedKmh,
         exceeded = r.exceeded != 0L, updatedAt = r.updatedAt, isDeleted = r.isDeleted != 0L,
+    )
+
+    private fun domain(r: ZoneRow) = domain(
+        Row(
+            r.trainId, r.warningId, r.routeId, r.sectionId, r.kind, r.title, r.place, r.note, r.limitKmh, r.startAbsKm, r.endAbsKm,
+            r.startRelKm, r.endRelKm, r.enterAt, r.enterSpeedKmh, r.enterApprox, r.exitAt, r.exitSpeedKmh, r.exitByHead,
+            r.trainLengthM, r.dir, r.maxSpeedKmh, r.exceeded, r.updatedAt, r.isDeleted, r.dirty,
+        ),
     )
 }

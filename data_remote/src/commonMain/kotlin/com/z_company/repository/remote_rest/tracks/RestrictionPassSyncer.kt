@@ -1,7 +1,6 @@
 package com.z_company.repository.remote_rest.tracks
 
 import com.z_company.domain.track.RestrictionJournalStore
-import com.z_company.domain.track.TrackSyncSettings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -15,17 +14,16 @@ interface RestrictionSyncCursor {
 /**
  * Синхронизация журнала проследования с сервером (`/v1/restriction_passes`). Порядок: отправить изменённые записи
  * (LWW по `updatedAt`), затем догрузить изменения с сервера (других устройств) и слить по LWW. Идемпотентно, безопасно к
- * повторам. Без согласия №1 уходят только удаления (сервер так же); без подписки - ничего (как треки). Содержимое не логируется.
+ * повторам. Согласие №1 (треки) не нужно: журнал без координат; без подписки не отправляется ничего (как треки). Содержимое не логируется.
  */
 class RestrictionPassSyncer(
     private val api: RestrictionPassApi,
     private val store: RestrictionJournalStore,
-    private val settings: TrackSyncSettings,
     private val cursor: RestrictionSyncCursor,
     private val isSubscribed: suspend () -> Boolean = { true },
     private val nowMs: () -> Long = { kotlin.time.Clock.System.now().toEpochMilliseconds() },
 ) {
-    enum class Outcome { DONE, RETRY_LATER, NO_CONSENT, NO_SUBSCRIPTION, UNAUTHORIZED }
+    enum class Outcome { DONE, RETRY_LATER, NO_SUBSCRIPTION, UNAUTHORIZED }
 
     data class Report(val outcome: Outcome, val sent: Int = 0, val pulled: Int = 0)
 
@@ -33,13 +31,11 @@ class RestrictionPassSyncer(
         var sent = 0
         var pulled = 0
         return try {
-            val consent = settings.localConsent()
             if (!isSubscribed()) return Report(Outcome.NO_SUBSCRIPTION)
             var retry = false
-            // 1. Отправка. Без согласия №1 - только надгробия (пользователь вправе убрать то, что уже на сервере).
+            // 1. Отправка.
             while (true) {
                 val batch = withContext(Dispatchers.Default) { store.pendingUpload(RestrictionPassApi.MAX_BATCH) }
-                    .filter { consent || it.isDeleted }
                 if (batch.isEmpty()) break
                 val resp = api.put(token, batch)
                 // Записи, чей рейс ещё не доехал до сервера, и упёршиеся в квоту остаются неотправленными (повтор позже).
@@ -54,7 +50,6 @@ class RestrictionPassSyncer(
                 if (keep.isNotEmpty()) { retry = true; break }
                 if (done.isEmpty()) break
             }
-            if (!consent) return Report(if (retry) Outcome.RETRY_LATER else Outcome.NO_CONSENT, sent, 0)
             // 2. Догрузка: с запасом в сутки назад от последней метки (часы устройств расходятся), слияние идемпотентно.
             val since = (cursor.lastPulledMs() - SKEW_MS).coerceAtLeast(0L)
             var next: String? = null
@@ -77,7 +72,6 @@ class RestrictionPassSyncer(
             Report(
                 when {
                     e.status == 401 -> Outcome.UNAUTHORIZED
-                    e.status == 403 && e.code == "consent_required" -> Outcome.NO_CONSENT
                     else -> Outcome.RETRY_LATER
                 },
                 sent, pulled,

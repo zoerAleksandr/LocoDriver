@@ -140,6 +140,9 @@ class RestrictionJournalRecorder(
     private val missingUntil = HashMap<String, Long>()
     private val seenBefore = HashSet<String>()
     private val lastWrite = HashMap<String, Long>()
+    /** Последний фикс и поезд, которому он был отдан: переживают [reset] (выключили «АВТО» на одном поезде, включили на другом). */
+    private var lastTrain: String? = null
+    private var lastSample: RestrictionSample? = null
     private var cacheTrain: String? = null
     private var cacheAt = 0L
     private var cache: List<RestrictionPass> = emptyList()
@@ -157,6 +160,9 @@ class RestrictionJournalRecorder(
      */
     suspend fun onPoint(trainId: String, p: RestrictionSample, lengthM: () -> Int?) {
         val now = nowMs()
+        if (cacheTrain != trainId) closeForeignZones(trainId)
+        lastTrain = trainId
+        lastSample = p
         if (cacheTrain != trainId || now - cacheAt > CACHE_MS) {
             cache = store.openForTrain(trainId)
             cacheTrain = trainId
@@ -193,6 +199,26 @@ class RestrictionJournalRecorder(
                 }
             }
             st.prev = HeadSample(km, p.timeMs, p.speedKmh)
+        }
+    }
+
+    /**
+     * Цель «АВТО» сменилась (или первый фикс после запуска): ограничения скорости других поездов, в зону которых голова зашла, но выход
+     * не записан, закрываются - иначе они висели бы «Состав в зоне» вечно и блокировали отчёт. Время выхода - последний фикс прежнего
+     * поезда (в памяти) либо метка последнего обновления записи; скорость выхода - со того фикса, выход помечается «по голове».
+     * Записи без захода («ожидает проследования») не трогаются: они просто ждут, когда «АВТО» снова включат на их поезде.
+     */
+    private fun closeForeignZones(current: String) {
+        val now = nowMs()
+        for (e in store.inZoneExcept(current)) {
+            val last = lastSample?.takeIf { lastTrain == e.trainId }
+            val at = maxOf(last?.timeMs ?: e.updatedAt, e.enterAt ?: 0L)
+            store.upsert(
+                e.copy(
+                    exitAt = at, exitSpeedKmh = last?.speedKmh, exitByHead = true,
+                    updatedAt = maxOf(now, e.updatedAt + 1),
+                ),
+            )
         }
     }
 

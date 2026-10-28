@@ -48,7 +48,7 @@ object RestrictionReport {
             val exit = when {
                 e.kind != RestrictionKind.SPEED -> "—"
                 e.exitAt == null -> if (e.enterAt == null) "—" else "в зоне"
-                else -> formatTime(e.exitAt, zone) + " · " + kmh(e.exitSpeedKmh) + if (e.exitByHead) " (по голове, длина не указана)" else ""
+                else -> formatTime(e.exitAt, zone) + " · " + kmh(e.exitSpeedKmh) + if (e.exitByHead) " (по голове)" else ""
             }
             Row(
                 title = e.title.replaceFirstChar { it.uppercase() },

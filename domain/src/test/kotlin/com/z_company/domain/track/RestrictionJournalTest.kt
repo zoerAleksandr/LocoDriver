@@ -193,4 +193,45 @@ class RestrictionJournalTest {
         assertEquals("28.10 14:05:09", RestrictionReport.formatTime(1_761_660_309_000, "UTC"))
         assertEquals("28.10 14:05:09", RestrictionReport.formatTime(1_761_660_309_000, "bad zone"))
     }
+
+    @Test
+    fun switching_auto_target_moves_recording_and_closes_dangling_zone() {
+        val store = InMemoryRestrictionJournalStore()
+        store.upsert(warning().copy(trainId = "t1", warningId = "a"))
+        store.upsert(warning().copy(trainId = "t2", warningId = "b"))
+        var clock = 0L
+        val r = RestrictionJournalRecorder(store, { section }, nowMs = { clock += 5_000; clock })
+        // «АВТО» на t1: заходим в зону и едем внутри
+        var t = 1_000_000L
+        var km = 9.5
+        while (km < 10.5) { runBlocking { r.onPoint("t1", sample(t, km, 50.0)) { 800 } }; km += 0.07; t += 5_000 }
+        assertEquals(RestrictionStatus.IN_ZONE, store.get("t1", "a")!!.status)
+        assertEquals(RestrictionStatus.PLANNED, store.get("t2", "b")!!.status)
+        val lastT1 = t - 5_000
+        // цель сменилась на t2 посреди зоны: t1 закрыта по последнему фиксу, дальше пишется t2 (тот же участок)
+        while (km < 13.0) { runBlocking { r.onPoint("t2", sample(t, km, 50.0)) { 800 } }; km += 0.07; t += 5_000 }
+        val a = store.get("t1", "a")!!
+        assertEquals(RestrictionStatus.DONE, a.status)
+        assertEquals(lastT1, a.exitAt)
+        assertTrue(a.exitByHead)
+        // t1 больше не двигается, а у t2 зона зашла «по первому фиксу внутри» и тоже завершена
+        val b = store.get("t2", "b")!!
+        assertEquals(RestrictionStatus.DONE, b.status)
+        assertTrue(b.enterApprox)
+        // возврат цели на t1 запись не воскрешает (выход уже есть)
+        runBlocking { r.onPoint("t1", sample(t, 10.2, 50.0)) { 800 } }
+        assertEquals(lastT1, store.get("t1", "a")!!.exitAt)
+    }
+
+    @Test
+    fun auto_off_on_other_train_closes_old_train_zone_even_after_restart() {
+        val store = InMemoryRestrictionJournalStore()
+        store.upsert(warning().copy(trainId = "t1", warningId = "a", enterAt = 1_000, enterSpeedKmh = 40.0, updatedAt = 7_000))
+        // новый рекордер без памяти (процесс убит), АВТО включили на другом поезде
+        val r = RestrictionJournalRecorder(store, { section }, nowMs = { 9_000_000L })
+        runBlocking { r.onPoint("t2", sample(9_000_000L, 3.0, 50.0)) { null } }
+        val a = store.get("t1", "a")!!
+        assertEquals(RestrictionStatus.DONE, a.status)
+        assertEquals(7_000L, a.exitAt) // нет фикса в памяти - время последнего обновления записи
+    }
 }

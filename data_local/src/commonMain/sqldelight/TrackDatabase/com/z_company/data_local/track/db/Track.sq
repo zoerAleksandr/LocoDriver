@@ -179,6 +179,9 @@ SELECT * FROM RestrictionPass WHERE trainId = :trainId AND isDeleted = 0
   AND (enterAt IS NULL OR (kind = 'speed' AND exitAt IS NULL))
 ORDER BY updatedAt ASC;
 
+selectInZoneExcept:
+SELECT RestrictionPass.* FROM RestrictionPass WHERE isDeleted = 0 AND trainId != :otherTrainId AND kind = 'speed' AND enterAt IS NOT NULL AND exitAt IS NULL;
+
 selectPass:
 SELECT * FROM RestrictionPass WHERE trainId = :trainId AND warningId = :warningId;
 

@@ -326,7 +326,6 @@ val repositoryModule = module {
         com.z_company.repository.remote_rest.tracks.RestrictionPassSyncer(
             api = RemoteRestClient.restrictionPassApi,
             store = get(),
-            settings = get<com.z_company.route.autorecord.TrackConsentStore>(),
             cursor = get(),
             isSubscribed = { get<com.z_company.route.viewmodel.RouteActionsHelper>().hasActiveSubscription() },
         )

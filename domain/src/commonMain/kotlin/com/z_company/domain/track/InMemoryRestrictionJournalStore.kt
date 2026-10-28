@@ -9,6 +9,10 @@ class InMemoryRestrictionJournalStore : RestrictionJournalStore {
 
     override fun forTrain(trainId: String) = rows.values.filter { it.trainId == trainId && !it.isDeleted }
 
+    override fun inZoneExcept(trainId: String) = rows.values.filter {
+        !it.isDeleted && it.trainId != trainId && it.kind == RestrictionKind.SPEED && it.enterAt != null && it.exitAt == null
+    }
+
     override fun openForTrain(trainId: String) = forTrain(trainId).filter { it.status != RestrictionStatus.DONE }
 
     override fun get(trainId: String, warningId: String) = rows[trainId to warningId]?.takeIf { !it.isDeleted }

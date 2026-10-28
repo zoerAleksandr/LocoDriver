@@ -130,6 +130,9 @@ data class RestrictionPass(
 
 /** Локальное хранилище журнала. Вызовы блокирующие и быстрые; звать с `Dispatchers.Default`. Реализации: Track.db и память (тесты). */
 interface RestrictionJournalStore {
+    /** Ограничения скорости ДРУГИХ поездов, в зону которых голова зашла, а выход не записан (цель «АВТО» сменилась). */
+    fun inZoneExcept(trainId: String): List<RestrictionPass>
+
     /** Все не удалённые записи поезда. */
     fun forTrain(trainId: String): List<RestrictionPass>
 

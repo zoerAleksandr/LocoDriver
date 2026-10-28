@@ -484,6 +484,30 @@ internal class ProfileModel(
         }
     }
 
+    /**
+     * Участки, относящиеся к плечу поезда (то же правило, что подбирает участок по плечу: на оси есть и первая, и последняя станция плеча,
+     * [LegMatch.fits]). Список участков без осей фильтруется по упоминанию станций плеча, подходящие подгружаются (кэш/сеть) и проверяются по осям.
+     * Пусто - плеча нет или подходящего участка не нашлось.
+     */
+    suspend fun findLegSections(): List<SectionSummary> {
+        if (stopNames.size < 2) return emptyList()
+        val first = stopNames.first()
+        val last = stopNames.last()
+        val loadedById = sections.associateBy { it.id }
+        val probe = summaries.filter { s ->
+            val text = "${s.name} ${s.fromStation} ${s.toStation}"
+            SectionPicker.mentions(text, first) || SectionPicker.mentions(text, last)
+        }.take(LEG_PROBE_MAX)
+        val out = ArrayList<SectionSummary>()
+        for (s in probe) {
+            val section = loadedById[s.id] ?: withContext(Dispatchers.Default) {
+                runCatching { repo.section(s.id, refresh = false) }.getOrNull()
+            }?.also { merge(listOf(it)) }
+            if (section != null && LegMatch.fits(section, stopNames) == true) out += s
+        }
+        return out
+    }
+
     private fun merge(list: List<SectionProfile>) {
         if (list.isEmpty()) return
         val ids = list.map { it.id }.toSet()
@@ -730,6 +754,7 @@ internal class ProfileModel(
     private fun resetMotion() { motionLastKm = null; motionSum = 0.0 }
 
     private companion object {
+        const val LEG_PROBE_MAX = 25
         const val MOTION_KM = 0.3
         const val MAX_STEP_KM = 1.0
         const val NEAR_RELOAD_M = 2_000.0
