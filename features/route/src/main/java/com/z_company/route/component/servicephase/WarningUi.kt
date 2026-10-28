@@ -181,7 +181,7 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
             if (leg != null) LegBlock(leg)
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (model.savedWarnings.isNotEmpty()) {
-                    item { SmallCaps("ДОБАВЛЕННЫЕ — галочка: действует на этом проезде") }
+                    item { SmallCaps("ДОБАВЛЕННЫЕ — галочка «Действующие»") }
                     items(model.savedWarnings, key = { it.id }) { w ->
                         SavedWarningRow(model, section, w)
                     }
@@ -358,7 +358,7 @@ internal fun WarningOfferDialog(model: ProfileModel) {
         WarningPanel(widthFraction = 0.9f, fill = false) {
             Text("ДУ-61 на участке", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
             Text(
-                "На участке «${section.name}» уже были записи ДУ-61. Применить их на этом проезде?",
+                "На участке «${section.name}» уже были записи ДУ-61. Сделать их действующими?",
                 style = Pst.sans.copy(fontSize = 13.sp), color = Pst.textMuted,
             )
             LazyColumn(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(6.dp)) {

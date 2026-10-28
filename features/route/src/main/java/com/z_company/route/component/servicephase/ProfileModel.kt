@@ -57,7 +57,7 @@ internal class ProfileModel(
     private val warningStore: TrackWarningStore? = null,
     private val voice: WarningVoice? = null,
     val voiceSettings: WarningVoiceSettings? = null,
-    /** Журнал проследования: «действующие на этом проезде» предупреждения привязаны к поезду и переживают закрытие карты. */
+    /** Журнал проследования: «действующие» предупреждения привязаны к поезду и переживают закрытие карты. */
     private val journal: com.z_company.domain.track.RestrictionJournalStore? = null,
     private val nowMs: () -> Long = { System.currentTimeMillis() },
 ) {
