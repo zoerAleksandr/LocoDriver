@@ -50,10 +50,22 @@ import java.util.UUID
 /** Станция или перегон участка, из которого создаётся предупреждение; [startKm]/[endKm] - км оси (у станции равны). */
 private class WarningPlace(val title: String, val startKm: Double, val endKm: Double, val isStation: Boolean)
 
-/** Станции и перегоны участка по ходу движения: станция, перегон до следующей, ... */
-private fun warningPlaces(section: SectionProfile, reversed: Boolean): List<WarningPlace> {
-    val st = section.stations.sortedBy { it.km }.let { if (reversed) it.asReversed() else it }
+/**
+ * Места ДУ-61 для участка: станции плеча поезда (полный список с координатами; на участке часть станций может отсутствовать) и перегоны
+ * между соседними, в порядке движения; берутся те, что лежат на оси участка ([TrackWarnings.stationKm]). Плеча нет или на оси нет ни одной
+ * его станции - станции самого участка по ходу движения.
+ */
+private fun warningPlaces(section: SectionProfile, reversed: Boolean, legStops: List<com.z_company.domain.util.TrainMapStop>): List<WarningPlace> {
     val out = ArrayList<WarningPlace>()
+    val onAxis = legStops.mapNotNull { st -> TrackWarnings.stationKm(section, st.name, legStops)?.let { st.name to it } }
+    if (onAxis.isNotEmpty()) {
+        onAxis.forEachIndexed { i, (name, km) ->
+            out += WarningPlace(name, km, km, true)
+            onAxis.getOrNull(i + 1)?.let { (n2, km2) -> out += WarningPlace("$name — $n2", minOf(km, km2), maxOf(km, km2), false) }
+        }
+        return out
+    }
+    val st = section.stations.sortedBy { it.km }.let { if (reversed) it.asReversed() else it }
     st.forEachIndexed { i, s ->
         out += WarningPlace(s.name, s.km, s.km, true)
         st.getOrNull(i + 1)?.let { n -> out += WarningPlace("${s.name} — ${n.name}", minOf(s.km, n.km), maxOf(s.km, n.km), false) }
@@ -102,7 +114,7 @@ private fun WarningScreen(content: @Composable androidx.compose.foundation.layou
  * (в любую сторону). На выходе возвращается прежняя ориентация (у профиля - горизонталь).
  */
 @Composable
-private fun FollowDeviceOrientation() {
+internal fun FollowDeviceOrientation() {
     val context = androidx.compose.ui.platform.LocalContext.current
     val activity = remember(context) { context.findActivity() }
     androidx.compose.runtime.DisposableEffect(activity) {
@@ -131,78 +143,70 @@ private fun Chip(text: String, on: Boolean, onClick: () -> Unit) {
  * удалением); выбор места открывает форму, после «Сохранить» возвращаемся к списку, «Готово» закрывает.
  */
 @Composable
-internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss: () -> Unit, onSelectLeg: (() -> Unit)? = null) {
+internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss: () -> Unit, leg: LegContext? = null) {
     val live = model.live
     if (live == null) { onDismiss(); return }
     val section = live.section
     var place by remember { mutableStateOf<WarningPlace?>(null) }
     var added by remember { mutableStateOf(0) }
-    val places = remember(section.id, live.reversed) { warningPlaces(section, live.reversed) }
+    val places = remember(section.id, live.reversed, model.stopPoints) { warningPlaces(section, live.reversed, model.stopPoints) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         FollowDeviceOrientation()
         val portrait = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
         val p = place
-        if (p == null) {
-            WarningScreen {
-                val titleBlock: @Composable (Modifier) -> Unit = { m ->
-                    Column(m) {
-                        Text("ДУ-61", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+        WarningScreen {
+            val titleBlock: @Composable (Modifier) -> Unit = { m ->
+                Column(m) {
+                    Text("ДУ-61", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+                    Text(
+                        text = section.name + if (added > 0) " · добавлено: $added" else "",
+                        style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            val buttons: @Composable () -> Unit = {
+                PstButton("Голос", onVoice, kind = PstButtonKind.TONAL, height = 40.dp, fontSize = 14)
+                PstButton("Готово", onDismiss, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
+            }
+            if (portrait) {
+                titleBlock(Modifier.fillMaxWidth())
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) { buttons() }
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    titleBlock(Modifier.weight(1f))
+                    buttons()
+                }
+            }
+            // Плечо поезда: то же, что в «Поезде» и «Ограничениях поезда» (выбор плеча, пометка «проверено на карте», кнопка «Определить»).
+            if (leg != null) LegBlock(leg)
+            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (model.savedWarnings.isNotEmpty()) {
+                    item { SmallCaps("ДОБАВЛЕННЫЕ — галочка: действует на этом проезде") }
+                    items(model.savedWarnings, key = { it.id }) { w ->
+                        SavedWarningRow(model, section, w)
+                    }
+                }
+                item { SmallCaps("ВЫБЕРИТЕ СТАНЦИЮ ИЛИ ПЕРЕГОН") }
+                items(places) { pl ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(12.dp))
+                            .clickable { place = pl }.padding(horizontal = 14.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Text(
-                            text = section.name + if (added > 0) " · добавлено: $added" else "",
-                            style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            if (pl.isStation) "СТ" else "ПЕР",
+                            style = Pst.mono.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted,
+                        )
+                        Text(
+                            pl.title, style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
                         )
                     }
                 }
-                val buttons: @Composable () -> Unit = {
-                    PstButton("Голос", onVoice, kind = PstButtonKind.TONAL, height = 40.dp, fontSize = 14)
-                    PstButton("Готово", onDismiss, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
-                }
-                if (portrait) {
-                    titleBlock(Modifier.fillMaxWidth())
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) { buttons() }
-                } else {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        titleBlock(Modifier.weight(1f))
-                        buttons()
-                    }
-                }
-                // Плечо поезда: выбирается здесь же (существующий выбор плеча и путь сохранения в поезд), сразу отражается в «Поезде», на карте и профиле.
-                if (onSelectLeg != null) {
-                    LegRow(
-                        title = if (model.hasLeg) "${model.stopNames.first()} — ${model.stopNames.last()}" else null,
-                        onSelectLeg = onSelectLeg,
-                    )
-                }
-                LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (model.savedWarnings.isNotEmpty()) {
-                        item { SmallCaps("ДОБАВЛЕННЫЕ — галочка: действует на этом проезде") }
-                        items(model.savedWarnings, key = { it.id }) { w ->
-                            SavedWarningRow(model, section, w)
-                        }
-                    }
-                    item { SmallCaps("ВЫБЕРИТЕ СТАНЦИЮ ИЛИ ПЕРЕГОН") }
-                    items(places) { pl ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(12.dp))
-                                .clickable { place = pl }.padding(horizontal = 14.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                if (pl.isStation) "СТ" else "ПЕР",
-                                style = Pst.mono.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted,
-                            )
-                            Text(
-                                pl.title, style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
-                            )
-                        }
-                    }
-                }
             }
-        } else {
-            WarningForm(model, section, p, onBack = { place = null }, onSaved = { added++; place = null })
         }
+        if (p != null) ProfileRestrictionForm(model, section, p, onBack = { place = null }, onSaved = { added++; place = null })
     }
 }
 
@@ -298,130 +302,49 @@ private fun SavedWarningRow(model: ProfileModel, section: SectionProfile, w: Tra
     }
 }
 
+/**
+ * Форма ДУ-61 профиля пути - та же шторка [RestrictionFormSheet], что и у раздела «Поезд»; отличается только тем, куда сохраняется:
+ * предупреждение проверяется по оси участка и попадает в хранилище участка (видно на профиле и карте) и в журнал поезда.
+ */
 @Composable
-private fun WarningForm(
+private fun ProfileRestrictionForm(
     model: ProfileModel, section: SectionProfile, place: WarningPlace, existing: TrackWarning? = null,
     onBack: () -> Unit, onSaved: () -> Unit,
 ) {
     val marks = section.kmMarks
-    val hasKm = marks.isNotEmpty()
-    fun initial(rel: Double): Pair<String, String> =
-        KmMarks.toAbs(marks, rel)?.let { TrackWarnings.split(it) }?.let { (k, p) -> k.toString() to p.toString() } ?: ("" to "")
-    fun fromAbs(abs: Double?): Pair<String, String>? = abs?.let { TrackWarnings.split(it) }?.let { (k, p) -> k.toString() to p.toString() }
-    // Поля км/пикета на перегоне не предзаполняются (машинист вводит границы сам); у станции предзаполнено только начало.
-    val (sk, sp) = remember(place) { existing?.let { fromAbs(it.startAbsKm) } ?: if (place.isStation) initial(place.startKm) else ("" to "") }
-    // Зона на один пикет (конец = начало + 100 м) показывается с пустым концом - как вводилась.
-    val oneSection = existing?.let { it.startAbsKm != null && it.endAbsKm != null && kotlin.math.abs(it.endAbsKm!! - it.startAbsKm!! - 0.1) < 1e-6 } == true
-    val (ek, ep) = remember(place) {
-        if (existing != null) { if (oneSection) ("" to "") else fromAbs(existing.endAbsKm) ?: ("" to "") }
-        else ("" to "")
-    }
-    // Подсказка вместо предзаполнения: где проходят границы перегона (станция и редактирование - без неё).
-    val placeHint = if (existing == null && !place.isStation && hasKm) {
+    // У станции предзаполнено только начало; на перегоне подсказка, где проходят его границы (поля не предзаполняются).
+    val prefill = if (existing == null && place.isStation) {
+        KmMarks.toAbs(marks, place.startKm)?.let { TrackWarnings.split(it) }?.let { (k, p) -> k.toString() to p.toString() }
+    } else null
+    val hint = if (existing == null && !place.isStation && marks.isNotEmpty()) {
         val a = KmMarks.toAbs(marks, place.startKm)?.let { KmMarks.position(it).text() }
         val b = KmMarks.toAbs(marks, place.endKm)?.let { KmMarks.position(it).text() }
         if (a != null && b != null) "Перегон: $a — $b" else null
     } else null
-    var startKm by remember { mutableStateOf(TextFieldValue(sk)) }
-    var startPk by remember { mutableStateOf(TextFieldValue(sp)) }
-    var endKm by remember { mutableStateOf(TextFieldValue(ek)) }
-    var endPk by remember { mutableStateOf(TextFieldValue(ep)) }
-    var type by remember { mutableStateOf(existing?.type ?: WarningType.SPEED) }
-    var speed by remember { mutableStateOf(TextFieldValue(existing?.speedKmh?.toString() ?: "")) }
-    var note by remember { mutableStateOf(TextFieldValue(existing?.note ?: "")) }
-    var error by remember { mutableStateOf<String?>(null) }
-    val numeric = KeyboardOptions(keyboardType = KeyboardType.Number)
-
-    fun save() {
-        val aAbs: Double?
-        val bAbs: Double?
-        if (hasKm) {
-            val k1 = startKm.text.trim().toIntOrNull()
-            val p1 = startPk.text.trim().ifEmpty { "1" }.toIntOrNull()
-            val noEnd = endKm.text.isBlank()
-            val k2 = if (noEnd) k1 else endKm.text.trim().toIntOrNull()
-            val p2 = if (noEnd) p1 else endPk.text.trim().ifEmpty { "1" }.toIntOrNull()
-            if (k1 == null || k2 == null || k1 < 0 || k2 < 0) { error = "Введите километр начала (и конца, если зона длиннее пикета)."; return }
-            if (p1 == null || p2 == null || p1 !in 1..10 || p2 !in 1..10) { error = "Пикет — число от 1 до 10."; return }
-            aAbs = TrackWarnings.absKm(k1, p1)
-            // конец не указан или совпал с началом - предупреждение действует на одном пикете (100 м)
-            bAbs = TrackWarnings.absKm(k2, p2).let { if (noEnd || it == aAbs) aAbs + 0.1 else it }
-        } else { aAbs = null; bAbs = null }
-        val speedV = speed.text.trim().toIntOrNull()
-        if (type == WarningType.SPEED && (speedV == null || speedV !in 1..200)) { error = "Введите ограничение скорости, км/ч."; return }
-        if (type == WarningType.OTHER && note.text.isBlank()) { error = "Напишите примечание."; return }
-        val w = TrackWarning(
-            id = existing?.id ?: UUID.randomUUID().toString(), sectionId = section.id,
-            startAbsKm = aAbs, endAbsKm = bAbs, startRelKm = place.startKm,
-            endRelKm = if (place.endKm - place.startKm < 0.0999) place.startKm + 0.1 else place.endKm,
-            type = type, speedKmh = if (type == WarningType.SPEED) speedV else null,
-            note = note.text.trim(), place = place.title,
-        )
-        val r = TrackWarnings.resolve(section, w)
-        if (r == null) { error = "Такого километра нет на этом участке."; return }
-        if (r.toKm < -0.001 || r.fromKm > section.lengthKm + 0.001) { error = "Место за пределами участка."; return }
-        if (existing != null) model.updateWarning(w) else model.addWarning(w)
-        onSaved()
-    }
-
-    val portrait = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
-    val titleBlock: @Composable (Modifier) -> Unit = { m ->
-        Column(m) {
-            Text(if (existing != null) "ДУ-61: предупреждение" else "ДУ-61: новое предупреждение", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
-            Text(place.title, style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-    }
-    val buttons: @Composable () -> Unit = {
-        if (existing != null) {
-            PstButton("Удалить", { model.deleteWarning(existing.id); onSaved() }, kind = PstButtonKind.DANGER, height = 40.dp, fontSize = 14)
-        }
-        PstButton(if (existing != null) "Отмена" else "Назад", onBack, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
-        PstButton("Сохранить", { save() }, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
-    }
-    WarningScreen {
-        if (portrait) {
-            titleBlock(Modifier.fillMaxWidth())
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) { buttons() }
-        } else {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                titleBlock(Modifier.weight(1f))
-                buttons()
-            }
-        }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (hasKm) {
-                placeHint?.let { Text(it, style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted) }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    PstTextField(startKm, { startKm = it; error = null }, "Начало, км", Modifier.weight(1f), keyboardOptions = numeric, mono = true)
-                    PstTextField(startPk, { startPk = it; error = null }, "Начало, пикет", Modifier.weight(1f), placeholder = "1", keyboardOptions = numeric, mono = true)
-                    PstTextField(endKm, { endKm = it; error = null }, "Конец, км", Modifier.weight(1f), keyboardOptions = numeric, mono = true)
-                    PstTextField(endPk, { endPk = it; error = null }, "Конец, пикет", Modifier.weight(1f), placeholder = "1", keyboardOptions = numeric, mono = true)
+    RestrictionFormSheet(
+        sectionId = section.id,
+        place = place.title,
+        existing = existing,
+        kmRequired = marks.isNotEmpty(),
+        placeBounds = if (existing == null) place.startKm to place.endKm else null,
+        prefillStart = prefill,
+        hint = hint,
+        onSave = { w ->
+            val r = TrackWarnings.resolve(section, w, model.stopPoints)
+            when {
+                r == null -> "Такого километра нет на этом участке."
+                r.toKm < -0.001 || r.fromKm > section.lengthKm + 0.001 -> "Место за пределами участка."
+                TrackWarnings.placementIssue(section, r) != null -> TrackWarnings.UNKNOWN_KM_MESSAGE
+                else -> {
+                    if (existing != null) model.updateWarning(w) else model.addWarning(w)
+                    onSaved()
+                    null
                 }
-                if (endKm.text.isBlank()) Text(
-                    "Конец не указан — предупреждение действует на одном пикете (100 м).",
-                    style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted,
-                )
-            } else {
-                Text(
-                    "У участка нет километровой привязки — предупреждение займёт весь выбранный отрезок.",
-                    style = Pst.sans.copy(fontSize = 13.sp), color = Pst.textMuted,
-                )
             }
-            androidx.compose.foundation.layout.FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                WarningType.values().forEach { t -> Chip(t.title, type == t) { type = t; error = null } }
-            }
-            if (type == WarningType.SPEED) {
-                PstTextField(speed, { speed = it; error = null }, "Ограничение, км/ч", Modifier.fillMaxWidth(0.4f), keyboardOptions = numeric, mono = true)
-            }
-            PstTextField(
-                note, { note = it; error = null },
-                if (type == WarningType.OTHER) "Примечание" else "Примечание (необязательно)", Modifier.fillMaxWidth(),
-            )
-            error?.let { Text(it, style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 17.sp), color = Pst.danger) }
-        }
-    }
+        },
+        onDelete = existing?.let { e -> { model.deleteWarning(e.id); onSaved() } },
+        onDismiss = onBack,
+    )
 }
 
 /** Прошлые предупреждения участка: предложение применить их снова (с галочками по каждому). */
@@ -531,14 +454,11 @@ private fun SettingBlock(title: String, content: @Composable () -> Unit) {
 internal fun WarningEditDialog(model: ProfileModel) {
     val w = model.editingWarning ?: return
     val section = model.section ?: return
-    Dialog(onDismissRequest = { model.closeWarningEdit() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        FollowDeviceOrientation()
-        WarningForm(
-            model, section,
-            WarningPlace(w.place, w.startRelKm, w.endRelKm, false),
-            existing = w,
-            onBack = { model.closeWarningEdit() },
-            onSaved = { model.closeWarningEdit() },
-        )
-    }
+    ProfileRestrictionForm(
+        model, section,
+        WarningPlace(w.place, w.startRelKm, w.endRelKm, false),
+        existing = w,
+        onBack = { model.closeWarningEdit() },
+        onSaved = { model.closeWarningEdit() },
+    )
 }

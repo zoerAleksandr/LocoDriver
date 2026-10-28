@@ -90,6 +90,36 @@ data class ServicePhase(
     val measuredSignature: String? = null,
 ) {
     /**
+     * Координаты станций плеча по порядку (отправление, промежуточные с координатами, прибытие) - «подпись», по которой проверяется
+     * «измерено по карте». Формат тот же, что в редакторе плеча.
+     */
+    fun coordinateSignature(): String {
+        val points = buildList {
+            add(departurePoint?.let { it.latitude to it.longitude })
+            intermediateStations.filter { it.hasCoordinates }.forEach { add(it.latitude!! to it.longitude!!) }
+            add(arrivalPoint?.let { it.latitude to it.longitude })
+        }
+        return points.joinToString(";") { p -> p?.let { "${fixed5(it.first)},${fixed5(it.second)}" } ?: "-" }
+    }
+
+    /**
+     * Плечо «проверено и найдено на карте» (единое условие для всех экранов): есть координаты обеих крайних станций, есть промежуточные
+     * станции и у всех есть координаты, расстояние измерено по карте именно по этим координатам.
+     */
+    val isMapVerified: Boolean
+        get() {
+            if (departurePoint == null || arrivalPoint == null) return false
+            if (intermediateStations.isEmpty() || intermediateStations.any { !it.hasCoordinates }) return false
+            val signature = measuredSignature ?: return false
+            val i = signature.indexOf('|')
+            if (i <= 0) return false
+            return signature.substring(0, i).toIntOrNull() == distance && signature.substring(i + 1) == coordinateSignature()
+        }
+
+    /** Строка `measuredSignature` для расстояния [km], измеренного по текущим координатам плеча. */
+    fun measuredSignatureFor(km: Int): String = "$km|${coordinateSignature()}"
+
+    /**
      * Копия для рейса (`Train.servicePhase`): станции плеча в рейс не кладём —
      * они живут в справочнике и берутся оттуда по [id].
      */
@@ -114,6 +144,25 @@ data class ServicePhase(
         departurePoint = arrivalPoint,
         arrivalPoint = departurePoint,
     )
+}
+
+/**
+ * Число с 5 знаками после точки, как `%.5f` в локали US на JVM (редактор плеча хранит подпись в таком виде): округление «половина вверх»
+ * по десятичным цифрам кратчайшей записи числа (59.465865 -> 59.46587), а не по двоичному значению.
+ */
+private fun fixed5(v: Double): String {
+    val text = kotlin.math.abs(v).toString()
+    val dot = text.indexOf('.')
+    var scaled: Long
+    if (dot < 0 || text.contains('E') || text.contains('e')) {
+        scaled = kotlin.math.round(kotlin.math.abs(v) * 100000.0).toLong()
+    } else {
+        val frac = text.substring(dot + 1)
+        scaled = (text.substring(0, dot) + frac.padEnd(5, '0').substring(0, 5)).toLong()
+        if (frac.length > 5 && frac[5] >= '5') scaled += 1
+    }
+    val sign = if (v < 0 && scaled != 0L) "-" else ""
+    return sign + (scaled / 100000).toString() + "." + (scaled % 100000).toString().padStart(5, '0')
 }
 
 @Serializable

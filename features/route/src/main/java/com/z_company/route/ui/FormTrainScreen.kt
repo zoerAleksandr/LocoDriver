@@ -332,28 +332,33 @@ fun FormTrainScreen(
 
         // «Ограничения поезда»: журнал проследования, добавление предупреждений по плечу, PDF-отчёт (SCREEN_SPECS §6.9)
         var showRestrictions by rememberSaveable { mutableStateOf(false) }
+        // Плечо для экранов ДУ-61 и карты: выбор, пометка «проверено на карте» и «Определить» - одно и то же везде.
+        val legContext = com.z_company.route.component.servicephase.LegContext(
+            title = formUiState.selectedServicePhase?.let { "${it.departureStation} — ${it.arrivalStation}" },
+            phase = servicePhaseList.firstOrNull { it.id == formUiState.selectedServicePhase?.id },
+            country = viewModel.userCountry,
+            onSelect = { showSelectServicePhase = true },
+            onUpdate = onUpdateServicePhase,
+            onAddNames = viewModel::addStationNames,
+            onOpenEditor = {
+                val full = servicePhaseList.firstOrNull { it.id == formUiState.selectedServicePhase?.id }
+                if (full != null) {
+                    editingPhase = full
+                    autoStartPhaseFill = true
+                    returnToRestrictions = showRestrictions
+                    showRestrictions = false
+                    showEditPhaseSheet = true
+                }
+            },
+        )
         if (showRestrictions && currentTrain != null) {
             val restrictionsZone by androidx.compose.runtime.produceState("GMT+3") { value = viewModel.trainMapZone() }
             com.z_company.route.component.servicephase.TrainRestrictionsScreen(
                 trainId = currentTrain.trainId,
                 trainTitle = currentTrain.number?.takeIf { it.isNotBlank() }?.let { "Поезд № $it" } ?: "Поезд без номера",
-                legTitle = formUiState.selectedServicePhase?.let { "${it.departureStation} — ${it.arrivalStation}" },
+                leg = legContext,
                 legFrom = formUiState.selectedServicePhase?.departureStation?.takeIf { it.isNotBlank() },
                 legTo = formUiState.selectedServicePhase?.arrivalStation?.takeIf { it.isNotBlank() },
-                // Промежуточные станции берутся из справочника по id плеча (в поезде лежит копия без них).
-                canLoadStations = servicePhaseList.firstOrNull { it.id == formUiState.selectedServicePhase?.id }
-                    ?.intermediateStations.isNullOrEmpty(),
-                onLoadStations = {
-                    val full = servicePhaseList.firstOrNull { it.id == formUiState.selectedServicePhase?.id }
-                    if (full != null) {
-                        editingPhase = full
-                        autoStartPhaseFill = true
-                        returnToRestrictions = true
-                        showRestrictions = false
-                        showEditPhaseSheet = true
-                    }
-                },
-                onSelectLeg = { showSelectServicePhase = true },
                 stops = remember(formUiState.selectedServicePhase, formUiState.servicePhaseList.size) { viewModel.trainMapStops() },
                 trains = viewModel.trainMapTrains(),
                 zone = restrictionsZone,
@@ -387,8 +392,7 @@ fun FormTrainScreen(
                 onDismiss = { showTrainMap = false },
                 profileTrains = viewModel.trainMapTrains(),
                 profileTrainId = viewModel.currentTrain?.trainId,
-                // «Предупреждения» в профиле: плечо выбирается тут же (то же существующее окно «Плечи», тот же путь сохранения).
-                onSelectLeg = { showSelectServicePhase = true },
+                leg = legContext,
             )
         }
 
@@ -2291,26 +2295,43 @@ fun FormTrainScreen(
                 recording = globalAutoState.enabled,
                 blocked = hintBlocked,
             )
-            when (trainHint) {
+            // Подсказка показывается, когда экран и нижняя панель устоялись (положение якоря не менялось ~0,6 с): иначе при входе в «Поезд» она
+            // на мгновение мигала на промежуточном положении панели.
+            val hintAnchorBounds = when (trainHint) {
+                com.z_company.domain.onboarding.HintId.TRAIN_MAP -> mapAnchor.bounds
+                com.z_company.domain.onboarding.HintId.AUTO_CHIP -> autoAnchor.bounds
+                com.z_company.domain.onboarding.HintId.TRAIN_VU45 -> vuAnchor.bounds
+                else -> null
+            }
+            var hintStable by remember { mutableStateOf(false) }
+            LaunchedEffect(trainHint, hintAnchorBounds) {
+                hintStable = false
+                if (trainHint != null) {
+                    kotlinx.coroutines.delay(600)
+                    hintStable = true
+                }
+            }
+            val shownHint = if (hintStable) trainHint else null
+            when (shownHint) {
                 com.z_company.domain.onboarding.HintId.TRAIN_MAP -> com.z_company.route.component.CoachMarkPopup(
                     anchor = mapAnchor.bounds,
                     title = com.z_company.domain.onboarding.OnboardingHints.TITLE_TRAIN_MAP,
                     text = com.z_company.domain.onboarding.OnboardingHints.TEXT_TRAIN_MAP,
-                    onDismiss = { onboardingHints.markShown(trainHint) },
+                    onDismiss = { onboardingHints.markShown(shownHint) },
                     tag = "coach_train_map",
                 )
                 com.z_company.domain.onboarding.HintId.AUTO_CHIP -> com.z_company.route.component.CoachMarkPopup(
                     anchor = autoAnchor.bounds,
                     title = com.z_company.domain.onboarding.OnboardingHints.TITLE_AUTO_CHIP,
                     text = com.z_company.domain.onboarding.OnboardingHints.TEXT_AUTO_CHIP,
-                    onDismiss = { onboardingHints.markShown(trainHint) },
+                    onDismiss = { onboardingHints.markShown(shownHint) },
                     tag = "coach_auto_chip",
                 )
                 com.z_company.domain.onboarding.HintId.TRAIN_VU45 -> com.z_company.route.component.CoachMarkPopup(
                     anchor = vuAnchor.bounds,
                     title = com.z_company.domain.onboarding.OnboardingHints.TITLE_TRAIN_VU45,
                     text = com.z_company.domain.onboarding.OnboardingHints.TEXT_TRAIN_VU45,
-                    onDismiss = { onboardingHints.markShown(trainHint) },
+                    onDismiss = { onboardingHints.markShown(shownHint) },
                     tag = "coach_train_vu45",
                 )
                 else -> Unit

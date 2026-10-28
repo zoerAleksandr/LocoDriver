@@ -145,8 +145,17 @@ class SectionProfileRepository(
         toProfile(dto)?.let { dto.updatedAt to it }
     }
 
+    /** Последняя загрузка профиля отклонена сервером по лимиту (429): повторить позже. */
+    @kotlin.concurrent.Volatile
+    var rateLimited: Boolean = false
+        private set
+
     private suspend fun download(id: String): Pair<Double, SectionProfile>? {
-        val dto = runCatching { api.section(id) }.getOrNull() ?: return null
+        val res = runCatching { api.section(id) }
+        val error = res.exceptionOrNull()
+        rateLimited = error?.message?.contains("429") == true
+        error?.let { println("SectionProfile download ${id.take(8)} failed: ${it::class.simpleName}: ${it.message?.take(80)}") }
+        val dto = res.getOrNull() ?: return null
         val profile = withContext(Dispatchers.Default) { toProfile(dto) } ?: return null
         runCatching { cache.save(id, json.encodeToString(AdvisorSectionDto.serializer(), dto)) }
         return dto.updatedAt to profile

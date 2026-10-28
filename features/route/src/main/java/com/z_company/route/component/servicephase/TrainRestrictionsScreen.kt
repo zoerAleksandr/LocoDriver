@@ -72,16 +72,11 @@ import org.koin.compose.koinInject
 internal fun TrainRestrictionsScreen(
     trainId: String,
     trainTitle: String,
-    /** Плечо поезда, например «Лужская — Гатчина»; null - не выбрано (добавлять ограничения нельзя, пока не выбрано). */
-    legTitle: String?,
-    /** Крайние станции плеча (названия): по ним ищется участок независимо от координат станций. */
+    /** Плечо поезда: строка, пометка «проверено на карте» и кнопка «Определить» - одно и то же на всех экранах ДУ-61. */
+    leg: LegContext,
+    /** Крайние станции плеча (названия). */
     legFrom: String?,
     legTo: String?,
-    /** У плеча нет промежуточных станций в справочнике: предложить загрузить (то же окно плеча и автоподбор, что в справочнике). */
-    canLoadStations: Boolean,
-    onLoadStations: () -> Unit,
-    /** Открыть существующий выбор плеча «Поезда» (результат сохраняется в поезд тем же путём и сразу виден в «Поезде», на карте и профиле). */
-    onSelectLeg: () -> Unit,
     stops: List<TrainMapStop>,
     trains: List<ProfileTrain>,
     zone: String,
@@ -94,6 +89,7 @@ internal fun TrainRestrictionsScreen(
     var entries by remember { mutableStateOf(emptyList<RestrictionPass>()) }
     var showAdd by rememberSaveable { mutableStateOf(false) }
     var toDelete by remember { mutableStateOf<RestrictionPass?>(null) }
+    var editing by remember { mutableStateOf<RestrictionPass?>(null) }
     var pdfUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var exporting by remember { mutableStateOf(false) }
 
@@ -104,7 +100,7 @@ internal fun TrainRestrictionsScreen(
             delay(2_000)
         }
     }
-    val legSelected = legTitle != null
+    val legSelected = leg.title != null
     val rows = remember(entries, zone) { RestrictionReport.rows(entries, zone) }
     val ready = RestrictionReport.isReady(entries)
     val left = RestrictionReport.remaining(entries)
@@ -122,19 +118,7 @@ internal fun TrainRestrictionsScreen(
                     Text(trainTitle, style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            LegRow(title = legTitle, onSelectLeg = onSelectLeg)
-            if (legSelected && canLoadStations) {
-                Row(
-                    Modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(12.dp)).padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        "У плеча не загружены промежуточные станции: с ними участок и места ограничений находятся точнее.",
-                        style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted, modifier = Modifier.weight(1f),
-                    )
-                    PstButton("Загрузить", onLoadStations, kind = PstButtonKind.TONAL, height = 40.dp, fontSize = 14)
-                }
-            }
+            LegBlock(leg)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 PstButton(
                     "Добавить", { showAdd = true }, kind = PstButtonKind.FILLED, enabled = legSelected, height = 44.dp, fontSize = 14,
@@ -166,17 +150,53 @@ internal fun TrainRestrictionsScreen(
                 else -> "Все отслеживаемые ограничения проследованы — можно сформировать отчёт."
             }
             Text(hint, style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted)
+            // Порядок по ходу движения: места плеча (станции и перегоны) по порядку станций плеча; ограничения без места плеча - в конце.
+            val order = remember(stops, legFrom, legTo) { stops.map { it.name }.filter { it.isNotBlank() }.ifEmpty { listOfNotNull(legFrom, legTo) } }
+            val sorted = remember(entries, order) {
+                entries.filter { !it.isDeleted }.sortedWith(
+                    compareBy<RestrictionPass>({ locationKey(it.place, order) }, { it.startAbsKm ?: Double.MAX_VALUE }, { it.enterAt ?: Long.MAX_VALUE }, { it.updatedAt }),
+                )
+            }
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(entries.filter { !it.isDeleted }.sortedWith(compareBy({ it.enterAt ?: Long.MAX_VALUE }, { it.updatedAt })), key = { it.warningId }) { e ->
+                items(sorted, key = { it.warningId }) { e ->
                     val row = RestrictionReport.rows(listOf(e), zone).first()
-                    RestrictionCard(row, e) { toDelete = e }
+                    // Тот же свайп-удаление, что у маршрутов на Главном (красная кнопка, затем подтверждение); нажатие - правка.
+                    com.z_company.route.component.SwipeToRevealDelete(
+                        modifier = Modifier.fillMaxWidth(),
+                        onDeleteClick = { toDelete = e },
+                        onContentClick = { editing = e },
+                        backgroundVerticalPadding = 0.dp,
+                        itemKey = e.warningId,
+                    ) { _ -> RestrictionCard(row, e) }
                 }
             }
         }
     }
 
+    editing?.let { e ->
+        val warningStore = remember { TrackWarningStore(context.applicationContext) }
+        RestrictionFormSheet(
+            sectionId = e.sectionId,
+            place = e.place,
+            existing = e.toWarning(),
+            kmRequired = e.startAbsKm != null || !e.tracked,
+            onSave = { w ->
+                runCatching {
+                    val updated = e.withWarning(w, maxOf(System.currentTimeMillis(), e.updatedAt + 1))
+                    if (e.tracked && updated.sectionId == RestrictionPass.NO_SECTION) warningStore.removeEverywhere(e.sectionId, e.warningId)
+                    else if (e.tracked) warningStore.updateEverywhere(w)
+                    store.upsert(updated)
+                }
+                editing = null
+                upload.trigger()
+                null
+            },
+            onDelete = { toDelete = e; editing = null },
+            onDismiss = { editing = null },
+        )
+    }
     if (showAdd) {
-        RestrictionAddHost(trainId = trainId, stops = stops, trains = trains, legFrom = legFrom, legTo = legTo, onSelectLeg = onSelectLeg, onClose = { showAdd = false; upload.trigger() })
+        RestrictionAddHost(trainId = trainId, stops = stops, trains = trains, legFrom = legFrom, legTo = legTo, leg = leg, onClose = { showAdd = false; upload.trigger() })
     }
     toDelete?.let { e ->
         AppAlertDialog(
@@ -200,46 +220,38 @@ internal fun TrainRestrictionsScreen(
 }
 
 @Composable
-private fun RestrictionCard(row: RestrictionReport.Row, e: RestrictionPass, onRemove: () -> Unit) {
+private fun RestrictionCard(row: RestrictionReport.Row, e: RestrictionPass) {
+    val isSpeed = e.kind == "speed"
     Column(
         modifier = Modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(14.dp)).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(row.title, style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, modifier = Modifier.weight(1f), maxLines = 2)
-            if (row.exceeded) Text("ПРЕВЫШЕНИЕ", style = Pst.mono.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = Pst.danger)
-        }
-        val where = listOfNotNull(row.place.ifBlank { null }, row.kmText).joinToString(" · ")
-        if (where.isNotEmpty()) Text(where, style = Pst.sans.copy(fontSize = 11.sp), color = Pst.textMuted)
-        Text("Заход головой: ${row.enter}", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.text)
-        if (e.kind == "speed") {
-            Text("Выход составом: ${row.exit}", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.text)
             Text(
-                "Максимум: ${row.maxSpeed}" + (row.limit?.let { " при ограничении $it" } ?: ""),
-                style = Pst.sans.copy(fontSize = 12.sp, fontWeight = if (row.exceeded) FontWeight.Bold else FontWeight.Normal),
-                color = if (row.exceeded) Pst.danger else Pst.text,
+                row.place.ifBlank { row.title }, style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = Pst.text,
+                modifier = Modifier.weight(1f), maxLines = 2,
             )
+            val limit = row.limit
+            if (isSpeed && limit != null) {
+                Text(limit, style = Pst.mono.copy(fontSize = 15.sp, fontWeight = FontWeight.Bold), color = if (row.exceeded) Pst.danger else Pst.text)
+            }
         }
-        val status = when (e.status) {
-            RestrictionStatus.PLANNED -> if (row.untracked) "Не отслеживается автоматически (нет профиля участка)" else "Ожидает проследования"
-            RestrictionStatus.IN_ZONE -> "Состав в зоне"
-            RestrictionStatus.DONE -> "Проследовано"
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(status, style = Pst.mono.copy(fontSize = 10.sp), color = Pst.textMuted, modifier = Modifier.weight(1f))
-            Text(
-                "Убрать", style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold), color = Pst.danger,
-                modifier = Modifier.clickable(onClick = onRemove).padding(8.dp),
-            )
+        row.kmText?.let { Text(it, style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted) }
+        // Опускание, выключение тока, прочее: жирным вид (для прочего - текст предупреждения).
+        if (!isSpeed) Text(row.title, style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold), color = Pst.text)
+        // Данные проследования - когда они уже есть.
+        if (!row.untracked && e.enterAt != null) {
+            Text("Заход головой: ${row.enter}", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.text)
+            if (isSpeed && e.exitAt != null) Text("Выход составом: ${row.exit}", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.text)
         }
     }
 }
 
 /**
- * Добавление предупреждений из раздела «Поезд»: тот же экран [WarningsDialog], что и в профиле пути. Участок определяется по
- * плечу поезда: берутся только участки, относящиеся к плечу ([ProfileModel.findLegSections]); один - выбирается сам, несколько -
- * шторка выбора ([LegSectionsSheet]); плеча нет - предлагается выбрать плечо. Добавленное сохраняется в хранилище предупреждений
- * участка (видно на профиле и на карте) и привязывается к поезду (журнал).
+ * Добавление ДУ-61 из раздела «Поезд»: профиль пути НЕ загружается (сеть не нужна, лимиты загрузки профилей не тратятся). Место берётся из
+ * станций плеча (станции и перегоны), начало километра/пикета обязательно, конец - нет (тогда действует один пикет, 100 м). Запись идёт в
+ * журнал поезда без участка; когда карта или профиль загрузят подходящий участок, запись подцепится к нему по километру
+ * ([ProfileModel] `adoptManualRestrictions`) и начнёт отслеживаться автоматически.
  */
 @Composable
 private fun RestrictionAddHost(
@@ -248,170 +260,157 @@ private fun RestrictionAddHost(
     trains: List<ProfileTrain>,
     legFrom: String?,
     legTo: String?,
-    onSelectLeg: () -> Unit,
+    leg: LegContext,
     onClose: () -> Unit,
 ) {
-    val model = rememberProfileModel(null, null, 0L, stops, trains, trainId)
     val store: RestrictionJournalStore = koinInject()
-    androidx.compose.runtime.SideEffect { model.legEnds = if (legFrom != null && legTo != null) legFrom to legTo else null }
-    var showVoice by rememberSaveable { mutableStateOf(false) }
-    var showManual by rememberSaveable { mutableStateOf(false) }
-    var picked by remember { mutableStateOf(false) }
-    var attempt by remember { mutableStateOf(0) }
-    var legSections by remember { mutableStateOf<List<SectionSummary>?>(null) }
     val hasLeg = legFrom != null && legTo != null
-    LaunchedEffect(model.loaded, model.needLogin, hasLeg, attempt) {
-        legSections = if (model.loaded && !model.needLogin && model.live == null && hasLeg) model.findLegSections() else null
-    }
-
-    if (model.live != null) {
-        WarningsDialog(model, onVoice = { showVoice = true }, onDismiss = onClose, onSelectLeg = onSelectLeg)
-        if (showVoice) WarningVoiceDialog(model, onDismiss = { showVoice = false })
-        WarningEditDialog(model)
-        WarningOfferDialog(model)
-        return
-    }
-    if (showManual) {
+    val places = remember(stops, legFrom, legTo) { legPlaces(stops, legFrom, legTo) }
+    var showForm by rememberSaveable { mutableStateOf(false) }
+    var place by rememberSaveable { mutableStateOf<String?>(null) }
+    if (showForm) {
         val t = trains.firstOrNull { it.id == trainId }
-        ManualRestrictionDialog(
-            defaultPlace = if (hasLeg) "$legFrom — $legTo" else "",
+        RestrictionFormSheet(
+            sectionId = RestrictionPass.NO_SECTION,
+            place = place ?: if (hasLeg) "$legFrom — $legTo" else "",
             onSave = { w ->
                 runCatching {
                     val old = store.peek(trainId, w.id)
                     store.upsert(RestrictionPass.planned(trainId, t?.routeId.orEmpty(), w, maxOf(System.currentTimeMillis(), (old?.updatedAt ?: 0L) + 1), t?.lengthM))
                 }
-                showManual = false
+                showForm = false
                 onClose()
+                null
             },
-            onDismiss = { showManual = false },
+            onDismiss = { showForm = false },
         )
         return
     }
-    val found = legSections
-    val manual = { showManual = true }
-    when {
-        model.needLogin -> NoSectionDialog("Профиль участков доступен после входа в аккаунт. Ограничение можно добавить без участка: оно попадёт в журнал и отчёт, но время и скорость проследования автоматически не запишутся.", onClose, manual)
-        !hasLeg -> NoSectionDialog("Выберите плечо поезда: участок для ограничений определяется по нему.", onClose, manual, onSelectLeg = onSelectLeg)
-        !model.loaded || found == null -> Unit
-        found.isEmpty() -> NoSectionDialog(
-            "Для плеча «$legFrom — $legTo» не удалось найти участок с профилем пути (нет сети, профиль не загружен или нет такого участка). " +
-                "Ограничение можно добавить без участка: оно попадёт в журнал и отчёт, но время и скорость проследования автоматически не запишутся; " +
-                "когда профиль появится, ограничение с километром подцепится к нему само.",
-            onClose, manual, onRetry = { legSections = null; attempt++ }, onSelectLeg = onSelectLeg,
-        )
-        found.size == 1 -> LaunchedEffect(found[0].id) {
-            if (!picked) { picked = true; model.choose(found[0].id) }
-        }
-        else -> LegSectionsSheet(
-            title = "Участок плеча",
-            subtitle = "$legFrom — $legTo",
-            sections = found,
-            onPick = { model.choose(it.id) },
-            onDismiss = onClose,
-            onManual = manual,
-        )
+    if (!hasLeg) {
+        NoSectionDialog("Выберите плечо поезда: места ДУ-61 берутся из его станций.", onClose, { place = null; showForm = true }, onSelectLeg = leg.onSelect)
+        return
     }
-    model.chooseError?.let { NoSectionDialog(it, onClose, manual) }
+    LegPlacesDialog(
+        leg = leg,
+        places = places,
+        onPick = { place = it; showForm = true },
+        onOther = { place = null; showForm = true },
+        onClose = onClose,
+    )
 }
 
-/** Диалог без тупика: когда участка нет, всегда есть действие - добавить ограничение без участка (а также повторить поиск / сменить плечо). */
+/** Положение места на плече по ходу движения: станция - её номер среди станций плеча, перегон - между номерами концов; нет на плече - в конец. */
+private fun locationKey(place: String, order: List<String>): Double {
+    val names = place.split(" — ").map { it.trim() }.filter { it.isNotEmpty() }
+    val idx = names.mapNotNull { n -> order.indexOfFirst { com.z_company.domain.track.SectionPicker.sameStation(it, n) }.takeIf { it >= 0 } }
+    return when {
+        idx.isEmpty() -> Double.MAX_VALUE
+        names.size == 2 && idx.size == 2 -> idx.min() + 0.5
+        else -> idx.first().toDouble()
+    }
+}
+
+private fun RestrictionPass.toWarning() = TrackWarning(
+    id = warningId, sectionId = sectionId, startAbsKm = startAbsKm, endAbsKm = endAbsKm, startRelKm = startRelKm, endRelKm = endRelKm,
+    type = WarningType.entries.firstOrNull { com.z_company.domain.track.RestrictionKind.of(it) == kind } ?: WarningType.OTHER,
+    speedKmh = limitKmh, note = note, place = place,
+)
+
+/**
+ * Запись с правками из формы. Километры изменились у записи с участком - ось-привязка (км оси) устарела: запись становится «без участка»
+ * и подцепится заново при открытии профиля пути (данные проследования, если были, остаются).
+ */
+private fun RestrictionPass.withWarning(w: TrackWarning, nowMs: Long): RestrictionPass {
+    val kmChanged = w.startAbsKm != startAbsKm || w.endAbsKm != endAbsKm
+    val untrack = tracked && kmChanged
+    return copy(
+        sectionId = if (untrack) RestrictionPass.NO_SECTION else sectionId,
+        startRelKm = if (untrack) 0.0 else startRelKm,
+        endRelKm = if (untrack) 0.0 else endRelKm,
+        kind = com.z_company.domain.track.RestrictionKind.of(w.type),
+        title = w.label.take(RestrictionPass.MAX_TEXT),
+        place = w.place.take(RestrictionPass.MAX_TEXT),
+        note = w.note.take(RestrictionPass.MAX_NOTE),
+        limitKmh = if (w.type == WarningType.SPEED) w.speedKmh else null,
+        startAbsKm = w.startAbsKm,
+        endAbsKm = w.endAbsKm,
+        exceeded = RestrictionPass.exceeded(maxSpeedKmh, if (w.type == WarningType.SPEED) w.speedKmh else null),
+        updatedAt = nowMs,
+    )
+}
+
+/** Места ДУ-61 по плечу: станции (с промежуточными) и перегоны между соседними; нет станций с координатами - концы плеча. */
+private fun legPlaces(stops: List<TrainMapStop>, legFrom: String?, legTo: String?): List<String> {
+    val names = stops.map { it.name }.filter { it.isNotBlank() }.ifEmpty { listOfNotNull(legFrom, legTo) }
+    if (names.isEmpty()) return emptyList()
+    return buildList {
+        names.forEachIndexed { i, n ->
+            add(n)
+            names.getOrNull(i + 1)?.let { add("$n — $it") }
+        }
+    }
+}
+
+/** Места ДУ-61 плеча: станции и перегоны; выбранное идёт в форму ограничения. Шторка, как и форма. Профиль пути не нужен. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun NoSectionDialog(text: String, onClose: () -> Unit, onManual: () -> Unit, onRetry: (() -> Unit)? = null, onSelectLeg: (() -> Unit)? = null) {
+private fun LegPlacesDialog(
+    leg: LegContext,
+    places: List<String>,
+    onPick: (String) -> Unit,
+    onOther: () -> Unit,
+    onClose: () -> Unit,
+) {
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onClose,
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Pst.bg,
+    ) {
+        Column(
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("ДУ-61: где действует", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+            LegBlock(leg)
+            Text(
+                "Выберите станцию или перегон. Когда профиль пути загрузится на карте, ограничение появится на нём.",
+                style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted,
+            )
+            LazyColumn(Modifier.weight(1f, fill = false).heightIn(max = 480.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(places) { place ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(12.dp)).clickable { onPick(place) }.padding(horizontal = 14.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            if (" — " in place) "ПЕР" else "СТ",
+                            style = Pst.mono.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted,
+                        )
+                        Text(
+                            place, style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+            PstButton("Другое место", onOther, kind = PstButtonKind.TONAL, height = 44.dp, fontSize = 14, modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+/** Плечо не выбрано: предложить выбрать плечо (или добавить ограничение с вручную введённым местом). */
+@Composable
+private fun NoSectionDialog(text: String, onClose: () -> Unit, onManual: () -> Unit, onSelectLeg: (() -> Unit)? = null) {
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(
             Modifier.fillMaxWidth(0.9f).background(Pst.bg, RoundedCornerShape(20.dp)).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(text, style = Pst.sans.copy(fontSize = 14.sp, lineHeight = 20.sp), color = Pst.text)
-            PstButton("Добавить без участка", onManual, kind = PstButtonKind.FILLED, height = 44.dp, fontSize = 14, modifier = Modifier.fillMaxWidth())
-            if (onRetry != null) PstButton("Повторить поиск", onRetry, kind = PstButtonKind.TONAL, height = 44.dp, fontSize = 14, modifier = Modifier.fillMaxWidth())
+            PstButton("Ввести место вручную", onManual, kind = PstButtonKind.FILLED, height = 44.dp, fontSize = 14, modifier = Modifier.fillMaxWidth())
             if (onSelectLeg != null) PstButton("Выбрать плечо", { onClose(); onSelectLeg() }, kind = PstButtonKind.TONAL, height = 44.dp, fontSize = 14, modifier = Modifier.fillMaxWidth())
             PstButton("Закрыть", onClose, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14, modifier = Modifier.fillMaxWidth())
-        }
-    }
-}
-
-/**
- * Ограничение без участка (нет профиля): вид, скорость, место и, по желанию, километр/пикет «от» и «до». Хранится только в журнале поезда
- * (`sectionId = none`): автоматически не отслеживается, в журнале и отчёте есть; если позже подходящий участок появится и такой километр
- * на нём есть, оно подцепится к участку ([ProfileModel] `adoptManualRestrictions`).
- */
-@Composable
-private fun ManualRestrictionDialog(defaultPlace: String, onSave: (TrackWarning) -> Unit, onDismiss: () -> Unit) {
-    var type by rememberSaveable { mutableStateOf(WarningType.SPEED.name) }
-    var speed by remember { mutableStateOf(TextFieldValue("")) }
-    var place by remember { mutableStateOf(TextFieldValue(defaultPlace)) }
-    var note by remember { mutableStateOf(TextFieldValue("")) }
-    var kmA by remember { mutableStateOf(TextFieldValue("")) }
-    var pkA by remember { mutableStateOf(TextFieldValue("")) }
-    var kmB by remember { mutableStateOf(TextFieldValue("")) }
-    var pkB by remember { mutableStateOf(TextFieldValue("")) }
-    val wType = WarningType.valueOf(type)
-    val num = KeyboardOptions(keyboardType = KeyboardType.Number)
-    val limit = speed.text.toIntOrNull()?.takeIf { it in 1..400 }
-    fun abs(km: TextFieldValue, pk: TextFieldValue): Double? {
-        val k = km.text.toIntOrNull() ?: return null
-        val p = if (pk.text.isBlank()) 1 else (pk.text.toIntOrNull() ?: return null)
-        return if (k >= 0 && p in 1..10) TrackWarnings.absKm(k, p) else null
-    }
-    val a = abs(kmA, pkA)
-    val b = abs(kmB, pkB)
-    val kmGiven = kmA.text.isNotBlank() || kmB.text.isNotBlank()
-    val kmOk = !kmGiven || (a != null && b != null)
-    val noteOk = wType != WarningType.OTHER || note.text.isNotBlank()
-    val valid = (wType != WarningType.SPEED || limit != null) && kmOk && noteOk
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Column(
-            Modifier.fillMaxWidth(0.94f).heightIn(max = 640.dp).background(Pst.bg, RoundedCornerShape(20.dp)).imePadding()
-                .verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text("Ограничение без участка", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
-            Text(
-                "Профиля участка нет: время и скорость проследования автоматически не запишутся, но ограничение будет в журнале и отчёте.",
-                style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted,
-            )
-            WarningType.entries.chunked(2).forEach { pair ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    pair.forEach { t ->
-                        PstButton(
-                            t.title, { type = t.name }, kind = if (t == wType) PstButtonKind.FILLED else PstButtonKind.TONAL,
-                            height = 40.dp, fontSize = 14, modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
-            }
-            if (wType == WarningType.SPEED) {
-                PstTextField(speed, { speed = it }, "Скорость", suffix = "км/ч", keyboardOptions = num, mono = true, isError = speed.text.isNotBlank() && limit == null)
-            }
-            PstTextField(place, { place = it }, "Место (станция или перегон)")
-            Text("Километр и пикет (по желанию, пикет 1–10)", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PstTextField(kmA, { kmA = it }, "Км от", keyboardOptions = num, mono = true, modifier = Modifier.weight(1f), isError = kmGiven && a == null)
-                PstTextField(pkA, { pkA = it }, "Пк", keyboardOptions = num, mono = true, modifier = Modifier.weight(0.6f))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PstTextField(kmB, { kmB = it }, "Км до", keyboardOptions = num, mono = true, modifier = Modifier.weight(1f), isError = kmGiven && b == null)
-                PstTextField(pkB, { pkB = it }, "Пк", keyboardOptions = num, mono = true, modifier = Modifier.weight(0.6f))
-            }
-            PstTextField(note, { note = it }, if (wType == WarningType.OTHER) "Что за предупреждение" else "Примечание", singleLine = false, isError = !noteOk)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                PstButton("Отмена", onDismiss, kind = PstButtonKind.TEXT, height = 44.dp, fontSize = 14, modifier = Modifier.weight(1f))
-                PstButton(
-                    "Сохранить",
-                    {
-                        onSave(
-                            TrackWarning(
-                                id = generateId(), sectionId = RestrictionPass.NO_SECTION,
-                                startAbsKm = a.takeIf { kmGiven }, endAbsKm = b.takeIf { kmGiven }, startRelKm = 0.0, endRelKm = 0.0,
-                                type = wType, speedKmh = limit.takeIf { wType == WarningType.SPEED }, note = note.text.trim().take(RestrictionPass.MAX_NOTE),
-                                place = place.text.trim().take(RestrictionPass.MAX_TEXT),
-                            ),
-                        )
-                    },
-                    kind = PstButtonKind.FILLED, enabled = valid, height = 44.dp, fontSize = 14, modifier = Modifier.weight(1f),
-                )
-            }
         }
     }
 }

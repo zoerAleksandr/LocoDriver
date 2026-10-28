@@ -108,7 +108,17 @@ internal fun HomeTrainMap(
         onDismiss = onDismiss,
         profileTrains = viewModel.trainMapTrains(),
         profileTrainId = viewModel.currentTrain?.trainId,
-        onSelectLeg = { showLegPicker = true },
+        leg = com.z_company.route.component.servicephase.LegContext(
+            title = formUiState.selectedServicePhase?.let { "${it.departureStation} — ${it.arrivalStation}" },
+            phase = viewModel.fullSelectedPhaseOrNull(),
+            country = viewModel.userCountry,
+            onSelect = { showLegPicker = true },
+            onUpdate = { viewModel.updateServicePhase(it) },
+            onAddNames = { viewModel.addStationNames(it) },
+            // Автоопределение не справилось (неоднозначные названия): справочник открывается в поезде, здесь выбор плеча.
+            onOpenEditor = {},
+            editorAvailable = false,
+        ),
         trainChips = chips,
         onSelectTrain = { id -> routeTrains.firstOrNull { it.trainId == id }?.let(onSelectTrain) },
     )

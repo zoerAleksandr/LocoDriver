@@ -716,6 +716,9 @@ class TrainFormViewModel(
         return true
     }
 
+    /** То же для экранов ДУ-61 и карты. */
+    fun fullSelectedPhaseOrNull(): ServicePhase? = fullSelectedPhase()
+
     /** Полное плечо (со станциями) для выбранного в поезде — в рейсе хранится копия без станций. */
     private fun fullSelectedPhase(): ServicePhase? {
         val id = _uiState.value.selectedServicePhase?.id ?: return null

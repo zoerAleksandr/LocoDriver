@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -282,7 +284,10 @@ internal fun PhaseRouteVariantsMap(
         val panel = if (dark) Pst.bgSubtle else Pst.surface
         val field = if (dark) Pst.surface else Pst.bg
         val panelShape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)
-        val maxPanelHeight = (LocalConfiguration.current.screenHeightDp * 0.75f).dp
+        // С клавиатурой панель не выше свободного места над ней (иначе верх панели с полем ввода уезжает за экран).
+        val imeHeight = with(androidx.compose.ui.platform.LocalDensity.current) { androidx.compose.foundation.layout.WindowInsets.Companion.ime.getBottom(this).toDp() }
+        val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+        val maxPanelHeight = minOf(screenHeight * 0.75f, (screenHeight - imeHeight - 96.dp).coerceAtLeast(180.dp))
 
         Box(modifier = Modifier.fillMaxSize().background(Pst.bg)) {
             AndroidView(modifier = Modifier.fillMaxSize(), factory = { mapView })
@@ -344,6 +349,8 @@ internal fun PhaseRouteVariantsMap(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
+                    // Панель поднимается над клавиатурой (поле ввода станций «Через какие станции построить?» не перекрывается).
+                    .imePadding()
                     .heightIn(max = maxPanelHeight)
                     .shadow(8.dp, panelShape)
                     .background(panel, panelShape)

@@ -10,22 +10,39 @@ import org.json.JSONObject
 import java.util.Locale
 
 /**
- * Предупреждения по участкам: хранятся на устройстве (SharedPreferences, JSON по id участка) и на сервер не уходят. Список
+ * Предупреждения по участкам: хранятся на устройстве (SharedPreferences, JSON по ключу «участок + направление + плечо») и на сервер не уходят. Список
  * сохранённых живёт между поездками - при повторном проследовании участка их предлагается применить снова.
  */
 internal class TrackWarningStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("track_warnings", Context.MODE_PRIVATE)
 
-    fun load(sectionId: String): List<TrackWarning> = runCatching {
-        val raw = prefs.getString(sectionId, null) ?: return emptyList()
+    /** [key] - ключ хранения ([ProfileModel.warningsKey]: участок + направление + плечо), [sectionId] - id участка в самих записях. */
+    fun load(key: String, sectionId: String): List<TrackWarning> = runCatching {
+        val raw = prefs.getString(key, null) ?: return emptyList()
         val arr = JSONArray(raw)
         (0 until arr.length()).map { fromJson(sectionId, arr.getJSONObject(it)) }
     }.getOrDefault(emptyList())
 
-    fun save(sectionId: String, list: List<TrackWarning>) {
+    fun save(key: String, list: List<TrackWarning>) {
         runCatching {
-            if (list.isEmpty()) prefs.edit().remove(sectionId).apply()
-            else prefs.edit().putString(sectionId, JSONArray(list.map { toJson(it) }).toString()).apply()
+            if (list.isEmpty()) prefs.edit().remove(key).apply()
+            else prefs.edit().putString(key, JSONArray(list.map { toJson(it) }).toString()).apply()
+        }
+    }
+
+    /** Заменить предупреждение [w] во всех ключах его участка (плечо/направление) - правка из «Ограничений поезда». */
+    fun updateEverywhere(w: TrackWarning) = mutateEverywhere(w.sectionId) { list -> list.map { if (it.id == w.id) w else it } }
+
+    /** Убрать предупреждение [id] участка [sectionId] из всех ключей. */
+    fun removeEverywhere(sectionId: String, id: String) = mutateEverywhere(sectionId) { list -> list.filter { it.id != id } }
+
+    private fun mutateEverywhere(sectionId: String, change: (List<TrackWarning>) -> List<TrackWarning>) {
+        runCatching {
+            prefs.all.keys.filter { it.startsWith("$sectionId|") }.forEach { key ->
+                val before = load(key, sectionId)
+                val after = change(before)
+                if (after != before) save(key, after)
+            }
         }
     }
 

@@ -212,7 +212,7 @@ internal fun TrainMapScreen(
     trainChips: List<MapTrainChip> = emptyList(),
     onSelectTrain: (String) -> Unit = {},
     /** Выбор плеча поезда прямо из экрана «Предупреждения» (существующий выбор плеча хозяина карты); null - кнопки нет. */
-    onSelectLeg: (() -> Unit)? = null,
+    leg: LegContext? = null,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -260,6 +260,16 @@ internal fun TrainMapScreen(
         }
         // Профиль пути: живое положение на профиле участка (выбор по местоположению и плечу, SCREEN_SPECS §6.9).
         val profileModel = rememberProfileModel(liveFix, liveSpeed, liveAtMs, stops, profileTrains, profileTrainId)
+        profileModel.notice?.let { notice ->
+            com.z_company.route.component.AppAlertDialog(
+                onDismissRequest = { profileModel.notice = null },
+                title = notice.title,
+                text = notice.text,
+                confirmText = "Понятно",
+                onConfirm = { profileModel.notice = null },
+            )
+        }
+        androidx.compose.runtime.SideEffect { profileModel.legUnverified = leg != null && leg.title != null && leg.phase?.isMapVerified == false }
         var showChart by rememberSaveable { mutableStateOf(false) }
         // Метки первого открытия карты + кнопка «?» для повтора (ONBOARDING_MATERIALS §2): один раз, не во время записи.
         val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
@@ -1831,7 +1841,7 @@ internal fun TrainMapScreen(
                     onDismiss = { showSettings = false },
                 )
             }
-            if (showProfileFull) ProfileFullScreen(profileModel, onDismiss = { showProfileFull = false }, onSelectLeg = onSelectLeg)
+            if (showProfileFull) ProfileFullScreen(profileModel, onDismiss = { showProfileFull = false }, leg = leg)
             WarningOfferDialog(profileModel)
             if (!showProfileFull) WarningEditDialog(profileModel)
 

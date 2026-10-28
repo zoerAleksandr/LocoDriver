@@ -88,19 +88,74 @@ object TrackWarnings {
         return p.km to p.picket
     }
 
-    /** Место на оси участка; null - такого километра на участке нет. */
-    fun resolve(section: SectionProfile, w: TrackWarning): ResolvedWarning? {
+    /**
+     * Место на оси участка; null - такого километра на участке нет. Если километровая координата на участке встречается несколько раз
+     * (смена нумерации), выбирается вхождение, ближайшее к месту предупреждения ([placeRange]: станция или перегон); километр может
+     * относиться к соседнему месту - берётся ближайшее, а не только лежащее внутри. Конец зоны - вхождение, ближайшее к началу. Место
+     * неизвестно - первое по ходу участка, как раньше.
+     */
+    fun resolve(section: SectionProfile, w: TrackWarning, legStops: List<com.z_company.domain.util.TrainMapStop> = emptyList()): ResolvedWarning? {
         if (w.sectionId != section.id) return null
         val a: Double
         val b: Double
         if (w.startAbsKm != null && w.endAbsKm != null && section.kmMarks.isNotEmpty()) {
-            a = KmMarks.toRel(section.kmMarks, w.startAbsKm) ?: return null
-            b = KmMarks.toRel(section.kmMarks, w.endAbsKm) ?: return null
+            val ac = KmMarks.candidates(section.kmMarks, w.startAbsKm)
+            val bc = KmMarks.candidates(section.kmMarks, w.endAbsKm)
+            val range = placeRange(section, w, legStops)
+            a = if (ac.size > 1 && range != null) ac.minByOrNull { distanceTo(range, it) }!! else KmMarks.toRel(section.kmMarks, w.startAbsKm) ?: return null
+            b = if (bc.size > 1) bc.minByOrNull { kotlin.math.abs(it - a) }!! else KmMarks.toRel(section.kmMarks, w.endAbsKm) ?: return null
         } else {
             a = w.startRelKm
             b = w.endRelKm
         }
         return ResolvedWarning(w, minOf(a, b), maxOf(a, b))
+    }
+
+    private fun distanceTo(range: Pair<Double, Double>, km: Double): Double = when {
+        km < range.first -> range.first - km
+        km > range.second -> km - range.second
+        else -> 0.0
+    }
+
+    /** Сообщение, когда ограничение попадает туда, где километраж неизвестен. */
+    const val UNKNOWN_KM_MESSAGE =
+        "На этом участке режимная карта уточняется: километраж здесь неизвестен, поставить ограничение нельзя. Свяжитесь с поддержкой, чтобы уточнить информацию."
+
+    /**
+     * Можно ли ставить предупреждение в найденное место: не за пределами оси участка (километр «вытянут» за край продолжением нумерации) и не в
+     * серой зоне профиля (`noData`), где километраж неизвестен. null - можно; иначе текст для пользователя.
+     */
+    fun placementIssue(section: SectionProfile, r: ResolvedWarning): String? {
+        if (r.fromKm < -0.05 || r.toKm > section.lengthKm + 0.05) return UNKNOWN_KM_MESSAGE
+        if (section.elements.any { it.noData && it.endKm > r.fromKm && it.startKm < r.toKm }) return UNKNOWN_KM_MESSAGE
+        return null
+    }
+
+    /** Станция плеча дальше этого от оси участка на нём «не лежит» (м). */
+    const val STATION_MAX_OFFSET_M = 500.0
+
+    /**
+     * Километр оси, где находится станция [name]: сначала по станциям плеча [legStops] (полный список, с координатами - проекция на ось не
+     * зависит от написания названия), затем по станциям самого участка (на нём часть станций может отсутствовать). null - станции на оси нет.
+     */
+    fun stationKm(section: SectionProfile, name: String, legStops: List<com.z_company.domain.util.TrainMapStop>): Double? {
+        legStops.firstOrNull { SectionPicker.sameStation(it.name, name) }?.let { stop ->
+            val hit = section.axis.locator.project(stop.latitude, stop.longitude)
+            if (hit != null && hit.offsetM <= STATION_MAX_OFFSET_M) return hit.kmM / 1000.0
+        }
+        return section.stations.firstOrNull { SectionPicker.sameStation(it.name, name) }?.km
+    }
+
+    /**
+     * Диапазон оси, где находится место предупреждения: сохранённые границы места (создано на профиле), иначе по названию - станция
+     * («Луга») или перегон («Лужская — Луга») по станциям плеча и участка ([stationKm]). null - место не найдено на участке.
+     */
+    fun placeRange(section: SectionProfile, w: TrackWarning, legStops: List<com.z_company.domain.util.TrainMapStop> = emptyList()): Pair<Double, Double>? {
+        if (w.endRelKm > w.startRelKm + 1e-9) return w.startRelKm to w.endRelKm
+        val names = w.place.split(" — ").map { it.trim() }.filter { it.isNotEmpty() }
+        if (names.isEmpty() || names.size > 2) return null
+        val kms = names.map { n -> stationKm(section, n, legStops) ?: return null }
+        return kms.min() to kms.max()
     }
 
     /** Расстояние до ближнего края зоны впереди по ходу, м; null - зона позади или поезд уже внутри. [dir] = +1 к росту км оси. */

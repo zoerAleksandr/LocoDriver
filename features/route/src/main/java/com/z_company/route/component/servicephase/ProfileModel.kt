@@ -141,22 +141,34 @@ internal class ProfileModel(
     /** Сохранённые предупреждения текущего участка (с прошлых проездов тоже). */
     var savedWarnings by mutableStateOf<List<TrackWarning>>(emptyList())
         private set
-    private var warningsSectionId: String? = null
+    private var loadedWarningsKey: String? = null
     private var activeWarningIds by mutableStateOf<Map<String, Set<String>>>(emptyMap())
     private var offeredSections by mutableStateOf<Set<String>>(emptySet())
     private val spokenAt = HashMap<String, Long>()
     private val passes = com.z_company.domain.track.WarningPassTracker()
     private var passDir = 0
 
+    /**
+     * Ключ хранения предупреждений: участок + направление + плечо (первая и последняя станции плеча). Предупреждения разных плеч
+     * и направлений не смешиваются; у поезда без плеча ключ без плеча.
+     */
+    private val warningsKey: String?
+        get() {
+            val s = section ?: return null
+            fun norm(n: String) = n.lowercase().filter { it.isLetterOrDigit() }
+            val leg = if (stopNames.size >= 2) "${norm(stopNames.first())}>${norm(stopNames.last())}" else ""
+            return "${s.id}|${if (reversed) "-" else "+"}|$leg"
+        }
+
     /** Сохранённые предупреждения, действующие сейчас на выбранном участке. */
     val activeWarnings: List<ResolvedWarning>
         get() {
             val s = section ?: return emptyList()
-            val ids = activeWarningIds[s.id] ?: return emptyList()
-            return savedWarnings.filter { it.id in ids }.mapNotNull { TrackWarnings.resolve(s, it) }
+            val ids = warningsKey?.let { activeWarningIds[it] } ?: return emptyList()
+            return savedWarnings.filter { it.id in ids }.mapNotNull { TrackWarnings.resolve(s, it, stopPoints) }
         }
 
-    fun isWarningActive(id: String): Boolean = section?.let { activeWarningIds[it.id]?.contains(id) } == true
+    fun isWarningActive(id: String): Boolean = warningsKey?.let { activeWarningIds[it] }?.contains(id) == true
 
     /** Участок выбран и поддерживает предупреждения. */
     val canEditWarnings: Boolean get() = live != null && warningStore != null
@@ -164,8 +176,8 @@ internal class ProfileModel(
     /** Прошлые предупреждения этого участка, которые ещё не применили и не отклонили в этом проезде. */
     val warningOffer: List<TrackWarning>
         get() {
-            val s = section ?: return emptyList()
-            if (s.id in offeredSections || !activeWarningIds[s.id].isNullOrEmpty()) return emptyList()
+            val k = warningsKey ?: return emptyList()
+            if (k in offeredSections || !activeWarningIds[k].isNullOrEmpty()) return emptyList()
             return savedWarnings
         }
 
@@ -178,9 +190,10 @@ internal class ProfileModel(
 
     private fun syncWarnings() {
         val s = section ?: return
-        if (warningsSectionId == s.id) return
-        warningsSectionId = s.id
-        savedWarnings = warningStore?.load(s.id).orEmpty()
+        val k = warningsKey ?: return
+        if (loadedWarningsKey == k) return
+        loadedWarningsKey = k
+        savedWarnings = warningStore?.load(k, s.id).orEmpty()
         spokenAt.clear()
         passes.reset()
         adoptManualRestrictions(s)
@@ -196,6 +209,9 @@ internal class ProfileModel(
         val t = train ?: return
         val j = journal ?: return
         if (stopNames.size >= 2 && LegMatch.fits(s, stopNames) != true) return
+        // Без километровых отметок километр записи на оси не определить (resolve взял бы 0 км): такие участки ничего не подцепляют.
+        if (s.kmMarks.isEmpty()) return
+        val rejected = mutableListOf<String>()
         runCatching {
             for (e in j.forTrain(t.id)) {
                 if (e.tracked || e.startAbsKm == null || e.endAbsKm == null) continue
@@ -204,26 +220,66 @@ internal class ProfileModel(
                     type = com.z_company.domain.track.WarningType.entries.firstOrNull { RestrictionKind.of(it) == e.kind } ?: com.z_company.domain.track.WarningType.OTHER,
                     speedKmh = e.limitKmh, note = e.note, place = e.place,
                 )
-                val r = TrackWarnings.resolve(s, w) ?: continue
+                val r = TrackWarnings.resolve(s, w, stopPoints) ?: continue
+                // Серая зона/за краем оси: километраж неизвестен - ограничение на профиль не ставим, остаётся в журнале без участка.
+                if (TrackWarnings.placementIssue(s, r) != null) {
+                    if (noticedRejections.add(e.warningId)) rejected += e.place.ifBlank { "ограничение" }
+                    continue
+                }
                 if (savedWarnings.none { it.id == w.id }) {
                     savedWarnings = savedWarnings + w
-                    warningStore?.save(s.id, savedWarnings)
+                    warningsKey?.let { warningStore?.save(it, savedWarnings) }
                 }
                 j.upsert(e.copy(sectionId = s.id, startRelKm = r.fromKm, endRelKm = r.toKm, updatedAt = maxOf(nowMs(), e.updatedAt + 1)))
             }
         }
+        if (rejected.isNotEmpty()) notice = RejectNotice(rejected)
     }
 
     // --- Журнал проследования: связь предупреждений участка с поездом ---
 
-    /** Записи журнала этого поезда по участку: подтягиваем в «действующие», чтобы выбор переживал закрытие карты. */
+    /**
+     * Записи журнала этого поезда по участку: подтягиваем в «действующие» (под ключом хранения [warningsKey]: участок + направление + плечо -
+     * по нему профиль читает действующие), чтобы выбор переживал закрытие карты и ограничения из «Поезда» были видны на карте. Запись
+     * журнала с участком, которой нет в хранилище участка (подцеплена прежней версией или стёрлось хранилище), восстанавливается.
+     */
     private fun seedFromJournal(sectionId: String) {
         val t = train ?: return
         val j = journal ?: return
-        val ids = runCatching { j.forTrain(t.id) }.getOrDefault(emptyList()).filter { it.sectionId == sectionId }.map { it.warningId }
-        if (ids.isEmpty()) return
-        activeWarningIds = activeWarningIds + (sectionId to (activeWarningIds[sectionId].orEmpty() + ids))
-        offeredSections = offeredSections + sectionId
+        val k = warningsKey ?: return
+        val s = section ?: return
+        val all = runCatching { j.forTrain(t.id) }.getOrDefault(emptyList()).filter { it.sectionId == sectionId }
+        if (all.isEmpty()) return
+        fun warningOf(e: RestrictionPass) = TrackWarning(
+            id = e.warningId, sectionId = sectionId, startAbsKm = e.startAbsKm, endAbsKm = e.endAbsKm,
+            startRelKm = e.startRelKm, endRelKm = e.endRelKm,
+            type = com.z_company.domain.track.WarningType.entries.firstOrNull { RestrictionKind.of(it) == e.kind } ?: com.z_company.domain.track.WarningType.OTHER,
+            speedKmh = e.limitKmh, note = e.note, place = e.place,
+        )
+        // Подцеплено прежде в серую зону/за край оси (километраж неизвестен): снимаем с участка, остаётся в журнале без участка.
+        val (entries, bad) = all.partition { e ->
+            val r = TrackWarnings.resolve(s, warningOf(e), stopPoints)
+            r != null && TrackWarnings.placementIssue(s, r) == null
+        }
+        if (bad.isNotEmpty()) {
+            val badIds = bad.map { it.warningId }.toSet()
+            runCatching {
+                bad.forEach { e -> j.upsert(e.copy(sectionId = RestrictionPass.NO_SECTION, startRelKm = 0.0, endRelKm = 0.0, updatedAt = maxOf(nowMs(), e.updatedAt + 1))) }
+            }
+            if (savedWarnings.any { it.id in badIds }) {
+                savedWarnings = savedWarnings.filter { it.id !in badIds }
+                warningStore?.save(k, savedWarnings)
+            }
+            val fresh = bad.filter { noticedRejections.add(it.warningId) }.map { it.place.ifBlank { "ограничение" } }
+            if (fresh.isNotEmpty()) notice = RejectNotice(fresh)
+        }
+        val missing = entries.filter { e -> savedWarnings.none { it.id == e.warningId } }.map(::warningOf)
+        if (missing.isNotEmpty()) {
+            savedWarnings = savedWarnings + missing
+            warningStore?.save(k, savedWarnings)
+        }
+        activeWarningIds = activeWarningIds + (k to (activeWarningIds[k].orEmpty() + entries.map { it.warningId }))
+        offeredSections = offeredSections + k
     }
 
     /** Предупреждение уже проследовано этим поездом: снять галочку нельзя (запись удаляется только из журнала поезда). */
@@ -277,48 +333,48 @@ internal class ProfileModel(
     fun closeWarningEdit() { editingWarning = null }
 
     fun updateWarning(w: TrackWarning) {
-        val s = section ?: return
+        val k = warningsKey ?: return
         savedWarnings = savedWarnings.map { if (it.id == w.id) w else it }
-        warningStore?.save(s.id, savedWarnings)
+        warningStore?.save(k, savedWarnings)
         spokenAt.remove(w.id)
         passes.forget(w.id)
         refreshSnapshot(w)
     }
 
     fun addWarning(w: TrackWarning) {
-        val s = section ?: return
+        val k = warningsKey ?: return
         savedWarnings = savedWarnings + w
-        warningStore?.save(s.id, savedWarnings)
-        activeWarningIds = activeWarningIds + (s.id to (activeWarningIds[s.id].orEmpty() + w.id))
-        offeredSections = offeredSections + s.id
+        warningStore?.save(k, savedWarnings)
+        activeWarningIds = activeWarningIds + (k to (activeWarningIds[k].orEmpty() + w.id))
+        offeredSections = offeredSections + k
         attachToTrain(w)
     }
 
     fun deleteWarning(id: String) {
-        val s = section ?: return
+        val k = warningsKey ?: return
         if (editingWarning?.id == id) editingWarning = null
         savedWarnings = savedWarnings.filter { it.id != id }
         passes.forget(id)
         detachFromTrain(id)
-        warningStore?.save(s.id, savedWarnings)
-        activeWarningIds = activeWarningIds + (s.id to (activeWarningIds[s.id].orEmpty() - id))
+        warningStore?.save(k, savedWarnings)
+        activeWarningIds = activeWarningIds + (k to (activeWarningIds[k].orEmpty() - id))
     }
 
     fun setWarningActive(id: String, on: Boolean) {
-        val s = section ?: return
-        val cur = activeWarningIds[s.id].orEmpty()
+        val k = warningsKey ?: return
+        val cur = activeWarningIds[k].orEmpty()
         if (!on && isWarningLocked(id)) return
-        activeWarningIds = activeWarningIds + (s.id to if (on) cur + id else cur - id)
+        activeWarningIds = activeWarningIds + (k to if (on) cur + id else cur - id)
         passes.forget(id)
         if (on) savedWarnings.firstOrNull { it.id == id }?.let { attachToTrain(it) } else detachFromTrain(id)
-        offeredSections = offeredSections + s.id
+        offeredSections = offeredSections + k
     }
 
     /** Применить выбранные из прошлых предупреждений (пустой набор - не нужны). */
     fun answerOffer(ids: Set<String>) {
-        val s = section ?: return
-        activeWarningIds = activeWarningIds + (s.id to ids)
-        offeredSections = offeredSections + s.id
+        val k = warningsKey ?: return
+        activeWarningIds = activeWarningIds + (k to ids)
+        offeredSections = offeredSections + k
         savedWarnings.filter { it.id in ids }.forEach { attachToTrain(it) }
     }
 
@@ -519,36 +575,37 @@ internal class ProfileModel(
         }
     }
 
+    private var legStationsKey: String? = null
+    private var legStationsCache: List<com.z_company.domain.track.SectionStation> = emptyList()
+
     /**
-     * Участки, относящиеся к плечу поезда (то же правило, что подбирает участок по плечу: на оси есть и первая, и последняя станция плеча,
-     * [LegMatch.fits]). Список участков без осей фильтруется по упоминанию станций плеча, подходящие подгружаются (кэш/сеть) и проверяются по осям.
-     * Пусто - плеча нет или подходящего участка не нашлось.
+     * Станции для подписей профиля: станции участка плюс станции плеча поезда (в том числе промежуточные, загруженные в справочник),
+     * которых на участке ещё нет: их координаты проецируются на ось (не дальше [LEG_STATION_MAX_OFFSET_M] от неё).
      */
-    suspend fun findLegSections(): List<SectionSummary> {
-        val (first, last) = legEnds ?: stopNames.takeIf { it.size >= 2 }?.let { it.first() to it.last() } ?: return emptyList()
-        val pool = LinkedHashMap<String, SectionProfile>()
-        sections.forEach { pool[it.id] = it }
-        // 1. По положению станций плеча: тот же загрузчик, что на карте подбирает участки вокруг GPS-точки (габарит -> ось из кэша/сети).
+    fun stationsOnProfile(section: SectionProfile): List<com.z_company.domain.track.SectionStation> {
         val pts = stopPoints
-        val probes = (listOfNotNull(pts.firstOrNull(), pts.lastOrNull()) + pts.drop(1).dropLast(1).take(2)).distinctBy { it.latitude to it.longitude }
-        for (p in probes) {
-            val found = runCatching { withContext(Dispatchers.Default) { repo.sectionsNear(p.latitude, p.longitude) } }.getOrDefault(emptyList())
-            found.forEach { pool[it.id] = it }
+        if (pts.isEmpty()) return section.stations
+        val key = "${section.id}|${section.axisHash}|${pts.joinToString(",") { it.name }}"
+        if (key != legStationsKey) {
+            val extra = pts.filter { p -> section.stations.none { SectionPicker.sameStation(it.name, p.name) } }.mapNotNull { p ->
+                val hit = section.axis.locator.project(p.latitude, p.longitude) ?: return@mapNotNull null
+                if (hit.offsetM > LEG_STATION_MAX_OFFSET_M) null
+                else com.z_company.domain.track.SectionStation(hit.kmM / 1000.0, p.name, p.latitude, p.longitude)
+            }
+            legStationsCache = (section.stations + extra).sortedBy { it.km }
+            legStationsKey = key
         }
-        // 2. По названиям: участки, где упомянута крайняя станция плеча (нет координат у станций плеча).
-        val probe = summaries.filter { s ->
-            s.id !in pool && "${s.name} ${s.fromStation} ${s.toStation}".let { SectionPicker.mentions(it, first) || SectionPicker.mentions(it, last) }
-        }.take(LEG_PROBE_MAX)
-        for (s in probe) {
-            withContext(Dispatchers.Default) { runCatching { repo.section(s.id, refresh = false) }.getOrNull() }?.let { pool[it.id] = it }
-        }
-        merge(pool.values.toList())
-        fun pointOf(name: String, default: com.z_company.domain.util.TrainMapStop?) =
-            (pts.firstOrNull { SectionPicker.sameStation(it.name, name) } ?: default)?.let { it.latitude to it.longitude }
-        val found = LegMatch.candidates(pool.values, first, last, pointOf(first, pts.firstOrNull()), pointOf(last, pts.lastOrNull()))
-        val byId = summaries.associateBy { it.id }
-        return found.map { byId[it.id] ?: SectionSummary(it.id, it.name, it.fromStation, it.toStation, it.lengthKm, true, 0L) }
+        return legStationsCache
     }
+
+    /** У поезда выбрано плечо, но оно не проверено на карте (нет станций/координат): профиль подбирается хуже - пользователю нужна подсказка. */
+    var legUnverified: Boolean = false
+
+    /** Сообщение пользователю (например, ограничение не поставлено: километраж неизвестен); показывается диалогом и сбрасывается. */
+    var notice by mutableStateOf<RejectNotice?>(null)
+
+    /** Сервер отклонил загрузку профиля по лимиту (429): сообщения «проверьте интернет» были бы неверными. */
+    val rateLimited: Boolean get() = repo.rateLimited
 
     private fun merge(list: List<SectionProfile>) {
         if (list.isEmpty()) return
@@ -609,7 +666,8 @@ internal class ProfileModel(
         scope.launch {
             val loadedSection = runCatching { withContext(Dispatchers.Default) { repo.section(id, refresh = false) } }.getOrNull()
             if (loadedSection == null) {
-                chooseError = "Не удалось загрузить участок. Проверьте интернет."
+                chooseError = if (repo.rateLimited) "Сервер временно ограничил загрузку профилей путей. Повторите через несколько минут."
+                else "Не удалось загрузить участок. Проверьте интернет."
             } else {
                 merge(listOf(loadedSection))
                 applyChoice(id)
@@ -796,7 +854,11 @@ internal class ProfileModel(
     private fun resetMotion() { motionLastKm = null; motionSum = 0.0 }
 
     private companion object {
-        const val LEG_PROBE_MAX = 25
+        /** Ограничения, о которых уже сообщили «километраж неизвестен» (раз за запуск приложения, чтобы не повторять при каждом открытии). */
+        val noticedRejections = HashSet<String>()
+
+        /** Станция плеча попадает на профиль, если её координаты не дальше этого от оси участка. */
+        const val LEG_STATION_MAX_OFFSET_M = 500.0
         const val MOTION_KM = 0.3
         const val MAX_STEP_KM = 1.0
         const val NEAR_RELOAD_M = 2_000.0
@@ -835,4 +897,11 @@ internal fun rememberProfileModel(
     LaunchedEffect(Unit) { model.load() }
     LaunchedEffect(fix, fixAtMs, model.loaded) { model.onFix(fix, speedKmh, if (fixAtMs > 0) fixAtMs else System.currentTimeMillis()) }
     return model
+}
+
+/** Ограничения, не поставленные на профиль из-за неизвестного километража: места для заголовка и текста диалога. */
+internal class RejectNotice(val places: List<String>) {
+    val title: String get() = if (places.size == 1) "Не поставлено: ${places.first()}" else "Не поставлено ограничений: ${places.size}"
+    val text: String
+        get() = TrackWarnings.UNKNOWN_KM_MESSAGE + if (places.size > 1) "\n\n" + places.joinToString("\n") { "• $it" } else ""
 }

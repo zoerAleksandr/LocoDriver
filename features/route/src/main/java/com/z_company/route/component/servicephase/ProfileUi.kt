@@ -96,13 +96,23 @@ internal fun gradeText(live: LiveProfile, e: ProfileElement?): String? {
     }
 }
 
-private fun emptyText(model: ProfileModel): String = when (model.emptyReason) {
+private const val RATE_LIMITED_TEXT = "Сервер временно ограничил загрузку профилей путей. Повторите через несколько минут."
+
+private fun emptyText(model: ProfileModel): String = emptyBase(model) + legHint(model)
+
+/** Плечо не проверено на карте: профиль без него подбирается хуже - скажем об этом, чтобы пустой профиль не выглядел нормой. */
+private fun legHint(model: ProfileModel): String =
+    if (model.legUnverified && model.emptyReason != null) " Плечо не проверено на карте: определите его в «Ограничениях поезда» (кнопка «Определить») — с проверенным плечом профиль подбирается точнее." else ""
+
+private fun emptyBase(model: ProfileModel): String = when (model.emptyReason) {
     ProfileEmpty.LOADING -> "Загружаем профили участков…"
     ProfileEmpty.NO_LOCATION -> "Поиск спутников… Определяем местоположение."
-    ProfileEmpty.NO_SECTIONS -> "Профили участков не загружены. Проверьте интернет — после загрузки профиль появится."
+    ProfileEmpty.NO_SECTIONS, ProfileEmpty.NO_NEARBY ->
+        if (model.rateLimited) RATE_LIMITED_TEXT
+        else if (model.emptyReason == ProfileEmpty.NO_SECTIONS) "Профили участков не загружены. Проверьте интернет — после загрузки профиль появится."
+        else "Для этого места профиль пока не собран. Данные профиля собираются — скоро он появится."
     ProfileEmpty.NEED_LOGIN -> "Профиль пути доступен после входа в аккаунт. Войдите в приложение (Профиль) — участки загрузятся."
     ProfileEmpty.OFF_RAILS -> "Вы находитесь вне путей."
-    ProfileEmpty.NO_NEARBY -> "Для этого места профиль пока не собран. Данные профиля собираются — скоро он появится."
     ProfileEmpty.NO_DATA -> "Для участка «${model.section?.name.orEmpty()}» данные профиля собираются. Скоро профиль появится."
     null -> ""
 }
@@ -324,7 +334,7 @@ internal fun ProfileChart(
         if (detailed) {
             // Станции: подпись сверху, без наложений.
             var lastEnd = -1f
-            section.stations.map { live.toView(it.km) to it.name }
+            model.stationsOnProfile(section).map { live.toView(it.km) to it.name }
                 .filter { it.first in window.fromX..window.toX }
                 .sortedBy { it.first }
                 .forEach { (x, name) ->
@@ -552,7 +562,7 @@ internal enum class ProfileScale(val label: String, val spanKm: Double) {
  * График масштабируется щипком и сдвигается пальцем; пока окно двигали вручную, оно не следует за поездом.
  */
 @Composable
-internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, onSelectLeg: (() -> Unit)? = null) {
+internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: LegContext? = null) {
     var showPicker by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var spanKm by rememberSaveable { mutableStateOf(6f) }
@@ -701,7 +711,7 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, onSel
         }
     }
     if (showPicker) SectionPickerDialog(model, onDismiss = { showPicker = false })
-    if (showWarnings) WarningsDialog(model, onVoice = { showVoice = true }, onDismiss = { showWarnings = false }, onSelectLeg = onSelectLeg)
+    if (showWarnings) WarningsDialog(model, onVoice = { showVoice = true }, onDismiss = { showWarnings = false }, leg = leg)
     if (showVoice) WarningVoiceDialog(model, onDismiss = { showVoice = false })
     WarningEditDialog(model)
     if (showSettings && model.hasSignals) ProfileSettingsDialog(model, onDismiss = { showSettings = false })
@@ -817,7 +827,7 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
     var showTrains by rememberSaveable { mutableStateOf(false) }
     val ahead = pos?.let { p ->
         val vx = live.toView(p.kmAxis)
-        live.section.stations.map { live.toView(it.km) to it.name }.filter { it.first > vx + 0.05 }.minByOrNull { it.first }
+        model.stationsOnProfile(live.section).map { live.toView(it.km) to it.name }.filter { it.first > vx + 0.05 }.minByOrNull { it.first }
             ?.let { (x, name) -> name to (x - vx) }
     }
     Row(
@@ -1042,7 +1052,7 @@ private const val FAR_KM = 2.0
 
 /** Список участков: ближайшие по положению сверху (плечо поезда — выше всех), поиск по названию и станциям. */
 @Composable
-private fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
+internal fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
     var query by remember { mutableStateOf(TextFieldValue("")) }
     val rows = remember(query.text, model.summaries, model.sections, model.manualId) { model.rows(query.text) }
     Dialog(
@@ -1077,7 +1087,7 @@ private fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
             if (rows.isEmpty()) {
                 Box(Modifier.weight(1f).fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                     Text(
-                        text = if (model.needLogin) "Профиль пути доступен после входа в аккаунт." else if (model.summaries.isEmpty()) "Участки не загружены. Проверьте интернет." else "Ничего не найдено. Данные профилей собираются — список пополняется.",
+                        text = if (model.needLogin) "Профиль пути доступен после входа в аккаунт." else if (model.rateLimited) RATE_LIMITED_TEXT else if (model.summaries.isEmpty()) "Участки не загружены. Проверьте интернет." else "Ничего не найдено. Данные профилей собираются — список пополняется.",
                         style = Pst.sans.copy(fontSize = 14.sp),
                         color = Pst.textMuted,
                         textAlign = TextAlign.Center,
