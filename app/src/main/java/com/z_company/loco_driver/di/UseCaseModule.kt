@@ -8,14 +8,14 @@ import com.z_company.domain.use_cases.*
 import org.koin.dsl.module
 
 val useCaseModule = module {
-    single { RouteUseCase(repository = get<RouteRepository>(), trackRepository = get(), brakeCertificates = get()) }
+    single { RouteUseCase(repository = get<RouteRepository>(), trackRepository = get(), brakeCertificates = get(), restrictionJournal = get()) }
     single { LocomotiveUseCase(repository = get()) }
     // Remote — загружает с сервера /v1/regions и /v1/regional_holidays,
     // при отсутствии сети падает на hardcoded fallback внутри реализации.
     single<RegionalHolidaysRepository> { RemoteRegionalHolidaysRepository(api = get()) }
     single { CalendarUseCase(repositories = get(), regionalHolidaysRepository = get()) }
     single { LoadCalendarFromStorage(repositories = get()) }
-    single { TrainUseCase(repository = get(), trackRepository = get(), brakeCertificates = get()) }
+    single { TrainUseCase(repository = get(), trackRepository = get(), brakeCertificates = get(), restrictionJournal = get()) }
     single { PassengerUseCase(repository = get()) }
     single { OtherWorkUseCase(repository = get()) }
     single { RoutePartnerUseCase(repository = get()) }

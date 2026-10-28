@@ -49,10 +49,15 @@ class RouteUseCase(
     private val trackRepository: TrackRepository? = null,
     /** Справки ВУ-45 удаляются вместе с рейсом при окончательном удалении (в корзине сохраняются). */
     private val brakeCertificates: com.z_company.domain.brake.storage.BrakeCertificateUseCase? = null,
+    /** Журнал проследования ограничений: снимается вместе с рейсом (сервер удаляет журнал каскадом через рейс). */
+    private val restrictionJournal: com.z_company.domain.track.RestrictionJournalStore? = null,
 ) {
     /** Треки поездов рейса удаляются сразу и не возвращаются при восстановлении из корзины. Не роняет удаление рейса. */
     private fun deleteTracksOf(route: Route) {
-        route.trains.forEach { train -> runCatching { trackRepository?.deleteByTrain(train.trainId) } }
+        route.trains.forEach { train ->
+            runCatching { trackRepository?.deleteByTrain(train.trainId) }
+            runCatching { restrictionJournal?.deleteByTrain(train.trainId) }
+        }
     }
 
     fun routeListByMonthFlow(monthOfYear: MonthOfYear, offsetInMoscow: Long): Flow<List<Route>> {

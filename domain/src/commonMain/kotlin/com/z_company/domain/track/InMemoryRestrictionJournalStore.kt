@@ -25,7 +25,11 @@ class InMemoryRestrictionJournalStore : RestrictionJournalStore {
     }
 
     override fun deleteByTrain(trainId: String) {
-        rows.keys.filter { it.first == trainId }.forEach { rows.remove(it); dirty.remove(it) }
+        // Надгробия, как в Track.db: об удалении должны узнать сервер и другие устройства.
+        rows.entries.filter { it.key.first == trainId && !it.value.isDeleted }.forEach {
+            rows[it.key] = it.value.copy(isDeleted = true, updatedAt = it.value.updatedAt + 1)
+            dirty += it.key
+        }
     }
 
     override fun pendingUpload(limit: Int) = dirty.mapNotNull { rows[it] }.take(limit)

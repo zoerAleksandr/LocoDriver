@@ -156,8 +156,11 @@ class RestrictionJournalTest {
         assertNull(s.get("t1", "w1"))
         assertEquals(1, s.pendingUpload(10).size)
         assertTrue(s.pendingUpload(10).single().isDeleted)
+        s.markUploaded(s.pendingUpload(10))
+        s.upsert(a.copy(updatedAt = 400))
         s.deleteByTrain("t1")
-        assertEquals(0, s.pendingUpload(10).size)
+        assertNull(s.get("t1", "w1"))
+        assertTrue(s.pendingUpload(10).single().isDeleted)
     }
 
     @Test
