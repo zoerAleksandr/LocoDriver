@@ -18,6 +18,8 @@ import androidx.glance.action.clickable
 import androidx.glance.appwidget.AndroidRemoteViews
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.SizeMode
+import androidx.glance.LocalSize
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.cornerRadius
@@ -78,9 +80,55 @@ import kotlin.math.min
  * как на главном экране.
  * Дизайн — design/src/widgets.jsx. Тема адаптивная (values / values-night).
  */
+/**
+ * Ярусы по высоте виджета (dp): чем ниже виджет, тем больше убираем.
+ * FULL — всё; NO_BAR — без индикатора нормы; COMPACT — мелкое время, узкие поля и кнопки,
+ * без разделителей; TIGHT — ещё и без «На работе»; NO_NORM — блок нормы скрыт целиком.
+ */
+internal object HeightTier {
+    const val FULL = 0
+    const val NO_BAR = 1
+    const val COMPACT = 2
+    const val TIGHT = 3
+    const val NO_NORM = 4
+    /** Ниже 160 dp у блоков явки/отдыха убираем и подписи — остаётся самое необходимое. */
+    const val SHORT = 5
+
+    /**
+     * @param hasPath у «Следующего маршрута» есть строка с направлением (она добавляет ≈50 dp).
+     */
+    fun of(heightDp: Float, state: String, hasTrain: Boolean = true, hasPath: Boolean = false): Int {
+        // Блоки явки/отдыха выше или ниже строки с кнопками — сдвигаем пороги на разницу высот
+        // (замерено на эмуляторе: «Следующий» без направления ≈ как текущий с поездом, с направлением +35).
+        val k = when {
+            state == "current" && hasTrain -> 0f
+            state == "current" -> 35f
+            state == "upcoming" || state == "upcoming_unknown" -> if (hasPath) 35f else 0f
+            state == "rest" -> 10f
+            state == "home_rest" -> 105f
+            else -> 0f
+        }
+        // Без маршрута под нормой ничего нет — скрывать её нельзя, иначе виджет пустой.
+        // Под нормой пусто, поэтому полоса нужна, как только влезает сама норма (≈135 dp).
+        if (state == "none") return minOf(of(heightDp + 90f, "current"), COMPACT)
+        return when {
+            heightDp >= 270f + k -> FULL
+            heightDp >= 230f + k -> NO_BAR
+            heightDp >= 185f + k -> COMPACT
+            heightDp >= 150f + k -> TIGHT
+            !(state == "current" && hasTrain) && heightDp < (if (state == "home_rest") 200f else 160f) -> SHORT
+            else -> NO_NORM
+        }
+    }
+}
+
 class LocoDriverWidget : GlanceAppWidget() {
 
     override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
+
+    // Точная высота нужна, чтобы по ярусам (см. [HeightTier]) убирать второстепенное:
+    // RemoteViews не скроллит, а обрезает всё, что не поместилось.
+    override val sizeMode: SizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         try {
@@ -115,8 +163,18 @@ class LocoDriverWidget : GlanceAppWidget() {
         )
         val state = prefs[WKeys.STATE] ?: "none"
 
+        val tier = HeightTier.of(
+            LocalSize.current.height.value, state,
+            hasTrain = prefs[WKeys.CURRENT_HAS_TRAIN] ?: true,
+            hasPath = state == "upcoming" &&
+                ((prefs[WKeys.UP_FROM] ?: "").isNotEmpty() || (prefs[WKeys.UP_TO] ?: "").isNotEmpty()),
+        )
         val normRv = RemoteViews(context.packageName, R.layout.widget_norm_block).also {
-            WidgetRender.populateNorm(context, it, norm, metricSizeSp = 44f)
+            WidgetRender.populateNorm(
+                context, it, norm,
+                metricSizeSp = if (tier >= HeightTier.COMPACT) 30f else 44f,
+                showBar = tier < HeightTier.NO_BAR,
+            )
         }
 
         // Карточка ЗАПОЛНЯЕТ всю выделенную область виджета (fillMaxSize), чтобы
@@ -128,7 +186,7 @@ class LocoDriverWidget : GlanceAppWidget() {
                 .cornerRadius(24.dp)
                 .background(ImageProvider(R.drawable.widget_card_bg))
                 .clickable(actionRunCallback<OpenAppActionCallback>())
-                .padding(18.dp)
+                .padding(if (tier >= HeightTier.TIGHT) 10.dp else if (tier >= HeightTier.COMPACT) 12.dp else 18.dp)
         ) {
             // Контент — две логические группы, разведённые распоркой с весом:
             //   верхняя (отработанное время + индикатор нормы) прижата к ВЕРХУ,
@@ -137,28 +195,32 @@ class LocoDriverWidget : GlanceAppWidget() {
             // поэтому нижняя группа всегда у нижнего края и не обрезается
             // (RemoteViews не скроллит, а обрезает контент).
             Column(modifier = GlanceModifier.fillMaxSize()) {
-                AndroidRemoteViews(
-                    remoteViews = normRv,
-                    modifier = GlanceModifier.fillMaxWidth().wrapContentHeight()
-                )
+                if (tier < HeightTier.NO_NORM) {
+                    AndroidRemoteViews(
+                        remoteViews = normRv,
+                        modifier = GlanceModifier.fillMaxWidth().wrapContentHeight()
+                    )
+                }
 
                 Spacer(modifier = GlanceModifier.defaultWeight())
 
                 if (state != "none") {
-                    // Разделитель над нижней группой
-                    Box(
-                        modifier = GlanceModifier
-                            .fillMaxWidth()
-                            .height(1.dp)
-                            .background(ImageProvider(R.drawable.widget_divider))
-                    ) {}
-                    Spacer(modifier = GlanceModifier.height(6.dp))
+                    // Разделитель над нижней группой (на малых высотах — не до него)
+                    if (tier < HeightTier.COMPACT) {
+                        Box(
+                            modifier = GlanceModifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(ImageProvider(R.drawable.widget_divider))
+                        ) {}
+                        Spacer(modifier = GlanceModifier.height(6.dp))
+                    }
 
                     when (state) {
-                        "current" -> RouteSection(context, prefs)
-                        "upcoming", "upcoming_unknown" -> UpcomingSection(context, prefs)
-                        "rest" -> RestPoSection(context, prefs)
-                        "home_rest" -> HomeRestSection(context, prefs)
+                        "current" -> RouteSection(context, prefs, tier)
+                        "upcoming", "upcoming_unknown" -> UpcomingSection(context, prefs, tier)
+                        "rest" -> RestPoSection(context, prefs, tier)
+                        "home_rest" -> HomeRestSection(context, prefs, tier)
                     }
                 }
             }
@@ -175,7 +237,8 @@ class LocoDriverWidget : GlanceAppWidget() {
      * (см. [WidgetDataLoader.hasPendingStampAction]).
      */
     @Composable
-    private fun RouteSection(context: Context, prefs: Preferences) {
+    private fun RouteSection(context: Context, prefs: Preferences, tier: Int) {
+        val compact = tier >= HeightTier.COMPACT
         val routeId = prefs[WKeys.CURRENT_ROUTE_ID] ?: ""
         // Клик по блоку «ТЕКУЩИЙ МАРШРУТ» (хедер/явка) — переход сразу на
         // экран этого маршрута, а не просто открытие приложения на HomeScreen.
@@ -198,10 +261,15 @@ class LocoDriverWidget : GlanceAppWidget() {
                 date = prefs[WKeys.CURRENT_REPORT_DATE] ?: "",
                 from = "", to = "", known = false,
                 caption = "ТЕКУЩИЙ МАРШРУТ",
+                tier = tier,
+                workStartMs = prefs[WKeys.CURRENT_WORK_START_MS] ?: 0L,
             )
             AndroidRemoteViews(rv, openRouteMod)
-            Spacer(modifier = GlanceModifier.height(8.dp))
-            AutoButton(GlanceModifier.fillMaxWidth(), wide = true)
+            // В самом низком виде явке нужна вся высота — «АВТО» уступает.
+            if (tier < HeightTier.SHORT) {
+                Spacer(modifier = GlanceModifier.height(8.dp))
+                AutoButton(GlanceModifier.fillMaxWidth(), wide = true, compact = compact)
+            }
             return
         }
 
@@ -217,11 +285,13 @@ class LocoDriverWidget : GlanceAppWidget() {
                 // на соседней кнопке записи — скрываем её, когда кнопки видны.
                 // Когда кнопок нет (плечо закрыто), это единственный источник
                 // времени последнего события — оставляем.
-                trainLine = if (showButtons) "" else prefs[WKeys.TRAIN_LINE] ?: "",
+                trainLine = if (showButtons || compact) "" else prefs[WKeys.TRAIN_LINE] ?: "",
                 // Строка «ТЕКУЩИЙ МАРШРУТ»+номер скрыта, когда под хедером
                 // ещё покажутся кнопки — освобождает высоту под них.
-                showCaption = !showButtons,
+                showCaption = !showButtons && tier < HeightTier.TIGHT,
                 workStartMs = prefs[WKeys.CURRENT_WORK_START_MS] ?: 0L,
+                dense = tier >= HeightTier.TIGHT,
+                showDivider = tier < HeightTier.COMPACT,
             )
         }
         AndroidRemoteViews(
@@ -231,20 +301,20 @@ class LocoDriverWidget : GlanceAppWidget() {
 
         if (!showButtons) {
             Spacer(modifier = GlanceModifier.height(8.dp))
-            AutoButton(GlanceModifier.fillMaxWidth(), wide = true)
+            AutoButton(GlanceModifier.fillMaxWidth(), wide = true, compact = compact)
             return
         }
 
         val isDepartureNext = prefs[WKeys.IS_DEPARTURE_NEXT] ?: true
         val doneTime = prefs[WKeys.STAMP_DONE_TIME] ?: ""
 
-        Spacer(modifier = GlanceModifier.height(12.dp))
+        Spacer(modifier = GlanceModifier.height(if (tier >= HeightTier.TIGHT) 4.dp else if (compact) 8.dp else 12.dp))
 
         Row(modifier = GlanceModifier.fillMaxWidth()) {
             // Прибытие — активна, если следующее действие = прибытие
             val arrivalActive = !isDepartureNext
             val arrivalRv = WidgetRender.stampButton(
-                context, isActive = arrivalActive, isDeparture = false, doneTime = doneTime
+                context, isActive = arrivalActive, isDeparture = false, doneTime = doneTime, compact = compact
             )
             val arrivalMod = GlanceModifier.defaultWeight().let {
                 if (arrivalActive) it.clickable(actionRunCallback<GoActionCallback>()) else it
@@ -258,7 +328,7 @@ class LocoDriverWidget : GlanceAppWidget() {
             // Отправление — активна, если следующее действие = отправление
             val departureActive = isDepartureNext
             val departureRv = WidgetRender.stampButton(
-                context, isActive = departureActive, isDeparture = true, doneTime = doneTime
+                context, isActive = departureActive, isDeparture = true, doneTime = doneTime, compact = compact
             )
             val departureMod = GlanceModifier.defaultWeight().let {
                 if (departureActive) it.clickable(actionRunCallback<GoActionCallback>()) else it
@@ -269,13 +339,13 @@ class LocoDriverWidget : GlanceAppWidget() {
 
             Spacer(modifier = GlanceModifier.width(8.dp))
 
-            AutoButton(GlanceModifier.width(64.dp))
+            AutoButton(GlanceModifier.width(56.dp), compact = compact)
         }
     }
 
     /** Состояние «Следующий маршрут». */
     @Composable
-    private fun UpcomingSection(context: Context, prefs: Preferences) {
+    private fun UpcomingSection(context: Context, prefs: Preferences, tier: Int) {
         val rv = WidgetRender.buildUpcoming(
             context = context,
             number = prefs[WKeys.UP_NUMBER] ?: "",
@@ -284,37 +354,44 @@ class LocoDriverWidget : GlanceAppWidget() {
             from = prefs[WKeys.UP_FROM] ?: "",
             to = prefs[WKeys.UP_TO] ?: "",
             known = (prefs[WKeys.STATE] ?: "") == "upcoming",
+            tier = tier,
         )
         AndroidRemoteViews(rv, GlanceModifier.fillMaxWidth().wrapContentHeight())
     }
 
     /** Состояние «Отдых в ПО». */
     @Composable
-    private fun RestPoSection(context: Context, prefs: Preferences) {
+    private fun RestPoSection(context: Context, prefs: Preferences, tier: Int) {
         val rv = WidgetRender.buildRestPo(
             context = context,
             shortDur = prefs[WKeys.REST_SHORT_DUR] ?: "",
             shortEnd = prefs[WKeys.REST_SHORT_END] ?: "",
             fullDur = prefs[WKeys.REST_FULL_DUR] ?: "",
             fullEnd = prefs[WKeys.REST_FULL_END] ?: "",
+            tier = tier,
         )
         AndroidRemoteViews(rv, GlanceModifier.fillMaxWidth().wrapContentHeight())
     }
 
     /** Состояние «Домашний отдых» + кнопка «Добавить маршрут». */
     @Composable
-    private fun HomeRestSection(context: Context, prefs: Preferences) {
+    private fun HomeRestSection(context: Context, prefs: Preferences, tier: Int) {
         val rv = WidgetRender.buildHomeRest(
             context = context,
             dur = prefs[WKeys.HR_DUR] ?: "",
             end = prefs[WKeys.HR_END] ?: "",
             minEnd = prefs[WKeys.HR_MIN_END] ?: "",
+            tier = tier,
         )
         AndroidRemoteViews(rv, GlanceModifier.fillMaxWidth().wrapContentHeight())
 
-        Spacer(modifier = GlanceModifier.height(10.dp))
+        Spacer(modifier = GlanceModifier.height(if (tier >= HeightTier.COMPACT) 6.dp else 10.dp))
 
         val addBtnRv = RemoteViews(context.packageName, R.layout.widget_add_button_wide)
+        if (tier >= HeightTier.COMPACT) {
+            val d = context.resources.displayMetrics.density
+            addBtnRv.setViewPadding(R.id.add_btn_root, (12 * d).toInt(), ((if (tier >= HeightTier.SHORT) 6 else 8) * d).toInt(), (12 * d).toInt(), ((if (tier >= HeightTier.SHORT) 6 else 8) * d).toInt())
+        }
         Box(
             modifier = GlanceModifier
                 .fillMaxWidth()

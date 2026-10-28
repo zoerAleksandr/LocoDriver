@@ -113,6 +113,7 @@
 
     <!-- Разделитель (FrameLayout — RemoteViews-safe) -->
     <FrameLayout
+        android:id="@+id/header_divider"
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginVertical="8dp"

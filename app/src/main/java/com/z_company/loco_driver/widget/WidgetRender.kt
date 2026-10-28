@@ -219,7 +219,14 @@ object WidgetRender {
      * norm_bar, norm_value.
      * @param metricSizeSp размер отработанного времени (44 — развёрнутый, 38 — малый).
      */
-    fun populateNorm(context: Context, rv: RemoteViews, d: NormData, metricSizeSp: Float) {
+    fun populateNorm(
+        context: Context, rv: RemoteViews, d: NormData, metricSizeSp: Float,
+        showBar: Boolean = true,
+    ) {
+        // Индикатор и строка «норма» есть только в развёрнутом layout; в малом id'ов нет — вызов игнорируется.
+        val barVis = if (showBar) View.VISIBLE else View.GONE
+        rv.setViewVisibility(R.id.norm_bar, barVis)
+        rv.setViewVisibility(R.id.norm_row, barVis)
         bindMonoBitmap(
             context, rv, R.id.metric_image,
             d.workedHm, metricSizeSp, R.color.widget_text, R.font.jetbrains_mono_extrabold
@@ -272,7 +279,14 @@ object WidgetRender {
         trainLine: String,
         showCaption: Boolean = true,
         workStartMs: Long = 0L,
+        showDivider: Boolean = true,
+        dense: Boolean = false,
     ) {
+        if (dense) {
+            rv.setTextViewTextSize(R.id.station_from, android.util.TypedValue.COMPLEX_UNIT_SP, 15f)
+            rv.setTextViewTextSize(R.id.station_to, android.util.TypedValue.COMPLEX_UNIT_SP, 15f)
+        }
+        rv.setViewVisibility(R.id.header_divider, if (showDivider) View.VISIBLE else View.GONE)
         // «На работе»: прошедшее время «Ч:ММ» от явки. TextClock показывает время суток в заданном поясе;
         // пояс GMT±hh:mm = −явка (по модулю суток) → время суток == прошедшее время. Обновляется
         // сам раз в минуту, без перерисовки виджета. Смена короче 24 часов.
@@ -322,8 +336,15 @@ object WidgetRender {
         number: String, time: String, date: String,
         from: String, to: String, known: Boolean,
         caption: String = "СЛЕДУЮЩИЙ МАРШРУТ",
+        tier: Int = HeightTier.FULL,
+        workStartMs: Long = 0L,
     ): RemoteViews {
         val rv = RemoteViews(context.packageName, R.layout.widget_upcoming)
+        val compact = tier >= HeightTier.COMPACT
+        if (compact) {
+            rv.setViewPadding(R.id.up_head, 0, 0, 0, dpPx(context, 6))
+            rv.setViewPadding(R.id.up_block, dpPx(context, 14), dpPx(context, 8), dpPx(context, 14), dpPx(context, 8))
+        }
         rv.setTextViewText(R.id.up_caption, caption)
         if (number.isNotEmpty()) {
             rv.setViewVisibility(R.id.up_number, View.VISIBLE)
@@ -331,9 +352,16 @@ object WidgetRender {
         } else {
             rv.setViewVisibility(R.id.up_number, View.GONE)
         }
-        bindMonoBitmap(context, rv, R.id.up_time_image, time, 30f, R.color.widget_text)
+        bindMonoBitmap(context, rv, R.id.up_time_image, time, if (compact) 24f else 30f, R.color.widget_text)
         rv.setTextViewText(R.id.up_date, date)
-        if (known && (from.isNotEmpty() || to.isNotEmpty())) {
+        rv.setViewVisibility(R.id.up_label, if (tier >= HeightTier.SHORT) View.GONE else View.VISIBLE)
+        if (workStartMs > 0L && workStartMs <= System.currentTimeMillis()) {
+            rv.setViewVisibility(R.id.up_work, View.VISIBLE)
+            rv.setString(R.id.up_work_chrono, "setTimeZone", elapsedClockZone(workStartMs))
+        } else {
+            rv.setViewVisibility(R.id.up_work, View.GONE)
+        }
+        if (known && tier < HeightTier.SHORT && (from.isNotEmpty() || to.isNotEmpty())) {
             rv.setViewVisibility(R.id.up_path_section, View.VISIBLE)
             rv.setTextViewText(R.id.up_from, from)
             rv.setTextViewText(R.id.up_to, to)
@@ -343,24 +371,53 @@ object WidgetRender {
         return rv
     }
 
+    private fun dpPx(context: Context, dp: Int): Int =
+        (dp * context.resources.displayMetrics.density).toInt()
+
     /** Состояние «Отдых в ПО» (widget_rest_po). */
     fun buildRestPo(
         context: Context,
         shortDur: String, shortEnd: String,
         fullDur: String, fullEnd: String,
+        tier: Int = HeightTier.FULL,
     ): RemoteViews {
         val rv = RemoteViews(context.packageName, R.layout.widget_rest_po)
-        bindMonoBitmap(context, rv, R.id.rest_short_dur, shortDur, 24f, R.color.widget_text)
+        val compact = tier >= HeightTier.COMPACT
+        val endVis = if (tier >= HeightTier.SHORT) View.GONE else View.VISIBLE
+        rv.setViewVisibility(R.id.rest_caption, if (tier >= HeightTier.SHORT) View.GONE else View.VISIBLE)
+        rv.setViewVisibility(R.id.rest_short_end, endVis)
+        rv.setViewVisibility(R.id.rest_full_end, endVis)
+        if (compact) {
+            val v = dpPx(context, 8); val h = dpPx(context, 14)
+            rv.setViewPadding(R.id.rest_short_tile, h, v, h, v)
+            rv.setViewPadding(R.id.rest_full_tile, h, v, h, v)
+        }
+        val size = if (compact) 20f else 24f
+        bindMonoBitmap(context, rv, R.id.rest_short_dur, shortDur, size, R.color.widget_text)
         rv.setTextViewText(R.id.rest_short_end, shortEnd)
-        bindMonoBitmap(context, rv, R.id.rest_full_dur, fullDur, 24f, R.color.widget_text)
+        bindMonoBitmap(context, rv, R.id.rest_full_dur, fullDur, size, R.color.widget_text)
         rv.setTextViewText(R.id.rest_full_end, fullEnd)
         return rv
     }
 
     /** Состояние «Домашний отдых» (widget_home_rest). Кнопка — в Glance. */
-    fun buildHomeRest(context: Context, dur: String, end: String, minEnd: String): RemoteViews {
+    fun buildHomeRest(
+        context: Context, dur: String, end: String, minEnd: String,
+        tier: Int = HeightTier.FULL,
+    ): RemoteViews {
         val rv = RemoteViews(context.packageName, R.layout.widget_home_rest)
-        bindMonoBitmap(context, rv, R.id.hr_duration, dur, 26f, R.color.widget_text)
+        val compact = tier >= HeightTier.COMPACT
+        val tight = tier >= HeightTier.SHORT
+        rv.setViewVisibility(R.id.hr_label, if (tight) View.GONE else View.VISIBLE)
+        rv.setViewVisibility(R.id.hr_caption, if (tight) View.GONE else View.VISIBLE)
+        rv.setViewVisibility(R.id.hr_min_end, if (compact) View.GONE else View.VISIBLE)
+        rv.setViewVisibility(R.id.hr_div, if (tight) View.GONE else View.VISIBLE)
+        rv.setViewVisibility(R.id.hr_row, if (tight) View.GONE else View.VISIBLE)
+        if (compact) {
+            val v = dpPx(context, 8); val h = dpPx(context, 14)
+            rv.setViewPadding(R.id.hr_block, h, v, h, v)
+        }
+        bindMonoBitmap(context, rv, R.id.hr_duration, dur, if (tight) 20f else if (compact) 22f else 26f, R.color.widget_text)
         rv.setTextViewText(R.id.hr_end, end)
         rv.setTextViewText(R.id.hr_min_end, minEnd)
         return rv
@@ -399,8 +456,13 @@ object WidgetRender {
         isActive: Boolean,
         isDeparture: Boolean,
         doneTime: String,
+        compact: Boolean = false,
     ): RemoteViews {
         val rv = RemoteViews(context.packageName, R.layout.widget_stamp_button)
+        if (compact) {
+            val d = context.resources.displayMetrics.density
+            rv.setViewPadding(R.id.stamp_root, (10 * d).toInt(), (3 * d).toInt(), (10 * d).toInt(), (3 * d).toInt())
+        }
 
         rv.setInt(
             R.id.stamp_root, "setBackgroundResource",

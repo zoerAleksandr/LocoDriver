@@ -39,13 +39,13 @@ import org.koin.core.component.get
 
 /** Кнопка рядом с кнопками записи (развёрнутый виджет). [wide] — отдельная строка на всю ширину. */
 @Composable
-fun AutoButton(modifier: GlanceModifier, wide: Boolean = false) {
+fun AutoButton(modifier: GlanceModifier, wide: Boolean = false, compact: Boolean = false) {
     val context = LocalContext.current
     val until = AutoRecordManager.savedUntil(context)
     val on = until > 0
     Box(
         modifier = modifier
-            .height(if (wide) 40.dp else 52.dp)
+            .height(if (wide) (if (compact) 34.dp else 40.dp) else (if (compact) 40.dp else 54.dp))
             .cornerRadius(14.dp)
             .background(ImageProvider(if (on) R.drawable.widget_auto_btn_on else R.drawable.widget_auto_btn_off))
             .clickable(actionRunCallback<AutoToggleActionCallback>()),

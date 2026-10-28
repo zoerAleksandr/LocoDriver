@@ -6,6 +6,7 @@
     android:orientation="vertical">
 
     <TextView
+        android:id="@+id/rest_caption"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="ОТДЫХ В ПО"
@@ -23,6 +24,7 @@
 
         <!-- Короткий -->
         <LinearLayout
+            android:id="@+id/rest_short_tile"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -80,6 +82,7 @@
 
         <!-- Полный -->
         <LinearLayout
+            android:id="@+id/rest_full_tile"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
