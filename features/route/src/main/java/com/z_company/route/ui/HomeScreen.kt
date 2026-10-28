@@ -736,7 +736,7 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
                         .padding(bottom = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     val titleText = when (unitsSheetType) {
                         "loco" -> "Локомотивы · ${route.locomotives.size}"
@@ -754,33 +754,6 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
                     )
-                    unitsSheetType?.let { sheetType ->
-                        val checked = alwaysOpenLastUnit[sheetType] == true
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
-                                .clickable {
-                                    alwaysOpenLastUnit[sheetType] = !checked
-                                    HomeUnitPrefs.set(unitsContext, sheetType, !checked)
-                                }
-                                .padding(bottom = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            androidx.compose.material3.Checkbox(
-                                checked = checked,
-                                onCheckedChange = null,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            )
-                            Column {
-                                Text(
-                                    text = "Всегда открывать последний",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                            }
-                        }
-                    }
                     when (unitsSheetType) {
                         "loco" -> route.locomotivesInOrder().forEachIndexed { index, loco ->
                             UnitSheetRow(R.drawable.ic_card_locomotive_ref, locomotiveName(loco, index + 1)) {
@@ -800,7 +773,6 @@ fun HomeScreen(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
                     UnitSheetAddButton(addText) {
                         val type = unitsSheetType
                         unitsSheetType = null
@@ -808,6 +780,33 @@ fun HomeScreen(
                             "loco" -> onNewLocoClick(route.basicData.id)
                             "train" -> onNewTrainClick(route.basicData.id)
                             else -> onNewPassengerClick(route.basicData.id)
+                        }
+                    }
+                    unitsSheetType?.let { sheetType ->
+                        val checked = alwaysOpenLastUnit[sheetType] == true
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                                .clickable {
+                                    alwaysOpenLastUnit[sheetType] = !checked
+                                    HomeUnitPrefs.set(unitsContext, sheetType, !checked)
+                                }
+                                .padding(top = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            androidx.compose.material3.Checkbox(
+                                checked = checked,
+                                onCheckedChange = null,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            )
+                            Column {
+                                Text(
+                                    text = "Всегда открывать последний",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
                         }
                     }
                 }
@@ -2065,10 +2064,12 @@ internal fun UnitSheetRow(iconRes: Int, name: String, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+            .background(c.surface)
+            .border(1.dp, c.outlineVariant, androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
             .clickable { onClick() }
-            .padding(vertical = 8.dp, horizontal = 4.dp),
+            .padding(vertical = 10.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Box(
             modifier = Modifier
@@ -2110,6 +2111,7 @@ private fun UnitSheetAddButton(text: String, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+            .background(c.surface)
             .drawBehind {
                 drawRoundRect(
                     color = border,
