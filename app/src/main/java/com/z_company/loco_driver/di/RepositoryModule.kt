@@ -201,6 +201,13 @@ val repositoryModule = module {
             onAltitudeContrib = { com.z_company.loco_driver.track.AltitudeContribScheduler.enqueue(androidContext()) },
             gnssStore = get(),
             onGnssContrib = { com.z_company.loco_driver.track.GnssZoneContribScheduler.enqueue(androidContext()) },
+            restrictionRecorder = get(),
+        )
+    }
+    // Фоновая запись журнала проследования ограничений: участок только из кэша (без сети), поправка оси - как на профиле.
+    single {
+        com.z_company.route.autorecord.createRestrictionRecorder(
+            context = androidContext(), store = get(), sections = get(),
         )
     }
     // Согласие №1 «Сохранять мои треки и историю поездок» (SCREEN_SPECS §6.9, §17.7).
@@ -308,6 +315,18 @@ val repositoryModule = module {
             tools = get(),
             resolver = get<com.z_company.route.autorecord.TrackRouteResolver>(),
             settings = get<com.z_company.route.autorecord.TrackConsentStore>(),
+            isSubscribed = { get<com.z_company.route.viewmodel.RouteActionsHelper>().hasActiveSubscription() },
+        )
+    }
+    // Журнал проследования ограничений: отправка/догрузка вместе с треками (тот же воркер, согласие №1 и подписка).
+    single<com.z_company.repository.remote_rest.tracks.RestrictionSyncCursor> {
+        com.z_company.route.autorecord.RestrictionSyncPrefs(androidContext())
+    }
+    single {
+        com.z_company.repository.remote_rest.tracks.RestrictionPassSyncer(
+            api = RemoteRestClient.restrictionPassApi,
+            store = get(),
+            cursor = get(),
             isSubscribed = { get<com.z_company.route.viewmodel.RouteActionsHelper>().hasActiveSubscription() },
         )
     }

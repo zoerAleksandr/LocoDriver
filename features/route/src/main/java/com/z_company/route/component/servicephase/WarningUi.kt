@@ -131,7 +131,7 @@ private fun Chip(text: String, on: Boolean, onClick: () -> Unit) {
  * удалением); выбор места открывает форму, после «Сохранить» возвращаемся к списку, «Готово» закрывает.
  */
 @Composable
-internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss: () -> Unit) {
+internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss: () -> Unit, onSelectLeg: (() -> Unit)? = null) {
     val live = model.live
     if (live == null) { onDismiss(); return }
     val section = live.section
@@ -166,6 +166,13 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
                         buttons()
                     }
                 }
+                // Плечо поезда: выбирается здесь же (существующий выбор плеча и путь сохранения в поезд), сразу отражается в «Поезде», на карте и профиле.
+                if (onSelectLeg != null) {
+                    LegRow(
+                        title = if (model.hasLeg) "${model.stopNames.first()} — ${model.stopNames.last()}" else null,
+                        onSelectLeg = onSelectLeg,
+                    )
+                }
                 LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (model.savedWarnings.isNotEmpty()) {
                         item { SmallCaps("ДОБАВЛЕННЫЕ — галочка: действует на этом проезде") }
@@ -199,6 +206,68 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
     }
 }
 
+/** Строка «Плечо» экранов предупреждений и ограничений: текущее плечо поезда и кнопка выбора/смены. */
+@Composable
+internal fun LegRow(title: String?, onSelectLeg: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(12.dp)).padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("ПЛЕЧО", style = Pst.mono.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted)
+            Text(
+                title ?: "не выбрано",
+                style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold), color = if (title == null) Pst.textMuted else Pst.text,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+        PstButton(if (title == null) "Выбрать плечо" else "Сменить", onSelectLeg, kind = if (title == null) PstButtonKind.FILLED else PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
+    }
+}
+
+/**
+ * Компактный выбор плеча для карты, открытой с Главного (там нет формы «Поезд» с её окном «Плечи»): те же плечи, тот же путь
+ * сохранения (`TrainFormViewModel.setSelectedServicePhase`), что у окна «Плечи» в «Поезде».
+ */
+@Composable
+internal fun LegPickerDialog(
+    phases: List<com.z_company.domain.entities.setting.ServicePhase>,
+    selectedId: String?,
+    onSelect: (com.z_company.domain.entities.setting.ServicePhase) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        WarningPanel(widthFraction = 0.9f, fill = false) {
+            Text("Плечо поезда", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+            if (phases.isEmpty()) {
+                Text("Плеч пока нет. Создайте плечо в разделе «Поезд».", style = Pst.sans.copy(fontSize = 13.sp), color = Pst.textMuted)
+            }
+            LazyColumn(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(phases, key = { it.id }) { p ->
+                    val on = p.id == selectedId
+                    Row(
+                        modifier = Modifier.fillMaxWidth().background(if (on) Pst.accentSoft else Pst.surface, RoundedCornerShape(12.dp))
+                            .clickable { onSelect(p); onDismiss() }.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            "${p.departureStation} — ${p.arrivalStation}",
+                            style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                        )
+                        Text("${p.distance} км", style = Pst.mono.copy(fontSize = 12.sp), color = Pst.textMuted)
+                    }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                PstButton("Закрыть", onDismiss, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
+            }
+        }
+    }
+}
+
 @Composable
 private fun SmallCaps(text: String) {
     Text(text, style = Pst.mono.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted, modifier = Modifier.padding(top = 6.dp))
@@ -210,7 +279,8 @@ private fun SavedWarningRow(model: ProfileModel, section: SectionProfile, w: Tra
         modifier = Modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(12.dp)).padding(start = 6.dp, end = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Checkbox(checked = model.isWarningActive(w.id), onCheckedChange = { model.setWarningActive(w.id, it) })
+        val locked = model.isWarningLocked(w.id)
+        Checkbox(checked = model.isWarningActive(w.id), enabled = !locked, onCheckedChange = { model.setWarningActive(w.id, it) })
         Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
             Text(
                 w.label,

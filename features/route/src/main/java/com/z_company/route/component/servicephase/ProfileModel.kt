@@ -18,6 +18,7 @@ import com.z_company.domain.track.SectionSummary
 import com.z_company.domain.track.ResolvedWarning
 import com.z_company.domain.track.TrackWarning
 import com.z_company.domain.track.TrackWarnings
+import com.z_company.domain.track.RestrictionPass
 import com.z_company.domain.track.SectionProfile
 import com.z_company.domain.track.SignalAhead
 import com.z_company.domain.track.SignalRules
@@ -37,7 +38,7 @@ import kotlin.math.abs
 internal class SectionRow(val summary: SectionSummary, val distanceM: Double?, val fitsLeg: Boolean?)
 
 /** Поезд маршрута для линии на профиле; [lengthM] null - длина не указана (линия не рисуется, остаётся точка). */
-internal data class ProfileTrain(val id: String, val number: String?, val lengthM: Int?)
+internal data class ProfileTrain(val id: String, val number: String?, val lengthM: Int?, val routeId: String = "")
 
 /** Что показывать вместо графика, когда рисовать нечего. */
 internal enum class ProfileEmpty { LOADING, NO_LOCATION, NO_SECTIONS, OFF_RAILS, NO_NEARBY, NO_DATA, NEED_LOGIN }
@@ -55,6 +56,9 @@ internal class ProfileModel(
     private val warningStore: TrackWarningStore? = null,
     private val voice: WarningVoice? = null,
     val voiceSettings: WarningVoiceSettings? = null,
+    /** Журнал проследования: «действующие на этом проезде» предупреждения привязаны к поезду и переживают закрытие карты. */
+    private val journal: com.z_company.domain.track.RestrictionJournalStore? = null,
+    private val nowMs: () -> Long = { System.currentTimeMillis() },
 ) {
     /** Не вошёл в аккаунт: участки отдаются только вошедшему (25.10.2026), кэш прежнего аккаунта не показываем. */
     var needLogin by mutableStateOf(false)
@@ -172,6 +176,63 @@ internal class ProfileModel(
         savedWarnings = warningStore?.load(s.id).orEmpty()
         spokenAt.clear()
         passes.reset()
+        seedFromJournal(s.id)
+    }
+
+    // --- Журнал проследования: связь предупреждений участка с поездом ---
+
+    /** Записи журнала этого поезда по участку: подтягиваем в «действующие», чтобы выбор переживал закрытие карты. */
+    private fun seedFromJournal(sectionId: String) {
+        val t = train ?: return
+        val j = journal ?: return
+        val ids = runCatching { j.forTrain(t.id) }.getOrDefault(emptyList()).filter { it.sectionId == sectionId }.map { it.warningId }
+        if (ids.isEmpty()) return
+        activeWarningIds = activeWarningIds + (sectionId to (activeWarningIds[sectionId].orEmpty() + ids))
+        offeredSections = offeredSections + sectionId
+    }
+
+    /** Предупреждение уже проследовано этим поездом: снять галочку нельзя (запись удаляется только из журнала поезда). */
+    fun isWarningLocked(id: String): Boolean {
+        val t = train ?: return false
+        return runCatching { journal?.get(t.id, id)?.hasData }.getOrNull() == true
+    }
+
+    private fun attachToTrain(w: TrackWarning) {
+        val t = train ?: return
+        val j = journal ?: return
+        if (t.routeId.isBlank()) return
+        runCatching {
+            val old = j.peek(t.id, w.id)
+            val now = maxOf(nowMs(), (old?.updatedAt ?: 0L) + 1)
+            if (old != null && !old.isDeleted) return@runCatching
+            j.upsert(RestrictionPass.planned(t.id, t.routeId, w, now, t.lengthM))
+        }
+    }
+
+    private fun detachFromTrain(id: String) {
+        val t = train ?: return
+        val j = journal ?: return
+        runCatching {
+            val cur = j.get(t.id, id) ?: return@runCatching
+            if (!cur.hasData) j.remove(t.id, id, nowMs())
+        }
+    }
+
+    private fun refreshSnapshot(w: TrackWarning) {
+        val t = train ?: return
+        val j = journal ?: return
+        runCatching {
+            val cur = j.get(t.id, w.id) ?: return@runCatching
+            val fresh = RestrictionPass.planned(t.id, cur.routeId, w, maxOf(nowMs(), cur.updatedAt + 1), cur.trainLengthM)
+            // Данные проследования сохраняются, обновляется только снимок самого предупреждения.
+            j.upsert(
+                cur.copy(
+                    kind = fresh.kind, title = fresh.title, place = fresh.place, note = fresh.note, limitKmh = fresh.limitKmh,
+                    startAbsKm = fresh.startAbsKm, endAbsKm = fresh.endAbsKm, startRelKm = fresh.startRelKm, endRelKm = fresh.endRelKm,
+                    updatedAt = fresh.updatedAt,
+                ),
+            )
+        }
     }
 
     /** Предупреждение, открытое для редактирования (нажатие на карточку на карте или на зону на профиле). */
@@ -186,6 +247,7 @@ internal class ProfileModel(
         warningStore?.save(s.id, savedWarnings)
         spokenAt.remove(w.id)
         passes.forget(w.id)
+        refreshSnapshot(w)
     }
 
     fun addWarning(w: TrackWarning) {
@@ -194,6 +256,7 @@ internal class ProfileModel(
         warningStore?.save(s.id, savedWarnings)
         activeWarningIds = activeWarningIds + (s.id to (activeWarningIds[s.id].orEmpty() + w.id))
         offeredSections = offeredSections + s.id
+        attachToTrain(w)
     }
 
     fun deleteWarning(id: String) {
@@ -201,6 +264,7 @@ internal class ProfileModel(
         if (editingWarning?.id == id) editingWarning = null
         savedWarnings = savedWarnings.filter { it.id != id }
         passes.forget(id)
+        detachFromTrain(id)
         warningStore?.save(s.id, savedWarnings)
         activeWarningIds = activeWarningIds + (s.id to (activeWarningIds[s.id].orEmpty() - id))
     }
@@ -208,8 +272,10 @@ internal class ProfileModel(
     fun setWarningActive(id: String, on: Boolean) {
         val s = section ?: return
         val cur = activeWarningIds[s.id].orEmpty()
+        if (!on && isWarningLocked(id)) return
         activeWarningIds = activeWarningIds + (s.id to if (on) cur + id else cur - id)
         passes.forget(id)
+        if (on) savedWarnings.firstOrNull { it.id == id }?.let { attachToTrain(it) } else detachFromTrain(id)
         offeredSections = offeredSections + s.id
     }
 
@@ -218,6 +284,7 @@ internal class ProfileModel(
         val s = section ?: return
         activeWarningIds = activeWarningIds + (s.id to ids)
         offeredSections = offeredSections + s.id
+        savedWarnings.filter { it.id in ids }.forEach { attachToTrain(it) }
     }
 
     /** Озвучка на подходе: один раз за [WarningVoiceSettings.distanceM] до зоны, затем с периодом повтора, пока зона впереди. */
@@ -415,6 +482,30 @@ internal class ProfileModel(
             loadingNear = false
             rebuild()
         }
+    }
+
+    /**
+     * Участки, относящиеся к плечу поезда (то же правило, что подбирает участок по плечу: на оси есть и первая, и последняя станция плеча,
+     * [LegMatch.fits]). Список участков без осей фильтруется по упоминанию станций плеча, подходящие подгружаются (кэш/сеть) и проверяются по осям.
+     * Пусто - плеча нет или подходящего участка не нашлось.
+     */
+    suspend fun findLegSections(): List<SectionSummary> {
+        if (stopNames.size < 2) return emptyList()
+        val first = stopNames.first()
+        val last = stopNames.last()
+        val loadedById = sections.associateBy { it.id }
+        val probe = summaries.filter { s ->
+            val text = "${s.name} ${s.fromStation} ${s.toStation}"
+            SectionPicker.mentions(text, first) || SectionPicker.mentions(text, last)
+        }.take(LEG_PROBE_MAX)
+        val out = ArrayList<SectionSummary>()
+        for (s in probe) {
+            val section = loadedById[s.id] ?: withContext(Dispatchers.Default) {
+                runCatching { repo.section(s.id, refresh = false) }.getOrNull()
+            }?.also { merge(listOf(it)) }
+            if (section != null && LegMatch.fits(section, stopNames) == true) out += s
+        }
+        return out
     }
 
     private fun merge(list: List<SectionProfile>) {
@@ -663,6 +754,7 @@ internal class ProfileModel(
     private fun resetMotion() { motionLastKm = null; motionSum = 0.0 }
 
     private companion object {
+        const val LEG_PROBE_MAX = 25
         const val MOTION_KM = 0.3
         const val MAX_STEP_KM = 1.0
         const val NEAR_RELOAD_M = 2_000.0
@@ -691,8 +783,9 @@ internal fun rememberProfileModel(
     val voiceSettings = remember { WarningVoiceSettings(context) }
     val voice = remember { WarningVoice(context, voiceSettings) }
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { voice.shutdown() } }
+    val journal: com.z_company.domain.track.RestrictionJournalStore = koinInject()
     val model = remember {
-        ProfileModel(repo, ProfileCalibrationStore(context), scope, railLookup, TrackWarningStore(context), voice, voiceSettings)
+        ProfileModel(repo, ProfileCalibrationStore(context), scope, railLookup, TrackWarningStore(context), voice, voiceSettings, journal)
     }
     model.stopNames = remember(stops) { stops.map { it.name }.filter { it.isNotBlank() } }
     LaunchedEffect(trains, trainId) { model.initTrains(trains, trainId) }

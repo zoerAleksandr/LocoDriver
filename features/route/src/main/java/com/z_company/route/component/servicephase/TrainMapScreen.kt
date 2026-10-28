@@ -211,6 +211,8 @@ internal fun TrainMapScreen(
     /** Чипы поездов маршрута (карта с Главного); меньше двух - ряда нет. */
     trainChips: List<MapTrainChip> = emptyList(),
     onSelectTrain: (String) -> Unit = {},
+    /** Выбор плеча поезда прямо из экрана «Предупреждения» (существующий выбор плеча хозяина карты); null - кнопки нет. */
+    onSelectLeg: (() -> Unit)? = null,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -1829,7 +1831,7 @@ internal fun TrainMapScreen(
                     onDismiss = { showSettings = false },
                 )
             }
-            if (showProfileFull) ProfileFullScreen(profileModel, onDismiss = { showProfileFull = false })
+            if (showProfileFull) ProfileFullScreen(profileModel, onDismiss = { showProfileFull = false }, onSelectLeg = onSelectLeg)
             WarningOfferDialog(profileModel)
             if (!showProfileFull) WarningEditDialog(profileModel)
 

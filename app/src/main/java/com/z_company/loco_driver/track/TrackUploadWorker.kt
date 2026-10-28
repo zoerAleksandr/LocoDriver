@@ -11,6 +11,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.z_company.domain.track.TrackPacking
 import com.z_company.repository.SecureTokenStorage
+import com.z_company.repository.remote_rest.tracks.RestrictionPassSyncer
 import com.z_company.repository.remote_rest.tracks.TrackUploader
 import com.z_company.route.autorecord.TrackRouteResolver
 import kotlinx.coroutines.flow.first
@@ -29,6 +30,7 @@ class TrackUploadWorker(
 ) : CoroutineWorker(context, params), KoinComponent {
 
     private val uploader: TrackUploader by inject()
+    private val restrictionSyncer: RestrictionPassSyncer by inject()
     private val resolver: TrackRouteResolver by inject()
     private val tokenStorage: SecureTokenStorage by inject()
 
@@ -41,11 +43,11 @@ class TrackUploadWorker(
         if (report.waitingForQuiet) {
             TrackUploadScheduler.enqueue(applicationContext, delayMs = TrackPacking.QUIET_MS + 30_000L, later = true)
         }
-        return when (report.outcome) {
-            TrackUploader.Outcome.RETRY_LATER ->
-                if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.success()
-            else -> Result.success()
-        }
+        // Журнал проследования ограничений едет тем же воркером; его сбой не влияет на результат отправки треков.
+        val journal = runCatching { restrictionSyncer.run("Bearer $token") }.getOrNull()
+        val retry = report.outcome == TrackUploader.Outcome.RETRY_LATER ||
+            journal?.outcome == RestrictionPassSyncer.Outcome.RETRY_LATER
+        return if (retry && runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.success()
     }
 
     private companion object {

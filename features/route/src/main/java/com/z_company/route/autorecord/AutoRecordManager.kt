@@ -42,6 +42,8 @@ import com.z_company.domain.track.AltitudeContribStore
 import com.z_company.domain.track.AltitudeSessionBuffer
 import com.z_company.domain.track.PendingContribSession
 import com.z_company.domain.track.TrackMerger
+import com.z_company.domain.track.RestrictionJournalRecorder
+import com.z_company.domain.track.RestrictionSample
 import com.z_company.domain.track.TrackWriter
 import com.z_company.domain.track.newContribSessionId
 import com.z_company.domain.use_cases.RouteUseCase
@@ -121,6 +123,11 @@ class AutoRecordManager(
     private val gnssStore: GnssContribStore? = null,
     /** Запланировать отправку вклада зон (WorkManager в app) после сеанса «АВТО». */
     private val onGnssContrib: () -> Unit = {},
+    /**
+     * Журнал проследования ограничений (SCREEN_SPECS §6.9): на каждый фикс «АВТО» двигает записи поезда-цели.
+     * Работает в фоне и без согласия №1 (координаты никуда не пишутся, в журнал идут время, скорость и км/пикет); null - выключено.
+     */
+    private val restrictionRecorder: RestrictionJournalRecorder? = null,
 ) {
     private val _state = MutableStateFlow(AutoRecordState())
     val state: StateFlow<AutoRecordState> = _state.asStateFlow()
@@ -498,6 +505,7 @@ class AutoRecordManager(
             return
         }
         recordTrackPoint(p)
+        recordRestrictionPass(p)
         val event = detector.onSample(
             MotionSample(p.timeMs, p.latitude, p.longitude, p.speedKmh, p.accuracyM),
         ) ?: return
@@ -506,6 +514,39 @@ class AutoRecordManager(
             writeLock.withLock { handleEvent(event) }
         } catch (e: Exception) {
             e.sendToSentry("AutoRecordManager", "handleEvent")
+        }
+    }
+
+    /** Длина поезда-цели для выхода хвостом: кэш на 30 с, чтобы не читать рейсы на каждый фикс. */
+    private var lengthCacheTrain: String? = null
+    private var lengthCacheAt = 0L
+    private var lengthCacheM: Int? = null
+
+    private suspend fun trainLengthM(trainId: String): Int? {
+        val now = nowMs()
+        if (lengthCacheTrain == trainId && now - lengthCacheAt < LENGTH_CACHE_MS) return lengthCacheM
+        val train = runCatching {
+            TrainOrdering.findTargetTrain(routeUseCase.getListRoutes().map { it.trains }, trainId)
+        }.getOrNull()
+        lengthCacheM = train?.let {
+            com.z_company.route.ui.conditionalLengthToMeters(it.conditionalLength, it.number, settings.passengerWagonLengthMeters)
+        }
+        lengthCacheTrain = trainId
+        lengthCacheAt = now
+        return lengthCacheM
+    }
+
+    /** Журнал проследования: цель «АВТО» (если есть), без записи координат. Сбой не мешает записи трека и стоянок. */
+    private suspend fun recordRestrictionPass(p: GpsPoint) {
+        val recorder = restrictionRecorder ?: return
+        val target = prefs.getString(KEY_TARGET, null)?.takeIf { it.isNotEmpty() } ?: return
+        try {
+            val length = trainLengthM(target)
+            recorder.onPoint(target, RestrictionSample(p.timeMs, p.latitude, p.longitude, p.speedKmh, p.accuracyM)) { length }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            e.sendToSentry("AutoRecordManager", "restrictionPass") // без координат
         }
     }
 
@@ -589,6 +630,7 @@ class AutoRecordManager(
     }
 
     private fun resetTrack() {
+        restrictionRecorder?.reset()
         flushAltitudeSession()
         flushGnssSession()
         trackWriter?.let { synchronized(it) { it.reset() } }
@@ -795,6 +837,7 @@ class AutoRecordManager(
     companion object {
         const val AUTO_OFF_MS = 12 * 60 * 60 * 1000L
         const val PREFS_NAME = "auto_record"
+        private const val LENGTH_CACHE_MS = 30_000L
         private const val KEY_UNTIL = "until_ms"
         private const val KEY_TARGET = "target_train_id"
         private const val KEY_TRACKS_MERGED = "tracks_merged_v1"

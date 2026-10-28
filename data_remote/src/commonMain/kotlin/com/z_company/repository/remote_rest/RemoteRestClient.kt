@@ -117,6 +117,11 @@ object RemoteRestClient {
         com.z_company.repository.remote_rest.tracks.KtorTracksApi(createClient { BASE_URL })
     }
 
+    /** `/v1/restriction_passes` (журнал проследования ограничений) на том же клиенте. */
+    val restrictionPassApi: com.z_company.repository.remote_rest.tracks.RestrictionPassApi by lazy {
+        com.z_company.repository.remote_rest.tracks.KtorRestrictionPassApi(createClient { BASE_URL })
+    }
+
     /**
      * Токен входа для участков советника (они отдаются только вошедшему). Задаёт приложение при старте (DI); читается на каждый
      * запрос, поэтому смена аккаунта подхватывается. null/пусто - не вошёл.
