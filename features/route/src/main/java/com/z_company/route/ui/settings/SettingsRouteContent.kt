@@ -15,9 +15,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.z_company.route.component.AppTimePicker
-import com.z_company.route.component.servicephase.PositionIcon
-import com.z_company.route.component.servicephase.PositionIconStore
-import com.z_company.route.component.servicephase.PositionIconTile
 import com.z_company.core.theme.ThemeManager
 import com.z_company.core.theme.ThemeMode
 import com.z_company.core.util.ConverterLongToTime
@@ -87,32 +84,7 @@ fun SettingsRouteContent(
             )
         }
 
-        // ── Значок положения на карте поезда ──
         val context = androidx.compose.ui.platform.LocalContext.current
-        val positionIcon by PositionIconStore.selected(context).collectAsState()
-        var showPositionIconSheet by remember { mutableStateOf(false) }
-        SettingsGroupHeader("ЗНАЧОК ПОЛОЖЕНИЯ", top = 20.dp, startPad = 4.dp)
-        SettingsSelectTile(
-            value = positionIcon.label,
-            onClick = { showPositionIconSheet = true },
-            leading = { PositionIconTile(positionIcon, 36.dp) },
-        )
-        SettingsSectionNote("Так вы отображаетесь на карте поезда. Значок поворачивается по ходу движения. Выбор хранится на этом устройстве.")
-        if (showPositionIconSheet) {
-            SettingsPickerSheet(
-                title = "Значок положения",
-                options = PositionIcon.entries.map { icon ->
-                    SettingsPickerOption(
-                        label = icon.label,
-                        sub = if (icon == PositionIcon.ARROW) "По умолчанию" else null,
-                        selected = positionIcon == icon,
-                        leading = { PositionIconTile(icon, 48.dp) },
-                        onSelect = { PositionIconStore.set(context, icon) },
-                    )
-                },
-                onDismiss = { showPositionIconSheet = false },
-            )
-        }
 
         // ── Главный экран: «Всегда открывать последний» ──
         val openLast = remember {
