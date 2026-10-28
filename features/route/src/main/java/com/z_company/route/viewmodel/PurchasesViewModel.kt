@@ -337,6 +337,9 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
         startRobokassaCheckout(product)
     }
 
+    /** Резервный способ: оплата через CKassa, если Robokassa недоступна. */
+    fun onFallbackPaymentClick(product: Product) = startCkassaCheckout(product)
+
     /**
      * Robokassa через сервер: сервер берёт цену/срок по коду тарифа, подписывает
      * платёж и (с галочкой) фиксирует согласие на автопродление. Пароли
@@ -417,7 +420,9 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
             _event.tryEmit(BillingEvent.ShowError(Throwable("Тариф недоступен для оплаты")))
             return
         }
+        if (_isStartingPayment.value) return
         viewModelScope.launch {
+            _isStartingPayment.value = true
             try {
                 val token = secureTokenStorage.getAuthBearerTokenFlow().first()
                 val response = remoteRestApi.createCkassaCheckout(
@@ -432,6 +437,8 @@ class PurchasesViewModel : ViewModel(), KoinComponent {
             } catch (t: Throwable) {
                 t.sendToSentry("PurchasesViewModel", "startCkassaCheckout")
                 _event.tryEmit(BillingEvent.ShowError(t))
+            } finally {
+                _isStartingPayment.value = false
             }
         }
     }
