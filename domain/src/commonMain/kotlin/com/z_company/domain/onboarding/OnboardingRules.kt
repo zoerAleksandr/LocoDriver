@@ -198,8 +198,9 @@ enum class RestrictionsTourStep(val title: String, val text: String) {
 
 object OnboardingHints {
     // Подсказки на месте: заголовок + короткий текст (редакция 24.10.2026).
-    const val TITLE_TRAIN_MAP = "Новая карта"
-    const val TEXT_TRAIN_MAP = "Ваш путь, скорость и ближайшая станция."
+    const val TITLE_TRAIN_MAP = "Карта и Профиль"
+    const val TEXT_TRAIN_MAP =
+        "Рассчитать время прибытия, просматривайте историю поездки. Где и с какой скоростью двигались - смотри в истории."
     const val TITLE_AUTO_CHIP = "Режим «АВТО»"
     const val TEXT_AUTO_CHIP =
         "Записывает стоянки и отправления сам. Выключите, когда закончите, или он выключится через 12 часов."
