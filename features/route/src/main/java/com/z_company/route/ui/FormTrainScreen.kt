@@ -2301,24 +2301,7 @@ fun FormTrainScreen(
                 recording = globalAutoState.enabled,
                 blocked = hintBlocked,
             )
-            // Подсказка показывается, когда экран и нижняя панель устоялись (положение якоря не менялось ~0,6 с): иначе при входе в «Поезд» она
-            // на мгновение мигала на промежуточном положении панели.
-            val hintAnchorBounds = when (trainHint) {
-                com.z_company.domain.onboarding.HintId.TRAIN_MAP -> mapAnchor.bounds
-                com.z_company.domain.onboarding.HintId.AUTO_CHIP -> autoAnchor.bounds
-                com.z_company.domain.onboarding.HintId.TRAIN_RESTRICTIONS -> restrictionsAnchor.bounds
-                com.z_company.domain.onboarding.HintId.TRAIN_VU45 -> vuAnchor.bounds
-                else -> null
-            }
-            var hintStable by remember { mutableStateOf(false) }
-            LaunchedEffect(trainHint, hintAnchorBounds) {
-                hintStable = false
-                if (trainHint != null) {
-                    kotlinx.coroutines.delay(600)
-                    hintStable = true
-                }
-            }
-            val shownHint = if (hintStable) trainHint else null
+            val shownHint = trainHint
             when (shownHint) {
                 com.z_company.domain.onboarding.HintId.TRAIN_MAP -> com.z_company.route.component.CoachMarkPopup(
                     anchor = mapAnchor.bounds,

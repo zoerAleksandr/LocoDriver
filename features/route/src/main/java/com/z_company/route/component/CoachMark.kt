@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.composed
@@ -114,6 +115,7 @@ private val BUBBLE_WIDTH: Dp = 300.dp
 private val ARROW_HEIGHT: Dp = 8.dp
 private val ARROW_HALF: Dp = 9.dp
 private val EDGE: Dp = 12.dp
+private const val ANCHOR_SETTLE_MS = 600L
 
 /**
  * Облачко подсказки (заголовок + текст) со стрелкой к элементу [anchor] и кнопкой «Понятно» (ONBOARDING_MATERIALS §2).
@@ -128,6 +130,15 @@ fun CoachMarkPopup(
     tag: String = "coach_mark",
 ) {
     val target = anchor ?: return
+    // Показываем, только когда положение якоря не менялось ~0,6 с: при входе на экран (анимация перехода, раскладка списка)
+    // границы сначала «плывут», и облачко мигало бы на промежуточном месте.
+    var stable by remember { mutableStateOf(false) }
+    LaunchedEffect(target) {
+        stable = false
+        kotlinx.coroutines.delay(ANCHOR_SETTLE_MS)
+        stable = true
+    }
+    if (!stable) return
     // Элемент прокручен за пределы экрана - не показываем (облачко повисло бы в углу).
     val heightPx = with(LocalDensity.current) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
     val widthPx = with(LocalDensity.current) { LocalConfiguration.current.screenWidthDp.dp.toPx() }
