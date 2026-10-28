@@ -208,7 +208,7 @@ class RestrictionJournalTest {
         assertTrue(rows[0].exit.startsWith("28.10 17:07:09 · 38 км/ч (по голове"))
         assertEquals("44 км/ч", rows[0].maxSpeed)
         assertTrue(rows[0].exceeded)
-        assertEquals("138 км 1 пк 0 м — 139 км 5 пк 0 м", rows[0].kmText)
+        assertEquals("138 км 1 пк — 139 км 5 пк", rows[0].kmText)
         assertEquals("не проследовано", rows[1].enter)
         assertEquals("28.10 14:05:09", RestrictionReport.formatTime(1_761_660_309_000, "UTC"))
         assertEquals("28.10 14:05:09", RestrictionReport.formatTime(1_761_660_309_000, "bad zone"))
