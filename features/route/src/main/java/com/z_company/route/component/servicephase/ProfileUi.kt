@@ -552,7 +552,7 @@ internal enum class ProfileScale(val label: String, val spanKm: Double) {
  * График масштабируется щипком и сдвигается пальцем; пока окно двигали вручную, оно не следует за поездом.
  */
 @Composable
-internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
+internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, onSelectLeg: (() -> Unit)? = null) {
     var showPicker by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var spanKm by rememberSaveable { mutableStateOf(6f) }
@@ -701,7 +701,7 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit) {
         }
     }
     if (showPicker) SectionPickerDialog(model, onDismiss = { showPicker = false })
-    if (showWarnings) WarningsDialog(model, onVoice = { showVoice = true }, onDismiss = { showWarnings = false })
+    if (showWarnings) WarningsDialog(model, onVoice = { showVoice = true }, onDismiss = { showWarnings = false }, onSelectLeg = onSelectLeg)
     if (showVoice) WarningVoiceDialog(model, onDismiss = { showVoice = false })
     WarningEditDialog(model)
     if (showSettings && model.hasSignals) ProfileSettingsDialog(model, onDismiss = { showSettings = false })

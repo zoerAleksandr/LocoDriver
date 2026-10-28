@@ -79,6 +79,15 @@ internal fun HomeTrainMap(
         }
     }
     val railVm: ServicePhaseAutoFillViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    var showLegPicker by remember { mutableStateOf(false) }
+    if (showLegPicker) {
+        com.z_company.route.component.servicephase.LegPickerDialog(
+            phases = viewModel.sortedServicePhases(formUiState.servicePhaseList),
+            selectedId = formUiState.selectedServicePhase?.id,
+            onSelect = { viewModel.setSelectedServicePhase(it) },
+            onDismiss = { showLegPicker = false },
+        )
+    }
     TrainMapScreen(
         missingStation = { viewModel.trainMapMissingStation() },
         stops = remember(formUiState.selectedServicePhase, formUiState.servicePhaseList.size) { viewModel.trainMapStops() },
@@ -99,6 +108,7 @@ internal fun HomeTrainMap(
         onDismiss = onDismiss,
         profileTrains = viewModel.trainMapTrains(),
         profileTrainId = viewModel.currentTrain?.trainId,
+        onSelectLeg = { showLegPicker = true },
         trainChips = chips,
         onSelectTrain = { id -> routeTrains.firstOrNull { it.trainId == id }?.let(onSelectTrain) },
     )

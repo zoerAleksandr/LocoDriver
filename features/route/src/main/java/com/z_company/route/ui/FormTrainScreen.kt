@@ -334,7 +334,8 @@ fun FormTrainScreen(
             com.z_company.route.component.servicephase.TrainRestrictionsScreen(
                 trainId = currentTrain.trainId,
                 trainTitle = currentTrain.number?.takeIf { it.isNotBlank() }?.let { "Поезд № $it" } ?: "Поезд без номера",
-                legSelected = formUiState.selectedServicePhase != null,
+                legTitle = formUiState.selectedServicePhase?.let { "${it.departureStation} — ${it.arrivalStation}" },
+                onSelectLeg = { showSelectServicePhase = true },
                 stops = remember(formUiState.selectedServicePhase, formUiState.servicePhaseList.size) { viewModel.trainMapStops() },
                 trains = viewModel.trainMapTrains(),
                 zone = restrictionsZone,
@@ -348,7 +349,7 @@ fun FormTrainScreen(
                 androidx.lifecycle.viewmodel.compose.viewModel()
             com.z_company.route.component.servicephase.TrainMapScreen(
                 missingStation = { viewModel.trainMapMissingStation() },
-                stops = remember { viewModel.trainMapStops() },
+                stops = remember(formUiState.selectedServicePhase, formUiState.servicePhaseList.size) { viewModel.trainMapStops() },
                 loadRailLine = { railVm.railLine(it) },
                 currentFix = { viewModel.trainMapCurrentFix() },
                 loadTrack = { viewModel.trainMapTrack() },
@@ -368,6 +369,8 @@ fun FormTrainScreen(
                 onDismiss = { showTrainMap = false },
                 profileTrains = viewModel.trainMapTrains(),
                 profileTrainId = viewModel.currentTrain?.trainId,
+                // «Предупреждения» в профиле: плечо выбирается тут же (то же существующее окно «Плечи», тот же путь сохранения).
+                onSelectLeg = { showSelectServicePhase = true },
             )
         }
 

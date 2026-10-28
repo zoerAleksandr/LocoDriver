@@ -58,7 +58,10 @@ import org.koin.compose.koinInject
 internal fun TrainRestrictionsScreen(
     trainId: String,
     trainTitle: String,
-    legSelected: Boolean,
+    /** Плечо поезда, например «Лужская — Гатчина»; null - не выбрано (добавлять ограничения нельзя, пока не выбрано). */
+    legTitle: String?,
+    /** Открыть существующий выбор плеча «Поезда» (результат сохраняется в поезд тем же путём и сразу виден в «Поезде», на карте и профиле). */
+    onSelectLeg: () -> Unit,
     stops: List<TrainMapStop>,
     trains: List<ProfileTrain>,
     zone: String,
@@ -81,6 +84,7 @@ internal fun TrainRestrictionsScreen(
             delay(2_000)
         }
     }
+    val legSelected = legTitle != null
     val rows = remember(entries, zone) { RestrictionReport.rows(entries, zone) }
     val ready = RestrictionReport.isReady(entries)
     val left = RestrictionReport.remaining(entries)
@@ -98,6 +102,7 @@ internal fun TrainRestrictionsScreen(
                     Text(trainTitle, style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
+            LegRow(title = legTitle, onSelectLeg = onSelectLeg)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 PstButton(
                     "Добавить", { showAdd = true }, kind = PstButtonKind.FILLED, enabled = legSelected, height = 44.dp, fontSize = 14,
@@ -122,7 +127,7 @@ internal fun TrainRestrictionsScreen(
                 )
             }
             val hint = when {
-                !legSelected -> "Чтобы добавлять ограничения, выберите плечо поезда."
+                !legSelected -> "Чтобы добавлять ограничения, выберите плечо поезда: участок определяется по нему."
                 rows.isEmpty() -> "Ограничений нет. «Добавить» — выбрать станции или перегоны, где действуют предупреждения; при включённом «АВТО» время и скорость проследования запишутся сами."
                 !ready -> "Отчёт будет доступен, когда все ограничения проследованы (осталось: $left)."
                 else -> "Все ограничения проследованы — можно сформировать отчёт."

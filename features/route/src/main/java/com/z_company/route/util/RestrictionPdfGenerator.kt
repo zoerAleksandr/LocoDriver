@@ -42,6 +42,8 @@ class RestrictionPdfGenerator(private val context: Context) {
 
     /** [trainTitle] - подпись поезда («Поезд 2034», «Лужская — Гатчина»); [rows] - из [RestrictionReport.rows]. */
     fun generate(trainTitle: String, rows: List<RestrictionReport.Row>): File {
+        // Прошлые отчёты в кэше не копим: в них время и скорость проследования.
+        context.cacheDir.listFiles { f -> f.name.startsWith("restrictions_") && f.name.endsWith(".pdf") }?.forEach { runCatching { it.delete() } }
         val doc = PdfDocument()
         var pageNo = 1
         var page = doc.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNo).create())

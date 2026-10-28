@@ -64,7 +64,7 @@ class RestrictionPassSyncerTest {
     )
 
     private fun syncer(api: RpApi, store: InMemoryRestrictionJournalStore, settings: RpSettings = RpSettings(true), cursor: RpCursor = RpCursor(), sub: Boolean = true) =
-        RestrictionPassSyncer(api, store, settings, cursor) { sub }
+        RestrictionPassSyncer(api, store, settings, cursor, isSubscribed = { sub })
 
     @Test
     fun push_then_pull_merges_and_marks_uploaded() = runBlocking {
@@ -107,8 +107,9 @@ class RestrictionPassSyncerTest {
     fun route_not_synced_yet_keeps_record_dirty_and_asks_retry() = runBlocking {
         val api = RpApi().also { it.rejectRoutes = setOf("r-new") }
         val store = InMemoryRestrictionJournalStore()
-        store.upsert(pass("a", route = "r-new"))
-        store.upsert(pass("b", route = "r1"))
+        val fresh = System.currentTimeMillis()
+        store.upsert(pass("a", at = fresh, route = "r-new"))
+        store.upsert(pass("b", at = fresh, route = "r1"))
         val r = syncer(api, store).run("Bearer x")
         assertEquals(RestrictionPassSyncer.Outcome.RETRY_LATER, r.outcome)
         assertEquals(listOf("a"), store.pendingUpload(10).map { it.warningId })
@@ -156,5 +157,16 @@ class RestrictionPassSyncerTest {
         syncer(api, store).run("Bearer x")
         assertEquals(47.0, store.get("t1", "a")!!.maxSpeedKmh)
         assertEquals(500L, api.server["t1" to "a"]!!.updatedAt)
+    }
+
+    @Test
+    fun stale_unroutable_record_is_dropped_after_two_weeks() = runBlocking {
+        val api = RpApi().also { it.rejectRoutes = setOf("r-other") }
+        val store = InMemoryRestrictionJournalStore()
+        val now = 100L * 24 * 3600_000
+        store.upsert(pass("old", at = now - 15L * 24 * 3600_000, route = "r-other"))
+        val r = RestrictionPassSyncer(api, store, RpSettings(true), RpCursor(), { true }, { now }).run("Bearer x")
+        assertEquals(RestrictionPassSyncer.Outcome.DONE, r.outcome)
+        assertEquals(0, store.pendingUpload(10).size)
     }
 }

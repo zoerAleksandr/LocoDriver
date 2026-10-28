@@ -23,6 +23,7 @@ class RestrictionPassSyncer(
     private val settings: TrackSyncSettings,
     private val cursor: RestrictionSyncCursor,
     private val isSubscribed: suspend () -> Boolean = { true },
+    private val nowMs: () -> Long = { kotlin.time.Clock.System.now().toEpochMilliseconds() },
 ) {
     enum class Outcome { DONE, RETRY_LATER, NO_CONSENT, NO_SUBSCRIPTION, UNAUTHORIZED }
 
@@ -42,7 +43,10 @@ class RestrictionPassSyncer(
                 if (batch.isEmpty()) break
                 val resp = api.put(token, batch)
                 // Записи, чей рейс ещё не доехал до сервера, и упёршиеся в квоту остаются неотправленными (повтор позже).
-                val keep = resp.skipped.filter { it.reason == "route_unavailable" || it.reason == "quota" }
+                // Запись чужого/давно удалённого рейса (смена аккаунта на устройстве) бросаем через [GIVE_UP_MS]: иначе повторы вечные.
+                val now = nowMs()
+                val fresh = batch.filter { now - it.updatedAt < GIVE_UP_MS }.map { it.trainId to it.warningId }.toSet()
+                val keep = resp.skipped.filter { it.reason == "quota" || (it.reason == "route_unavailable" && (it.trainId to it.warningId) in fresh) }
                     .map { it.trainId to it.warningId }.toSet()
                 val done = batch.filter { (it.trainId to it.warningId) !in keep }
                 withContext(Dispatchers.Default) { store.markUploaded(done) }
@@ -86,5 +90,6 @@ class RestrictionPassSyncer(
 
     private companion object {
         const val SKEW_MS = 24L * 3600_000L
+        const val GIVE_UP_MS = 14L * 24L * 3600_000L
     }
 }
