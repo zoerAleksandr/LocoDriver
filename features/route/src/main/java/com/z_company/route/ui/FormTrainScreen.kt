@@ -283,6 +283,9 @@ fun FormTrainScreen(
         // Вторая шторка — создание/редактирование плеча.
         var showEditPhaseSheet by remember { mutableStateOf(false) }
         var editingPhase by remember { mutableStateOf<ServicePhase?>(null) }
+        // Вход «Загрузить станции плеча» с экрана «Ограничения поезда»: то же окно плеча с автозапуском подбора, по закрытии - назад на экран ограничений.
+        var autoStartPhaseFill by remember { mutableStateOf(false) }
+        var returnToRestrictions by remember { mutableStateOf(false) }
 
         // Кнопка «АВТО» (SCREEN_SPECS §6.2 п.6а)
         val autoRecordManager: com.z_company.route.autorecord.AutoRecordManager = org.koin.compose.koinInject()
@@ -335,6 +338,21 @@ fun FormTrainScreen(
                 trainId = currentTrain.trainId,
                 trainTitle = currentTrain.number?.takeIf { it.isNotBlank() }?.let { "Поезд № $it" } ?: "Поезд без номера",
                 legTitle = formUiState.selectedServicePhase?.let { "${it.departureStation} — ${it.arrivalStation}" },
+                legFrom = formUiState.selectedServicePhase?.departureStation?.takeIf { it.isNotBlank() },
+                legTo = formUiState.selectedServicePhase?.arrivalStation?.takeIf { it.isNotBlank() },
+                // Промежуточные станции берутся из справочника по id плеча (в поезде лежит копия без них).
+                canLoadStations = servicePhaseList.firstOrNull { it.id == formUiState.selectedServicePhase?.id }
+                    ?.intermediateStations.isNullOrEmpty(),
+                onLoadStations = {
+                    val full = servicePhaseList.firstOrNull { it.id == formUiState.selectedServicePhase?.id }
+                    if (full != null) {
+                        editingPhase = full
+                        autoStartPhaseFill = true
+                        returnToRestrictions = true
+                        showRestrictions = false
+                        showEditPhaseSheet = true
+                    }
+                },
                 onSelectLeg = { showSelectServicePhase = true },
                 stops = remember(formUiState.selectedServicePhase, formUiState.servicePhaseList.size) { viewModel.trainMapStops() },
                 trains = viewModel.trainMapTrains(),
@@ -1116,9 +1134,14 @@ fun FormTrainScreen(
                     }
                 } else null,
                 onDeleteStationName = { viewModel.removeStationName(it) },
-                onDismiss = { showEditPhaseSheet = false },
+                onDismiss = {
+                    showEditPhaseSheet = false
+                    autoStartPhaseFill = false
+                    if (returnToRestrictions) { returnToRestrictions = false; showRestrictions = true }
+                },
                 country = viewModel.userCountry,
                 onAddStationNames = viewModel::addStationNames,
+                autoStartAutoFill = autoStartPhaseFill,
             )
         }
 

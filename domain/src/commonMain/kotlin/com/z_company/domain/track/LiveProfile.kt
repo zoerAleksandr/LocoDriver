@@ -17,6 +17,29 @@ object LegMatch {
         return sections.filter { s -> kmOf(s, from) != null && kmOf(s, to) != null && kmOf(s, from) != kmOf(s, to) }
     }
 
+    /**
+     * Участки-кандидаты для плеча [from] - [to] из [sections] (уже подгруженные оси). Сначала строгое правило [fits] (на оси есть обе
+     * крайние станции плеча по названию). Нет таких - мягкое: ось проходит рядом (не дальше [RELAXED_M]) и с отправлением, и с прибытием
+     * ([fromPoint]/[toPoint], если координаты известны): так же, как карта, которая подбирает участок по положению и показывает ближайший,
+     * даже когда названия станций на оси записаны иначе (Луга I / Луга-1 и т.п.).
+     */
+    fun candidates(
+        sections: Collection<SectionProfile>,
+        from: String,
+        to: String,
+        fromPoint: Pair<Double, Double>?,
+        toPoint: Pair<Double, Double>?,
+    ): List<SectionProfile> {
+        val names = listOf(from, to)
+        val strict = sections.filter { fits(it, names) == true }
+        if (strict.isNotEmpty() || fromPoint == null || toPoint == null) return strict
+        fun near(s: SectionProfile, p: Pair<Double, Double>) =
+            SectionPicker.nearest(listOf(s.axis), p.first, p.second, maxDistanceM = RELAXED_M, limit = 1).isNotEmpty()
+        return sections.filter { near(it, fromPoint) && near(it, toPoint) }
+    }
+
+    const val RELAXED_M = 2_000.0
+
     /** Подходит ли участок плечу: true / false; null - плеча нет, сверять не с чем. */
     fun fits(section: SectionProfile, stopNames: List<String>): Boolean? {
         if (stopNames.size < 2) return null

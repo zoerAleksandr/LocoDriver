@@ -161,6 +161,11 @@ fun ShoulderEditBottomSheet(
     country: String = "RU",
     /** Новые названия для справочника станций (из автоподбора) — вызывается при сохранении. */
     onAddStationNames: (List<String>) -> Unit = {},
+    /**
+     * Сразу запустить автоподбор промежуточных станций при открытии (вход «Загрузить станции плеча» с экрана «Ограничения поезда»): тот же
+     * автоподбор, индикатор и сохранение, что при нажатии «Подобрать станции» в справочнике; запускается, только если станций ещё нет.
+     */
+    autoStartAutoFill: Boolean = false,
 ) {
     val focusManager = LocalFocusManager.current
     val isNew = phase == null
@@ -276,6 +281,9 @@ fun ShoulderEditBottomSheet(
     fun closeAutoFill() {
         autoVm.cancel()
         autoFillOpen = false
+    }
+    LaunchedEffect(Unit) {
+        if (autoStartAutoFill && canAutoFill && stations.isEmpty()) startAutoFill()
     }
 
     /** Координаты станций плеча по порядку — «подпись», по которой проверяется «измерено по карте». */

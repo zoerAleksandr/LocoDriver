@@ -18,6 +18,7 @@ import com.z_company.domain.track.SectionSummary
 import com.z_company.domain.track.ResolvedWarning
 import com.z_company.domain.track.TrackWarning
 import com.z_company.domain.track.TrackWarnings
+import com.z_company.domain.track.RestrictionKind
 import com.z_company.domain.track.RestrictionPass
 import com.z_company.domain.track.SectionProfile
 import com.z_company.domain.track.SignalAhead
@@ -118,6 +119,12 @@ internal class ProfileModel(
 
     /** Названия станций плеча поезда по порядку (отправление ... прибытие); меньше двух - плеча нет. */
     var stopNames: List<String> = emptyList()
+
+    /** Станции плеча с координатами (карта поезда); по ним подбирается участок плеча без GPS-положения. */
+    var stopPoints: List<com.z_company.domain.util.TrainMapStop> = emptyList()
+
+    /** Крайние станции плеча по названиям: не зависят от того, есть ли у станции координаты ([stopNames] строится по станциям с координатами). */
+    var legEnds: Pair<String, String>? = null
     private var lastFix: GeoFix? = null
     private var hasFix by mutableStateOf(false)
 
@@ -176,7 +183,35 @@ internal class ProfileModel(
         savedWarnings = warningStore?.load(s.id).orEmpty()
         spokenAt.clear()
         passes.reset()
+        adoptManualRestrictions(s)
         seedFromJournal(s.id)
+    }
+
+    /**
+     * Ограничения, добавленные этому поезду без участка (нет профиля), с известными км/пикетом: когда профиль подходящего плечу участка
+     * появился и такой километр на нём есть, ограничение переходит на участок (предупреждение сохраняется в хранилище участка, запись
+     * журнала получает `sectionId`) - дальше оно отслеживается автоматически. Без км или с километром вне участка - остаётся как есть.
+     */
+    private fun adoptManualRestrictions(s: SectionProfile) {
+        val t = train ?: return
+        val j = journal ?: return
+        if (stopNames.size >= 2 && LegMatch.fits(s, stopNames) != true) return
+        runCatching {
+            for (e in j.forTrain(t.id)) {
+                if (e.tracked || e.startAbsKm == null || e.endAbsKm == null) continue
+                val w = TrackWarning(
+                    id = e.warningId, sectionId = s.id, startAbsKm = e.startAbsKm, endAbsKm = e.endAbsKm, startRelKm = 0.0, endRelKm = 0.0,
+                    type = com.z_company.domain.track.WarningType.entries.firstOrNull { RestrictionKind.of(it) == e.kind } ?: com.z_company.domain.track.WarningType.OTHER,
+                    speedKmh = e.limitKmh, note = e.note, place = e.place,
+                )
+                val r = TrackWarnings.resolve(s, w) ?: continue
+                if (savedWarnings.none { it.id == w.id }) {
+                    savedWarnings = savedWarnings + w
+                    warningStore?.save(s.id, savedWarnings)
+                }
+                j.upsert(e.copy(sectionId = s.id, startRelKm = r.fromKm, endRelKm = r.toKm, updatedAt = maxOf(nowMs(), e.updatedAt + 1)))
+            }
+        }
     }
 
     // --- Журнал проследования: связь предупреждений участка с поездом ---
@@ -490,22 +525,29 @@ internal class ProfileModel(
      * Пусто - плеча нет или подходящего участка не нашлось.
      */
     suspend fun findLegSections(): List<SectionSummary> {
-        if (stopNames.size < 2) return emptyList()
-        val first = stopNames.first()
-        val last = stopNames.last()
-        val loadedById = sections.associateBy { it.id }
-        val probe = summaries.filter { s ->
-            val text = "${s.name} ${s.fromStation} ${s.toStation}"
-            SectionPicker.mentions(text, first) || SectionPicker.mentions(text, last)
-        }.take(LEG_PROBE_MAX)
-        val out = ArrayList<SectionSummary>()
-        for (s in probe) {
-            val section = loadedById[s.id] ?: withContext(Dispatchers.Default) {
-                runCatching { repo.section(s.id, refresh = false) }.getOrNull()
-            }?.also { merge(listOf(it)) }
-            if (section != null && LegMatch.fits(section, stopNames) == true) out += s
+        val (first, last) = legEnds ?: stopNames.takeIf { it.size >= 2 }?.let { it.first() to it.last() } ?: return emptyList()
+        val pool = LinkedHashMap<String, SectionProfile>()
+        sections.forEach { pool[it.id] = it }
+        // 1. По положению станций плеча: тот же загрузчик, что на карте подбирает участки вокруг GPS-точки (габарит -> ось из кэша/сети).
+        val pts = stopPoints
+        val probes = (listOfNotNull(pts.firstOrNull(), pts.lastOrNull()) + pts.drop(1).dropLast(1).take(2)).distinctBy { it.latitude to it.longitude }
+        for (p in probes) {
+            val found = runCatching { withContext(Dispatchers.Default) { repo.sectionsNear(p.latitude, p.longitude) } }.getOrDefault(emptyList())
+            found.forEach { pool[it.id] = it }
         }
-        return out
+        // 2. По названиям: участки, где упомянута крайняя станция плеча (нет координат у станций плеча).
+        val probe = summaries.filter { s ->
+            s.id !in pool && "${s.name} ${s.fromStation} ${s.toStation}".let { SectionPicker.mentions(it, first) || SectionPicker.mentions(it, last) }
+        }.take(LEG_PROBE_MAX)
+        for (s in probe) {
+            withContext(Dispatchers.Default) { runCatching { repo.section(s.id, refresh = false) }.getOrNull() }?.let { pool[it.id] = it }
+        }
+        merge(pool.values.toList())
+        fun pointOf(name: String, default: com.z_company.domain.util.TrainMapStop?) =
+            (pts.firstOrNull { SectionPicker.sameStation(it.name, name) } ?: default)?.let { it.latitude to it.longitude }
+        val found = LegMatch.candidates(pool.values, first, last, pointOf(first, pts.firstOrNull()), pointOf(last, pts.lastOrNull()))
+        val byId = summaries.associateBy { it.id }
+        return found.map { byId[it.id] ?: SectionSummary(it.id, it.name, it.fromStation, it.toStation, it.lengthKm, true, 0L) }
     }
 
     private fun merge(list: List<SectionProfile>) {
@@ -788,6 +830,7 @@ internal fun rememberProfileModel(
         ProfileModel(repo, ProfileCalibrationStore(context), scope, railLookup, TrackWarningStore(context), voice, voiceSettings, journal)
     }
     model.stopNames = remember(stops) { stops.map { it.name }.filter { it.isNotBlank() } }
+    model.stopPoints = stops
     LaunchedEffect(trains, trainId) { model.initTrains(trains, trainId) }
     LaunchedEffect(Unit) { model.load() }
     LaunchedEffect(fix, fixAtMs, model.loaded) { model.onFix(fix, speedKmh, if (fixAtMs > 0) fixAtMs else System.currentTimeMillis()) }
