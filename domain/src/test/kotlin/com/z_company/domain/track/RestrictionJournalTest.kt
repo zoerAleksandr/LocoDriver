@@ -173,4 +173,24 @@ class RestrictionJournalTest {
         assertFalse(RestrictionReport.isReady(listOf(done, planned)))
         assertFalse(RestrictionReport.isReady(emptyList()))
     }
+
+    @Test
+    fun report_rows_are_formatted_in_zone() {
+        val e = warning().copy(
+            title = "ограничение 40 км/ч", place = "А — Б", startAbsKm = 138.0, endAbsKm = 139.4,
+            enterAt = 1_761_660_309_000, enterSpeedKmh = 41.6, exitAt = 1_761_660_429_000, exitSpeedKmh = 38.2,
+            maxSpeedKmh = 44.0, exceeded = true, exitByHead = true,
+        )
+        val rows = RestrictionReport.rows(listOf(e, warning().copy(warningId = "w2", enterAt = null)), "GMT+3")
+        // запись с данными - первой, непроследованная - последней
+        assertEquals("Ограничение 40 км/ч", rows[0].title)
+        assertEquals("28.10 17:05:09 · 41 км/ч", rows[0].enter)
+        assertTrue(rows[0].exit.startsWith("28.10 17:07:09 · 38 км/ч (по голове"))
+        assertEquals("44 км/ч", rows[0].maxSpeed)
+        assertTrue(rows[0].exceeded)
+        assertEquals("138 км 1 пк 0 м — 139 км 5 пк 0 м", rows[0].kmText)
+        assertEquals("не проследовано", rows[1].enter)
+        assertEquals("28.10 14:05:09", RestrictionReport.formatTime(1_761_660_309_000, "UTC"))
+        assertEquals("28.10 14:05:09", RestrictionReport.formatTime(1_761_660_309_000, "bad zone"))
+    }
 }
