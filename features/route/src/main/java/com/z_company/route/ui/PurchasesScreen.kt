@@ -662,7 +662,15 @@ fun PurchasesScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(
+                    onClick = { selectedProduct?.let(viewModel::onFallbackPaymentClick) },
+                    enabled = !isStartingPayment,
+                ) {
+                    Text(
+                        text = "Оплатить резервным способом",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
             }
             }
         }
