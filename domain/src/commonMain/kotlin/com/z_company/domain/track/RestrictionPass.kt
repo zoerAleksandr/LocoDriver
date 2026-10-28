@@ -80,6 +80,12 @@ data class RestrictionPass(
     /** Запись снята с поезда (надгробие для синхронизации). */
     val isDeleted: Boolean = false,
 ) {
+    /**
+     * У записи есть участок с осью, поэтому заход/выход ловятся автоматически. [NO_SECTION] - ограничение добавлено без профиля участка
+     * (не нашёлся/не загрузился/нет сети): в журнале и отчёте оно есть, но данные проследования не пишутся.
+     */
+    val tracked: Boolean get() = sectionId != NO_SECTION
+
     val status: RestrictionStatus
         get() = when {
             enterAt == null -> RestrictionStatus.PLANNED
@@ -98,6 +104,9 @@ data class RestrictionPass(
     }
 
     companion object {
+        /** Значение `sectionId` для ограничения без участка (id участка - строка, непустая: так требует и серверный контракт). */
+        const val NO_SECTION = "none"
+
         /** Допуск превышения: GPS-скорость шумит на 1-2 км/ч, меньшее превышение не считается нарушением. */
         const val EXCEED_TOLERANCE_KMH = 1.0
 

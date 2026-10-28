@@ -610,19 +610,19 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, onSel
                         StripButton("Настройки профиля", { showSettings = true }) { PstIcon(PstIcons.Settings, 20.dp, Pst.text) }
                     }
                 }
-                // «Предупреждения»: видна всегда; без выбранного участка - пояснение вместо окна.
+                // «ДУ-61» (предупреждения): видна всегда; без выбранного участка - пояснение вместо окна.
                 val canWarn = model.canEditWarnings
                 Box(
                     modifier = Modifier
                         .size(38.dp)
                         .background(if (model.activeWarnings.isNotEmpty()) WarningYellow else Pst.bgSubtle, RoundedCornerShape(12.dp))
-                        .clickable(onClickLabel = "Предупреждения") { if (canWarn) showWarnings = true else warnHint = !warnHint },
+                        .clickable(onClickLabel = "ДУ-61") { if (canWarn) showWarnings = true else warnHint = !warnHint },
                     contentAlignment = Alignment.Center,
                 ) { PstIcon(PstIcons.Warning, 20.dp, if (canWarn) Pst.text else Pst.textMuted) }
             }
             if (warnHint && !model.canEditWarnings) {
                 Text(
-                    text = "Чтобы добавить предупреждения, выберите участок.",
+                    text = "Чтобы добавить ДУ-61, выберите участок.",
                     style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 15.sp),
                     color = Pst.text,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).fillMaxWidth()

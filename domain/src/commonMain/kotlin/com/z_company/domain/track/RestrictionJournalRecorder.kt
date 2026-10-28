@@ -168,10 +168,11 @@ class RestrictionJournalRecorder(
             cacheTrain = trainId
             cacheAt = now
         }
-        if (cache.isEmpty()) return
+        if (cache.none { it.tracked }) return
         val trainLengthM = lengthM()
         val lengthKm = trainLengthM?.takeIf { it > 0 }?.let { it / 1000.0 }
-        val bySection = cache.groupBy { it.sectionId }
+        // Ограничения без участка (нет профиля) автоматически не отслеживаются.
+        val bySection = cache.filter { it.tracked }.groupBy { it.sectionId }
         for ((sectionId, entries) in bySection) {
             val st = stateFor(sectionId, now) ?: continue
             val pos = st.live.onFix(p.timeMs, p.latitude, p.longitude, p.speedKmh, p.accuracyM)

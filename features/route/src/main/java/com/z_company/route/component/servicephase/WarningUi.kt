@@ -146,7 +146,7 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
             WarningScreen {
                 val titleBlock: @Composable (Modifier) -> Unit = { m ->
                     Column(m) {
-                        Text("Предупреждения", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+                        Text("ДУ-61", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
                         Text(
                             text = section.name + if (added > 0) " · добавлено: $added" else "",
                             style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -367,7 +367,7 @@ private fun WarningForm(
     val portrait = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
     val titleBlock: @Composable (Modifier) -> Unit = { m ->
         Column(m) {
-            Text(if (existing != null) "Предупреждение" else "Новое предупреждение", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+            Text(if (existing != null) "ДУ-61: предупреждение" else "ДУ-61: новое предупреждение", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
             Text(place.title, style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
@@ -433,9 +433,9 @@ internal fun WarningOfferDialog(model: ProfileModel) {
     var checked by remember(section.id) { mutableStateOf(offer.map { it.id }.toSet()) }
     Dialog(onDismissRequest = { model.answerOffer(emptySet()) }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         WarningPanel(widthFraction = 0.9f, fill = false) {
-            Text("Предупреждения на участке", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+            Text("ДУ-61 на участке", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
             Text(
-                "На участке «${section.name}» уже были предупреждения. Применить их на этом проезде?",
+                "На участке «${section.name}» уже были записи ДУ-61. Применить их на этом проезде?",
                 style = Pst.sans.copy(fontSize = 13.sp), color = Pst.textMuted,
             )
             LazyColumn(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -475,7 +475,7 @@ internal fun WarningVoiceDialog(model: ProfileModel, onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         WarningPanel(widthFraction = 0.75f) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Голос предупреждений", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, modifier = Modifier.weight(1f))
+                Text("Голос ДУ-61", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, modifier = Modifier.weight(1f))
                 PstButton("Проверить", { model.testVoice() }, kind = PstButtonKind.TONAL, height = 40.dp, fontSize = 14)
                 PstButton("Готово", onDismiss, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
             }

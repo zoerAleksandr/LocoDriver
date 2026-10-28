@@ -234,4 +234,56 @@ class RestrictionJournalTest {
         assertEquals(RestrictionStatus.DONE, a.status)
         assertEquals(7_000L, a.exitAt) // нет фикса в памяти - время последнего обновления записи
     }
+
+    // --- Подбор участка по плечу и ограничения без участка (28.10.2026) ---
+
+    private fun sectionWithStations(stations: List<SectionStation>) = section.copy(stations = stations)
+
+    @Test
+    fun leg_candidates_strict_by_station_names() {
+        val s = sectionWithStations(listOf(SectionStation(0.0, "Лужская"), SectionStation(20.0, "Луга")))
+        val other = sectionWithStations(listOf(SectionStation(0.0, "Мга"), SectionStation(20.0, "Ульяновка"))).copy(id = "other")
+        val r = LegMatch.candidates(listOf(s, other), "Лужская", "Луга", null, null)
+        assertEquals(listOf("s1"), r.map { it.id })
+    }
+
+    @Test
+    fun leg_candidates_fall_back_to_axis_near_both_ends_when_names_differ() {
+        // на оси станции записаны иначе («Луга I»): строго не находится, как «ближайший» на карте - находится по близости оси
+        val s = sectionWithStations(listOf(SectionStation(0.0, "Лужская-1"), SectionStation(20.0, "Луга I")))
+        val far = sectionWithStations(emptyList()).copy(id = "far", axis = SectionAxis("far", "h", (0..20).map { AxisPoint(it.toDouble(), 57.0 + it * latPerKm, 31.0) }))
+        val from = 55.0 + 1 * latPerKm to lon
+        val to = 55.0 + 19 * latPerKm to lon
+        assertTrue(LegMatch.candidates(listOf(s, far), "Лужская", "Луга", null, null).isEmpty())
+        assertEquals(listOf("s1"), LegMatch.candidates(listOf(s, far), "Лужская", "Луга", from, to).map { it.id })
+        // строгое совпадение имеет приоритет и мягкий поиск не подмешивается
+        val strict = sectionWithStations(listOf(SectionStation(0.0, "Лужская"), SectionStation(20.0, "Луга"))).copy(id = "strict")
+        assertEquals(listOf("strict"), LegMatch.candidates(listOf(s, strict), "Лужская", "Луга", from, to).map { it.id })
+    }
+
+    private fun untracked(at: Long? = null) = warning().copy(
+        warningId = "u1", sectionId = RestrictionPass.NO_SECTION, startAbsKm = 138.0, endAbsKm = 139.4, enterAt = at, updatedAt = 5L,
+    )
+
+    @Test
+    fun untracked_restriction_is_skipped_by_detector_and_does_not_block_report() {
+        val store = InMemoryRestrictionJournalStore().also { it.upsert(untracked()) }
+        var clock = 0L
+        val r = RestrictionJournalRecorder(store, { error("участок без профиля не запрашивается") }, nowMs = { clock += 5_000; clock })
+        drive(r, 8.0, 13.0, { 50.0 }, lengthM = 500)
+        val e = store.get("t1", "u1")!!
+        assertEquals(RestrictionStatus.PLANNED, e.status)
+        assertEquals(null, e.enterAt)
+        assertFalse(e.tracked)
+        // отчёт: непроследованное без участка не блокирует, но показывается в строках
+        val tracked = warning().copy(warningId = "w2", enterAt = 1, exitAt = 2)
+        assertTrue(RestrictionReport.isReady(listOf(tracked, untracked())))
+        assertEquals(0, RestrictionReport.remaining(listOf(tracked, untracked())))
+        assertTrue(RestrictionReport.isReady(listOf(untracked())))
+        assertFalse(RestrictionReport.isReady(listOf(warning().copy(warningId = "w3"), untracked())))
+        val rows = RestrictionReport.rows(listOf(untracked()), "UTC")
+        assertTrue(rows.single().untracked)
+        assertTrue(rows.single().enter.startsWith("не отслеживается автоматически"))
+        assertEquals("—", rows.single().exit)
+    }
 }
