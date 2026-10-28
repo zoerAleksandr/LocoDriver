@@ -152,11 +152,7 @@ internal fun TrainRestrictionsScreen(
             Text(hint, style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted)
             // Порядок по ходу движения: места плеча (станции и перегоны) по порядку станций плеча; ограничения без места плеча - в конце.
             val order = remember(stops, legFrom, legTo) { stops.map { it.name }.filter { it.isNotBlank() }.ifEmpty { listOfNotNull(legFrom, legTo) } }
-            val sorted = remember(entries, order) {
-                entries.filter { !it.isDeleted }.sortedWith(
-                    compareBy<RestrictionPass>({ locationKey(it.place, order) }, { it.startAbsKm ?: Double.MAX_VALUE }, { it.enterAt ?: Long.MAX_VALUE }, { it.updatedAt }),
-                )
-            }
+            val sorted = remember(entries, order) { sortRestrictions(entries, order) }
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(sorted, key = { it.warningId }) { e ->
                     val row = RestrictionReport.rows(listOf(e), zone).first()
@@ -181,12 +177,7 @@ internal fun TrainRestrictionsScreen(
             existing = e.toWarning(),
             kmRequired = e.startAbsKm != null || !e.tracked,
             onSave = { w ->
-                runCatching {
-                    val updated = e.withWarning(w, maxOf(System.currentTimeMillis(), e.updatedAt + 1))
-                    if (e.tracked && updated.sectionId == RestrictionPass.NO_SECTION) warningStore.removeEverywhere(e.sectionId, e.warningId)
-                    else if (e.tracked) warningStore.updateEverywhere(w)
-                    store.upsert(updated)
-                }
+                runCatching { applyRestrictionEdit(store, warningStore, e, w, System.currentTimeMillis()) }
                 editing = null
                 upload.trigger()
                 null
@@ -220,29 +211,52 @@ internal fun TrainRestrictionsScreen(
 }
 
 @Composable
-private fun RestrictionCard(row: RestrictionReport.Row, e: RestrictionPass) {
+internal fun RestrictionCard(row: RestrictionReport.Row, e: RestrictionPass) {
     val isSpeed = e.kind == "speed"
-    Column(
-        modifier = Modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(14.dp)).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp),
+    RestrictionItem(
+        place = row.place.ifBlank { row.title }, limit = row.limit.takeIf { isSpeed }, exceeded = row.exceeded, kmText = row.kmText,
+        boldTitle = row.title.takeIf { !isSpeed },
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                row.place.ifBlank { row.title }, style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = Pst.text,
-                modifier = Modifier.weight(1f), maxLines = 2,
-            )
-            val limit = row.limit
-            if (isSpeed && limit != null) {
-                Text(limit, style = Pst.mono.copy(fontSize = 15.sp, fontWeight = FontWeight.Bold), color = if (row.exceeded) Pst.danger else Pst.text)
-            }
-        }
-        row.kmText?.let { Text(it, style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted) }
-        // Опускание, выключение тока, прочее: жирным вид (для прочего - текст предупреждения).
-        if (!isSpeed) Text(row.title, style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold), color = Pst.text)
         // Данные проследования - когда они уже есть.
         if (!row.untracked && e.enterAt != null) {
             Text("Заход головой: ${row.enter}", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.text)
             if (isSpeed && e.exitAt != null) Text("Выход составом: ${row.exit}", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.text)
+        }
+    }
+}
+
+/** Карточка ограничения - общая для «Ограничений поезда» и списка добавленных на экране ДУ-61 (профиль пути, карта). */
+@Composable
+internal fun RestrictionItem(
+    place: String,
+    limit: String?,
+    exceeded: Boolean,
+    kmText: String?,
+    boldTitle: String?,
+    modifier: Modifier = Modifier,
+    leading: (@Composable () -> Unit)? = null,
+    extra: @Composable () -> Unit = {},
+) {
+    Row(
+        modifier = modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(14.dp)).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        leading?.invoke()
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    place, style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = Pst.text,
+                    modifier = Modifier.weight(1f), maxLines = 2,
+                )
+                if (limit != null) {
+                    Text(limit, style = Pst.mono.copy(fontSize = 15.sp, fontWeight = FontWeight.Bold), color = if (exceeded) Pst.danger else Pst.text)
+                }
+            }
+            kmText?.let { Text(it, style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted) }
+            // Опускание, выключение тока, прочее: жирным вид (для прочего - текст предупреждения).
+            if (boldTitle != null) Text(boldTitle, style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold), color = Pst.text)
+            extra()
         }
     }
 }
@@ -300,7 +314,27 @@ private fun RestrictionAddHost(
 }
 
 /** Положение места на плече по ходу движения: станция - её номер среди станций плеча, перегон - между номерами концов; нет на плече - в конец. */
-private fun locationKey(place: String, order: List<String>): Double {
+/** Порядок ограничений поезда по ходу движения: место на плече, затем км начала, время захода; общий для «Ограничений поезда» и экрана ДУ-61. */
+internal fun sortRestrictions(entries: List<RestrictionPass>, order: List<String>): List<RestrictionPass> =
+    entries.filter { !it.isDeleted }.sortedWith(
+        compareBy<RestrictionPass>({ locationKey(it.place, order) }, { it.startAbsKm ?: Double.MAX_VALUE }, { it.enterAt ?: Long.MAX_VALUE }, { it.updatedAt }),
+    )
+
+/** Правка ограничения поезда формой ДУ-61: журнал поезда и история участка обновляются одинаково из любого экрана. */
+internal fun applyRestrictionEdit(
+    store: RestrictionJournalStore,
+    warningStore: TrackWarningStore,
+    e: RestrictionPass,
+    w: TrackWarning,
+    nowMs: Long,
+) {
+    val updated = e.withWarning(w, maxOf(nowMs, e.updatedAt + 1))
+    if (e.tracked && updated.sectionId == RestrictionPass.NO_SECTION) warningStore.removeEverywhere(e.sectionId, e.warningId)
+    else if (e.tracked) warningStore.updateEverywhere(w)
+    store.upsert(updated)
+}
+
+internal fun locationKey(place: String, order: List<String>): Double {
     val names = place.split(" — ").map { it.trim() }.filter { it.isNotEmpty() }
     val idx = names.mapNotNull { n -> order.indexOfFirst { com.z_company.domain.track.SectionPicker.sameStation(it, n) }.takeIf { it >= 0 } }
     return when {
@@ -310,7 +344,7 @@ private fun locationKey(place: String, order: List<String>): Double {
     }
 }
 
-private fun RestrictionPass.toWarning() = TrackWarning(
+internal fun RestrictionPass.toWarning() = TrackWarning(
     id = warningId, sectionId = sectionId, startAbsKm = startAbsKm, endAbsKm = endAbsKm, startRelKm = startRelKm, endRelKm = endRelKm,
     type = WarningType.entries.firstOrNull { com.z_company.domain.track.RestrictionKind.of(it) == kind } ?: WarningType.OTHER,
     speedKmh = limitKmh, note = note, place = place,
@@ -320,7 +354,7 @@ private fun RestrictionPass.toWarning() = TrackWarning(
  * Запись с правками из формы. Километры изменились у записи с участком - ось-привязка (км оси) устарела: запись становится «без участка»
  * и подцепится заново при открытии профиля пути (данные проследования, если были, остаются).
  */
-private fun RestrictionPass.withWarning(w: TrackWarning, nowMs: Long): RestrictionPass {
+internal fun RestrictionPass.withWarning(w: TrackWarning, nowMs: Long): RestrictionPass {
     val kmChanged = w.startAbsKm != startAbsKm || w.endAbsKm != endAbsKm
     val untrack = tracked && kmChanged
     return copy(

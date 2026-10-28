@@ -1124,7 +1124,8 @@ internal fun TrainMapScreen(
                 ?.setProperties(PropertyFactory.visibility(if (bodyShown) Property.NONE else Property.VISIBLE))
         }
         // Предупреждения на участке: жёлтая линия по рельсам подложки (ось участка редкая и уходит с путей) и карточка-подпись.
-        val warnings = profileModel.activeWarnings
+        val warnings = profileModel.mapWarnings
+        val warnKey = warnings.map { (sec, r) -> Triple(sec.id, r.warning, r.fromKm to r.toKm) }
         var warnRails by remember { mutableStateOf<List<List<Pair<Double, Double>>>>(emptyList()) }
         DisposableEffect(map, warnings.isNotEmpty()) {
             val on = warnings.isNotEmpty()
@@ -1144,16 +1145,15 @@ internal fun TrainMapScreen(
                 mapView.removeOnDidBecomeIdleListener(mapIdle)
             }
         }
-        LaunchedEffect(styleGen, styleReady, warnings, bodyLive, warnRails) {
+        LaunchedEffect(styleGen, styleReady, warnKey, warnRails) {
             if (!styleReady) return@LaunchedEffect
             val st = map?.style ?: return@LaunchedEffect
             val lines = st.getSourceAs<GeoJsonSource>(TRAIN_WARN_SOURCE) ?: return@LaunchedEffect
             val labels = st.getSourceAs<GeoJsonSource>(TRAIN_WARN_LABEL_SOURCE) ?: return@LaunchedEffect
-            val live = bodyLive
-            val axis = live?.section?.axis?.points
             val lineFeatures = ArrayList<Feature>()
             val labelFeatures = ArrayList<Feature>()
-            if (axis != null) warnings.forEach { r ->
+            warnings.forEach { (sec, r) ->
+                val axis = sec.axis.points
                 val lenKm = (r.toKm - r.fromKm).coerceAtLeast(0.0)
                 val step = (lenKm / 40).coerceIn(0.005, 0.02)
                 val path = com.z_company.domain.track.AxisSlice.smooth(axis, r.fromKm, r.toKm, step)
@@ -1391,7 +1391,13 @@ internal fun TrainMapScreen(
         // Планирование прибытия: расстояние до точки плана по линии пересчитывается раз в ~5 с (тик nowMs) и с первым положением.
         val planTarget = plan?.target
         val planDistance = remember(planTarget, railLineNow, nowMs, alongFix != null) {
-            planTarget?.let { ArrivalPlan.distance(railLineNow, alongFix, it) }
+            planTarget?.let { t ->
+                val byLine = ArrivalPlan.distance(railLineNow, alongFix, t)
+                // Линия плеча не дала расстояния - по режимной карте (станции и положение на ней известны).
+                if (byLine is ArrivalPlan.PlanDistance.OffRail || byLine is ArrivalPlan.PlanDistance.NoLine || byLine is ArrivalPlan.PlanDistance.NoFix) {
+                    profileModel.axisDistanceTo(t)?.let { ArrivalPlan.PlanDistance.Ahead(it) } ?: byLine
+                } else byLine
+            }
         }
         // Точка достигнута/пройдена, не лежит на линии (сменили плечо) или план устарел - снять.
         LaunchedEffect(planDistance, plan, nowMs) {
@@ -1939,7 +1945,10 @@ internal fun TrainMapScreen(
             }
 
             if (showSpeedEta && !viewOnly) {
-                val etaAhead = remember(stops, railLineNow, nowMs, alongFix) { ArrivalPlan.stopsAhead(stops, railLineNow, alongFix) }
+                val etaAhead = remember(stops, railLineNow, nowMs, alongFix) {
+                    // Линия плеча не дала расстояний (положение дальше 50 м от неё, линии нет) - считаем по режимной карте.
+                    ArrivalPlan.stopsAhead(stops, railLineNow, alongFix).ifEmpty { profileModel.axisStopsAhead(stops) }
+                }
                 val openSpeed = remember { if (liveFresh) liveSpeed else null }
                 TrainMapSpeedEtaScreen(
                     ahead = etaAhead,
@@ -1950,7 +1959,11 @@ internal fun TrainMapScreen(
                 )
             }
             if (showTarget && !viewOnly) {
-                val targetAhead = remember(stops, railLineNow, nowMs, alongFix) { ArrivalPlan.stopsAhead(stops, railLineNow, alongFix) }
+                val targetAhead = remember(stops, railLineNow, nowMs, alongFix) {
+                    val byLine = ArrivalPlan.targetStops(stops, railLineNow, alongFix)
+                    if (byLine.any { it.distanceM != null }) byLine
+                    else profileModel.axisStopsAhead(stops).map { ArrivalPlan.TargetStop(it.target, it.distanceM) }.ifEmpty { byLine }
+                }
                 TrainMapTargetScreen(
                     ahead = targetAhead,
                     plan = plan,

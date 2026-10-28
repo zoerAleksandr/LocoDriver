@@ -47,7 +47,7 @@ import com.z_company.domain.util.TimeMask
  */
 @Composable
 internal fun TrainMapTargetScreen(
-    ahead: List<ArrivalPlan.StopAhead>,
+    ahead: List<ArrivalPlan.TargetStop>,
     plan: ArrivalPlanData?,
     preselect: PlanTarget?,
     distanceM: Double?,
@@ -99,7 +99,7 @@ internal fun TrainMapTargetScreen(
 }
 
 @Composable
-private fun TargetList(ahead: List<ArrivalPlan.StopAhead>, onPick: (PlanTarget) -> Unit) {
+private fun TargetList(ahead: List<ArrivalPlan.TargetStop>, onPick: (PlanTarget) -> Unit) {
     PstGroupHead(TrainMapPlanTexts.STEP1)
     if (ahead.isEmpty()) {
         PstNote(TrainMapPlanTexts.NO_STOPS)
@@ -115,13 +115,13 @@ private fun TargetList(ahead: List<ArrivalPlan.StopAhead>, onPick: (PlanTarget) 
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
-                    a.stop.name.ifBlank { TrainMapPlanTexts.DEFAULT_TITLE },
+                    a.target.name.orEmpty().ifBlank { TrainMapPlanTexts.DEFAULT_TITLE },
                     style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
                     color = Pst.text,
                     maxLines = 2,
                     modifier = Modifier.weight(1f),
                 )
-                Text(TrainMapEta.distance(a.distanceM), style = Pst.mono.copy(fontSize = 13.sp), color = Pst.textMuted, maxLines = 1)
+                a.distanceM?.let { Text(TrainMapEta.distance(it), style = Pst.mono.copy(fontSize = 13.sp), color = Pst.textMuted, maxLines = 1) }
             }
             if (i < ahead.lastIndex) androidx.compose.material3.HorizontalDivider(color = Pst.border)
         }

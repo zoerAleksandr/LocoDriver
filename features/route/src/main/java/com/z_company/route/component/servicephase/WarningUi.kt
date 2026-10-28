@@ -45,6 +45,8 @@ import com.z_company.domain.track.SectionProfile
 import com.z_company.domain.track.TrackWarning
 import com.z_company.domain.track.TrackWarnings
 import com.z_company.domain.track.WarningType
+import com.z_company.domain.track.RestrictionPass
+import com.z_company.domain.track.RestrictionReport
 import java.util.UUID
 
 /** Станция или перегон участка, из которого создаётся предупреждение; [startKm]/[endKm] - км оси (у станции равны). */
@@ -148,6 +150,15 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
     if (live == null) { onDismiss(); return }
     val section = live.section
     var place by remember { mutableStateOf<WarningPlace?>(null) }
+    var editing by remember { mutableStateOf<TrackWarning?>(null) }
+    var toRemove by remember { mutableStateOf<RestrictionPass?>(null) }
+    var editingOther by remember { mutableStateOf<RestrictionPass?>(null) }
+    var toForget by remember { mutableStateOf<TrackWarning?>(null) }
+    val zone = remember { java.util.TimeZone.getDefault().id }
+    val order = remember(model.stopPoints) { model.stopPoints.map { it.name }.filter { it.isNotBlank() } }
+    // Действующие - весь список поезда (его же показывает «Ограничения поезда»), не только то, что лежит на этом участке.
+    val active = sortRestrictions(model.trainRestrictions, order)
+    val past = model.pastWarnings
     var added by remember { mutableStateOf(0) }
     val places = remember(section.id, live.reversed, model.stopPoints) { warningPlaces(section, live.reversed, model.stopPoints) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
@@ -156,7 +167,7 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
         val p = place
         WarningScreen {
             val titleBlock: @Composable (Modifier) -> Unit = { m ->
-                Column(m) {
+                Column(m, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("ДУ-61", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
                     Text(
                         text = section.name + if (added > 0) " · добавлено: $added" else "",
@@ -180,10 +191,23 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
             // Плечо поезда: то же, что в «Поезде» и «Ограничениях поезда» (выбор плеча, пометка «проверено на карте», кнопка «Определить»).
             if (leg != null) LegBlock(leg)
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (model.savedWarnings.isNotEmpty()) {
-                    item { SmallCaps("ДОБАВЛЕННЫЕ — галочка «Действующие»") }
-                    items(model.savedWarnings, key = { it.id }) { w ->
-                        SavedWarningRow(model, section, w)
+                if (active.isNotEmpty()) {
+                    item { SmallCaps("ДЕЙСТВУЮЩИЕ — общий список поезда, как в «Ограничениях поезда»") }
+                    items(active, key = { "a" + it.warningId }) { e ->
+                        val row = RestrictionReport.rows(listOf(e), zone).first()
+                        com.z_company.route.component.SwipeToRevealDelete(
+                            modifier = Modifier.fillMaxWidth(),
+                            onDeleteClick = { toRemove = e },
+                            onContentClick = { if (e.sectionId == section.id) editing = e.toWarning() else editingOther = e },
+                            backgroundVerticalPadding = 0.dp,
+                            itemKey = e.warningId,
+                        ) { _ -> RestrictionCard(row, e) }
+                    }
+                }
+                if (past.isNotEmpty()) {
+                    item { SmallCaps("ПРОШЛЫЕ НА ЭТОМ УЧАСТКЕ — нажмите, чтобы сделать действующим") }
+                    items(past, key = { "p" + it.id }) { w ->
+                        WarningItem(section, w, onClick = { model.activatePast(w.id) }, onDelete = { toForget = w })
                     }
                 }
                 item { SmallCaps("ВЫБЕРИТЕ СТАНЦИЮ ИЛИ ПЕРЕГОН") }
@@ -207,6 +231,42 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
             }
         }
         if (p != null) ProfileRestrictionForm(model, section, p, onBack = { place = null }, onSaved = { added++; place = null })
+        toRemove?.let { e ->
+            com.z_company.route.component.AppAlertDialog(
+                onDismissRequest = { toRemove = null },
+                title = "Убрать ограничение из поезда?",
+                text = if (e.hasData) "Записанные время и скорость проследования будут удалены." else "Ограничение останется в прошлых ограничениях участка.",
+                confirmText = "Убрать", isDestructive = true, dismissText = "Отмена",
+                onConfirm = { toRemove = null; model.deleteWarning(e.warningId) },
+            )
+        }
+        editingOther?.let { e ->
+            // Ограничение на другом участке плеча (или без участка): правится той же шторкой и тем же путём, что в «Ограничениях поезда».
+            RestrictionFormSheet(
+                sectionId = e.sectionId,
+                place = e.place,
+                existing = e.toWarning(),
+                kmRequired = e.startAbsKm != null || !e.tracked,
+                onSave = { w -> model.saveJournalEdit(e, w); editingOther = null; null },
+                onDelete = { toRemove = e; editingOther = null },
+                onDismiss = { editingOther = null },
+            )
+        }
+        toForget?.let { w ->
+            com.z_company.route.component.AppAlertDialog(
+                onDismissRequest = { toForget = null },
+                title = "Удалить из прошлых?",
+                text = "Запись ДУ-61 будет стёрта из истории участка.",
+                confirmText = "Удалить", isDestructive = true, dismissText = "Отмена",
+                onConfirm = { toForget = null; model.forgetPast(w.id) },
+            )
+        }
+        editing?.let { e ->
+            ProfileRestrictionForm(
+                model, section, WarningPlace(e.place, e.startRelKm, e.endRelKm, false), existing = e,
+                onBack = { editing = null }, onSaved = { editing = null },
+            )
+        }
     }
 }
 
@@ -277,27 +337,22 @@ private fun SmallCaps(text: String) {
     Text(text, style = Pst.mono.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted, modifier = Modifier.padding(top = 6.dp))
 }
 
+/** Элемент ограничения участка: тот же `RestrictionItem` и тот же свайп-удаление, что в «Ограничениях поезда»; нажатие - [onClick]. */
 @Composable
-private fun SavedWarningRow(model: ProfileModel, section: SectionProfile, w: TrackWarning) {
-    Row(
-        modifier = Modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(12.dp)).padding(start = 6.dp, end = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        val locked = model.isWarningLocked(w.id)
-        Checkbox(checked = model.isWarningActive(w.id), enabled = !locked, onCheckedChange = { model.setWarningActive(w.id, it) })
-        Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
-            Text(
-                w.label,
-                style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                "${w.place} · ${kmText(section, w)}",
-                style = Pst.sans.copy(fontSize = 11.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Text(
-            "Удалить", style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold), color = Pst.danger,
-            modifier = Modifier.clickable { model.deleteWarning(w.id) }.padding(8.dp),
+private fun WarningItem(section: SectionProfile, w: TrackWarning, onClick: () -> Unit, onDelete: () -> Unit) {
+    com.z_company.route.component.SwipeToRevealDelete(
+        modifier = Modifier.fillMaxWidth(),
+        onDeleteClick = onDelete,
+        onContentClick = onClick,
+        backgroundVerticalPadding = 0.dp,
+        itemKey = w.id,
+    ) { _ ->
+        RestrictionItem(
+            place = w.place.ifBlank { w.label },
+            limit = if (w.type == WarningType.SPEED) w.speedKmh?.let { "$it км/ч" } else null,
+            exceeded = false,
+            kmText = kmText(section, w),
+            boldTitle = w.label.replaceFirstChar { it.uppercase() }.takeIf { w.type != WarningType.SPEED },
         )
     }
 }
@@ -342,7 +397,7 @@ private fun ProfileRestrictionForm(
                 }
             }
         },
-        onDelete = existing?.let { e -> { model.deleteWarning(e.id); onSaved() } },
+        onDelete = existing?.let { e -> { if (model.isWarningActive(e.id)) model.deleteWarning(e.id) else model.forgetPast(e.id); onSaved() } },
         onDismiss = onBack,
     )
 }
@@ -452,6 +507,18 @@ private fun SettingBlock(title: String, content: @Composable () -> Unit) {
 /** Редактирование предупреждения по нажатию на карточку на карте или на зону на профиле (окно открывает [ProfileModel.editWarning]). */
 @Composable
 internal fun WarningEditDialog(model: ProfileModel) {
+    model.editingEntry?.let { e ->
+        RestrictionFormSheet(
+            sectionId = e.sectionId,
+            place = e.place,
+            existing = e.toWarning(),
+            kmRequired = e.startAbsKm != null || !e.tracked,
+            onSave = { w -> model.saveJournalEdit(e, w); model.closeWarningEdit(); null },
+            onDelete = { model.removeEntry(e) },
+            onDismiss = { model.closeWarningEdit() },
+        )
+        return
+    }
     val w = model.editingWarning ?: return
     val section = model.section ?: return
     ProfileRestrictionForm(

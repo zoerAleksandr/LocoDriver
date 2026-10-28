@@ -23,6 +23,11 @@ internal class TrackWarningStore(context: Context) {
         (0 until arr.length()).map { fromJson(sectionId, arr.getJSONObject(it)) }
     }.getOrDefault(emptyList())
 
+    /** История участка: предупреждения всех ключей (плечо/направление) участка без повторов. */
+    fun loadAll(sectionId: String): List<TrackWarning> = runCatching {
+        prefs.all.keys.filter { it == sectionId || it.startsWith("$sectionId|") }.flatMap { load(it, sectionId) }.distinctBy { it.id }
+    }.getOrDefault(emptyList())
+
     fun save(key: String, list: List<TrackWarning>) {
         runCatching {
             if (list.isEmpty()) prefs.edit().remove(key).apply()
@@ -38,7 +43,7 @@ internal class TrackWarningStore(context: Context) {
 
     private fun mutateEverywhere(sectionId: String, change: (List<TrackWarning>) -> List<TrackWarning>) {
         runCatching {
-            prefs.all.keys.filter { it.startsWith("$sectionId|") }.forEach { key ->
+            prefs.all.keys.filter { it == sectionId || it.startsWith("$sectionId|") }.forEach { key ->
                 val before = load(key, sectionId)
                 val after = change(before)
                 if (after != before) save(key, after)

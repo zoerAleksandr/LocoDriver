@@ -116,6 +116,21 @@ object ArrivalPlan {
         }
     }
 
+    /** Станция плеча в списке выбора цели; [distanceM] - расстояние вдоль линии, null - положение не на линии (расстояния нет). */
+    data class TargetStop(val target: PlanTarget, val distanceM: Double?)
+
+    /**
+     * Станции для выбора цели. Положение на линии - станции впереди с расстоянием ([stopsAhead]). Вне путей, без GPS или без линии
+     * станции плеча всё равно известны, поэтому показываются все (по порядку плеча), без расстояния.
+     */
+    fun targetStops(stops: List<TrainMapStop>, line: List<Pair<Double, Double>>?, fix: GeoFix?): List<TargetStop> {
+        val onLine = line != null && line.size >= 2 && fix != null &&
+            TrainMapRoute.project(line, TrainMapRoute.cumulativeM(line), fix.latitude, fix.longitude)
+                ?.let { it.offsetM <= TrainMapRoute.SNAP_TOLERANCE_M } == true
+        if (onLine) return stopsAhead(stops, line, fix).map { TargetStop(it.target, it.distanceM) }
+        return stops.map { TargetStop(PlanTarget(it.latitude, it.longitude, it.name.takeIf { n -> n.isNotBlank() }), null) }
+    }
+
     /** Расстояние до точки плана в данный момент. */
     sealed interface PlanDistance {
         data class Ahead(val meters: Double) : PlanDistance
