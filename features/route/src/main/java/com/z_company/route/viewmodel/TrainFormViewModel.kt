@@ -593,6 +593,7 @@ class TrainFormViewModel(
                 id = t.trainId,
                 number = t.number,
                 lengthM = com.z_company.route.ui.conditionalLengthToMeters(t.conditionalLength, t.number, wagon),
+                routeId = t.basicId,
             )
         }
     }

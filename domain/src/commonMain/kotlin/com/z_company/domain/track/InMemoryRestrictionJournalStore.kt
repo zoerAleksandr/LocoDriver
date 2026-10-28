@@ -13,6 +13,8 @@ class InMemoryRestrictionJournalStore : RestrictionJournalStore {
 
     override fun get(trainId: String, warningId: String) = rows[trainId to warningId]?.takeIf { !it.isDeleted }
 
+    override fun peek(trainId: String, warningId: String) = rows[trainId to warningId]
+
     override fun upsert(pass: RestrictionPass) {
         rows[key(pass)] = pass
         dirty += key(pass)

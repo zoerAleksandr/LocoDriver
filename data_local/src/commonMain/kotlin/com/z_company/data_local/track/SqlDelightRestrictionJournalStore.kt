@@ -23,6 +23,9 @@ class SqlDelightRestrictionJournalStore(
     override fun get(trainId: String, warningId: String): RestrictionPass? =
         q.selectPass(trainId, warningId).executeAsOneOrNull()?.takeIf { it.isDeleted == 0L }?.let(::domain)
 
+    override fun peek(trainId: String, warningId: String): RestrictionPass? =
+        q.selectPass(trainId, warningId).executeAsOneOrNull()?.let(::domain)
+
     override fun upsert(pass: RestrictionPass) {
         write(pass, dirty = true)
     }

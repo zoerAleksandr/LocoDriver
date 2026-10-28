@@ -210,7 +210,8 @@ private fun SavedWarningRow(model: ProfileModel, section: SectionProfile, w: Tra
         modifier = Modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(12.dp)).padding(start = 6.dp, end = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Checkbox(checked = model.isWarningActive(w.id), onCheckedChange = { model.setWarningActive(w.id, it) })
+        val locked = model.isWarningLocked(w.id)
+        Checkbox(checked = model.isWarningActive(w.id), enabled = !locked, onCheckedChange = { model.setWarningActive(w.id, it) })
         Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
             Text(
                 w.label,

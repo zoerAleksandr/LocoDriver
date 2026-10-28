@@ -138,6 +138,9 @@ interface RestrictionJournalStore {
 
     fun get(trainId: String, warningId: String): RestrictionPass?
 
+    /** Как [get], но вместе с надгробием: нужно, чтобы новая запись не получила метку старее удаления. */
+    fun peek(trainId: String, warningId: String): RestrictionPass?
+
     /** Записать (вставка или замена) с пометкой «не отправлено на сервер». */
     fun upsert(pass: RestrictionPass)
 

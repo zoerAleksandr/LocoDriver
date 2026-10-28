@@ -327,6 +327,20 @@ fun FormTrainScreen(
             }
         }
 
+        // «Ограничения поезда»: журнал проследования, добавление предупреждений по плечу, PDF-отчёт (SCREEN_SPECS §6.9)
+        var showRestrictions by rememberSaveable { mutableStateOf(false) }
+        if (showRestrictions && currentTrain != null) {
+            val restrictionsZone by androidx.compose.runtime.produceState("GMT+3") { value = viewModel.trainMapZone() }
+            com.z_company.route.component.servicephase.TrainRestrictionsScreen(
+                trainId = currentTrain.trainId,
+                trainTitle = currentTrain.number?.takeIf { it.isNotBlank() }?.let { "Поезд № $it" } ?: "Поезд без номера",
+                legSelected = formUiState.selectedServicePhase != null,
+                stops = remember(formUiState.selectedServicePhase, formUiState.servicePhaseList.size) { viewModel.trainMapStops() },
+                trains = viewModel.trainMapTrains(),
+                zone = restrictionsZone,
+                onDismiss = { showRestrictions = false },
+            )
+        }
         // Карта поезда (SCREEN_SPECS §6.9)
         var showTrainMap by rememberSaveable { mutableStateOf(false) }
         if (showTrainMap) {
@@ -2233,6 +2247,7 @@ fun FormTrainScreen(
                     onBrakeCertificateClick()
                 },
                 vuAnchor = vuAnchor,
+                onRestrictionsClick = { showRestrictions = true },
                 onMapClick = {
                     onboardingHints.markShown(com.z_company.domain.onboarding.HintId.TRAIN_MAP)
                     showTrainMap = true
@@ -2299,13 +2314,14 @@ private fun TrainBottomAppBar(
     onAssistsClick: () -> Unit,
     onAddStationClick: () -> Unit,
     onMapClick: () -> Unit,
+    onRestrictionsClick: () -> Unit,
     onBrakeCertificateClick: () -> Unit,
     mapAnchor: com.z_company.route.component.CoachAnchor? = null,
     vuAnchor: com.z_company.route.component.CoachAnchor? = null,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
-        // Пять равных по ширине слотов (weight 1): центры кнопок равноудалены (шаг = ширина/4),
+        // Шесть равных по ширине слотов (weight 1): центры кнопок равноудалены (шаг = ширина/5),
         // большая «+» (самая правая) не нарушает шаг, т.к. центрируется в своём слоте.
         Row(
             modifier = Modifier
@@ -2340,6 +2356,15 @@ private fun TrainBottomAppBar(
                     contentDescription = "Карта",
                     active = false,
                     onClick = onMapClick,
+                )
+            }
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                TrainBottomIconButton(
+                    modifier = Modifier.width(48.dp),
+                    iconRes = com.z_company.route.R.drawable.ic_restriction_24,
+                    contentDescription = "Ограничения поезда",
+                    active = false,
+                    onClick = onRestrictionsClick,
                 )
             }
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
