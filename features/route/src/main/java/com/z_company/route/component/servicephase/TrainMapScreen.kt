@@ -1206,7 +1206,11 @@ internal fun TrainMapScreen(
                 mapView.removeOnDidBecomeIdleListener(mapIdle)
             }
         }
-        LaunchedEffect(styleGen, styleReady, warnKey, warnRails) {
+        // Ручная привязка профиля сдвигает положение поезда по км, а не зону: на плане зона рисуется там, где поезд входит в неё по
+        // профилю (и по записи журнала) - границы на оси смещаются на -поправку своего участка.
+        val calibrationStore = remember { ProfileCalibrationStore(context) }
+        val calibrationNow = profileModel.calibrationKm
+        LaunchedEffect(styleGen, styleReady, warnKey, warnRails, calibrationNow) {
             if (!styleReady) return@LaunchedEffect
             val st = map?.style ?: return@LaunchedEffect
             val lines = st.getSourceAs<GeoJsonSource>(TRAIN_WARN_SOURCE) ?: return@LaunchedEffect
@@ -1215,9 +1219,13 @@ internal fun TrainMapScreen(
             val labelFeatures = ArrayList<Feature>()
             warnings.forEach { (sec, r) ->
                 val axis = sec.axis.points
-                val lenKm = (r.toKm - r.fromKm).coerceAtLeast(0.0)
+                val shiftKm = calibrationStore.get(sec.id, sec.axisHash)
+                val axisLenKm = sec.axis.locator.lengthKm.takeIf { it > 0 } ?: sec.lengthKm
+                val fromKm = (r.fromKm - shiftKm).coerceIn(0.0, axisLenKm)
+                val toKm = (r.toKm - shiftKm).coerceIn(0.0, axisLenKm)
+                val lenKm = (toKm - fromKm).coerceAtLeast(0.0)
                 val step = (lenKm / 40).coerceIn(0.005, 0.02)
-                val path = com.z_company.domain.track.AxisSlice.smooth(axis, r.fromKm, r.toKm, step)
+                val path = com.z_company.domain.track.AxisSlice.smooth(axis, fromKm, toKm, step)
                 if (path.size < 2) return@forEach
                 val snapped = RailSnap.snap(path, warnRails, step * 1000)
                 val segments = snapped.ifEmpty { listOf(path) }
@@ -1480,6 +1488,18 @@ internal fun TrainMapScreen(
                 rs is ServicePhaseAutoFillViewModel.RailLineResult.Failed
             if (hasRoute && RailRefetch.shouldRefetch(wasOnline, online, cachedOrFailed)) loadAttempt++
             wasOnline = online
+        }
+
+        // Слабый интернет: связь «есть», перехода офлайн->онлайн нет, поэтому линия из кэша / не построенная сама не обновлялась
+        // до повторного входа. Пока так - повторяем запрос раз в RAIL_RETRY_MS (при успехе плашка исчезает сама).
+        LaunchedEffect(railState, loadAttempt, hasRoute, online) {
+            if (!hasRoute || !online || viewOnly) return@LaunchedEffect
+            val rs = railState
+            val stale = (rs is ServicePhaseAutoFillViewModel.RailLineResult.Ok && rs.fromCache) ||
+                rs is ServicePhaseAutoFillViewModel.RailLineResult.Failed
+            if (!stale) return@LaunchedEffect
+            delay(RAIL_RETRY_MS)
+            loadAttempt++
         }
 
         // Возврат в слежение: через FollowReturn.RETURN_DELAY_MS без касаний камера снова ведётся за положением
@@ -2341,6 +2361,7 @@ private const val TRACK_REDRAW_MIN_MS = 2_000L
 /** Поиск участка съезда на соседний путь выполняется не чаще, мс. */
 private const val DEVIATION_CHECK_MIN_MS = 5_000L
 /** Перестроение пунктира впереди: не чаще, не ближе по пути и допуск начала новой линии от положения. */
+private const val RAIL_RETRY_MS = 30_000L
 private const val REROUTE_MIN_MS = 15_000L
 private const val REROUTE_MIN_MOVE_M = 150.0
 private const val REROUTE_START_M = 80.0

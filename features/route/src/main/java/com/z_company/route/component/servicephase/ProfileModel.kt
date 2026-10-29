@@ -818,11 +818,13 @@ internal class ProfileModel(
         return if (trainFlipped) live.window(behindKm, maxOf(aheadKm, room)) else live.window(maxOf(behindKm, room), aheadKm)
     }
 
-    /** Мини-профиль: весь поезд у правого края ленты (при развороте хвост справа от головы - край за хвостом). */
+    /**
+     * Мини-профиль: поезд целиком у ближнего к хвосту края ленты, остальная ширина - профиль впереди по ходу
+     * (при развороте хвост справа от головы - запас справа, впереди слева).
+     */
     fun stripWindow(live: LiveProfile, widthKm: Double): ProfileWindow {
-        val margin = 0.1
-        val ahead = if (trainFlipped) (trainLengthKm ?: 0.0) + margin else margin
-        return live.window(widthKm - ahead, ahead)
+        val tailSide = ((trainLengthKm ?: 0.0) + 0.15).coerceIn(0.3, widthKm / 2)
+        return if (trainFlipped) live.window(widthKm - tailSide, tailSide) else live.window(tailSide, widthKm - tailSide)
     }
 
     fun toggleDirection() {

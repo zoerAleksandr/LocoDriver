@@ -140,7 +140,11 @@ internal fun ProfileStrip(
     ) {
         val live = model.live
         val reason = model.emptyReason
-        Column(Modifier.weight(1f).fillMaxHeight().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(
+            Modifier.weight(1f).fillMaxHeight().padding(vertical = 6.dp)
+                .clickable(enabled = reason == null && live != null, onClickLabel = "Профиль пути на весь экран", onClick = onExpand),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
             if (reason == null && live != null) {
                 val pos = model.position
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -156,7 +160,7 @@ internal fun ProfileStrip(
                         Text(it, style = Pst.mono.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, maxLines = 1)
                     }
                 }
-                ProfileChart(model, model.stripWindow(live, STRIP_BEHIND_KM + STRIP_AHEAD_KM), detailed = false, modifier = Modifier.weight(1f).fillMaxWidth().clickable(onClickLabel = "Профиль пути на весь экран", onClick = onExpand))
+                ProfileChart(model, model.stripWindow(live, STRIP_BEHIND_KM + STRIP_AHEAD_KM), detailed = false, modifier = Modifier.weight(1f).fillMaxWidth())
             } else {
                 Text("ПРОФИЛЬ ПУТИ", style = Pst.mono.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted)
                 Text(emptyText(model), style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 15.sp), color = Pst.textMuted, maxLines = 3, overflow = TextOverflow.Ellipsis)
