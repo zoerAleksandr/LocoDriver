@@ -189,14 +189,32 @@ fun Route.buildTieredTrainSurchargeSegments(
     val result = List(thresholds.size) { emptyList<SalarySegment>() }.toMutableList()
     if (tierIndex < 0) return result
 
-    result[tierIndex] = buildSalarySegments(
+    result[tierIndex] = buildTrainSurchargeSegments(
         monthOfYear = monthOfYear,
         context = context,
         initialTariffRatePerHour = initialTariffRatePerHour,
+        condition = condition,
         tariffChanges = tariffChanges,
-    ).map { it.copy(conditions = it.conditions + condition) }
+    )
     return result
 }
+
+/**
+ * Сегменты всей смены маршрута с пометкой условия поездной доплаты. Ступень (процент)
+ * выбирает вызывающий код: она может быть общей из настроек ЗП или заданной на плече.
+ */
+fun Route.buildTrainSurchargeSegments(
+    monthOfYear: MonthOfYear,
+    context: TimeCalculationContext,
+    initialTariffRatePerHour: Double,
+    condition: AccrualCondition,
+    tariffChanges: Iterable<TariffChange> = emptyList(),
+): List<SalarySegment> = buildSalarySegments(
+    monthOfYear = monthOfYear,
+    context = context,
+    initialTariffRatePerHour = initialTariffRatePerHour,
+    tariffChanges = tariffChanges,
+).map { it.copy(conditions = it.conditions + condition) }
 
 /**
  * Интервалы «ожидания следования пассажиром» — непокрытый остаток рабочего

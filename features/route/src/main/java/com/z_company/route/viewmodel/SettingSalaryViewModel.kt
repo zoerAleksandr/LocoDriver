@@ -9,6 +9,8 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.SurchargeExtendedServicePhase
 import com.z_company.domain.entities.setting.SurchargeHeavyTrains
+import com.z_company.route.component.withoutBlankHeavyRows
+import com.z_company.route.component.withoutBlankLongRows
 import com.z_company.domain.entities.setting.SurchargeLongTrains
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
@@ -172,6 +174,7 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                 withContext(Dispatchers.Main) {
                     _uiState.update {
                         it.copy(
+                            servicePhases = userSettings.servicePhases,
                             oldTariffRate = ResultState.Success(actualMonth.dateSetTariffRate?.oldRate.str()),
                             tariffRate = ResultState.Success(tariffRate.str()),
                             currentMonthOfYear = actualMonth
@@ -185,6 +188,53 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
                 e.sendToSentry("SettingSalaryViewModel", "loadUserSetting")
             }
         }
+    }
+
+    private var phaseSaveJob: Job? = null
+    private var phaseSavePending = false
+
+    /** Доплаты плеча [phaseId] за тяжеловесные/длинные составы; пустые списки - действуют настройки ЗП. */
+    fun setPhaseSurcharges(
+        phaseId: String,
+        heavy: List<SurchargeHeavyTrains>,
+        long: List<SurchargeLongTrains>,
+    ) {
+        _uiState.update { state ->
+            state.copy(servicePhases = state.servicePhases.map {
+                if (it.id == phaseId) it.copy(surchargeHeavyTrainsList = heavy, surchargeLongTrainsList = long) else it
+            })
+        }
+        phaseSavePending = true
+        phaseSaveJob?.cancel()
+        phaseSaveJob = viewModelScope.launch {
+            delay(500)
+            persistPhaseSurcharges()
+        }
+    }
+
+    /** Переносит доплаты плеч в сохранённые настройки, не трогая остальные поля плеч. */
+    private suspend fun persistPhaseSurcharges() {
+        if (!phaseSavePending) return
+        phaseSavePending = false
+        val drafts = _uiState.value.servicePhases.associateBy { it.id }
+        val settings = userSettingUseCase.getUserSetting()
+        var changed = false
+        val phases = settings.servicePhases.map { phase ->
+            val draft = drafts[phase.id] ?: return@map phase
+            val heavy = draft.surchargeHeavyTrainsList.withoutBlankHeavyRows()
+            val long = draft.surchargeLongTrainsList.withoutBlankLongRows()
+            if (heavy == phase.surchargeHeavyTrainsList && long == phase.surchargeLongTrainsList) return@map phase
+            changed = true
+            phase.copy(surchargeHeavyTrainsList = heavy, surchargeLongTrainsList = long)
+        }
+        if (!changed) return
+        userSettingUseCase.saveSetting(
+            settings.copy(
+                servicePhases = phases,
+                updateAt = userSettingUseCase.nextUpdateAt(settings.updateAt),
+            )
+        ).collect {}
+        autoPushSettings()
     }
 
     fun resetSaveState() {
@@ -337,6 +387,10 @@ class SettingSalaryViewModel : ViewModel(), KoinComponent {
     }
 
     override fun onCleared() {
+        phaseSaveJob?.cancel()
+        if (phaseSavePending) {
+            CoroutineScope(NonCancellable + Dispatchers.IO).launch { persistPhaseSurcharges() }
+        }
         autoSaveJob?.cancel()
         val isMonthChanged = isMonthOfYearChanged()
         // Сохраняем данные в NonCancellable-контексте, чтобы save завершился

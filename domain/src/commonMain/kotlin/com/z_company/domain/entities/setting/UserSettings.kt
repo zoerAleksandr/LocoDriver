@@ -88,6 +88,13 @@ data class ServicePhase(
      * Чип «Измерено» показывается, если совпадает с текущими расстоянием и подписью; null — не измерено.
      */
     val measuredSignature: String? = null,
+    /**
+     * Ступени доплаты за тяжеловесный поезд для этого плеча. Пусто - берётся список из настроек ЗП
+     * (на разных направлениях одного участка весовые нормы разные).
+     */
+    val surchargeHeavyTrainsList: List<SurchargeHeavyTrains> = emptyList(),
+    /** Ступени доплаты за длинносоставный поезд для этого плеча. Пусто - берётся список из настроек ЗП. */
+    val surchargeLongTrainsList: List<SurchargeLongTrains> = emptyList(),
 ) {
     /**
      * Координаты станций плеча по порядку (отправление, промежуточные с координатами, прибытие) - «подпись», по которой проверяется
@@ -124,7 +131,15 @@ data class ServicePhase(
      * они живут в справочнике и берутся оттуда по [id].
      */
     fun forTrain(): ServicePhase =
-        copy(intermediateStations = emptyList(), departurePoint = null, arrivalPoint = null, measuredSignature = null)
+        copy(
+            intermediateStations = emptyList(),
+            departurePoint = null,
+            arrivalPoint = null,
+            measuredSignature = null,
+            // Доплаты плеча живут в настройках и подбираются по id: в рейс (контракт маршрута) не кладём.
+            surchargeHeavyTrainsList = emptyList(),
+            surchargeLongTrainsList = emptyList(),
+        )
 
     /**
      * Обратное плечо: станции в обратном порядке, км пересчитаны от нового начала

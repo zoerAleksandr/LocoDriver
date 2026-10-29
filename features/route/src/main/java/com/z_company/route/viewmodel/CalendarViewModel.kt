@@ -786,8 +786,8 @@ class CalendarViewModel : ViewModel(), KoinComponent {
             val routeFlags: Map<String, RouteQuickFlags> = if (salary != null) {
                 routes.associate { route ->
                     route.basicData.id to RouteQuickFlags(
-                        isHeavyTrains = isHeavyTrains(salary, route),
-                        isLongCompositionTrain = isLongCompositionTrain(salary, route),
+                        isHeavyTrains = isHeavyTrains(salary, route, userSettings?.servicePhases.orEmpty()),
+                        isLongCompositionTrain = isLongCompositionTrain(salary, route, userSettings?.servicePhases.orEmpty()),
                         isExtendedServicePhaseTrains = isExtendedServicePhaseTrains(salary, route),
                     )
                 }

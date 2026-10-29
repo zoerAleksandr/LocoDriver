@@ -49,6 +49,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.Dialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -56,6 +57,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -189,6 +191,12 @@ fun ShoulderEditBottomSheet(
         mutableStateOf(TextFieldValue(phase?.linearMileageRate?.takeIf { it > 0.0 }?.toString()?.replace('.', ',') ?: ""))
     }
     var createReverse by remember { mutableStateOf(true) }
+    // Доплаты плеча за тяжеловесные/длинные составы; пусто - действуют настройки ЗП.
+    val heavyRows = remember { mutableStateListOf<com.z_company.domain.entities.setting.SurchargeHeavyTrains>().apply { addAll(phase?.surchargeHeavyTrainsList.orEmpty()) } }
+    val longRows = remember { mutableStateListOf<com.z_company.domain.entities.setting.SurchargeLongTrains>().apply { addAll(phase?.surchargeLongTrainsList.orEmpty()) } }
+    var surchargesOpen by remember {
+        mutableStateOf(heavyRows.isNotEmpty() || longRows.isNotEmpty() || (phase?.linearMileageRate ?: 0.0) > 0.0)
+    }
     val stations = remember { mutableStateListOf<ServicePhaseStation>().apply { addAll(phase?.intermediateStations.orEmpty()) } }
     var editMode by remember { mutableStateOf(false) }
     // Остались только крайние станции — править нечего: режим «Изменить» выходит сам.
@@ -897,6 +905,8 @@ fun ShoulderEditBottomSheet(
             arrivalStation = arr,
             distance = km,
             linearMileageRate = mileageRate,
+            surchargeHeavyTrainsList = heavyRows.toList().withoutBlankHeavyRows(),
+            surchargeLongTrainsList = longRows.toList().withoutBlankLongRows(),
             intermediateStations = stations.toList(),
             // Координаты относились к прежней станции — при переименовании сбрасываем.
             departurePoint = pointFor(depPoint, dep),
@@ -1074,12 +1084,9 @@ fun ShoulderEditBottomSheet(
                             onArrival = { arrival = it },
                             distance = distance,
                             onDistance = { v -> distance = v.copy(text = v.text.filter(Char::isDigit)) },
-                            rate = rate,
-                            onRate = { v -> rate = v.copy(text = v.text.filter { it.isDigit() || it == ',' || it == '.' }) },
                             stationList = stationList,
                             onDeleteStationName = onDeleteStationName,
                             onNext = { focusManager.moveFocus(FocusDirection.Down) },
-                            onDone = { focusManager.clearFocus() },
                             departureFocus = departureFocus,
                             arrivalFocus = arrivalFocus,
                             departureKnown = pointFor(depPoint, departure.text.trim()) != null,
@@ -1087,7 +1094,6 @@ fun ShoulderEditBottomSheet(
                             onOpenDeparture = { editingTerminal = true },
                             onOpenArrival = { editingTerminal = false },
                             anchors = tourAnchors,
-                            currency = currencySymbol(country),
                             measure = {
                                 val isMeasured = measured?.let {
                                     it.distance == distanceKm && it.signature == coordinateSignature()
@@ -1095,6 +1101,38 @@ fun ShoulderEditBottomSheet(
                                 MeasureByMap(isMeasured = isMeasured, measuring = measuring, onMeasure = ::measureByMap)
                             },
                         )
+                    }
+                    item(key = "surcharges") {
+                        Column(Modifier.padding(top = 8.dp)) {
+                            PstGroupHead(
+                                text = "Доплаты за поезд на этом плече",
+                                modifier = Modifier
+                                    .heightIn(min = 32.dp)
+                                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                                        surchargesOpen = !surchargesOpen
+                                    },
+                                action = {
+                                    Text(
+                                        text = if (surchargesOpen) "Свернуть" else "Настроить",
+                                        style = Pst.sans.copy(fontSize = 13.sp),
+                                        color = Pst.accent,
+                                    )
+                                },
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            if (surchargesOpen) {
+                                PhaseSurchargeEditor(
+                                    rate = rate,
+                                    onRate = { v -> rate = v.copy(text = v.text.filter { it.isDigit() || it == ',' || it == '.' }) },
+                                    currency = currencySymbol(country),
+                                    distanceKm = distance.text.toIntOrNull(),
+                                    heavy = heavyRows,
+                                    long = longRows,
+                                    onHeavyChange = { heavyRows.clear(); heavyRows.addAll(it) },
+                                    onLongChange = { longRows.clear(); longRows.addAll(it) },
+                                )
+                            }
+                        }
                     }
                     if (isNew) {
                         item(key = "reverse") {
@@ -1287,12 +1325,9 @@ private fun PhaseFields(
     onArrival: (TextFieldValue) -> Unit,
     distance: TextFieldValue,
     onDistance: (TextFieldValue) -> Unit,
-    rate: TextFieldValue,
-    onRate: (TextFieldValue) -> Unit,
     stationList: List<String>,
     onDeleteStationName: (String) -> Unit,
     onNext: () -> Unit,
-    onDone: () -> Unit,
     departureFocus: FocusRequester,
     arrivalFocus: FocusRequester,
     departureKnown: Boolean,
@@ -1300,7 +1335,6 @@ private fun PhaseFields(
     onOpenDeparture: () -> Unit,
     onOpenArrival: () -> Unit,
     anchors: Map<com.z_company.domain.onboarding.ShoulderTourStep, CoachAnchor>,
-    currency: String,
     measure: @Composable () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1308,7 +1342,11 @@ private fun PhaseFields(
             StationNameField("От станции", departure, onDeparture, stationList, onDeleteStationName, onNext, departureFocus, departureKnown, onOpenDeparture)
             StationNameField("До станции", arrival, onArrival, stationList, onDeleteStationName, onNext, arrivalFocus, arrivalKnown, onOpenArrival)
         }
-        Row(Modifier.coachAnchor(anchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.DISTANCE)), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Расстояние и «Измерить по карте» - в ряд, одной высоты (минимальная высота поля - 56 dp).
+        Row(
+            Modifier.coachAnchor(anchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.DISTANCE)),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             PstTextField(
                 value = distance,
                 onValueChange = onDistance,
@@ -1319,34 +1357,11 @@ private fun PhaseFields(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                 keyboardActions = KeyboardActions(onNext = { onNext() }),
             )
-            Column(modifier = Modifier.weight(1f)) {
-                PstTextField(
-                    value = rate,
-                    onValueChange = onRate,
-                    label = "Доплата за пробег, $currency/км",
-                    placeholder = "—",
-                    mono = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { onDone() }),
-                )
-            }
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.coachAnchor(anchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.MEASURE))) { measure() }
-            Spacer(Modifier.weight(1f))
-            // Сколько получит машинист за всё плечо: расстояние × ставка (как в расчёте зарплаты).
-            val km = distance.text.toIntOrNull()?.takeIf { it > 0 }
-            val perKm = rate.text.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0.0 && it.isFinite() }
-            if (km != null && perKm != null) {
-                Text(
-                    text = "За плечо: ${(km * perKm).roundMoneyToCents().toMoneyString(currency)}",
-                    style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
-                    color = Pst.textMuted,
-                    textAlign = TextAlign.End,
-                    modifier = Modifier.padding(start = 8.dp, end = 4.dp),
-                )
-            }
+            Box(
+                Modifier
+                    .weight(1f)
+                    .coachAnchor(anchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.MEASURE)),
+            ) { measure() }
         }
     }
 }
@@ -1760,11 +1775,12 @@ private fun MeasureByMap(isMeasured: Boolean, measuring: Boolean, onMeasure: () 
     if (isMeasured) {
         Row(
             modifier = Modifier
-                .padding(start = 4.dp)
-                .background(Pst.success.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
-                .padding(horizontal = 10.dp, vertical = 6.dp),
+                .fillMaxWidth()
+                .height(56.dp)
+                .background(Pst.success.copy(alpha = 0.12f), RoundedCornerShape(16.dp))
+                .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
         ) {
             PstIcon(PstIcons.Check, 14.dp, Pst.success)
             Text(
@@ -1778,12 +1794,13 @@ private fun MeasureByMap(isMeasured: Boolean, measuring: Boolean, onMeasure: () 
             text = if (measuring) "Измеряем…" else "Измерить по карте",
             onClick = onMeasure,
             enabled = !measuring,
+            modifier = Modifier.fillMaxWidth(),
             kind = PstButtonKind.TONAL,
             icon = PstIcons.Measure,
             iconSize = 18.dp,
-            height = 36.dp,
+            height = 56.dp,
             fontSize = 14,
-            contentPadding = PaddingValues(horizontal = 14.dp),
+            contentPadding = PaddingValues(horizontal = 10.dp),
         )
     }
 }

@@ -100,21 +100,18 @@ object UtilsForEntities {
         return holidayTime > 0
     }
 
-    fun isHeavyTrains(salarySetting: SalarySetting, route: Route): Boolean {
-        val surchargeListSorted = salarySetting.surchargeHeavyTrainsList.sortedBy {
-            it.weight
-        }
-        val timeList: MutableList<Long> = mutableListOf()
-        surchargeListSorted.forEachIndexed { index, _ ->
-            var totalTimeHeavyTrain = 0L
-            totalTimeHeavyTrain += route.getTimeInHeavyTrain(
-                surchargeListSorted.map { it.weight.toIntOrZero() },
-                index
-            )
-
-            timeList.add(totalTimeHeavyTrain)
-        }
-        return timeList.sum() > 0
+    /**
+     * Есть ли в маршруте тяжеловесный поезд. Если у плеча поезда заданы свои ступени
+     * ([servicePhases] - плечи из настроек), берутся они, иначе - общие из настроек ЗП.
+     */
+    fun isHeavyTrains(
+        salarySetting: SalarySetting,
+        route: Route,
+        servicePhases: List<com.z_company.domain.entities.setting.ServicePhase> = emptyList(),
+    ): Boolean = route.trains.any { train ->
+        val value = train.weight.toIntOrZero()
+        com.z_company.domain.salary.resolveHeavyTiers(train, servicePhases, salarySetting.surchargeHeavyTrainsList)
+            .any { value > it.threshold }
     }
 
     fun isExtendedServicePhaseTrains(salarySetting: SalarySetting, route: Route): Boolean {
@@ -143,20 +140,14 @@ object UtilsForEntities {
      * в один из диапазонов условной длины из salarySetting.surchargeLongTrainsList.
      * Логика повторяет isHeavyTrains для тяжеловесных.
      */
-    fun isLongCompositionTrain(salarySetting: SalarySetting, route: Route): Boolean {
-        val surchargeListSorted = salarySetting.surchargeLongTrainsList.sortedBy {
-            it.conditionalLength.toIntOrZero()
-        }
-        val timeList: MutableList<Long> = mutableListOf()
-        surchargeListSorted.forEachIndexed { index, _ ->
-            var totalTimeLongTrain = 0L
-            totalTimeLongTrain += route.getTimeInLongTrain(
-                surchargeListSorted.map { it.conditionalLength.toIntOrZero() },
-                index
-            )
-            timeList.add(totalTimeLongTrain)
-        }
-        return timeList.sum() > 0
+    fun isLongCompositionTrain(
+        salarySetting: SalarySetting,
+        route: Route,
+        servicePhases: List<com.z_company.domain.entities.setting.ServicePhase> = emptyList(),
+    ): Boolean = route.trains.any { train ->
+        val value = train.conditionalLength.toIntOrZero()
+        com.z_company.domain.salary.resolveLongTiers(train, servicePhases, salarySetting.surchargeLongTrainsList)
+            .any { value > it.threshold }
     }
 
     fun Route.isCurrentRoute(currentTimeInMillis: Long): Boolean {

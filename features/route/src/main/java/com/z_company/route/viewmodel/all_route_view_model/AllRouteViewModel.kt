@@ -649,12 +649,12 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
                                             userSettings,
                                             route
                                         ),
-                                        isHeavyTrains = isHeavyTrains(salarySetting!!, route),
+                                        isHeavyTrains = isHeavyTrains(salarySetting!!, route, userSettings.servicePhases),
                                         isExtendedServicePhaseTrains = isExtendedServicePhaseTrains(
                                             salarySetting!!,
                                             route
                                         ),
-                                        isLongCompositionTrain = isLongCompositionTrain(salarySetting!!, route),
+                                        isLongCompositionTrain = isLongCompositionTrain(salarySetting!!, route, userSettings.servicePhases),
                                         isFuture = route.isFuture(offsetInMoscow),
                                         isTransition = route.isTransition(offsetInMoscow)
                                     )

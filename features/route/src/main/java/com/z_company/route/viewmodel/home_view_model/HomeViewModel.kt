@@ -1968,13 +1968,14 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                         ),
                                         isHeavyTrains = isHeavyTrains(
                                             salarySetting,
-                                            route
+                                            route,
+                                            userSettings.servicePhases
                                         ),
                                         isExtendedServicePhaseTrains = isExtendedServicePhaseTrains(
                                             salarySetting,
                                             route
                                         ),
-                                        isLongCompositionTrain = isLongCompositionTrain(salarySetting, route),
+                                        isLongCompositionTrain = isLongCompositionTrain(salarySetting, route, userSettings.servicePhases),
                                         isFuture = route.isFuture(offsetMs),
                                         isTransition = route.isTransition(offsetMs)
                                     )

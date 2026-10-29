@@ -25,6 +25,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import com.z_company.route.component.servicephase.PstIcons
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -69,6 +70,7 @@ import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.setting.SurchargeExtendedServicePhase
+import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.setting.SurchargeHeavyTrains
 import com.z_company.domain.entities.setting.SurchargeLongTrains
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -154,7 +156,8 @@ fun SettingSalaryScreen(
     saveTariffRateCurrentAndNextMonth: () -> Unit,
     setOtherSurcharge: (String) -> Unit,
     currentMonthOfYear: MonthOfYear?,
-    setDateNewTariffRate: (Calendar) -> Unit
+    setDateNewTariffRate: (Calendar) -> Unit,
+    setPhaseSurcharges: (String, List<SurchargeHeavyTrains>, List<SurchargeLongTrains>) -> Unit = { _, _, _ -> },
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val hintStyle = MaterialTheme.typography.bodyMedium
@@ -178,18 +181,14 @@ fun SettingSalaryScreen(
     }
 
     var isShowSetDateTariffRateDialog by remember { mutableStateOf(false) }
-    // Подтверждение удаления строки доплаты (свайп раскрывает «Удалить», потом спрашиваем).
+    // Подтверждение удаления строки доплаты (корзина в строке, потом спрашиваем).
     var pendingTierDelete by remember { mutableStateOf<(() -> Unit)?>(null) }
-    var tierCloseSignal by remember { mutableStateOf(0) }
     var thresholdHelp by remember { mutableStateOf<ThresholdHelp?>(null) }
 
     pendingTierDelete?.let { action ->
         val tierDeleteSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         AppBottomSheet(
-            onDismissRequest = {
-                pendingTierDelete = null
-                tierCloseSignal++
-            },
+            onDismissRequest = { pendingTierDelete = null },
             sheetState = tierDeleteSheetState,
             title = "Удалить доплату?",
             actions = listOf(
@@ -476,7 +475,6 @@ fun SettingSalaryScreen(
                         key(item.id) {
                             PayTierRow(
                                 onDelete = { pendingTierDelete = { onSurchargeHeavyTrainDismissed(index) } },
-                                closeSignal = tierCloseSignal,
                                 value1 = item.weight,
                                 onValue1 = { setSurchargeHeavyTrainWeight(index, it) },
                                 unit1 = "т.",
@@ -485,6 +483,42 @@ fun SettingSalaryScreen(
                                 unit2 = "%",
                             )
                         }
+                    }
+                    if (uiState.servicePhases.isNotEmpty()) {
+                    PhaseTiersList(
+                        phases = uiState.servicePhases,
+                        count = { it.surchargeHeavyTrainsList.size },
+                        onAdd = { ph ->
+                            setPhaseSurcharges(ph.id, ph.surchargeHeavyTrainsList + SurchargeHeavyTrains(), ph.surchargeLongTrainsList)
+                        },
+                    ) { ph ->
+                        ph.surchargeHeavyTrainsList.forEachIndexed { index, item ->
+                            key(item.id) {
+                                fun update(new: SurchargeHeavyTrains) = setPhaseSurcharges(
+                                    ph.id,
+                                    ph.surchargeHeavyTrainsList.toMutableList().also { it[index] = new },
+                                    ph.surchargeLongTrainsList,
+                                )
+                                PayTierRow(
+                                    onDelete = {
+                                        pendingTierDelete = {
+                                            setPhaseSurcharges(
+                                                ph.id,
+                                                ph.surchargeHeavyTrainsList.toMutableList().also { it.removeAt(index) },
+                                                ph.surchargeLongTrainsList,
+                                            )
+                                        }
+                                    },
+                                    value1 = item.weight,
+                                    onValue1 = { update(item.copy(weight = it)) },
+                                    unit1 = "т.",
+                                    value2 = item.percentSurcharge,
+                                    onValue2 = { update(item.copy(percentSurcharge = it)) },
+                                    unit2 = "%",
+                                )
+                            }
+                        }
+                    }
                     }
                 }
             }
@@ -504,7 +538,6 @@ fun SettingSalaryScreen(
                         key(item.id) {
                             PayTierRow(
                                 onDelete = { pendingTierDelete = { onSurchargeLongTrainDismissed(index) } },
-                                closeSignal = tierCloseSignal,
                                 value1 = item.conditionalLength,
                                 onValue1 = { setSurchargeLongTrainLength(index, it) },
                                 unit1 = "ваг.",
@@ -513,6 +546,42 @@ fun SettingSalaryScreen(
                                 unit2 = "%",
                             )
                         }
+                    }
+                    if (uiState.servicePhases.isNotEmpty()) {
+                    PhaseTiersList(
+                        phases = uiState.servicePhases,
+                        count = { it.surchargeLongTrainsList.size },
+                        onAdd = { ph ->
+                            setPhaseSurcharges(ph.id, ph.surchargeHeavyTrainsList, ph.surchargeLongTrainsList + SurchargeLongTrains())
+                        },
+                    ) { ph ->
+                        ph.surchargeLongTrainsList.forEachIndexed { index, item ->
+                            key(item.id) {
+                                fun update(new: SurchargeLongTrains) = setPhaseSurcharges(
+                                    ph.id,
+                                    ph.surchargeHeavyTrainsList,
+                                    ph.surchargeLongTrainsList.toMutableList().also { it[index] = new },
+                                )
+                                PayTierRow(
+                                    onDelete = {
+                                        pendingTierDelete = {
+                                            setPhaseSurcharges(
+                                                ph.id,
+                                                ph.surchargeHeavyTrainsList,
+                                                ph.surchargeLongTrainsList.toMutableList().also { it.removeAt(index) },
+                                            )
+                                        }
+                                    },
+                                    value1 = item.conditionalLength,
+                                    onValue1 = { update(item.copy(conditionalLength = it)) },
+                                    unit1 = "ваг.",
+                                    value2 = item.percentSurcharge,
+                                    onValue2 = { update(item.copy(percentSurcharge = it)) },
+                                    unit2 = "%",
+                                )
+                            }
+                        }
+                    }
                     }
                 }
             }
@@ -532,7 +601,6 @@ fun SettingSalaryScreen(
                         key(item.id) {
                             PayTierRow(
                                 onDelete = { pendingTierDelete = { onServicePhaseDismissed(index) } },
-                                closeSignal = tierCloseSignal,
                                 value1 = item.distance,
                                 onValue1 = { setSurchargeExtendedServicePhaseDistance(index, it) },
                                 unit1 = "км",
@@ -814,16 +882,73 @@ private fun PayTierSection(
     }
 }
 
+// Список плеч внутри карточки доплаты: у плеча без своих строк действуют общие значения.
+@Composable
+private fun ColumnScope.PhaseTiersList(
+    phases: List<ServicePhase>,
+    count: (ServicePhase) -> Int,
+    onAdd: (ServicePhase) -> Unit,
+    rows: @Composable ColumnScope.(ServicePhase) -> Unit,
+) {
+    var expandedId by remember { mutableStateOf<String?>(null) }
+    Text(
+        text = "По плечам",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
+    )
+    phases.forEach { phase ->
+        key(phase.id) {
+            val expanded = expandedId == phase.id
+            val custom = count(phase)
+            PaySep()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .noRippleEffect { expandedId = if (expanded) null else phase.id }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "${phase.departureStation} — ${phase.arrivalStation}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = if (custom > 0) "свои: $custom" else "общие",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (custom > 0) MaterialTheme.colorScheme.tertiary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+            if (expanded) {
+                rows(phase)
+                Text(
+                    text = "Добавить",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier
+                        .noRippleEffect { onAdd(phase) }
+                        .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                )
+            }
+        }
+    }
+}
+
 private data class ThresholdHelp(
     val title: String,
     val text: String,
 )
 
-// Строка порога: два filled-поля [порог·ед][%] + свайп-раскрытие «Удалить» (как на Главной).
+// Строка порога: два filled-поля [порог·ед][%] и корзина справа (без свайпа).
 @Composable
 private fun PayTierRow(
     onDelete: () -> Unit,
-    closeSignal: Int,
     value1: String,
     onValue1: (String) -> Unit,
     unit1: String,
@@ -831,24 +956,21 @@ private fun PayTierRow(
     onValue2: (String) -> Unit,
     unit2: String,
 ) {
-    Column {
-        SwipeToRevealDelete(
-            onDeleteClick = onDelete,
-            closeSignal = closeSignal,
-            compact = true,
-            backgroundVerticalPadding = 0.dp,
-        ) { _ ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.secondary)
-                    .padding(start = 16.dp, end = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                PayInput(value1, onValue1, unit1, modifier = Modifier.weight(1f))
-                PayInput(value2, onValue2, unit2, modifier = Modifier.weight(1f))
-            }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 8.dp, bottom = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        PayInput(value1, onValue1, unit1, modifier = Modifier.weight(1f))
+        PayInput(value2, onValue2, unit2, modifier = Modifier.weight(1f))
+        IconButton(onClick = onDelete) {
+            Icon(
+                imageVector = PstIcons.Trash,
+                contentDescription = "Удалить",
+                tint = MaterialTheme.colorScheme.error,
+            )
         }
-        Spacer(Modifier.height(12.dp))
     }
 }

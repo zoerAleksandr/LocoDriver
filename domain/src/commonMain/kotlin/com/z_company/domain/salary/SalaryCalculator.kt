@@ -18,6 +18,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getSingleLocomotiveT
 import com.z_company.domain.entities.route.UtilsForEntities.getOverRestInterval
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getTravelTime
+import com.z_company.domain.util.buildTrainSurchargeSegments
 import com.z_company.domain.util.AccrualCondition
 import com.z_company.domain.util.NightWindow
 import com.z_company.domain.util.TariffChange
@@ -99,6 +100,44 @@ fun validExtendedServicePhaseSurcharges(
     .map { (threshold, duplicates) -> threshold to duplicates.last().second }
     .sortedBy { it.first }
     .map { it.second }
+
+/** Ступень поездной доплаты: порог (т или условная длина) и процент. */
+data class TrainSurchargeTier(val threshold: Int, val percent: String)
+
+fun List<com.z_company.domain.entities.setting.SurchargeHeavyTrains>.toHeavyTiers() =
+    validHeavyTrainSurcharges(this).mapNotNull { s ->
+        s.weight.toExactIntOrNull()?.let { TrainSurchargeTier(it, s.percentSurcharge) }
+    }
+
+fun List<com.z_company.domain.entities.setting.SurchargeLongTrains>.toLongTiers() =
+    validLongTrainSurcharges(this).mapNotNull { s ->
+        s.conditionalLength.toExactIntOrNull()?.let { TrainSurchargeTier(it, s.percentSurcharge) }
+    }
+
+/**
+ * Ступени тяжеловесной доплаты для поезда: свои у плеча (по id из настроек), если заданы,
+ * иначе общие из настроек ЗП.
+ */
+fun resolveHeavyTiers(
+    train: com.z_company.domain.entities.route.Train,
+    phases: List<com.z_company.domain.entities.setting.ServicePhase>,
+    global: List<com.z_company.domain.entities.setting.SurchargeHeavyTrains>,
+): List<TrainSurchargeTier> {
+    val own = train.servicePhase?.id?.let { id -> phases.firstOrNull { it.id == id } }
+        ?.surchargeHeavyTrainsList?.toHeavyTiers().orEmpty()
+    return own.ifEmpty { global.toHeavyTiers() }
+}
+
+/** То же для длинносоставной доплаты. */
+fun resolveLongTiers(
+    train: com.z_company.domain.entities.route.Train,
+    phases: List<com.z_company.domain.entities.setting.ServicePhase>,
+    global: List<com.z_company.domain.entities.setting.SurchargeLongTrains>,
+): List<TrainSurchargeTier> {
+    val own = train.servicePhase?.id?.let { id -> phases.firstOrNull { it.id == id } }
+        ?.surchargeLongTrainsList?.toLongTiers().orEmpty()
+    return own.ifEmpty { global.toLongTiers() }
+}
 
 fun isFederalLaw144Effective(year: Int, month: Int): Boolean =
     year > 2026 || (year == 2026 && month >= 8)
@@ -296,18 +335,52 @@ class SalaryCalculationHelper(
         }
     }
 
+    /** Строка доплаты: процент и сегменты смен, попавших под него. */
+    private class TierAccrual(val percent: String, val segments: MutableList<com.z_company.domain.util.SalarySegment>)
+
+    /**
+     * Поездная доплата с учётом плеч. Первые строки результата - ступени общего списка из настроек ЗП
+     * (по порядку, даже пустые). На каждый маршрут действует ступень самого «выгодного» поезда:
+     * у поезда с плечом, где заданы свои ступени, - из плеча, иначе - общая. Если процент ступени
+     * плеча не совпал ни с одной строкой, для него добавляется строка в конец.
+     */
     @OptIn(kotlin.time.ExperimentalTime::class)
     private fun tieredTrainSurchargeSegments(
         routes: List<Route>,
-        thresholds: List<Int>,
         condition: AccrualCondition,
-        thresholdIsInclusive: Boolean = false,
+        globalTiers: List<TrainSurchargeTier>,
+        tiersOf: (com.z_company.domain.entities.route.Train) -> List<TrainSurchargeTier>,
         valueOf: (com.z_company.domain.entities.route.Train) -> Int?,
-    ): List<List<com.z_company.domain.util.SalarySegment>> {
-        val result = MutableList(thresholds.size) {
-            mutableListOf<com.z_company.domain.util.SalarySegment>()
-        }
+    ): List<TierAccrual> {
+        val result = globalTiers.mapTo(mutableListOf()) { TierAccrual(it.percent, mutableListOf()) }
         routes.forEach { route ->
+            var bestTier: TrainSurchargeTier? = null
+            var bestIsGlobal = false
+            route.trains.forEach { train ->
+                val value = valueOf(train) ?: return@forEach
+                val tiers = tiersOf(train)
+                // Строгий порог: ступень действует при значении БОЛЬШЕ порога.
+                val tier = tiers.lastOrNull { value > it.threshold } ?: return@forEach
+                val isGlobal = tiers === globalTiers
+                val current = bestTier
+                val better = when {
+                    current == null -> true
+                    isGlobal == bestIsGlobal && isGlobal -> tier.threshold > current.threshold
+                    else -> tier.percent.toDoubleOrZero() > current.percent.toDoubleOrZero()
+                }
+                if (better) {
+                    bestTier = tier
+                    bestIsGlobal = isGlobal
+                }
+            }
+            val tier = bestTier ?: return@forEach
+            val accrual = if (bestIsGlobal) {
+                result[globalTiers.indexOf(tier)]
+            } else {
+                val percent = tier.percent.toDoubleOrZero()
+                result.firstOrNull { it.percent.toDoubleOrZero() == percent }
+                    ?: TierAccrual(tier.percent, mutableListOf()).also { result.add(it) }
+            }
             val tariffChange = dateSetTariffRate
             val initialRate = if (tariffChange != null) oldTariffRate else currentTariffRate
             val changes = tariffChange?.let {
@@ -318,27 +391,58 @@ class SalaryCalculationHelper(
                 ).atStartOfDayIn(timeCalculationContext.crossMonthTZ).toEpochMilliseconds()
                 listOf(TariffChange(effectiveAt, currentTariffRate))
             }.orEmpty()
-            route.buildTieredTrainSurchargeSegments(
-                monthOfYear = currentMonthOfYear,
-                context = timeCalculationContext,
-                initialTariffRatePerHour = initialRate,
-                thresholds = thresholds,
-                condition = condition,
-                thresholdIsInclusive = thresholdIsInclusive,
-                tariffChanges = changes,
-                valueOf = valueOf,
-            ).forEachIndexed { index, segments ->
-                // Доплата не начисляется на часы следования и ожидания
-                // следования пассажиром (памятка, п. 2.1–2.3).
-                result[index].addAll(
-                    segments.filter {
-                        AccrualCondition.PASSENGER !in it.conditions &&
-                                AccrualCondition.PASSENGER_WAITING !in it.conditions
-                    },
-                )
-            }
+            // Доплата не начисляется на часы следования и ожидания
+            // следования пассажиром (памятка, п. 2.1–2.3).
+            accrual.segments.addAll(
+                route.buildTrainSurchargeSegments(
+                    monthOfYear = currentMonthOfYear,
+                    context = timeCalculationContext,
+                    initialTariffRatePerHour = initialRate,
+                    condition = condition,
+                    tariffChanges = changes,
+                ).filter {
+                    AccrualCondition.PASSENGER !in it.conditions &&
+                            AccrualCondition.PASSENGER_WAITING !in it.conditions
+                },
+            )
         }
         return result
+    }
+
+    private fun heavyAccruals(routes: List<Route>): List<TierAccrual> {
+        val global = salarySetting.surchargeHeavyTrainsList.toHeavyTiers()
+        val byPhase = HashMap<String, List<TrainSurchargeTier>>()
+        return tieredTrainSurchargeSegments(
+            routes = routes,
+            condition = AccrualCondition.HEAVY_TRAIN,
+            globalTiers = global,
+            tiersOf = { train ->
+                val id = train.servicePhase?.id ?: return@tieredTrainSurchargeSegments global
+                byPhase.getOrPut(id) {
+                    resolveHeavyTiers(train, userSettings.servicePhases, salarySetting.surchargeHeavyTrainsList)
+                        .let { if (it == global) global else it }
+                }
+            },
+            valueOf = { it.weight?.toExactIntOrNull() },
+        )
+    }
+
+    private fun longAccruals(routes: List<Route>): List<TierAccrual> {
+        val global = salarySetting.surchargeLongTrainsList.toLongTiers()
+        val byPhase = HashMap<String, List<TrainSurchargeTier>>()
+        return tieredTrainSurchargeSegments(
+            routes = routes,
+            condition = AccrualCondition.LONG_TRAIN,
+            globalTiers = global,
+            tiersOf = { train ->
+                val id = train.servicePhase?.id ?: return@tieredTrainSurchargeSegments global
+                byPhase.getOrPut(id) {
+                    resolveLongTiers(train, userSettings.servicePhases, salarySetting.surchargeLongTrainsList)
+                        .let { if (it == global) global else it }
+                }
+            },
+            valueOf = { it.conditionalLength?.toExactIntOrNull() },
+        )
     }
 
     private fun extendedServicePhaseSegments(
@@ -370,26 +474,13 @@ class SalaryCalculationHelper(
     }
 
     private fun tieredTrainOvertimeSurchargeSegments(): List<RatedSalarySegment> {
-        val heavy = validHeavyTrainSurcharges(salarySetting.surchargeHeavyTrainsList)
-        val heavySegments = tieredTrainSurchargeSegments(
-            routes = routeList,
-            thresholds = heavy.mapNotNull { it.weight.toExactIntOrNull() },
-            condition = AccrualCondition.HEAVY_TRAIN,
-            valueOf = { it.weight?.toExactIntOrNull() },
-        ).flatMapIndexed { index, segments ->
-            val percent = heavy[index].percentSurcharge.toDoubleOrZero()
-            segments.map { RatedSalarySegment(it, percent) }
+        val heavySegments = heavyAccruals(routeList).flatMap { accrual ->
+            val percent = accrual.percent.toDoubleOrZero()
+            accrual.segments.map { RatedSalarySegment(it, percent) }
         }
-
-        val long = validLongTrainSurcharges(salarySetting.surchargeLongTrainsList)
-        val longSegments = tieredTrainSurchargeSegments(
-            routes = routeList,
-            thresholds = long.mapNotNull { it.conditionalLength.toExactIntOrNull() },
-            condition = AccrualCondition.LONG_TRAIN,
-            valueOf = { it.conditionalLength?.toExactIntOrNull() },
-        ).flatMapIndexed { index, segments ->
-            val percent = long[index].percentSurcharge.toDoubleOrZero()
-            segments.map { RatedSalarySegment(it, percent) }
+        val longSegments = longAccruals(routeList).flatMap { accrual ->
+            val percent = accrual.percent.toDoubleOrZero()
+            accrual.segments.map { RatedSalarySegment(it, percent) }
         }
 
         val extended = validExtendedServicePhaseSurcharges(
@@ -838,25 +929,13 @@ class SalaryCalculationHelper(
         }
     }
 
-    fun getPercentListSurchargeExtendedHeavyTrainsFlow(): Flow<List<String>> {
-        return channelFlow {
-            val percentList = validHeavyTrainSurcharges(salarySetting.surchargeHeavyTrainsList)
-                .map { it.percentSurcharge }
-            trySend(percentList)
-            awaitClose()
-        }
+    fun getPercentListSurchargeExtendedHeavyTrainsFlow(): Flow<List<String>> = flow {
+        emit(heavyAccruals(routeList).map { it.percent })
     }
 
     fun getTimeListSurchargeHeavyTrainsFlow(routes: List<Route> = routeList): Flow<List<Long>> = flow {
-        val surcharges = validHeavyTrainSurcharges(salarySetting.surchargeHeavyTrainsList)
-        val thresholds = surcharges.mapNotNull { it.weight.toExactIntOrNull() }
-        emit(tieredTrainSurchargeSegments(
-            routes = routes,
-            thresholds = thresholds,
-            condition = AccrualCondition.HEAVY_TRAIN,
-            valueOf = { it.weight?.toExactIntOrNull() },
-        ).map { segments ->
-            segments.filter { AccrualCondition.PASSENGER !in it.conditions }
+        emit(heavyAccruals(routes).map { accrual ->
+            accrual.segments.filter { AccrualCondition.PASSENGER !in it.conditions }
                 .sumOf { it.interval.durationMillis }
         })
     }
@@ -866,40 +945,19 @@ class SalaryCalculationHelper(
     }
 
     fun getMoneyListSurchargeExtendedHeavyTrainsFlow(): Flow<List<Double>> = flow {
-        val surcharges = validHeavyTrainSurcharges(salarySetting.surchargeHeavyTrainsList)
-        val thresholds = surcharges.mapNotNull { it.weight.toExactIntOrNull() }
-        val segmentsByTier = tieredTrainSurchargeSegments(
-            routes = routeList,
-            thresholds = thresholds,
-            condition = AccrualCondition.HEAVY_TRAIN,
-            valueOf = { it.weight?.toExactIntOrNull() },
-        )
-        emit(segmentsByTier.mapIndexed { index, segments ->
-            val percent = surcharges[index].percentSurcharge.toDoubleOrZero() / 100
-            segments.filter { AccrualCondition.PASSENGER !in it.conditions }
-                .shiftRoundedMoney(percent)
+        emit(heavyAccruals(routeList).map { accrual ->
+            accrual.segments.filter { AccrualCondition.PASSENGER !in it.conditions }
+                .shiftRoundedMoney(accrual.percent.toDoubleOrZero() / 100)
         })
     }
 
-    fun getPercentListSurchargeLongTrainsFlow(): Flow<List<String>> {
-        return channelFlow {
-            val percentList = validLongTrainSurcharges(salarySetting.surchargeLongTrainsList)
-                .map { it.percentSurcharge }
-            trySend(percentList)
-            awaitClose()
-        }
+    fun getPercentListSurchargeLongTrainsFlow(): Flow<List<String>> = flow {
+        emit(longAccruals(routeList).map { it.percent })
     }
 
     fun getTimeListSurchargeLongTrainsFlow(routes: List<Route> = routeList): Flow<List<Long>> = flow {
-        val surcharges = validLongTrainSurcharges(salarySetting.surchargeLongTrainsList)
-        val thresholds = surcharges.mapNotNull { it.conditionalLength.toExactIntOrNull() }
-        emit(tieredTrainSurchargeSegments(
-            routes = routes,
-            thresholds = thresholds,
-            condition = AccrualCondition.LONG_TRAIN,
-            valueOf = { it.conditionalLength?.toExactIntOrNull() },
-        ).map { segments ->
-            segments.filter { AccrualCondition.PASSENGER !in it.conditions }
+        emit(longAccruals(routes).map { accrual ->
+            accrual.segments.filter { AccrualCondition.PASSENGER !in it.conditions }
                 .sumOf { it.interval.durationMillis }
         })
     }
@@ -909,18 +967,9 @@ class SalaryCalculationHelper(
     }
 
     fun getMoneyListSurchargeLongTrainsFlow(): Flow<List<Double>> = flow {
-        val surcharges = validLongTrainSurcharges(salarySetting.surchargeLongTrainsList)
-        val thresholds = surcharges.mapNotNull { it.conditionalLength.toExactIntOrNull() }
-        val segmentsByTier = tieredTrainSurchargeSegments(
-            routes = routeList,
-            thresholds = thresholds,
-            condition = AccrualCondition.LONG_TRAIN,
-            valueOf = { it.conditionalLength?.toExactIntOrNull() },
-        )
-        emit(segmentsByTier.mapIndexed { index, segments ->
-            val percent = surcharges[index].percentSurcharge.toDoubleOrZero() / 100
-            segments.filter { AccrualCondition.PASSENGER !in it.conditions }
-                .shiftRoundedMoney(percent)
+        emit(longAccruals(routeList).map { accrual ->
+            accrual.segments.filter { AccrualCondition.PASSENGER !in it.conditions }
+                .shiftRoundedMoney(accrual.percent.toDoubleOrZero() / 100)
         })
     }
 
