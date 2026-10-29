@@ -78,6 +78,12 @@ data class StopDetectionConfig(
  */
 class StopDetector(private val config: StopDetectionConfig = StopDetectionConfig()) {
 
+    private companion object {
+        /** Типичное ускорение при трогании грузового состава, м/с2: оценка времени разгона. */
+        const val START_ACCELERATION_MS2 = 0.3
+        const val MAX_START_ESTIMATE_MS = 60_000L
+    }
+
     private var stopped = false
     /** Момент начала текущей стоянки (время ARRIVAL); откат отправления не уходит раньше него. */
     private var stoppedSinceMs = 0L
@@ -86,6 +92,16 @@ class StopDetector(private val config: StopDetectionConfig = StopDetectionConfig
     private var windowStart: MotionSample? = null
     private var lastTimeMs: Long? = null
     private var lastSlow = false
+
+    /** «АВТО» только включено, первого достоверного отсчёта ещё не было (см. [arm]). */
+    private var armed = false
+    /** В первые минуты после включения сигнал GPS пропадал/подавлялся (см. [markStartObscured]). */
+    private var startObscured = false
+    /**
+     * Точка покоя до включения/в начале записи, когда прибытие (60 с) ещё не подтверждено: нужна, чтобы отправление
+     * сразу после включения «АВТО» на стоянке не терялось. Снимается прибытием или отправлением.
+     */
+    private var provisionalRest: MotionSample? = null
 
     /** Состояние на момент подтверждённого события: стоим ли (ARRIVAL) или едем (DEPARTURE), и с какого момента. */
     val isStopped: Boolean get() = stopped
@@ -111,6 +127,24 @@ class StopDetector(private val config: StopDetectionConfig = StopDetectionConfig
         lastSlow = false
     }
 
+    /**
+     * «АВТО» включено заново: первый достоверный отсчёт определит, стояли ли мы (тогда отправление засчитается и без
+     * подтверждённого прибытия - машинист включил запись на стоянке и сразу поехал).
+     */
+    fun arm() {
+        armed = true
+        startObscured = false
+        provisionalRest = null
+    }
+
+    /**
+     * Сигнал пропадал или подавлялся (помеха GPS) вскоре после включения: если первый достоверный отсчёт окажется уже
+     * «в движении», считаем, что тронулись во время помехи, и время отправления берём оценкой разгона.
+     */
+    fun markStartObscured() {
+        if (armed) startObscured = true
+    }
+
     /** Подать очередной отсчёт; возвращает событие, если оно только что подтвердилось. */
     fun onSample(sample: MotionSample): StopEvent? {
         val speed = sample.speedKmh ?: return null
@@ -125,6 +159,14 @@ class StopDetector(private val config: StopDetectionConfig = StopDetectionConfig
         if (last != null && sample.timeMs - last > gapLimit) windowStart = null
         lastTimeMs = sample.timeMs
         lastSlow = speed < config.stopSpeedKmh
+        if (armed) {
+            armed = false
+            if (!stopped) provisionalRest = when {
+                speed < config.stopSpeedKmh -> sample
+                speed > config.moveSpeedKmh && startObscured -> estimatedRest(sample, speed)
+                else -> null
+            }
+        }
         buffer.addLast(sample)
         while (buffer.size > config.bufferSize) buffer.removeFirst()
 
@@ -135,7 +177,17 @@ class StopDetector(private val config: StopDetectionConfig = StopDetectionConfig
                     stopped = true
                     stoppedSinceMs = start.timeMs
                     windowStart = null
+                    provisionalRest = null
                     StopEvent(StopEventType.ARRIVAL, start.timeMs, start.latitude, start.longitude)
+                } else null
+            } else if (provisionalRest != null && speed > config.moveSpeedKmh) {
+                // Отправление без подтверждённого прибытия: «АВТО» включили на стоянке и сразу тронулись.
+                val start = windowStart ?: sample.also { windowStart = it }
+                if (sample.timeMs - start.timeMs >= config.moveMinDurationMs) {
+                    windowStart = null
+                    val real = rollbackToRest(start)
+                    provisionalRest = null
+                    StopEvent(StopEventType.DEPARTURE, real.timeMs, real.latitude, real.longitude)
                 } else null
             } else {
                 windowStart = null
@@ -173,6 +225,12 @@ class StopDetector(private val config: StopDetectionConfig = StopDetectionConfig
             if ((s.speedKmh ?: continue) <= config.restSpeedKmh) return s
             prevTime = s.timeMs
         }
-        return start
+        return provisionalRest?.takeIf { it.timeMs <= start.timeMs } ?: start
+    }
+
+    /** Первый отсчёт уже на ходу (после помехи): момент трогания - назад на время разгона до этой скорости. */
+    private fun estimatedRest(sample: MotionSample, speedKmh: Double): MotionSample {
+        val backMs = ((speedKmh / 3.6) / START_ACCELERATION_MS2 * 1000).toLong().coerceIn(0L, MAX_START_ESTIMATE_MS)
+        return sample.copy(timeMs = sample.timeMs - backMs, speedKmh = 0.0)
     }
 }

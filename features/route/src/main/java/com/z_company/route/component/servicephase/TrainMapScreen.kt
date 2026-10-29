@@ -239,6 +239,8 @@ internal fun TrainMapScreen(
         var loadAttempt by remember { mutableStateOf(0) }
         // «Линии по факту» (ActualRails): пути, по которым поезд реально ехал вне линии плеча (соседний/параллельный путь).
         var factLines by remember { mutableStateOf(emptyList<List<Pair<Double, Double>>>()) }
+        // Пунктир впереди, перестроенный по факту (см. «Пунктир впереди по факту»); null - показывается линия плеча.
+        var aheadReroute by remember { mutableStateOf<List<Pair<Double, Double>>?>(null) }
         val triedFactRuns = remember { mutableSetOf<String>() }
         var fittedKey by remember { mutableStateOf<String?>(null) }
         var track by remember { mutableStateOf<TrainFormViewModel.TrainMapTrack?>(null) }
@@ -456,7 +458,7 @@ internal fun TrainMapScreen(
                                 PropertyFactory.lineDasharray(arrayOf(2f, 2f)),
                                 PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
                             ),
-                            "train-map-me-layer",
+                            "train-map-me-arrow",
                         )
                         // «Зоны без GPS»: мягкие красноватые пятна под всеми слоями приложения и под подписями базовой карты.
                         style.addSource(GeoJsonSource(GNSS_ZONES_SOURCE, FeatureCollection.fromFeatures(emptyList())))
@@ -493,7 +495,7 @@ internal fun TrainMapScreen(
                                     Expression.match(role, Expression.literal(2f), Expression.stop("halt", 1.5f), Expression.stop("ahead", 3f))
                                 ),
                             ),
-                            "train-map-me-layer",
+                            "train-map-me-arrow",
                         )
                         style.addLayerBelow(
                             SymbolLayer("train-map-stops-label", TRAIN_STOPS_SOURCE).withProperties(
@@ -513,7 +515,7 @@ internal fun TrainMapScreen(
                                 PropertyFactory.textAllowOverlap(true),
                                 PropertyFactory.textIgnorePlacement(true),
                             ).also { it.setFilter(Expression.eq(Expression.get("show"), 1)) },
-                            "train-map-me-layer",
+                            "train-map-me-arrow",
                         )
                         // Предупреждения на участке: жёлтая широкая линия под путём и подпись вдоль неё.
                         style.addSource(GeoJsonSource(TRAIN_WARN_SOURCE, FeatureCollection.fromFeatures(emptyList())))
@@ -637,7 +639,7 @@ internal fun TrainMapScreen(
                                 PropertyFactory.circleStrokeColor("#FFFFFF"),
                                 PropertyFactory.circleStrokeWidth(2.5f),
                             ),
-                            "train-map-me-layer",
+                            "train-map-me-arrow",
                         )
                         style.addLayerBelow(
                             SymbolLayer("train-map-marks-label", TRAIN_MARKS_SOURCE).withProperties(
@@ -652,7 +654,7 @@ internal fun TrainMapScreen(
                                 PropertyFactory.textAllowOverlap(true),
                                 PropertyFactory.textIgnorePlacement(true),
                             ).also { it.setFilter(Expression.eq(Expression.get("show"), 1)) },
-                            "train-map-me-layer",
+                            "train-map-me-arrow",
                         )
                         style.addLayerBelow(
                             CircleLayer("train-map-sel-layer", TRAIN_SEL_SOURCE).withProperties(
@@ -661,7 +663,7 @@ internal fun TrainMapScreen(
                                 PropertyFactory.circleStrokeColor("#0A0E14"),
                                 PropertyFactory.circleStrokeWidth(3.5f),
                             ),
-                            "train-map-me-layer",
+                            "train-map-me-arrow",
                         )
                         // Флажок точки плана прибытия (этап 5).
                         style.addSource(GeoJsonSource(TRAIN_PLAN_SOURCE, FeatureCollection.fromFeatures(emptyList())))
@@ -673,7 +675,7 @@ internal fun TrainMapScreen(
                                 PropertyFactory.iconAllowOverlap(true),
                                 PropertyFactory.iconIgnorePlacement(true),
                             ),
-                            "train-map-me-layer",
+                            "train-map-me-arrow",
                         )
                         // Начало и окончание пройденного пути (§6.9): значки поверх линии, под маркером «я».
                         style.addSource(GeoJsonSource(TRAIN_ENDS_SOURCE, FeatureCollection.fromFeatures(emptyList())))
@@ -685,7 +687,7 @@ internal fun TrainMapScreen(
                                 PropertyFactory.iconAllowOverlap(true),
                                 PropertyFactory.iconIgnorePlacement(true),
                             ),
-                            "train-map-me-layer",
+                            "train-map-me-arrow",
                         )
                         styleReady = true
                         styleGen++
@@ -714,7 +716,10 @@ internal fun TrainMapScreen(
         // Текущее место — как только карта и стиль готовы (разрешение — при необходимости).
         LaunchedEffect(styleReady) { if (styleReady && !viewOnly) requestOrShowLocation(center = !hasRoute) }
         // Линия по рельсам с сервера (всегда запрос; сохранённая — запас без сети), как на карте плеч.
-        LaunchedEffect(loadAttempt) {
+        // Ключ - и сам маршрут: при входе из Главного поезд/плечо подгружаются уже после открытия карты (stops пусты ->
+        // появляются), без этого запрос не повторялся и «Строим путь…» висело бесконечно.
+        val routePointsKey = remember(stops) { stops.map { it.latitude to it.longitude } }
+        LaunchedEffect(loadAttempt, routePointsKey) {
             if (hasRoute) {
                 // Уже показанную линию (из кэша) не убираем на время перезапроса - карта не мигает.
                 if (railState !is ServicePhaseAutoFillViewModel.RailLineResult.Ok) railState = null
@@ -1071,6 +1076,60 @@ internal fun TrainMapScreen(
             }
             // Сбой/отказ: тот же участок не запрашиваем повторно; растущий участок (другой ключ) попробует снова.
         }
+        // Пунктир впереди по факту: поезд ушёл с проложенного пути на другой (выход со станции с многими путями) -
+        // линия от текущего положения до ближайшей станции впереди и далее строится заново по рельсам (тот же route/length).
+        // Позади съезда остаётся прежняя линия; вернулись на прежний путь - показывается прежняя.
+        val rerouteState = remember {
+            object {
+                var offCount = 0; var onCount = 0; var busy = false
+                var lastOnLine: Pair<Double, Double>? = null
+                var lastReqAt = 0L; var lastReqFix: Pair<Double, Double>? = null
+            }
+        }
+        LaunchedEffect(myFix, railState) {
+            val routeLine = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line ?: return@LaunchedEffect
+            if (viewOnly || !hasRoute) return@LaunchedEffect
+            val fix = myFix ?: return@LaunchedEffect
+            val rs = rerouteState
+            val offset = ActualRails.project(listOf(routeLine), fix.latitude, fix.longitude)?.projection?.offsetM ?: return@LaunchedEffect
+            if (offset <= ActualRails.DEVIATION_M) {
+                rs.lastOnLine = fix.latitude to fix.longitude
+                rs.offCount = 0
+                if (aheadReroute != null && ++rs.onCount >= 5) { aheadReroute = null; rs.onCount = 0; rs.lastReqFix = null }
+                return@LaunchedEffect
+            }
+            rs.onCount = 0
+            if ((liveSpeed ?: 0.0) < moveThresholdKmh || ++rs.offCount < 5 || rs.busy) return@LaunchedEffect
+            val nowReal = android.os.SystemClock.elapsedRealtime()
+            val last = rs.lastReqFix
+            if (nowReal - rs.lastReqAt < REROUTE_MIN_MS ||
+                (last != null && TrackAnalysis.distanceM(last.first, last.second, fix.latitude, fix.longitude) < REROUTE_MIN_MOVE_M)
+            ) return@LaunchedEffect
+            val ahead = TrainMapRoute.nextAhead(stops, routeLine, ActualRails.alongRouteFix(routeLine, factLines, fix))?.index
+                ?: return@LaunchedEffect
+            val points = listOf(fix.latitude to fix.longitude) + stops.drop(ahead).map { it.latitude to it.longitude }
+            if (points.size < 2) return@LaunchedEffect
+            rs.busy = true
+            rs.lastReqAt = nowReal
+            rs.lastReqFix = fix.latitude to fix.longitude
+            val divergedAt = rs.lastOnLine
+            // Запрос не привязан к ключам эффекта (новый фикс каждую секунду его перезапускал бы).
+            scope.launch {
+                try {
+                    val res = loadRailLine(points) as? ServicePhaseAutoFillViewModel.RailLineResult.Ok
+                    val line = res?.line?.takeIf { !res.fromCache && it.size >= 2 } ?: return@launch
+                    val startOk = TrackAnalysis.distanceM(line.first().first, line.first().second, fix.latitude, fix.longitude) <= REROUTE_START_M
+                    val chord = points.zipWithNext().sumOf { (a, b) -> TrackAnalysis.distanceM(a.first, a.second, b.first, b.second) }
+                    val lenOk = TrainMapRoute.cumulativeM(line).last() <= chord * ActualRails.MAX_DETOUR_RATIO + ActualRails.DETOUR_SLACK_M
+                    if (!startOk || !lenOk) return@launch
+                    // Прежняя линия - до места съезда, дальше новая.
+                    val cut = divergedAt?.let { d -> routeLine.indices.minByOrNull { TrackAnalysis.distanceM(routeLine[it].first, routeLine[it].second, d.first, d.second) } }
+                    aheadReroute = (cut?.let { routeLine.take(it + 1) }.orEmpty()) + line
+                } finally {
+                    rs.busy = false
+                }
+            }
+        }
         // «Хвост»: пока «АВТО» пишет, жирная линия дорисовывается от последней точки трека до текущего положения
         // (трек прорежен и подгружается раз в 10 с, из-за чего линия отставала от маркера на 60-100 м).
         val railLineNow = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line
@@ -1336,9 +1395,9 @@ internal fun TrainMapScreen(
             onDispose { m?.removeOnMapClickListener(click) }
         }
         // Пунктир, когда линия получена.
-        LaunchedEffect(styleGen, styleReady, railState) {
+        LaunchedEffect(styleGen, styleReady, railState, aheadReroute) {
             if (!styleReady) return@LaunchedEffect
-            val line = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line ?: return@LaunchedEffect
+            val line = aheadReroute ?: (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line ?: return@LaunchedEffect
             map?.style?.getSourceAs<GeoJsonSource>(TRAIN_ROUTE_SOURCE)?.setGeoJson(
                 Feature.fromGeometry(LineString.fromLngLats(line.map { (lat, lon) -> Point.fromLngLat(lon, lat) }))
             )
@@ -2281,6 +2340,10 @@ private const val TRACK_REDRAW_MIN_MS = 2_000L
 
 /** Поиск участка съезда на соседний путь выполняется не чаще, мс. */
 private const val DEVIATION_CHECK_MIN_MS = 5_000L
+/** Перестроение пунктира впереди: не чаще, не ближе по пути и допуск начала новой линии от положения. */
+private const val REROUTE_MIN_MS = 15_000L
+private const val REROUTE_MIN_MOVE_M = 150.0
+private const val REROUTE_START_M = 80.0
 
 /** Готовые к записи в источники карты данные пройденного пути (JSON собран вне главного потока). */
 private class TrackGeo(

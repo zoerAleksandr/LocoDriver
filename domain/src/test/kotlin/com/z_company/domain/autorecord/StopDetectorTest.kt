@@ -258,4 +258,41 @@ class StopDetectorTest {
         assertNotNull(ev)
         assertEquals(t0 + 42_000L, ev.timeMs)
     }
+
+    @Test
+    fun `armed at rest, departure within a minute is recorded without arrival`() {
+        val d = StopDetector()
+        d.arm()
+        assertNull(d.feed(0, 19, 0.0))
+        d.feed(20, 29, 3.0)
+        val ev = d.feed(30, 70, 15.0)
+        assertNotNull(ev)
+        assertEquals(StopEventType.DEPARTURE, ev.type)
+        assertEquals(t0 + 19_000L, ev.timeMs)
+    }
+
+    @Test
+    fun `not armed, quick departure is not recorded as before`() {
+        val d = StopDetector()
+        d.feed(0, 19, 0.0)
+        assertNull(d.feed(20, 80, 15.0))
+    }
+
+    @Test
+    fun `first fix already moving after interference gives estimated departure`() {
+        val d = StopDetector()
+        d.arm()
+        d.markStartObscured()
+        val ev = d.feed(100, 140, 20.0)
+        assertNotNull(ev)
+        assertEquals(StopEventType.DEPARTURE, ev.type)
+        assertEquals(t0 + 100_000L - 18_518L, ev.timeMs)
+    }
+
+    @Test
+    fun `first fix moving without interference is not a departure`() {
+        val d = StopDetector()
+        d.arm()
+        assertNull(d.feed(100, 160, 20.0))
+    }
 }

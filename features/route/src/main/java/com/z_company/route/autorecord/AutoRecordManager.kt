@@ -428,7 +428,10 @@ class AutoRecordManager(
         // После перезапуска процесса продолжаем с сохранённого состояния «стоим/едем», если запись прервалась недавно.
         if (resume && prefs.contains(KEY_STOPPED) && nowMs() - prefs.getLong(KEY_BEAT, 0L) <= RESUME_MAX_GAP_MS) {
             detector.seed(prefs.getBoolean(KEY_STOPPED, false), prefs.getLong(KEY_STOPPED_SINCE, 0L))
+        } else {
+            detector.arm()
         }
+        beganAtMs = nowMs()
         pointsJob?.cancel()
         watchJob?.cancel()
         expiryJob?.cancel()
@@ -491,6 +494,9 @@ class AutoRecordManager(
     }
 
     private var signalDrops = 0
+
+    /** Момент включения «АВТО»: помеха/потеря сигнала в первые минуты не должны терять первое отправление. */
+    private var beganAtMs = 0L
 
     private suspend fun onPoint(p: GpsPoint) {
         val s = _state.value
@@ -776,6 +782,9 @@ class AutoRecordManager(
     private fun onQuality(q: GnssQuality) {
         if (!_state.value.enabled) return
         val now = nowMs()
+        if ((q.level == GnssLevel.LOST || q.level == GnssLevel.INTERFERENCE) && now - beganAtMs <= START_OBSCURED_WINDOW_MS) {
+            detector.markStartObscured()
+        }
         when (q.level) {
             GnssLevel.LOST -> {
                 if (lostSinceMs == null) {
@@ -854,6 +863,7 @@ class AutoRecordManager(
         private const val KEY_LAST_ENABLED = "last_enabled_ms"
         private const val STALE_MS = 10 * 60_000L
         private const val BEAT_WRITE_MS = 20_000L
+        private const val START_OBSCURED_WINDOW_MS = 180_000L
         private const val NO_ROUTE_REPEAT_MS = 30 * 60_000L
         private const val START_TIMEOUT_MS = 15_000L
         private const val ALERT_CHANNEL = "auto_record_alerts"
