@@ -74,6 +74,7 @@ class CalendarViewModel : ViewModel(), KoinComponent {
     private val partnerUseCase: PartnerUseCase by inject()
     private val releaseDayUseCase: ReleaseDayUseCase by inject()
     private val routeHelper: RouteActionsHelper by inject()
+    private val reviewPromptHelper: ReviewPromptHelper by inject()
     private val snackbarManager: ISnackbarManager by inject()
     private val secureTokenStorage: SecureTokenStorage by inject()
     private val routesManager: RoutesManager by inject()
@@ -365,6 +366,7 @@ class CalendarViewModel : ViewModel(), KoinComponent {
             )
             exitRoutePlan()
             loadMonth()
+            if (created > 0) reviewPromptHelper.onRouteSaved()
         } finally {
             _uiState.update { it.copy(operationMessage = null) }
         }

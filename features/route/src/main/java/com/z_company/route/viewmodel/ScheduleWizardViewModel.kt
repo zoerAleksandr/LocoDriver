@@ -47,6 +47,7 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
     private val partnerUseCase: PartnerUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val routeHelper: RouteActionsHelper by inject()
+    private val reviewPromptHelper: ReviewPromptHelper by inject()
     private val snackbarManager: ISnackbarManager by inject()
     private val prefs: SharedPreferencesRepositories by inject()
 
@@ -472,6 +473,7 @@ class ScheduleWizardViewModel : ViewModel(), KoinComponent {
                     }
                 )
                 _uiState.update { it.copy(isSaving = false, done = true) }
+                if (created > 0) reviewPromptHelper.onRouteSaved()
             } catch (t: Throwable) {
                 if (t is CancellationException) throw t
                 t.sendToSentry("ScheduleWizardViewModel", "apply")

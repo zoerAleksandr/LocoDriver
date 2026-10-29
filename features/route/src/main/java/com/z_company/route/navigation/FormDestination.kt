@@ -74,7 +74,7 @@ fun FormDestination(
                         // SnackbarHost поглотит событие из Channel до того как экран-источник
                         // станет активным коллектором. Тост «Маршрут сохранен» показывается
                         // из FormViewModel после завершения навигации (delay + sync).
-                        launch { viewModel.prepareReviewDialog() }
+                        viewModel.onRouteSaved()
                         // Возврат на экран, откуда открыли форму (Главный / Все маршруты /
                         // Поиск), а не всегда на Главный.
                         router.back()

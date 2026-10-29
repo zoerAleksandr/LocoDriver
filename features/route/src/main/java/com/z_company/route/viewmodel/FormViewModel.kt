@@ -72,8 +72,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import ru.rustore.sdk.review.RuStoreReviewManagerFactory
-import ru.rustore.sdk.review.model.ReviewInfo
 import java.util.UUID
 
 class FormViewModel(
@@ -98,7 +96,7 @@ class FormViewModel(
     private val secureTokenStorage: com.z_company.repository.SecureTokenStorage by inject()
     private val syncManager: SyncManager by inject()
 
-    val reviewManager = RuStoreReviewManagerFactory.create(application.applicationContext)
+    private val reviewPromptHelper: ReviewPromptHelper by inject()
 
     // Основные состояния
     private val _uiState = MutableStateFlow(RouteFormUiState())
@@ -1457,41 +1455,8 @@ class FormViewModel(
         checkDuplicateAndSave(exitAfterSave = true)
     }
 
-    // предложение пользователю оценить приложение
-    private var reviewInfo: ReviewInfo? = null
-
-    suspend fun prepareReviewDialog() = coroutineScope {
-        val count = async { getRoutesCount() }.await()
-        val isShow = isShowReviewDialog(count)
-        if (isShow) {
-            reviewManager.requestReviewFlow()
-                .addOnSuccessListener { info ->
-                    reviewInfo = info
-                }
-                .addOnFailureListener { throwable ->
-                    Log.w("ZZZ", "prepareReviewDialog throwable = ${throwable.message}")
-                }
-        }
-    }
-
-    private fun isShowReviewDialog(count: Int): Boolean {
-        return (count > 10 && count % 5 == 0)
-    }
-
-    private suspend fun getRoutesCount(): Int {
-        delay(10L)
-        return routeUseCase.listRouteWithDeleting().size
-    }
-
-    private fun showReviewDialog(reviewInfo: ReviewInfo) {
-        reviewManager.launchReviewFlow(reviewInfo)
-            .addOnSuccessListener {
-                Log.i("ZZZ", "showReviewDialog Success")
-            }
-            .addOnFailureListener { throwable ->
-                Log.w("ZZZ", "showReviewDialog Failure = $throwable")
-            }
-    }
+    /** Вызывается после сохранения маршрута: возможно, предложить оценить приложение. */
+    fun onRouteSaved() = reviewPromptHelper.onRouteSaved()
 
     private fun getLocoList(basicId: String): MutableList<Locomotive> {
         return locoUseCase.getLocomotiveList(basicId).toMutableList()
@@ -1581,5 +1546,4 @@ class FormViewModel(
 //            }
 //        }
 //    }
-
 }

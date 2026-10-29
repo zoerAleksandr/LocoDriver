@@ -355,6 +355,7 @@ val repositoryModule = module {
     single { ShareRouteManager(remoteRestApi = get()) }
 
     single { RouteActionsHelper() }
+    single { com.z_company.route.viewmodel.ReviewPromptHelper(androidApplication()) }
     single { SubscriptionHelper() }
 
     // Widget updater (Glance)
