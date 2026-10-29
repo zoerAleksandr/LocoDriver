@@ -15,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
@@ -63,7 +64,11 @@ class SectionProfileRepository(
      * Участки рядом с точкой: оси только тех, чей габарит не дальше [radiusM] (не больше [limit] ближайших). Если сервер габарит
      * не отдаёт (старая версия) - как раньше, все участки. Сбой одного участка не мешает остальным.
      */
-    suspend fun sectionsNear(lat: Double, lon: Double, radiusM: Double = NEAR_RADIUS_M, limit: Int = NEAR_LIMIT, refresh: Boolean = false): List<SectionProfile> {
+    suspend fun sectionsNear(
+        lat: Double, lon: Double, radiusM: Double = NEAR_RADIUS_M, limit: Int = NEAR_LIMIT, refresh: Boolean = false,
+        /** Только память/диск, без сети: мгновенно, что уже сохранено (потом - обычный вызов, он докачает и обновит). */
+        cacheOnly: Boolean = false,
+    ): List<SectionProfile> {
         val index = loadIndex(refresh)
         val withBox = index.mapNotNull { dto -> SectionBox.of(dto.bbox)?.let { dto to it.distanceM(lat, lon) } }
         // Без габарита берём только участки с геометрией (старый сервер не отдаёт габарит): у участка без геометрии качать нечего,
@@ -71,7 +76,9 @@ class SectionProfileRepository(
         val noBox = index.filter { it.hasGeometry && SectionBox.of(it.bbox) == null }
         val near = withBox.filter { it.second <= radiusM }.sortedBy { it.second }.take(limit).map { it.first }
         // Участки без габарита (нет геометрии либо старый сервер) отсеять нечем - берём как есть; без геометрии section() вернёт null.
-        return (near + noBox).distinctBy { it.id }.mapNotNull { runCatching { section(it.id, refresh = false) }.getOrNull() }
+        return (near + noBox).distinctBy { it.id }.mapNotNull {
+            runCatching { if (cacheOnly) cached(it.id) else section(it.id, refresh = false) }.getOrNull()
+        }
     }
 
     /** Участок целиком; null - нет ни в кэше, ни на сервере, либо у него нет геометрии. */
@@ -125,7 +132,17 @@ class SectionProfileRepository(
         if (ids.isNotEmpty()) cache.retain(ids)
     }
 
-    private suspend fun loadIndex(refresh: Boolean) = lock.withLock { loadIndexLocked(refresh) }
+    /**
+     * Запрос к серверу - ВНЕ замка и с таймаутом: при слабой сети он раньше держал замок десятки секунд, и всё, что читает
+     * кэш ([cached], [section], [sectionsNear]), ждало сеть - профиль не появлялся, хотя лежал на диске.
+     */
+    private suspend fun loadIndex(refresh: Boolean): List<AdvisorSectionSummaryDto> {
+        if (refresh) {
+            val fresh = withTimeoutOrNull(INDEX_TIMEOUT_MS) { runCatching { api.sections() }.getOrNull() }
+            if (fresh != null) return lock.withLock { storeIndexLocked(fresh); fresh }
+        }
+        return lock.withLock { loadIndexLocked(false) }
+    }
 
     private fun storeIndexLocked(fresh: List<AdvisorSectionSummaryDto>) {
         index = fresh
@@ -207,6 +224,7 @@ class SectionProfileRepository(
     private companion object {
         /** Радиус отбора участков вокруг положения: ось + запас на соседние участки и погрешность. */
         const val NEAR_RADIUS_M = 5_000.0
+        const val INDEX_TIMEOUT_MS = 10_000L
         const val NEAR_LIMIT = 8
         val RATE_LIMIT_PAUSE = kotlin.time.Duration.parse("10m")
     }

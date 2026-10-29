@@ -657,15 +657,26 @@ internal class ProfileModel(
             val dLon = (fix.longitude - c.longitude) * com.z_company.domain.track.FlatMetric.kx(fix.latitude)
             if (dLat * dLat + dLon * dLon < NEAR_RELOAD_M * NEAR_RELOAD_M) return
         }
+        if (System.currentTimeMillis() < nearRetryAtMs) return
         loadingNear = true
         scope.launch {
+            // Сначала то, что уже сохранено на устройстве (мгновенно, без сети), потом - докачка/обновление: при слабой сети профиль
+            // появляется сразу из кэша, а не после таймаута запроса.
+            val cachedNear = runCatching { withContext(Dispatchers.Default) { repo.sectionsNear(fix.latitude, fix.longitude, cacheOnly = true) } }
+                .getOrDefault(emptyList())
+            if (cachedNear.isNotEmpty()) { merge(cachedNear); rebuild() }
             val found = runCatching { withContext(Dispatchers.Default) { repo.sectionsNear(fix.latitude, fix.longitude) } }.getOrDefault(emptyList())
             merge(found)
-            nearCenter = fix
+            // Пусто (сбой сети/сервера или правда нет участков рядом): центр не запоминаем - через 30 с попробуем снова, а не ждём
+            // сдвига на 2 км (раньше сбой оставлял профиль пустым до повторного входа в карту).
+            if (found.isNotEmpty() || cachedNear.isNotEmpty()) { nearCenter = fix; nearRetryAtMs = 0L }
+            else nearRetryAtMs = System.currentTimeMillis() + NEAR_RETRY_MS
             loadingNear = false
             rebuild()
         }
     }
+
+    private var nearRetryAtMs = 0L
 
     private var legStationsKey: String? = null
     private var legStationsCache: List<com.z_company.domain.track.SectionStation> = emptyList()
@@ -1014,6 +1025,7 @@ internal class ProfileModel(
         const val MOTION_KM = 0.3
         const val MAX_STEP_KM = 1.0
         const val NEAR_RELOAD_M = 2_000.0
+        const val NEAR_RETRY_MS = 30_000L
         const val RAIL_RECHECK_M = 100.0
         const val RAIL_RECHECK_MS = 60_000L
     }
