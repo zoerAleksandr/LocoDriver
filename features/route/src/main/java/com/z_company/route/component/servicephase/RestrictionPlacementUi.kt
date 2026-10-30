@@ -39,12 +39,11 @@ internal fun rememberPlacements(entries: List<RestrictionPass>, stops: List<Trai
     }
 }
 
-/** Пометка у ограничения, которое не на карте (null - на карте или неизвестно); [warn] - не нанесётся совсем, выделяется. */
+/** Пометка у ограничения, которое не на карте (null - на карте, встанет само (PENDING) или неизвестно); [warn] - не нанесётся совсем, выделяется. */
 internal fun placementNote(p: Placement?): Pair<String, Boolean>? = when (p) {
     Placement.NO_PROFILE -> "Нет профиля участка — на карту не нанесётся" to true
     Placement.GRAY_ZONE -> "Километраж здесь неизвестен — на карту не нанесётся" to true
     Placement.NO_KM -> "Без километров — на карту не нанесётся" to true
-    Placement.PENDING -> "Не отображено на карте, карта пути этого участка в разработке" to false
     else -> null
 }
 
