@@ -194,6 +194,11 @@ class TrainFormViewModel(
     // пересортироваться, когда статистика/координата приходят позже открытия экрана.
     private var lastFix: GeoFix? by mutableStateOf(null)
     private var stationUsage: Map<String, Int> = emptyMap()
+    /**
+     * Положение для порядка подсказок станций: берётся один раз при открытии (не дольше 2 с) и дальше не меняется, чтобы выпадающие
+     * списки (шторка станции, плечи) не «прыгали» при уточнении GPS. [lastFix] остаётся для остальных нужд (плечи, карта).
+     */
+    private var suggestFix: GeoFix? = null
     private var phaseUsage: Map<String, Int> by mutableStateOf(emptyMap())
     private var phaseLastUsed: Map<String, Long> by mutableStateOf(emptyMap())
 
@@ -207,6 +212,14 @@ class TrainFormViewModel(
     init {
         loadUsageStats()
         refreshFix()
+        viewModelScope.launch {
+            suggestFix = DeviceLocation.currentFix(appContext, timeoutMs = 2_000)
+            if (suggestFix != null) {
+                val sorted = sortSuggestions(stationNameList.distinct())
+                mutableStationList.clear()
+                mutableStationList.addAll(sorted)
+            }
+        }
         viewModelScope.launch {
             try {
                 loadStationsSortOrder()
@@ -253,7 +266,7 @@ class TrainFormViewModel(
                                         stationDirectory.stations().map { it.name },
                                     )
                                 )
-                                mutableStationList.addAllOrSkip(stationNameList)
+                                mutableStationList.addAllOrSkip(sortSuggestions(stationNameList.distinct()))
                                 locomotiveSeriesList.addAllOrSkip(settings.locomotiveSeriesList)
                                 mutableFilteredSeriesList.addAllOrSkip(locomotiveSeriesList)
                                 servicePhaseList.clear()
@@ -781,7 +794,7 @@ class TrainFormViewModel(
             names,
             stationUsage,
             StationDirectory.points(stationDirectory.stations()) + ServicePhaseStationPicker.knownPoints(servicePhaseList),
-            lastFix,
+            suggestFix,
         )
 
     // Правки плеч и справочника станций — read-modify-write одних настроек: по очереди.

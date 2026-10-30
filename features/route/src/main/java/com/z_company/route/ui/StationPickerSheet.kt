@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -85,7 +86,15 @@ fun StationPickerSheet(
     val context = LocalContext.current
     val routeUseCase: RouteUseCase = koinInject()
     val settingsUseCase: SettingsUseCase = koinInject()
-    val order by produceState<PickOrder?>(initialValue = null, stations) {
+    // Положение ждём один раз при открытии, не дольше 2 с (пока ждём - индикатор), и дальше не обновляем: порядок
+    // выбирается сразу готовым и не «прыгает» при уточнении GPS. Нет положения - порядок по частоте и как есть.
+    var fix by remember { mutableStateOf<GeoFix?>(null) }
+    var fixDone by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        fix = DeviceLocation.currentFix(context, timeoutMs = 2_000)
+        fixDone = true
+    }
+    val base by produceState<PickOrder?>(initialValue = null, stations) {
         value = withContext(Dispatchers.Default) {
             runCatching {
                 val names = stations.associate { it.stationId to it.name }
@@ -97,16 +106,16 @@ fun StationPickerSheet(
                 PickOrder(usage, points)
             }.getOrNull()
         }
-        val fix = DeviceLocation.currentFix(context) ?: return@produceState
-        value = value?.copy(fix = fix)
     }
+    val order = if (fixDone) base?.copy(fix = fix) else null
+    val sorting = stations.isNotEmpty() && order == null
     fun ordered(list: List<StationNorm>): List<StationNorm> {
         val o = order ?: return list
         val byName = list.groupBy { it.name }
         return StationSuggestionOrder.sort(byName.keys.toList(), o.usage, o.points, o.fix).flatMap { byName.getValue(it) }
     }
 
-    val filtered = ordered(
+    val filtered = if (sorting) emptyList() else ordered(
         if (query.isBlank()) stations
         else stations.filter { it.name.contains(query, ignoreCase = true) }
     )
@@ -227,6 +236,14 @@ fun StationPickerSheet(
                         )
                     }
                     Spacer(Modifier.height(4.dp))
+                }
+
+                if (sorting) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(modifier = Modifier.size(32.dp), strokeWidth = 3.dp)
+                        }
+                    }
                 }
 
                 if (stations.isEmpty()) {
