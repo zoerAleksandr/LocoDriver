@@ -163,4 +163,25 @@ class ArrivalPlanTest {
         assertEquals(false, ArrivalPlan.isStale(plan, plan.plannedMs + ArrivalPlan.STALE_MS))
         assertEquals(true, ArrivalPlan.isStale(plan, plan.plannedMs + ArrivalPlan.STALE_MS + 1))
     }
+
+    @Test fun speedZoneDelaysExpectedArrival() {
+        val d = 20_000.0
+        val free = ArrivalPlan.evaluate(0L, d, 10_000_000L, 72.0).expectedMs!!
+        val zone = ArrivalPlan.SpeedZone(5_000.0, 6_000.0, 25.0)
+        val limited = ArrivalPlan.evaluate(0L, d, 10_000_000L, 72.0, zones = listOf(zone)).expectedMs!!
+        // 1 км на 25 км/ч вместо 72 + торможение/разгон: заметно позже, но не бесконечно
+        assertTrue(limited - free > 100_000L)
+        assertTrue(limited - free < 600_000L)
+        // зона позади не влияет
+        val behind = ArrivalPlan.evaluate(0L, d, 10_000_000L, 72.0, zones = listOf(ArrivalPlan.SpeedZone(-900.0, -10.0, 25.0))).expectedMs!!
+        assertEquals(free, behind)
+    }
+
+    @Test fun speedZoneRaisesRequiredSpeed() {
+        val d = 20_000.0
+        val t = 1_200_000L
+        val free = ArrivalPlan.evaluate(0L, d, t, 72.0).requiredKmh!!
+        val limited = ArrivalPlan.evaluate(0L, d, t, 72.0, zones = listOf(ArrivalPlan.SpeedZone(5_000.0, 6_000.0, 25.0))).requiredKmh!!
+        assertTrue(limited > free)
+    }
 }

@@ -17,6 +17,8 @@ import com.z_company.domain.track.SectionPicker
 import com.z_company.domain.track.SectionSummary
 import com.z_company.domain.track.ResolvedWarning
 import com.z_company.domain.track.TrackWarning
+import com.z_company.domain.track.WarningType
+import com.z_company.domain.track.latLonAt
 import com.z_company.domain.track.TrackWarnings
 import com.z_company.domain.track.RestrictionKind
 import com.z_company.domain.track.RestrictionPass
@@ -841,6 +843,64 @@ internal class ProfileModel(
         return d.takeIf { it > com.z_company.domain.util.ArrivalPlan.ARRIVED_M }
     }
 
+    /**
+     * Ограничения скорости впереди по ходу для расчёта прибытия: расстояние от головы поезда, конец зоны продлён на длину поезда
+     * (ограничение действует, пока не проследует хвост). Зона позади (хвост прошёл) не попадает в список.
+     *
+     * Если положение [fix] на линии плеча [line], берутся ограничения ВСЕХ загруженных участков: границы зоны переводятся с оси своего
+     * участка в координаты и проецируются на линию плеча, как и станции цели. Иначе (линии нет, вне путей) - запасной путь по оси
+     * выбранного участка: только ограничения этого участка.
+     */
+    fun speedZonesAhead(
+        line: List<Pair<Double, Double>>?,
+        fix: com.z_company.domain.util.GeoFix?,
+    ): SpeedZonesResult {
+        val lenM = (trainLengthKm ?: 0.0) * 1000.0
+        var reason: String? = when {
+            line == null || line.size < 2 -> "линия пути плеча не загружена"
+            fix == null -> "положение не определено"
+            else -> null
+        }
+        if (line != null && line.size >= 2 && fix != null) {
+            val cum = com.z_company.domain.util.TrainMapRoute.cumulativeM(line)
+            val me = com.z_company.domain.util.TrainMapRoute.project(line, cum, fix.latitude, fix.longitude)
+            if (me == null || me.offsetM > com.z_company.domain.util.TrainMapRoute.SNAP_TOLERANCE_M) {
+                reason = "положение дальше 50 м от рельсового пути"
+            } else {
+                return SpeedZonesResult(mapWarnings.mapNotNull { (sec, r) ->
+                    val v = r.warning.speedKmh?.takeIf { r.warning.type == WarningType.SPEED && it > 0 } ?: return@mapNotNull null
+                    val pa = sec.axis.latLonAt(r.fromKm) ?: return@mapNotNull null
+                    val pb = sec.axis.latLonAt(r.toKm) ?: return@mapNotNull null
+                    val a = com.z_company.domain.util.TrainMapRoute.project(line, cum, pa.first, pa.second) ?: return@mapNotNull null
+                    val b = com.z_company.domain.util.TrainMapRoute.project(line, cum, pb.first, pb.second) ?: return@mapNotNull null
+                    // Ось участка редкая и местами уходит с путей; зона не на линии плеча - не наша.
+                    if (a.offsetM > ZONE_ON_LINE_M || b.offsetM > ZONE_ON_LINE_M) return@mapNotNull null
+                    val start = minOf(a.alongM, b.alongM) - me.alongM
+                    val end = maxOf(a.alongM, b.alongM) - me.alongM + lenM
+                    if (end <= 0) null else com.z_company.domain.util.ArrivalPlan.SpeedZone(start, end, v.toDouble())
+                })
+            }
+        }
+        // Запасной путь: ось выбранного участка. Предупреждаем, только если скоростные ограничения вообще есть.
+        val hasSpeed = journalEntries.any { it.tracked && warningOf(it).let { w -> w.type == WarningType.SPEED && (w.speedKmh ?: 0) > 0 } }
+        val caveat = if (hasSpeed) reason else null
+        val l = live ?: return SpeedZonesResult(emptyList(), caveat?.let { noteFor(it, partial = false) })
+        val p = position?.takeIf { !it.offRoute && it.locked } ?: return SpeedZonesResult(emptyList(), caveat?.let { noteFor(it, partial = false) })
+        val head = l.toView(p.kmAxis)
+        return SpeedZonesResult(activeWarnings.mapNotNull { r ->
+            val v = r.warning.speedKmh?.takeIf { r.warning.type == WarningType.SPEED && it > 0 } ?: return@mapNotNull null
+            val a = l.toView(r.fromKm)
+            val b = l.toView(r.toKm)
+            val start = (minOf(a, b) - head) * 1000.0
+            val end = (maxOf(a, b) - head) * 1000.0 + lenM
+            if (end <= 0) null else com.z_company.domain.util.ArrivalPlan.SpeedZone(start, end, v.toDouble())
+        }, caveat?.let { noteFor(it, partial = true) })
+    }
+
+    private fun noteFor(reason: String, partial: Boolean): String =
+        if (partial) "Ограничения учтены не полностью: $reason. Учтены только ограничения выбранного участка профиля, расчёт может быть неточным."
+        else "Ограничения скорости не учтены: $reason. Расчёт может быть неточным."
+
     /** Станции плеча впереди по режимной карте ([axisDistanceTo]) с расстоянием по оси участка. */
     fun axisStopsAhead(stops: List<TrainMapStop>): List<com.z_company.domain.util.ArrivalPlan.StopAhead> =
         stops.mapNotNull { st ->
@@ -1044,6 +1104,9 @@ internal class ProfileModel(
         /** Ограничения, о которых уже сообщили «километраж неизвестен» (раз за запуск приложения, чтобы не повторять при каждом открытии). */
         val noticedRejections = HashSet<String>()
 
+
+        /** Граница зоны ограничения дальше этого от линии плеча на ней «не лежит» (м): ось участка редкая, допуск шире, чем у цели. */
+        const val ZONE_ON_LINE_M = 400.0
         /** Станция плеча попадает на профиль, если её координаты не дальше этого от оси участка. */
         const val LEG_STATION_MAX_OFFSET_M = 500.0
         const val MOTION_KM = 0.3
@@ -1099,5 +1162,8 @@ internal fun rememberProfileModel(
 internal class RejectNotice(val places: List<String>) {
     val title: String get() = if (places.size == 1) "Не поставлено: ${places.first()}" else "Не поставлено ограничений: ${places.size}"
     val text: String
+
+/** Зоны ограничений для расчёта прибытия; [note] - предупреждение пользователю, когда расчёт неполный (null - всё учтено). */
+internal class SpeedZonesResult(val zones: List<com.z_company.domain.util.ArrivalPlan.SpeedZone>, val note: String? = null)
         get() = TrackWarnings.UNKNOWN_KM_MESSAGE + if (places.size > 1) "\n\n" + places.joinToString("\n") { "• $it" } else ""
 }

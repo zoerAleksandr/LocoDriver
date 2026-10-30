@@ -155,10 +155,13 @@ internal fun ArrivalPlanCard(
     nowMs: Long,
     zone: String,
     speedKmh: Double?,
+    shownSpeedKmh: Double? = speedKmh,
+    zones: List<com.z_company.domain.util.ArrivalPlan.SpeedZone> = emptyList(),
+    zonesNote: String? = null,
     onHide: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-        ArrivalPlanBody(plan, distanceM, note, nowMs, zone, speedKmh)
+        ArrivalPlanBody(plan, distanceM, note, nowMs, zone, speedKmh, shownSpeedKmh, zones, zonesNote)
         PstButton(TrainMapPlanTexts.HIDE, onClick = onHide, kind = PstButtonKind.TEXT, height = 40.dp, fontSize = 14)
     }
 }
@@ -172,6 +175,9 @@ internal fun ArrivalPlanBody(
     nowMs: Long,
     zone: String,
     speedKmh: Double?,
+    shownSpeedKmh: Double? = speedKmh,
+    zones: List<com.z_company.domain.util.ArrivalPlan.SpeedZone> = emptyList(),
+    zonesNote: String? = null,
 ) {
     val target = plan.target
     Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
@@ -196,14 +202,14 @@ internal fun ArrivalPlanBody(
         if (note != null) {
             Text(note, style = Pst.sans.copy(fontSize = 13.sp, lineHeight = 18.sp), color = Pst.textMuted)
         } else if (distanceM != null) {
-            PlanResult(plan, distanceM, nowMs, zone, speedKmh)
+            PlanResult(plan, distanceM, nowMs, zone, speedKmh, shownSpeedKmh, zones, zonesNote)
         }
     }
 }
 
 @Composable
-internal fun PlanResult(plan: ArrivalPlanData, distanceM: Double, nowMs: Long, zone: String, speedKmh: Double?) {
-    val ev = ArrivalPlan.evaluate(nowMs, distanceM, plan.plannedMs, speedKmh, if (plan.onStop) plan.stopMin else 0)
+internal fun PlanResult(plan: ArrivalPlanData, distanceM: Double, nowMs: Long, zone: String, speedKmh: Double?, shownSpeedKmh: Double? = speedKmh, zones: List<ArrivalPlan.SpeedZone> = emptyList(), zonesNote: String? = null) {
+    val ev = ArrivalPlan.evaluate(nowMs, distanceM, plan.plannedMs, speedKmh, if (plan.onStop) plan.stopMin else 0, zones)
     val dayOff = ArrivalPlan.dayOffset(nowMs, plan.plannedMs, zone)
     val plannedText = TrackAnalysis.clock(plan.plannedMs, zone) + if (dayOff > 0) " (следующие сутки)" else ""
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -214,7 +220,9 @@ internal fun PlanResult(plan: ArrivalPlanData, distanceM: Double, nowMs: Long, z
         } else {
             Text(TrainMapPlanTexts.OVERDUE, style = Pst.sans.copy(fontSize = 13.sp), color = Pst.danger)
         }
-        if (speedKmh != null) PlanLine("Текущая скорость", speedText(speedKmh), strong = false)
+        if (zonesNote != null) Text(zonesNote, style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.danger)
+        else if (zones.isNotEmpty()) Text("Учтены ограничения скорости на пути: ${zones.size}", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted)
+        if (shownSpeedKmh != null) PlanLine("Текущая скорость", speedText(shownSpeedKmh), strong = false)
         ev.expectedMs?.let {
             PlanLine("При текущей скорости прибудете", TrackAnalysis.clock(it, zone) + if (ArrivalPlan.dayOffset(nowMs, it, zone) > 0) " (следующие сутки)" else "", strong = false)
         }

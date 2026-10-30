@@ -1505,6 +1505,8 @@ internal fun TrainMapScreen(
         // Возврат в слежение: через FollowReturn.RETURN_DELAY_MS без касаний камера снова ведётся за положением
         // (и «еду по карте», если было включено). Не возвращаем: открыта карточка планирования/выбранной точки/график/панель
         // значка, палец на карте, просмотр записанного трека.
+        val speedZonesRes = remember(nowMs, planDistance, profileModel.position) { if (plan != null) profileModel.speedZonesAhead(railLineNow, alongFix) else SpeedZonesResult(emptyList()) }
+        val speedZones = speedZonesRes.zones
         val followBlocked = selection != null || showChart || showSettings || showProfileFull || showTarget || planNote != null ||
             (plan?.showOnMap == true && planOpen)
         LaunchedEffect(followBlocked) { lastInteractionMs = System.currentTimeMillis() }
@@ -2031,6 +2033,9 @@ internal fun TrainMapScreen(
                     ArrivalPlan.stopsAhead(stops, railLineNow, alongFix).ifEmpty { profileModel.axisStopsAhead(stops) }
                 }
                 val openSpeed = remember { if (liveFresh) liveSpeed else null }
+                            shownSpeedKmh = speedNow,
+                    zones = speedZones,
+                    zonesNote = speedZonesRes.note,
                 TrainMapSpeedEtaScreen(
                     ahead = etaAhead,
                     initialSpeedKmh = openSpeed,
@@ -2096,6 +2101,9 @@ internal fun TrainMapScreen(
                     when (rail) {
                         null -> {
                             androidx.compose.material3.CircularProgressIndicator(
+                    shownSpeedKmh = speedNow,
+                    zones = speedZones,
+                    zonesNote = speedZonesRes.note,
                                 modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Pst.accent,
                             )
                             Text(text = "Строим путь по рельсам…", style = Pst.sans.copy(fontSize = 14.sp), color = Pst.text)

@@ -56,6 +56,9 @@ internal fun TrainMapTargetScreen(
     nowMs: Long,
     zone: String,
     speedKmh: Double?,
+    shownSpeedKmh: Double? = speedKmh,
+    zones: List<com.z_company.domain.util.ArrivalPlan.SpeedZone> = emptyList(),
+    zonesNote: String? = null,
     onSave: (ArrivalPlanData) -> Unit,
     onCancelTarget: () -> Unit,
     onDismiss: () -> Unit,
@@ -85,7 +88,7 @@ internal fun TrainMapTargetScreen(
                             onSave(it)
                         })
                         plan != null && !changing -> TargetSummary(
-                            plan, distanceM, note, nowMs, zone, speedKmh,
+                            plan, distanceM, note, nowMs, zone, speedKmh, shownSpeedKmh, zones, zonesNote,
                             onShowOnMap = { onSave(plan.copy(showOnMap = it)) },
                             onChange = { changing = true },
                             onCancelTarget = onCancelTarget,
@@ -137,6 +140,9 @@ private fun TargetSummary(
     nowMs: Long,
     zone: String,
     speedKmh: Double?,
+    shownSpeedKmh: Double?,
+    zones: List<com.z_company.domain.util.ArrivalPlan.SpeedZone>,
+    zonesNote: String?,
     onShowOnMap: (Boolean) -> Unit,
     onChange: () -> Unit,
     onCancelTarget: () -> Unit,
@@ -144,7 +150,7 @@ private fun TargetSummary(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(16.dp)).padding(14.dp),
-    ) { ArrivalPlanBody(plan, distanceM, note, nowMs, zone, speedKmh) }
+    ) { ArrivalPlanBody(plan, distanceM, note, nowMs, zone, speedKmh, shownSpeedKmh, zones, zonesNote) }
     CheckRow(TrainMapPlanTexts.SHOW_ON_MAP, plan.showOnMap) { onShowOnMap(!plan.showOnMap) }
     PstButton(TrainMapPlanTexts.DONE, onClick = onDone, kind = PstButtonKind.CTA, modifier = Modifier.fillMaxWidth())
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

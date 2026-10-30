@@ -20,6 +20,23 @@ object FlatMetric {
     fun kx(lat: Double): Double = cos(lat * DEG_TO_RAD) * M_PER_DEG_LON_EQ
 }
 
+/** Координаты точки оси на километре [km] (км оси, интерполяция по отрезку); null - ось короче двух точек. Вне оси - ближайший край. */
+fun SectionAxis.latLonAt(km: Double): Pair<Double, Double>? {
+    if (points.size < 2) return null
+    if (km <= points.first().km) return points.first().lat to points.first().lon
+    if (km >= points.last().km) return points.last().lat to points.last().lon
+    var lo = 0
+    var hi = points.size - 1
+    while (hi - lo > 1) {
+        val mid = (lo + hi) / 2
+        if (points[mid].km <= km) lo = mid else hi = mid
+    }
+    val a = points[lo]
+    val b = points[hi]
+    val t = if (b.km == a.km) 0.0 else (km - a.km) / (b.km - a.km)
+    return (a.lat + (b.lat - a.lat) * t) to (a.lon + (b.lon - a.lon) * t)
+}
+
 /** Результат проекции: [kmM] - позиция по оси (м), [offsetM] - боковое отклонение (м), [vertex] - индекс начала лучшего отрезка. */
 data class AxisHit(val kmM: Double, val offsetM: Double, val vertex: Int)
 

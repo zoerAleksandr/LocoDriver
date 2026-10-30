@@ -45,6 +45,18 @@ object ArrivalPlan {
     /** Среднее ускорение разгона поезда, м/с² (поправка на разгон от начальной скорости до нужной). */
     const val ACCEL_MS2 = 0.2
 
+    /** Среднее замедление при служебном торможении перед ограничением, м/с². */
+    const val BRAKE_MS2 = 0.4
+
+    /** Шаг сетки профиля скорости, м. */
+    private const val GRID_M = 25.0
+
+    /**
+     * Зона ограничения скорости впереди: [startM]..[endM] - расстояние вдоль пути от головы поезда (м), [endM] уже включает длину
+     * поезда (ограничение действует, пока не проследует хвост); [startM] <= 0 - голова уже в зоне.
+     */
+    data class SpeedZone(val startM: Double, val endM: Double, val limitKmh: Double)
+
     /** Допуск, дальше которого сохранённая точка плана не считается лежащей на линии, м. */
     const val TARGET_ON_LINE_M = 200.0
 
@@ -239,17 +251,32 @@ object ArrivalPlan {
      * Если нужная скорость не выше v0, разгон не нужен. v0 неизвестна - расчёт без разгона.
      * Сравнение с [speedKmh] (живая или средняя, как у ETA ленты, [TrainMapRoute.etaSpeedKmh]; null - неизвестна).
      */
-    fun evaluate(nowMs: Long, distanceM: Double, plannedMs: Long, speedKmh: Double?, stopMin: Int = 0): Evaluation {
-        val expected = TrainMapRoute.Eta.arrivalMs(nowMs, distanceM, speedKmh)
+    fun evaluate(
+        nowMs: Long,
+        distanceM: Double,
+        plannedMs: Long,
+        speedKmh: Double?,
+        stopMin: Int = 0,
+        zones: List<SpeedZone> = emptyList(),
+    ): Evaluation {
+        val zs = zones.filter { it.endM > 0 && it.startM < distanceM && it.limitKmh > 0 }
+        // Ожидаемое прибытие: ход с текущей скоростью, но не быстрее ограничений (с торможением перед ними и разгоном после);
+        // на остановку добавляется торможение: min(stopMin/2, время хода до цели) сверх безостановочного проследования.
+        val expected = if (speedKmh == null || speedKmh <= 0.0) null else {
+            val v = speedKmh / 3.6
+            var sec = if (zs.isEmpty()) distanceM / v else profileSec(distanceM, v, v, zs)
+            if (stopMin > 0) sec += kotlin.math.min(stopMin * 30.0, distanceM / v)
+            nowMs + (sec * 1000.0).toLong()
+        }
         val leftMs = plannedMs - nowMs
         if (leftMs <= 0) return Evaluation(null, Status.OVERDUE, null, expected)
         val t = leftMs / 1000.0
         val plain = distanceM / t * 3.6
         if (speedKmh == null || speedKmh <= 0.0) {
-            val r = if (stopMin > 0) requiredKmh(distanceM, t, null, stopMin) else plain
+            val r = if (stopMin > 0 || zs.isNotEmpty()) requiredKmh(distanceM, t, null, stopMin, zs) else plain
             return Evaluation(r ?: plain, if (r == null) Status.IMPOSSIBLE else Status.UNKNOWN, null, expected)
         }
-        val required = requiredKmh(distanceM, t, speedKmh / 3.6, stopMin)
+        val required = requiredKmh(distanceM, t, speedKmh / 3.6, stopMin, zs)
             ?: return Evaluation(plain, Status.IMPOSSIBLE, null, expected)
         return when {
             speedKmh >= required * AHEAD_FACTOR -> Evaluation(required, Status.AHEAD, null, expected)
@@ -258,26 +285,62 @@ object ArrivalPlan {
         }
     }
 
+    /**
+     * Время прохождения [distanceM] по профилю скорости, с: ход с потолком [cruise] (м/с) и ограничениями [zones]; старт со скорости [v0]
+     * (м/с, null - сразу на ходу). Разгон с [ACCEL_MS2], служебное торможение перед ограничением с [BRAKE_MS2]: скорость на сетке
+     * считается прямым проходом (разгон) и обратным (торможение), время - по средней скорости каждой клетки.
+     */
+    private fun profileSec(distanceM: Double, cruise: Double, v0: Double?, zones: List<SpeedZone>): Double {
+        val n = kotlin.math.max(1, kotlin.math.ceil(distanceM / GRID_M).toInt())
+        val h = distanceM / n
+        val ceil = DoubleArray(n + 1) { i ->
+            val x = i * h
+            var c = cruise
+            for (z in zones) if (x >= z.startM && x <= z.endM) c = kotlin.math.min(c, z.limitKmh / 3.6)
+            c
+        }
+        val f = DoubleArray(n + 1)
+        f[0] = v0 ?: ceil[0]
+        for (i in 0 until n) f[i + 1] = kotlin.math.min(ceil[i + 1], kotlin.math.sqrt(f[i] * f[i] + 2 * ACCEL_MS2 * h))
+        val g = DoubleArray(n + 1)
+        g[n] = f[n]
+        for (i in n - 1 downTo 0) g[i] = kotlin.math.min(f[i], kotlin.math.sqrt(g[i + 1] * g[i + 1] + 2 * BRAKE_MS2 * h))
+        var sec = 0.0
+        for (i in 0 until n) sec += h / kotlin.math.max(0.5, (g[i] + g[i + 1]) / 2)
+        return sec
+    }
+
     /** Время прохождения [distanceM] с ходом v (м/с) из v0 (null - без разгона) и торможением [stopMin] мин, с. */
-    private fun travelSec(distanceM: Double, v: Double, v0: Double?, stopMin: Int): Double {
-        var t = distanceM / v
-        if (v0 != null && v > v0) t += (v - v0) * (v - v0) / (2 * ACCEL_MS2 * v)
+    private fun travelSec(distanceM: Double, v: Double, v0: Double?, stopMin: Int, zones: List<SpeedZone>): Double {
+        var t = if (zones.isEmpty()) {
+            distanceM / v + if (v0 != null && v > v0) (v - v0) * (v - v0) / (2 * ACCEL_MS2 * v) else 0.0
+        } else profileSec(distanceM, v, v0, zones)
         if (stopMin > 0) t += kotlin.math.min(stopMin * 30.0, distanceM / v)
         return t
     }
 
-    /** Наименьшая скорость хода, км/ч, с которой успеть за [t] секунд; null - не успеть ни при какой (до 250 км/ч). */
-    private fun requiredKmh(distanceM: Double, t: Double, v0: Double?, stopMin: Int): Double? {
-        if (stopMin == 0 && (v0 == null || distanceM / t <= v0)) return distanceM / t * 3.6
-        var kmh = 1.0
-        while (kmh <= 250.0) {
-            if (travelSec(distanceM, kmh / 3.6, v0, stopMin) <= t) {
-                // Уточнение внутри шага 0,1 км/ч не нужно: точность шага достаточна для показа.
-                return kmh
+    /**
+     * Наименьшая скорость хода, км/ч, с которой успеть за [t] секунд; null - не успеть ни при какой (до 250 км/ч). С ограничениями
+     * время хода убывает с ростом скорости монотонно - ищется делением пополам, без них - перебором с шагом 0,1 км/ч.
+     */
+    private fun requiredKmh(distanceM: Double, t: Double, v0: Double?, stopMin: Int, zones: List<SpeedZone>): Double? {
+        if (zones.isEmpty()) {
+            if (stopMin == 0 && (v0 == null || distanceM / t <= v0)) return distanceM / t * 3.6
+            var kmh = 1.0
+            while (kmh <= 250.0) {
+                if (travelSec(distanceM, kmh / 3.6, v0, stopMin, zones) <= t) return kmh
+                kmh += 0.1
             }
-            kmh += 0.1
+            return null
         }
-        return null
+        if (travelSec(distanceM, 250.0 / 3.6, v0, stopMin, zones) > t) return null
+        var lo = 1.0
+        var hi = 250.0
+        repeat(20) {
+            val mid = (lo + hi) / 2
+            if (travelSec(distanceM, mid / 3.6, v0, stopMin, zones) <= t) hi = mid else lo = mid
+        }
+        return hi
     }
 
     // ─── Хранение ────────────────────────────────────────────────────────
