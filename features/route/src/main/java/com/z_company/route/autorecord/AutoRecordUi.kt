@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -331,4 +332,64 @@ private fun PulseDot(active: Boolean, color: Color) {
             .clip(CircleShape)
             .background(color)
     )
+}
+
+/**
+ * Плашка под «АВТО» (SCREEN_SPECS §6.2 п.6а): пока запись включена, а связь со спутниками плохая (слабый сигнал, нет
+ * сигнала, помеха), об этом нужно знать и вне карты - иначе машинист рассчитывает на запись, которая идёт неточно или
+ * приостановлена. При хорошем сигнале и «поиске спутников» (первый fix) плашки нет. Уровень уже сглажен
+ * (`GnssQualityEvaluator`), поэтому плашка не мигает.
+ */
+@Composable
+fun AutoGnssNotice(
+    autoEnabled: Boolean,
+    quality: com.z_company.domain.gnss.GnssQuality,
+    modifier: Modifier = Modifier,
+) {
+    val level = quality.level
+    val bad = autoEnabled && (level == com.z_company.domain.gnss.GnssLevel.WEAK ||
+        level == com.z_company.domain.gnss.GnssLevel.LOST ||
+        level == com.z_company.domain.gnss.GnssLevel.INTERFERENCE)
+    androidx.compose.animation.AnimatedVisibility(visible = bad, modifier = modifier) {
+        val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+        val accent = GnssSignalStyle.color(level, dark)
+        val (title, hint) = when (level) {
+            com.z_company.domain.gnss.GnssLevel.LOST ->
+                "Нет сигнала GPS" to "Запись стоянок и отправлений приостановлена"
+            com.z_company.domain.gnss.GnssLevel.INTERFERENCE ->
+                "Помеха GPS" to "Координаты скачут, такие точки не учитываются"
+            else -> "Слабый сигнал GPS" to "Стоянки и отправления могут записаться неточно"
+        }
+        Surface(
+            modifier = Modifier.padding(top = 8.dp),
+            shape = AutoRecordStyle.shape,
+            color = accent.copy(alpha = 0.12f),
+            border = BorderStroke(1.dp, accent.copy(alpha = 0.5f)),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Box(Modifier.size(8.dp).clip(CircleShape).background(accent))
+                Column {
+                    Text(
+                        text = title,
+                        color = accent,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        lineHeight = 16.sp,
+                    )
+                    Text(
+                        text = hint,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        lineHeight = 15.sp,
+                    )
+                }
+            }
+        }
+    }
 }

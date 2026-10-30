@@ -1970,6 +1970,12 @@ fun FormTrainScreen(
                                 }
                             }
 
+                            val autoGnss by autoRecordManager.gnssQuality.collectAsState()
+                            com.z_company.route.autorecord.AutoGnssNotice(
+                                autoEnabled = autoRecordState.enabled,
+                                quality = autoGnss,
+                            )
+
                             // Подпись под чипом (что показывает секундомер)
                             if (stopwatch != null) {
                                 Text(

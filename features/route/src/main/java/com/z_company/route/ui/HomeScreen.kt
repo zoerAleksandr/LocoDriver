@@ -1300,6 +1300,15 @@ fun HomeScreen(
                                     onToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(autoManager),
                                 )
                             }
+                            val noticeManager: com.z_company.route.autorecord.AutoRecordManager =
+                                org.koin.compose.koinInject()
+                            val noticeState by noticeManager.state.collectAsState()
+                            val autoGnss by noticeManager.gnssQuality.collectAsState()
+                            com.z_company.route.autorecord.AutoGnssNotice(
+                                autoEnabled = noticeState.enabled,
+                                quality = autoGnss,
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                            )
                             LazyRow(
                                 modifier = Modifier.padding(top = 12.dp),
                                 state = currentRouteListState,

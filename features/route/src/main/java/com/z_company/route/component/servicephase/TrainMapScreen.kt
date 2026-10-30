@@ -102,6 +102,7 @@ import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.SymbolLayer
@@ -474,22 +475,29 @@ internal fun TrainMapScreen(
                             ),
                             "train-map-me-arrow",
                         )
-                        // «Зоны без GPS»: мягкие красноватые пятна под всеми слоями приложения и под подписями базовой карты.
+                        // «Зоны без GPS»: шестиугольная сетка под всеми слоями приложения и под подписями базовой карты.
                         style.addSource(GeoJsonSource(GNSS_ZONES_SOURCE, FeatureCollection.fromFeatures(emptyList())))
+                        val gnssBelow = style.layers.firstOrNull { it is SymbolLayer }?.id ?: "train-map-route-layer"
                         style.addLayerBelow(
-                            CircleLayer(GNSS_ZONES_LAYER, GNSS_ZONES_SOURCE).withProperties(
-                                PropertyFactory.circleColor("#E53935"),
-                                PropertyFactory.circleBlur(1f),
-                                PropertyFactory.circleRadius(gnssRadiusExpression(55.0)),
-                                PropertyFactory.circleOpacity(
+                            FillLayer(GNSS_ZONES_LAYER, GNSS_ZONES_SOURCE).withProperties(
+                                PropertyFactory.fillColor("#E53935"),
+                                PropertyFactory.fillOpacity(
                                     Expression.interpolate(
                                         Expression.linear(), Expression.get("w"),
-                                        Expression.stop(0.0, 0.30f), Expression.stop(1.0, 0.60f),
+                                        Expression.stop(0.0, 0.28f), Expression.stop(1.0, 0.55f),
                                     )
                                 ),
-                                PropertyFactory.circlePitchAlignment(Property.CIRCLE_PITCH_ALIGNMENT_MAP),
                             ),
-                            style.layers.firstOrNull { it is SymbolLayer }?.id ?: "train-map-route-layer",
+                            gnssBelow,
+                        )
+                        style.addLayerBelow(
+                            LineLayer(GNSS_ZONES_OUTLINE_LAYER, GNSS_ZONES_SOURCE).withProperties(
+                                PropertyFactory.lineColor("#C62828"),
+                                PropertyFactory.lineWidth(1.2f),
+                                PropertyFactory.lineOpacity(0.85f),
+                                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                            ),
+                            gnssBelow,
                         )
                         val role = Expression.get("role")
                         style.addLayerBelow(
@@ -1027,10 +1035,6 @@ internal fun TrainMapScreen(
             val style = map?.style ?: return@LaunchedEffect
             val shown = gnssShown
             style.getSourceAs<GeoJsonSource>(GNSS_ZONES_SOURCE)?.setGeoJson(gnssZoneFeatures(shown))
-            if (shown.isNotEmpty()) {
-                style.getLayerAs<CircleLayer>(GNSS_ZONES_LAYER)
-                    ?.setProperties(PropertyFactory.circleRadius(gnssRadiusExpression(shown.map { it.latitude }.average())))
-            }
             if (!gnssOn && selection is TrainMapSelection.GnssZoneSel) selection = null
         }
         val drawnCount = remember { object { var value = 0 } }
