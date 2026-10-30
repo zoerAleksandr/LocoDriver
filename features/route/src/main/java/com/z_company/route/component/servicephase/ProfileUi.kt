@@ -626,7 +626,6 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
             ) {
                 MapButton(onClick = onDismiss, description = "Назад", size = 38.dp) { PstIcon(PstIcons.ChevronLeft, 22.dp, Pst.text) }
                 SectionHeader(model, Modifier.weight(1f)) { showPicker = true }
-                if (gnss != null) com.z_company.route.autorecord.GnssBadChip(gnss)
                 if (reason == null && live != null) {
                     val length = live.lengthKm
                     ProfileScale.values().forEach { sc ->
@@ -671,6 +670,8 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
                     contentAlignment = Alignment.Center,
                 ) { PstIcon(PstIcons.Warning, 20.dp, if (canWarn) Pst.text else Pst.textMuted) }
             }
+            // Связь со спутниками - под строкой участка/плеча: при плохой связи чип («Слабый GPS», «Нет GPS», «Помеха GPS»), иначе ничего.
+            if (gnss != null) com.z_company.route.autorecord.GnssBadChip(gnss, Modifier.padding(horizontal = 12.dp, vertical = 2.dp))
             if (warnHint && !model.canEditWarnings) {
                 Text(
                     text = "Чтобы добавить ДУ-61, выберите участок.",
