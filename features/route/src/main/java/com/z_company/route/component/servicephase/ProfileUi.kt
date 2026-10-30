@@ -23,6 +23,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import android.content.pm.ActivityInfo
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -1115,6 +1117,17 @@ private const val FAR_KM = 2.0
 internal fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
     var query by remember { mutableStateOf(TextFieldValue("")) }
     val rows = remember(query.text, model.summaries, model.sections, model.manualId) { model.rows(query.text) }
+    // Порядок меняется от положения GPS (ближайшие сверху): LazyColumn держит прежнюю строку на месте, и новая верхняя уезжала
+    // за край. Пока пользователь сам не листал вниз, при смене порядка возвращаем список к началу.
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    var atTop by remember { mutableStateOf(true) }
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.isScrollInProgress }.collect { moving ->
+            atTop = !moving && listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0
+        }
+    }
+    val order = rows.map { it.summary.id }
+    LaunchedEffect(order) { if (atTop) listState.scrollToItem(0) }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
@@ -1154,7 +1167,7 @@ internal fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
                     )
                 }
             } else {
-                LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
+                LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
                     items(rows, key = { it.summary.id }) { row ->
                         val s = row.summary
                         val chosen = s.id == model.section?.id
