@@ -370,8 +370,8 @@ private fun ProfileRestrictionForm(
         KmMarks.toAbs(marks, place.startKm)?.let { TrackWarnings.split(it) }?.let { (k, p) -> k.toString() to p.toString() }
     } else null
     val hint = if (existing == null && !place.isStation && marks.isNotEmpty()) {
-        val a = KmMarks.toAbs(marks, place.startKm)?.let { KmMarks.position(it).text() }
-        val b = KmMarks.toAbs(marks, place.endKm)?.let { KmMarks.position(it).text() }
+        val a = KmMarks.toAbs(marks, place.startKm)?.let { KmMarks.position(it).textToPicket() }
+        val b = KmMarks.toAbs(marks, place.endKm)?.let { KmMarks.position(it).textToPicket() }
         if (a != null && b != null) "Перегон: $a — $b" else null
     } else null
     RestrictionFormSheet(

@@ -1266,7 +1266,7 @@ internal fun TrainMapScreen(
                 val w = r.warning
                 val iconId = "warn-${w.id}"
                 val range = if (w.startAbsKm != null && w.endAbsKm != null)
-                    com.z_company.domain.track.KmMarks.position(w.startAbsKm!!).text() + " — " + com.z_company.domain.track.KmMarks.position(w.endAbsKm!!).text()
+                    com.z_company.domain.track.KmMarks.position(w.startAbsKm!!).textToPicket() + " — " + com.z_company.domain.track.KmMarks.position(w.endAbsKm!!).textToPicket()
                 else ""
                 st.addImage(iconId, renderWarningCallout(context, w.title, range, density))
                 labelFeatures += Feature.fromGeometry(Point.fromLngLat(anchor.second, anchor.first))
