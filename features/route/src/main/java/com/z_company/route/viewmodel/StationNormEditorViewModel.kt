@@ -13,6 +13,7 @@ import com.z_company.domain.util.ServicePhaseStationsMerge
 import com.z_company.domain.util.StationDirectory
 import com.z_company.domain.util.generateId
 import kotlin.time.Clock
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -72,7 +73,8 @@ class StationNormEditorViewModel(
     val state = _state.asStateFlow()
 
     init {
-        viewModelScope.launch {
+        // Чтение и перезапись справочника - не на главном потоке: иначе экран станции открывается с задержкой.
+        viewModelScope.launch(Dispatchers.Default) {
             val settings = runCatching { settingsUseCase.getUserSetting() }.getOrNull()
             // Координаты из плеч, сохранённых до справочника, — сначала в справочник.
             settings?.let { stationDirectory.backfill(it.servicePhases) }
@@ -208,7 +210,7 @@ class StationNormEditorViewModel(
 
     /** Autosave — silent, does NOT set saved = true (no navigation side-effect). */
     fun save() {
-        viewModelScope.launch { persistRecord() }
+        viewModelScope.launch(Dispatchers.Default) { persistRecord() }
     }
 
     /**
@@ -222,7 +224,7 @@ class StationNormEditorViewModel(
     fun commit() {
         val name = _state.value.name.trim()
         if (name.isBlank()) return
-        viewModelScope.launch { persistRecord() }
+        viewModelScope.launch(Dispatchers.Default) { persistRecord() }
         // Отдельная корутина: setStations в конце вызывает this.cancel(),
         // и эта отмена не должна прерывать сохранение записи выше.
         viewModelScope.launch { settingsUseCase.setStations(listOf(name)) }
