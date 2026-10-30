@@ -1,6 +1,8 @@
 package com.z_company.route.component.servicephase
 
+import android.content.Context
 import org.maplibre.android.maps.MapLibreMap
+import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 
@@ -45,3 +47,12 @@ internal fun loadMapStyle(mapView: MapView, map: MapLibreMap, onLoaded: (Style) 
     mapView.addOnDidFailLoadingMapListener { if (!settled) next(index) }
     next(-1)
 }
+
+/**
+ * Карта с непрозрачным фоном на время загрузки стиля: пока стиль не пришёл (первое открытие, плохая сеть), поверхность карты
+ * иначе остаётся прозрачной и сквозь неё виден экран под картой. [backgroundColor] - цвет фона темы приложения.
+ */
+internal fun newMapView(context: Context, backgroundColor: Int): MapView =
+    MapView(context, MapLibreMapOptions.createFromAttributes(context).foregroundLoadColor(backgroundColor)).also {
+        it.setBackgroundColor(backgroundColor)
+    }

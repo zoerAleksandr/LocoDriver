@@ -54,6 +54,7 @@ import androidx.compose.ui.draw.shadow
 import android.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -437,8 +438,9 @@ internal fun TrainMapScreen(
             m.animateCamera(CameraUpdateFactory.zoomTo(z))
         }
 
+        val mapBackground = Pst.bg.toArgb()
         val mapView = remember {
-            MapView(context).also { mv ->
+            newMapView(context, mapBackground).also { mv ->
                 mv.getMapAsync { m ->
                     map = m
                     m.uiSettings.isRotateGesturesEnabled = true
@@ -827,12 +829,12 @@ internal fun TrainMapScreen(
                 stopsState.centerLon = camCenter.longitude
             }
             val t0 = MapPerf.begin("refreshStopSources")
-            val screenPts = rows.map { r -> m.projection.toScreenLocation(LatLng(r.lat, r.lon)) }
+            val screenPts = com.z_company.core.ui.perf.ScreenPerf.section("map.project") { rows.map { r -> m.projection.toScreenLocation(LatLng(r.lat, r.lon)) } }
             // Подписи базовой карты (станции/места стиля): своя подпись с тем же названием рядом (<= 40 dp) не рисуется -
             // иначе два одинаковых названия накладываются друг на друга (SCREEN_SPECS §6.9). Без своих подписей - не запрашиваем.
             val dups = if (rows.isEmpty()) emptySet() else LabelDedup.duplicates(
                 rows.mapIndexed { i, r -> AppMapLabel(screenPts[i].x.toDouble(), screenPts[i].y.toDouble(), r.name) },
-                baseMapLabels(m, mapView.width, mapView.height, stopsState, styleGen),
+                com.z_company.core.ui.perf.ScreenPerf.section("map.baseLabels") { baseMapLabels(m, mapView.width, mapView.height, stopsState, styleGen) },
                 LabelDedup.RADIUS_DP * density,
             )
             // Дубли подписей одного названия рядом (<= 300 м; остановки в парке станции): остаётся одна, ближайшая к центру карты.
@@ -852,7 +854,7 @@ internal fun TrainMapScreen(
                     priority = r.prio,
                 )
             }
-            val shown = LabelPlacer.visible(items)
+            val shown = com.z_company.core.ui.perf.ScreenPerf.section("map.placer") { LabelPlacer.visible(items) }
             MapPerf.end(context, "refreshStopSources", t0)
             fun feature(i: Int, r: Row) = Feature.fromGeometry(Point.fromLngLat(r.lon, r.lat)).apply {
                 addStringProperty("name", r.name)

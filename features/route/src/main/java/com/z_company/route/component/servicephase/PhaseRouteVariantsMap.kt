@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -176,8 +177,9 @@ internal fun PhaseRouteVariantsMap(
                 .distinctBy { it.osmId ?: "${it.name}:${it.latitude}:${it.longitude}" }
         }
 
+        val mapBackground = Pst.bg.toArgb()
         val mapView = remember {
-            MapView(context).also { mv ->
+            newMapView(context, mapBackground).also { mv ->
                 mv.getMapAsync { m ->
                     map = m
                     m.uiSettings.isRotateGesturesEnabled = false

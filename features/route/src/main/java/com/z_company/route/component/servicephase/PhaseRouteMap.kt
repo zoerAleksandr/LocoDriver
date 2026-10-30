@@ -47,6 +47,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -232,8 +233,9 @@ internal fun PhaseRouteMap(
             }
         }
         val pickActive by rememberUpdatedState(PhaseMapPick.target(pickFor, departureName, arrivalName) != null)
+        val mapBackground = Pst.bg.toArgb()
         val mapView = remember {
-            MapView(context).also { mv ->
+            newMapView(context, mapBackground).also { mv ->
                 mv.getMapAsync { m ->
                     map = m
                     m.uiSettings.isRotateGesturesEnabled = false
