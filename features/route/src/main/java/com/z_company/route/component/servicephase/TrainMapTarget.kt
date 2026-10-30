@@ -62,6 +62,8 @@ internal fun TrainMapTargetScreen(
     onSave: (ArrivalPlanData) -> Unit,
     onCancelTarget: () -> Unit,
     onDismiss: () -> Unit,
+    /** Плечо поезда: у плеча без промежуточных станций (и не проверенного на карте) на шаге 1 предлагаем найти их одной кнопкой. */
+    leg: LegContext? = null,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var picked by remember { mutableStateOf(preselect) }
@@ -94,7 +96,7 @@ internal fun TrainMapTargetScreen(
                             onCancelTarget = onCancelTarget,
                             onDone = onDismiss,
                         )
-                        else -> TargetList(ahead, onPick = { picked = it })
+                        else -> TargetList(ahead, leg, onPick = { picked = it })
                     }
                 }
             }
@@ -103,8 +105,15 @@ internal fun TrainMapTargetScreen(
 }
 
 @Composable
-private fun TargetList(ahead: List<ArrivalPlan.TargetStop>, onPick: (PlanTarget) -> Unit) {
+private fun TargetList(ahead: List<ArrivalPlan.TargetStop>, leg: LegContext?, onPick: (PlanTarget) -> Unit) {
     PstGroupHead(TrainMapPlanTexts.STEP1)
+    // Без промежуточных станций выбирать цель не из чего (только конечная): говорим об этом и даём ту же кнопку «Определить»,
+    // что в «Плече» и ДУ-61 (подбор станций по карте и сохранение плеча). Проверенное на карте плечо без станций - так и есть.
+    val phase = leg?.phase
+    if (leg != null && phase != null && leg.title != null && !phase.isMapVerified && phase.intermediateStations.isEmpty()) {
+        PstNote("У плеча нет промежуточных станций, поэтому цель можно выбрать только на конечной. Найдите станции плеча автоматически.")
+        LegDetermineRow(leg, phase)
+    }
     if (ahead.isEmpty()) {
         PstNote(TrainMapPlanTexts.NO_STOPS)
         return

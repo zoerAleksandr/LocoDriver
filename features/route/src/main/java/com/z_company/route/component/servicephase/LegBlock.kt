@@ -63,7 +63,7 @@ internal fun LegBlock(ctx: LegContext, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun LegDetermineRow(ctx: LegContext, phase: ServicePhase) {
+internal fun LegDetermineRow(ctx: LegContext, phase: ServicePhase) {
     if (phase.isMapVerified) {
         Row(
             Modifier.background(Pst.success.copy(alpha = 0.12f), RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 6.dp),

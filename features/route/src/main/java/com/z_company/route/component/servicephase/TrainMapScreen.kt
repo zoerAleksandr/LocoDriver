@@ -2113,6 +2113,7 @@ internal fun TrainMapScreen(
                         TrainMapPlanStore.save(context, planKey, np)
                         planOpen = np.showOnMap
                     },
+                    leg = leg,
                     onCancelTarget = {
                         plan = null
                         TrainMapPlanStore.clear(context, planKey)

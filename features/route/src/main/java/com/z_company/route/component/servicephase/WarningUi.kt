@@ -160,6 +160,7 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
     // Действующие - весь список поезда (его же показывает «Ограничения поезда»), не только то, что лежит на этом участке.
     val active = sortRestrictions(model.trainRestrictions, order)
     val past = model.pastWarnings
+    val pastHidden = rememberPastHidden()
     val placements by rememberPlacements(active, model.stopPoints)
     var added by remember { mutableStateOf(0) }
     val places = remember(section.id, live.reversed, model.stopPoints) { warningPlaces(section, live.reversed, model.stopPoints) }
@@ -208,8 +209,14 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
                     }
                 }
                 if (past.isNotEmpty()) {
-                    item { SmallCaps("ПРОШЛЫЕ НА ЭТОМ УЧАСТКЕ — нажмите, чтобы сделать действующим") }
-                    items(past, key = { "p" + it.id }) { w ->
+                    item {
+                        PastHeader(
+                            title = if (pastHidden.hidden) "ПРОШЛЫЕ НА ЭТОМ УЧАСТКЕ (${past.size})" else "ПРОШЛЫЕ НА ЭТОМ УЧАСТКЕ — нажмите, чтобы сделать действующим",
+                            hidden = pastHidden.hidden, onToggle = pastHidden.toggle,
+                            titleStyle = Pst.mono.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold), titleColor = Pst.textMuted,
+                        )
+                    }
+                    if (!pastHidden.hidden) items(past, key = { "p" + it.id }) { w ->
                         WarningItem(section, w, onClick = { model.activatePast(w.id) }, onDelete = { toForget = w })
                     }
                 }

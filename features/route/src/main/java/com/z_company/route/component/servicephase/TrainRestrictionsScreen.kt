@@ -24,6 +24,7 @@ import com.z_company.domain.onboarding.RestrictionsTourStep
 import com.z_company.route.component.CoachTour
 import com.z_company.route.component.TourStep
 import com.z_company.route.component.coachAnchor
+import com.z_company.route.component.separateSheetFromScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
@@ -124,6 +125,8 @@ internal fun TrainRestrictionsScreen(
         sortRestrictions(planned, order)
     }
     var pastChecked by remember { mutableStateOf(emptySet<String>()) }
+    // «Из прошлых поездок» сворачивается кнопкой «Скрыть»; состояние общее для всех экранов ДУ-61 и помнится на устройстве.
+    val past = rememberPastHidden()
     val placements by rememberPlacements(entries, stops)
     val rows = remember(entries, zone) { RestrictionReport.rows(entries, zone) }
     val ready = RestrictionReport.isReady(entries)
@@ -205,6 +208,8 @@ internal fun TrainRestrictionsScreen(
                 if (pastCandidates.isNotEmpty()) item(key = "past_offer") {
                     PastOfferCard(
                         candidates = pastCandidates, zone = zone, checked = pastChecked,
+                        hidden = past.hidden,
+                        onToggleHidden = past.toggle,
                         onToggle = { id -> pastChecked = if (id in pastChecked) pastChecked - id else pastChecked + id },
                         onApply = {
                             val chosen = pastAll.filter { it.id in pastChecked }
@@ -294,11 +299,18 @@ private fun PastOfferCard(
     candidates: List<RestrictionPass>,
     zone: String,
     checked: Set<String>,
+    hidden: Boolean,
+    onToggleHidden: () -> Unit,
     onToggle: (String) -> Unit,
     onApply: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(14.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Из прошлых поездок", style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+        PastHeader(
+            title = if (hidden) "Из прошлых поездок (${candidates.size})" else "Из прошлых поездок",
+            hidden = hidden, onToggle = onToggleHidden,
+            titleStyle = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), titleColor = Pst.text,
+        )
+        if (hidden) return@Column
         Text(
             "Предупреждения на станциях и перегонах этого плеча (по ходу движения). Отметьте действующие и добавьте их в журнал поезда.",
             style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted,
@@ -567,7 +579,7 @@ internal fun WhereSheet(
             Text("Где действует", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
             if (leg != null) LegBlock(leg)
             Text(hint, style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted)
-            LazyColumn(Modifier.weight(1f, fill = false).heightIn(max = 480.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            LazyColumn(Modifier.weight(1f, fill = false).heightIn(max = 480.dp).separateSheetFromScroll(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(places.size) { i ->
                     val place = places[i]
                     Row(
@@ -643,7 +655,7 @@ internal fun LegSectionsSheet(
                     contentAlignment = Alignment.Center,
                 ) { PstIcon(PstIcons.Close, 18.dp, Pst.text) }
             }
-            LazyColumn(state = listState, modifier = Modifier.weight(1f, fill = false).fillMaxWidth()) {
+            LazyColumn(state = listState, modifier = Modifier.weight(1f, fill = false).fillMaxWidth().separateSheetFromScroll(listState)) {
                 items(sections, key = { it.id }) { s ->
                     Row(
                         Modifier.fillMaxWidth().clickable { onPick(s) }.padding(horizontal = 20.dp, vertical = 14.dp),
@@ -684,5 +696,35 @@ private fun InfoDialog(text: String, onClose: () -> Unit, actionText: String? = 
                 PstButton("Понятно", onClose, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
             }
         }
+    }
+}
+
+
+/** Состояние «прошлые ограничения скрыты» - одно на все экраны ДУ-61 («Ограничения поезда», ДУ-61 на карте), помнится на устройстве. */
+internal class PastHiddenState(val hidden: Boolean, val toggle: () -> Unit)
+
+@Composable
+internal fun rememberPastHidden(): PastHiddenState {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember { context.applicationContext.getSharedPreferences("restrictions_ui", android.content.Context.MODE_PRIVATE) }
+    var hidden by remember { mutableStateOf(runCatching { prefs.getBoolean("past_hidden", false) }.getOrDefault(false)) }
+    return PastHiddenState(hidden) {
+        hidden = !hidden
+        runCatching { prefs.edit().putBoolean("past_hidden", hidden).apply() }
+    }
+}
+
+/** Заголовок блока прошлых ограничений с кнопкой «Скрыть» / «Показать» - общий для обоих экранов ДУ-61. */
+@Composable
+internal fun PastHeader(
+    title: String,
+    hidden: Boolean,
+    onToggle: () -> Unit,
+    titleStyle: androidx.compose.ui.text.TextStyle,
+    titleColor: androidx.compose.ui.graphics.Color,
+) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = titleStyle, color = titleColor, modifier = Modifier.weight(1f))
+        PstButton(if (hidden) "Показать" else "Скрыть", onToggle, kind = PstButtonKind.TEXT, height = 36.dp, fontSize = 14)
     }
 }
