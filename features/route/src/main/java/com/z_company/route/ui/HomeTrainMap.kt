@@ -90,7 +90,7 @@ internal fun HomeTrainMap(
     }
     TrainMapScreen(
         missingStation = { viewModel.trainMapMissingStation() },
-        stops = remember(formUiState.selectedServicePhase, formUiState.servicePhaseList.size) { viewModel.trainMapStops() },
+        stops = remember(formUiState.selectedServicePhase, viewModel.fullSelectedPhaseOrNull()) { viewModel.trainMapStops() },
         loadRailLine = { railVm.railLine(it) },
         currentFix = { viewModel.trainMapCurrentFix() },
         loadTrack = { viewModel.trainMapTrack() },

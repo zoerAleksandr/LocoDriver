@@ -360,7 +360,7 @@ fun FormTrainScreen(
                 leg = legContext,
                 legFrom = formUiState.selectedServicePhase?.departureStation?.takeIf { it.isNotBlank() },
                 legTo = formUiState.selectedServicePhase?.arrivalStation?.takeIf { it.isNotBlank() },
-                stops = remember(formUiState.selectedServicePhase, formUiState.servicePhaseList.size) { viewModel.trainMapStops() },
+                stops = remember(formUiState.selectedServicePhase, viewModel.fullSelectedPhaseOrNull()) { viewModel.trainMapStops() },
                 trains = viewModel.trainMapTrains(),
                 zone = restrictionsZone,
                 onDismiss = { showRestrictions = false },
@@ -373,7 +373,7 @@ fun FormTrainScreen(
                 androidx.lifecycle.viewmodel.compose.viewModel()
             com.z_company.route.component.servicephase.TrainMapScreen(
                 missingStation = { viewModel.trainMapMissingStation() },
-                stops = remember(formUiState.selectedServicePhase, formUiState.servicePhaseList.size) { viewModel.trainMapStops() },
+                stops = remember(formUiState.selectedServicePhase, viewModel.fullSelectedPhaseOrNull()) { viewModel.trainMapStops() },
                 loadRailLine = { railVm.railLine(it) },
                 currentFix = { viewModel.trainMapCurrentFix() },
                 loadTrack = { viewModel.trainMapTrack() },
