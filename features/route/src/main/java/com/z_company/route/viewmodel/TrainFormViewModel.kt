@@ -195,7 +195,7 @@ class TrainFormViewModel(
     private var lastFix: GeoFix? by mutableStateOf(null)
     private var stationUsage: Map<String, Int> = emptyMap()
     /**
-     * Положение для порядка подсказок станций: берётся один раз при открытии (не дольше 2 с) и дальше не меняется, чтобы выпадающие
+     * Положение для порядка подсказок станций: берётся один раз при открытии (не дольше 1 с) и дальше не меняется, чтобы выпадающие
      * списки (шторка станции, плечи) не «прыгали» при уточнении GPS. [lastFix] остаётся для остальных нужд (плечи, карта).
      */
     private var suggestFix: GeoFix? = null
@@ -213,7 +213,7 @@ class TrainFormViewModel(
         loadUsageStats()
         refreshFix()
         viewModelScope.launch {
-            suggestFix = DeviceLocation.currentFix(appContext, timeoutMs = 2_000)
+            suggestFix = DeviceLocation.currentFix(appContext, timeoutMs = 1_000)
             if (suggestFix != null) {
                 val sorted = sortSuggestions(stationNameList.distinct())
                 mutableStationList.clear()

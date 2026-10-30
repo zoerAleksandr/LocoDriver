@@ -86,12 +86,12 @@ fun StationPickerSheet(
     val context = LocalContext.current
     val routeUseCase: RouteUseCase = koinInject()
     val settingsUseCase: SettingsUseCase = koinInject()
-    // Положение ждём один раз при открытии, не дольше 2 с (пока ждём - индикатор), и дальше не обновляем: порядок
+    // Положение ждём один раз при открытии, не дольше 1 с (пока ждём - индикатор), и дальше не обновляем: порядок
     // выбирается сразу готовым и не «прыгает» при уточнении GPS. Нет положения - порядок по частоте и как есть.
     var fix by remember { mutableStateOf<GeoFix?>(null) }
     var fixDone by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        fix = DeviceLocation.currentFix(context, timeoutMs = 2_000)
+        fix = DeviceLocation.currentFix(context, timeoutMs = 1_000)
         fixDone = true
     }
     val base by produceState<PickOrder?>(initialValue = null, stations) {

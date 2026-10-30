@@ -33,6 +33,6 @@ class StationSuggestionSorter(
     }
 
     private companion object {
-        const val WAIT_MS = 2_000L
+        const val WAIT_MS = 1_000L
     }
 }

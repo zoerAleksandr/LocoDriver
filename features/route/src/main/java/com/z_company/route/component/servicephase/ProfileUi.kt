@@ -1117,10 +1117,10 @@ private const val FAR_KM = 2.0
 internal fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
     var query by remember { mutableStateOf(TextFieldValue("")) }
     val rows = remember(query.text, model.summaries, model.sections, model.manualId, model.hasFix) { model.rows(query.text) }
-    // Сначала ждём положение (до 2 с) и показываем уже отсортированный список; пока ждём - индикатор загрузки. Положения нет -
+    // Сначала ждём положение (до 1 с) и показываем уже отсортированный список; пока ждём - индикатор загрузки. Положения нет -
     // показываем как есть (по названию), список не «прыгает» после появления.
     var waitedForFix by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { kotlinx.coroutines.delay(2_000); waitedForFix = true }
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(1_000); waitedForFix = true }
     val sorting = !model.hasFix && !waitedForFix && model.summaries.isNotEmpty()
     // Порядок фиксируем в момент первого показа (на запрос поиска): дальше список не переставляется и не дёргается, даже
     // если положение уточнилось; расстояния в строках обновляются, новые строки идут в конец.
