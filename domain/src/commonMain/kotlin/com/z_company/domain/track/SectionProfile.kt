@@ -109,6 +109,9 @@ object KmMarks {
     }
 
     fun text(marks: List<KmMark>, relKm: Double): String? = toAbs(marks, relKm)?.let { position(it).text() }
+
+    /** Положение на экранах профиля пути: только километр и пикет («142 км 5 пк»), метры не показываются. */
+    fun textToPicket(marks: List<KmMark>, relKm: Double): String? = toAbs(marks, relKm)?.let { position(it).textToPicket() }
 }
 
 /** Профиль высот: ломаная `(km, heightM)`, собранная интегрированием уклонов; высота отсчитывается от начала оси (0 м). */

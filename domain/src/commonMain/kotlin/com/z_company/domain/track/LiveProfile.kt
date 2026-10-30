@@ -125,7 +125,7 @@ class LiveProfile(val section: SectionProfile, val reversed: Boolean) {
         val km = (raw + calibrationKm).coerceIn(0.0, lengthKm)
         return LivePosition(
             kmAxis = km,
-            kmText = KmMarks.text(section.kmMarks, km),
+            kmText = KmMarks.textToPicket(section.kmMarks, km),
             element = section.elements.at(km),
             offRoute = offRoute,
             locked = tracker.isLocked,

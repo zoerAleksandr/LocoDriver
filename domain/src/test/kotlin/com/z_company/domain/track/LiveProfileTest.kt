@@ -31,7 +31,7 @@ class LiveProfileTest {
         val p = lp.onFix(1_000, lat0, lon(2.05), 60.0, 5f)
         assertNotNull(p)
         assertEquals(2.05, p.kmAxis, 0.01)
-        assertEquals("102 км 1 пк 50 м", p.kmText)
+        assertEquals("102 км 1 пк", p.kmText)
         assertEquals(4.0, p.element?.gradePermille)
         assertTrue(p.locked && !p.offRoute)
     }
@@ -93,7 +93,7 @@ class LiveProfileTest {
         assertEquals(0.5, c.diffKm, 0.02)
         lp.applyCalibration(c.shiftKm)
         assertEquals(2.5, lp.position!!.kmAxis, 0.02)
-        assertEquals("102 км 6 пк 0 м", lp.position!!.kmText)
+        assertEquals("102 км 6 пк", lp.position!!.kmText)
         // следующие фиксы тоже со сдвигом
         val p = lp.onFix(61_000, lat0, lon(3.0), 60.0, 5f)
         assertEquals(3.5, p!!.kmAxis, 0.02)
