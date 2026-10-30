@@ -213,14 +213,6 @@ class TrainFormViewModel(
         loadUsageStats()
         refreshFix()
         viewModelScope.launch {
-            suggestFix = DeviceLocation.currentFix(appContext, timeoutMs = 1_000)
-            if (suggestFix != null) {
-                val sorted = sortSuggestions(stationNameList.distinct())
-                mutableStationList.clear()
-                mutableStationList.addAll(sorted)
-            }
-        }
-        viewModelScope.launch {
             try {
                 loadStationsSortOrder()
                 if (trainId == NULLABLE_ID) {
@@ -1678,6 +1670,18 @@ class TrainFormViewModel(
     }
 
     private var mutableStationList = mutableStateListOf<String>()
+
+    // После объявления mutableStationList: корутина может выполниться сразу (Main.immediate), см. комментарий у userCountry.
+    init {
+        viewModelScope.launch {
+            suggestFix = DeviceLocation.currentFix(appContext, timeoutMs = 1_000)
+            if (suggestFix != null) {
+                val sorted = sortSuggestions(stationNameList.distinct())
+                mutableStationList.clear()
+                mutableStationList.addAll(sorted)
+            }
+        }
+    }
 
     var stationList: SnapshotStateList<String>
         get() {
