@@ -96,13 +96,13 @@ class PassengerWaitingCalculationTest {
     }
 
     @Test
-    fun zonalExcludesWaitingButIncludesPassengerFollowing() = runTest {
+    fun zonalExcludesWaitingAndPassengerFollowing() = runTest {
         val calc = helper(waitingRoute(), zonalPercent = 10.0)
 
-        // База зональной = локомотив (2 ч) + следование (1 ч) = 300, без ожидания.
-        // 300 × 10% = 30. Если бы ожидание входило — было бы 400 × 10% = 40.
-        assertEquals(30.0, calc.getMoneyZonalSurchargeFlow().first(), 0.001)
-        assertEquals(3 * hour, calc.getTimeZonalSurchargeFlow().first())
+        // База зональной = только работа на локомотиве (2 ч) = 200, без следования
+        // (1 ч) и без ожидания (1 ч). 200 × 10% = 20.
+        assertEquals(20.0, calc.getMoneyZonalSurchargeFlow().first(), 0.001)
+        assertEquals(2 * hour, calc.getTimeZonalSurchargeFlow().first())
     }
 
     @Test

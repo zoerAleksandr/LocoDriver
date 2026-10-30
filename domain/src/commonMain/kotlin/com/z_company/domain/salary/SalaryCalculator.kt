@@ -21,6 +21,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getTravelTime
 import com.z_company.domain.util.buildTrainSurchargeSegments
 import com.z_company.domain.util.AccrualCondition
 import com.z_company.domain.util.NightWindow
+import com.z_company.domain.util.SalarySegment
 import com.z_company.domain.util.TariffChange
 import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.util.TimeInterval
@@ -321,9 +322,12 @@ class SalaryCalculationHelper(
             val additionalConditions = buildSet {
                 // Вредность (4%) начисляется и на следование, и на ожидание пассажиром.
                 if (harmfulnessEnabled) add(AccrualCondition.HARMFUL)
-                // Зональная надбавка — на следование пассажиром начисляется, на
-                // ожидание следования пассажиром НЕ начисляется (памятка, п. 1.4).
-                if (zonalEnabled && !isPassengerWaiting) add(AccrualCondition.ZONAL)
+                // Зональная надбавка (150А) — только на часы работы: ни следование
+                // пассажиром (018L), ни ожидание (018M) в базу не входят. Сверено по
+                // расчётным листкам Орехово и СПб (памятка, п. 1.4, пишет иначе).
+                if (zonalEnabled && !isPassenger && !isPassengerWaiting) {
+                    add(AccrualCondition.ZONAL)
+                }
                 if (qualificationClassEnabled && !isPassenger && !isPassengerWaiting) {
                     add(AccrualCondition.QUALIFICATION_CLASS)
                 }
@@ -1005,29 +1009,31 @@ class SalaryCalculationHelper(
 
     fun getTimeZonalSurchargeFlow(routes: List<Route> = routeList): Flow<Long> {
         return flow {
-            // Ожидание следования пассажиром в базу зональной надбавки не входит.
-            val insideAndWorking = salarySegments(routes)
-                .filter { AccrualCondition.PASSENGER_WAITING !in it.conditions }
-                .sumOf { it.interval.durationMillis }
-            val passengerBeforeWork = routes.getPassengerTimeOutsideWork(
-                currentMonthOfYear,
-                timeCalculationContext,
+            // Следование пассажиром (в смене и до явки) и ожидание в базу зональной
+            // надбавки не входят — только часы работы.
+            emit(
+                salarySegments(routes)
+                    .filter { it.isInZonalBase() }
+                    .sumOf { it.interval.durationMillis }
             )
-            emit(insideAndWorking + passengerBeforeWork)
         }
     }
 
     fun getMoneyZonalSurchargeFlow(): Flow<Double> {
         return flow {
             val percent = getPercentZonalSurchargeFlow().first()
-            // Ожидание следования пассажиром в базу зональной надбавки не входит.
-            val insideAndWorking = salarySegments()
-                .filter { AccrualCondition.PASSENGER_WAITING !in it.conditions }
+            // Следование пассажиром (в смене и до явки) и ожидание в базу зональной
+            // надбавки не входят — только часы работы.
+            val base = salarySegments()
+                .filter { it.isInZonalBase() }
                 .sumOf { it.tariffMoney }
-            val passengerBeforeWork = getMoneyAtPassengerOutsideWorkFlow().first()
-            emit((insideAndWorking + passengerBeforeWork) * percent / 100)
+            emit(base * percent / 100)
         }
     }
+
+    private fun SalarySegment.isInZonalBase(): Boolean =
+        AccrualCondition.PASSENGER !in conditions &&
+                AccrualCondition.PASSENGER_WAITING !in conditions
 
     fun getTimeOvertimeFlow(): Flow<Long> {
         return flow {

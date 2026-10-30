@@ -47,7 +47,7 @@ class BaseSurchargeSegmentIntegrationTest {
     }
 
     @Test
-    fun harmfulnessAndZonalIncludePassengerButOtherSurchargesDoNot() = runTest {
+    fun harmfulnessIncludesPassengerButZonalAndOtherSurchargesDoNot() = runTest {
         val route = Route(
             basicData = BasicData(
                 timeStartWork = instant(day = 10, hour = 22),
@@ -67,12 +67,13 @@ class BaseSurchargeSegmentIntegrationTest {
         assertEquals(4 * hour, helper.getTimeHarmfulnessFlow().first())
         assertEquals(84.0, helper.getMoneyHarmfulnessFlow().first(), 0.001)
         assertEquals(50.0, helper.getMoneyAtQualificationClassFlow().first(), 0.001)
-        assertEquals(175.0, helper.getMoneyZonalSurchargeFlow().first(), 0.001)
+        // Зональная — только часы работы (3 ч × 200 × 25%); пассажир (1 ч) не входит.
+        assertEquals(125.0, helper.getMoneyZonalSurchargeFlow().first(), 0.001)
         assertEquals(40.0, helper.getMoneyOtherSurchargeFlow().first(), 0.001)
     }
 
     @Test
-    fun harmfulnessAndZonalIncludePassengerBeforeArrivalBasedWorkStart() = runTest {
+    fun harmfulnessIncludesPassengerBeforeArrivalButZonalDoesNot() = runTest {
         val route = Route(
             basicData = BasicData(
                 timeStartWork = instant(day = 10, hour = 12),
@@ -90,7 +91,8 @@ class BaseSurchargeSegmentIntegrationTest {
 
         assertEquals(4 * hour, helper.getTimeHarmfulnessFlow().first())
         assertEquals(48.0, helper.getMoneyHarmfulnessFlow().first(), 0.001)
-        assertEquals(100.0, helper.getMoneyZonalSurchargeFlow().first(), 0.001)
+        // Проезд до явки в базу зональной не входит: только 2 ч работы × 100 × 25%.
+        assertEquals(50.0, helper.getMoneyZonalSurchargeFlow().first(), 0.001)
     }
 
     @Test
@@ -112,7 +114,8 @@ class BaseSurchargeSegmentIntegrationTest {
 
         assertEquals(300.0, helper.getMoneyAtPassengerOutsideWorkFlow().first(), 0.001)
         assertEquals(60.0, helper.getMoneyHarmfulnessFlow().first(), 0.001)
-        assertEquals(125.0, helper.getMoneyZonalSurchargeFlow().first(), 0.001)
+        // Зональная — только 1 ч работы по новому тарифу (200 × 25%); проезд не входит.
+        assertEquals(50.0, helper.getMoneyZonalSurchargeFlow().first(), 0.001)
     }
 
     @Test
@@ -133,9 +136,9 @@ class BaseSurchargeSegmentIntegrationTest {
             ),
         )))
 
-        // 300 тариф пассажиром + 36 вредность (12%) + 75 зональная (25%).
+        // 300 тариф пассажиром + 36 вредность (12%); зональная на проезд не начисляется.
         assertEquals(
-            411.0,
+            336.0,
             withPassenger.getMoneyTotalChargedFlow().first() -
                     withoutPassenger.getMoneyTotalChargedFlow().first(),
             0.001,
