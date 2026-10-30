@@ -181,6 +181,9 @@ dependencies {
     implementation(Libs.compose_ui)
     implementation(Libs.ui_tooling_preview)
     implementation(Libs.compose_material3)
+    // Только для замеров на устройстве: имена композабл-функций в трассах Perfetto (в release не попадает).
+    "perfReleaseImplementation"("androidx.compose.runtime:runtime-tracing:1.0.0-beta01")
+    "perfReleaseImplementation"("androidx.tracing:tracing-perfetto-binary:1.0.0")
     implementation(Libs.kotlin_x_serialization_json)
     implementation(Libs.kotlinx_date_time)
 
