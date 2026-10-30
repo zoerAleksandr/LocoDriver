@@ -123,6 +123,7 @@ private const val TRAIN_STOPS_SOURCE = "train-map-stops"
 private const val TRAIN_TRACK_SOURCE = "train-map-track"
 private const val TRAIN_MARKS_SOURCE = "train-map-marks"
 private const val TRAIN_SEL_SOURCE = "train-map-sel"
+private const val TRAIN_PROPOSAL_SOURCE = "train-map-proposal"
 private const val TRAIN_TAIL_SOURCE = "train-map-tail"
 private const val TRAIN_BODY_SOURCE = "train-map-body"
 private const val TRAIN_WARN_SOURCE = "train-map-warnings"
@@ -169,7 +170,7 @@ private fun speedColorExpression(profile: SpeedProfile): Expression {
 /**
  * Карта поезда (SCREEN_SPECS §6.9): полноэкранная карта на общей подложке карты плеч (цепочка тайлов, ж/д слои).
  * Состояние 1 — пустая карта с текущим местоположением; состояние 3 — если у станции поезда/плеча нет координат,
- * внизу предложение «Определить координаты по GPS» ([onDetermine] пишет их в справочник станций; существующие
+ * внизу предложение «Найти станцию на карте» ([findStation]) или «Указать на карте» вручную; результат - с подтверждением ([onSetCoordinates] пишет в справочник станций; существующие
  * координаты не перезаписываются). Состояние 2 — если у плеча есть ≥ 2 станции с координатами ([stops]), маршрут
  * по рельсам ([loadRailLine], тот же запрос, что у карты плеч) рисуется тонким пунктиром, станции — точками,
  * ближайшая впереди выделена, камера охватывает маршрут и текущее место. Запросов к отрисовке нет (см. PhaseMapPicker про падение).
@@ -187,7 +188,10 @@ internal fun TrainMapScreen(
     makeTarget: () -> Boolean = { false },
     /** Текст предупреждения «Запись уже идёт» для кнопки «Сделать целью»; null - пишется не другой поезд. */
     loadConflictText: suspend () -> String? = { null },
-    onDetermine: suspend (String) -> Boolean,
+    /** Поиск станции по названию на карте (сервер) рядом с точками плеча; null в ответе - ошибка сети/сервиса; null-параметр - поиска нет. */
+    findStation: (suspend (String, List<Pair<Double, Double>>) -> List<com.z_company.repository.remote_rest.response.OsmStationCandidate>?)? = null,
+    /** Записать в справочник координаты, указанные пользователем на карте вручную (станция, широта, долгота); null - ручного выбора нет. */
+    onSetCoordinates: (suspend (String, Double, Double) -> Boolean)? = null,
     /** Пояс отображения времени (displayTimeZone), нужен для ввода планового времени, когда трека нет. */
     loadZone: suspend () -> String = { "GMT+3" },
     /** Ключ хранения плана прибытия (id поезда); null - план не сохраняется между открытиями карты. */
@@ -229,8 +233,18 @@ internal fun TrainMapScreen(
         var locationDenied by remember { mutableStateOf(false) }
         var missing by remember { mutableStateOf(missingStation()) }
         var determining by remember { mutableStateOf(false) }
-        var determineFailed by remember { mutableStateOf(false) }
+        var determineMessage by remember { mutableStateOf<String?>(null) }
+        // Предложенные координаты станции (найденные поиском или точка, куда нажал пользователь) - сохраняются только после подтверждения.
+        var proposal by remember { mutableStateOf<StationProposal?>(null) }
+        var choosing by remember { mutableStateOf<List<com.z_company.repository.remote_rest.response.OsmStationCandidate>?>(null) }
         var savedName by remember { mutableStateOf<String?>(null) }
+        // Сообщение «Координаты сохранены» гаснет само.
+        LaunchedEffect(savedName) {
+            if (savedName != null) { delay(4000); savedName = null }
+        }
+        // Шторку «нет координат» можно закрыть; ручной выбор точки - тап по карте вместо определения по GPS.
+        var missingDismissed by remember { mutableStateOf(false) }
+        var pickingStation by remember { mutableStateOf(false) }
         var myFix by remember { mutableStateOf<GeoFix?>(null) }
         // Только живые фиксы подписки (не «последнее известное»): профиль пути до первого из них показывает «Поиск спутников».
         var liveFix by remember { mutableStateOf<GeoFix?>(null) }
@@ -662,6 +676,17 @@ internal fun TrainMapScreen(
                                 PropertyFactory.circleColor("#FFFFFF"),
                                 PropertyFactory.circleStrokeColor("#0A0E14"),
                                 PropertyFactory.circleStrokeWidth(3.5f),
+                            ),
+                            "train-map-me-arrow",
+                        )
+                        // Предложенное место станции (поиск или тап пользователя): синяя точка с белой каймой, ждёт подтверждения.
+                        style.addSource(GeoJsonSource(TRAIN_PROPOSAL_SOURCE, FeatureCollection.fromFeatures(emptyList())))
+                        style.addLayerBelow(
+                            CircleLayer("train-map-proposal-layer", TRAIN_PROPOSAL_SOURCE).withProperties(
+                                PropertyFactory.circleRadius(11f),
+                                PropertyFactory.circleColor("#0A84FF"),
+                                PropertyFactory.circleStrokeColor("#FFFFFF"),
+                                PropertyFactory.circleStrokeWidth(4f),
                             ),
                             "train-map-me-arrow",
                         )
@@ -1294,6 +1319,12 @@ internal fun TrainMapScreen(
             }
             src.setGeoJson(FeatureCollection.fromFeatures(feats))
         }
+        LaunchedEffect(styleGen, styleReady, proposal) {
+            if (!styleReady) return@LaunchedEffect
+            val src = map?.style?.getSourceAs<GeoJsonSource>(TRAIN_PROPOSAL_SOURCE) ?: return@LaunchedEffect
+            val pr = proposal
+            if (pr == null) src.setGeoJson(FeatureCollection.fromFeatures(emptyList())) else src.setGeoJson(Point.fromLngLat(pr.longitude, pr.latitude))
+        }
         // Маркер выбранной точки/остановки.
         LaunchedEffect(styleGen, styleReady, selection) {
             if (!styleReady) return@LaunchedEffect
@@ -1311,6 +1342,12 @@ internal fun TrainMapScreen(
         DisposableEffect(map) {
             val m = map
             val click = MapLibreMap.OnMapClickListener { latLng ->
+                val pickName = missing
+                if (pickingStation && pickName != null && onSetCoordinates != null) {
+                    // Только отмечаем точку: сохранение - после подтверждения.
+                    proposal = StationProposal(pickName, latLng.latitude, latLng.longitude, "Станция «$pickName» здесь?", "Точка отмечена на карте. Проверьте место и подтвердите.")
+                    return@OnMapClickListener true
+                }
                 val tap = m!!.projection.toScreenLocation(latLng)
                 val mpp = m.projection.getMetersPerPixelAtLatitude(latLng.latitude) * density
                 val railLine = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line
@@ -1468,6 +1505,8 @@ internal fun TrainMapScreen(
                 } else byLine
             }
         }
+        val speedZonesRes = remember(nowMs, planDistance, profileModel.position) { if (plan != null) profileModel.speedZonesAhead(railLineNow, alongFix) else SpeedZonesResult(emptyList()) }
+        val speedZones = speedZonesRes.zones
         // Точка достигнута/пройдена, не лежит на линии (сменили плечо) или план устарел - снять.
         LaunchedEffect(planDistance, plan, nowMs) {
             val d = planDistance
@@ -1505,8 +1544,6 @@ internal fun TrainMapScreen(
         // Возврат в слежение: через FollowReturn.RETURN_DELAY_MS без касаний камера снова ведётся за положением
         // (и «еду по карте», если было включено). Не возвращаем: открыта карточка планирования/выбранной точки/график/панель
         // значка, палец на карте, просмотр записанного трека.
-        val speedZonesRes = remember(nowMs, planDistance, profileModel.position) { if (plan != null) profileModel.speedZonesAhead(railLineNow, alongFix) else SpeedZonesResult(emptyList()) }
-        val speedZones = speedZonesRes.zones
         val followBlocked = selection != null || showChart || showSettings || showProfileFull || showTarget || planNote != null ||
             (plan?.showOnMap == true && planOpen)
         LaunchedEffect(followBlocked) { lastInteractionMs = System.currentTimeMillis() }
@@ -1996,6 +2033,9 @@ internal fun TrainMapScreen(
                             nowMs = nowMs,
                             zone = zone,
                             speedKmh = etaSpeed,
+                            shownSpeedKmh = speedNow,
+                    zones = speedZones,
+                    zonesNote = speedZonesRes.note,
                             onHide = { planOpen = false },
                         )
                     } else {
@@ -2033,9 +2073,6 @@ internal fun TrainMapScreen(
                     ArrivalPlan.stopsAhead(stops, railLineNow, alongFix).ifEmpty { profileModel.axisStopsAhead(stops) }
                 }
                 val openSpeed = remember { if (liveFresh) liveSpeed else null }
-                            shownSpeedKmh = speedNow,
-                    zones = speedZones,
-                    zonesNote = speedZonesRes.note,
                 TrainMapSpeedEtaScreen(
                     ahead = etaAhead,
                     initialSpeedKmh = openSpeed,
@@ -2064,6 +2101,9 @@ internal fun TrainMapScreen(
                     nowMs = nowMs,
                     zone = zone,
                     speedKmh = etaSpeed,
+                    shownSpeedKmh = speedNow,
+                    zones = speedZones,
+                    zonesNote = speedZonesRes.note,
                     onSave = { np ->
                         plan = np
                         TrainMapPlanStore.save(context, planKey, np)
@@ -2077,7 +2117,7 @@ internal fun TrainMapScreen(
                 )
             }
 
-            val name = missing
+            val name = missing.takeUnless { missingDismissed || pickingStation }
             val rail = railState
             if (hasRoute && !(planCardVisible || planChipVisible) && (rail !is ServicePhaseAutoFillViewModel.RailLineResult.Ok ||
                     (rail.fromCache && name == null && savedName == null))
@@ -2101,9 +2141,6 @@ internal fun TrainMapScreen(
                     when (rail) {
                         null -> {
                             androidx.compose.material3.CircularProgressIndicator(
-                    shownSpeedKmh = speedNow,
-                    zones = speedZones,
-                    zonesNote = speedZonesRes.note,
                                 modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Pst.accent,
                             )
                             Text(text = "Строим путь по рельсам…", style = Pst.sans.copy(fontSize = 14.sp), color = Pst.text)
@@ -2150,7 +2187,86 @@ internal fun TrainMapScreen(
                     }
                 }
             }
-            if (name != null || savedName != null) {
+            if (pickingStation && proposal == null) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(16.dp)
+                        .shadow(4.dp, RoundedCornerShape(16.dp))
+                        .background(Pst.surface, RoundedCornerShape(16.dp))
+                        .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "Нажмите на карте место станции «${missing.orEmpty()}»",
+                        style = Pst.sans.copy(fontSize = 14.sp, lineHeight = 20.sp),
+                        color = Pst.text,
+                        modifier = Modifier.weight(1f),
+                    )
+                    PstButton(text = "Отмена", onClick = { pickingStation = false }, kind = PstButtonKind.TEXT, height = 36.dp, fontSize = 14)
+                }
+            }
+            // Подтверждение места: точка видна на карте; «Сохранить» пишет в справочник, иначе ничего не меняется.
+            proposal?.let { pr ->
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .shadow(12.dp, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                        .background(Pst.bg, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                        .navigationBarsPadding()
+                        .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier.size(36.dp).background(Pst.accentSoft, RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) { PstIcon(PstIcons.MapPin, 18.dp, Pst.accent) }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(pr.title, style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+                            Text(pr.subtitle, style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted)
+                        }
+                    }
+                    PstButton(
+                        text = if (determining) "Сохраняем…" else "Сохранить координаты",
+                        kind = PstButtonKind.CTA,
+                        enabled = !determining && onSetCoordinates != null,
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            val save = onSetCoordinates ?: return@PstButton
+                            determining = true
+                            scope.launch {
+                                val ok = save(pr.name, pr.latitude, pr.longitude)
+                                determining = false
+                                if (ok) {
+                                    savedName = pr.name
+                                    missing = missingStation()
+                                    missingDismissed = false
+                                    proposal = null
+                                    pickingStation = false
+                                } else {
+                                    determineMessage = "Не удалось сохранить координаты."
+                                }
+                            }
+                        },
+                    )
+                    PstButton(
+                        text = if (pr.manual) "Выбрать другое место" else "Не та станция",
+                        kind = PstButtonKind.OUTLINED,
+                        enabled = !determining,
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            proposal = null
+                            if (!pr.manual) pickingStation = false
+                        },
+                    )
+                }
+            }
+            if (!pickingStation && proposal == null && (name != null || savedName != null)) {
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -2168,6 +2284,15 @@ internal fun TrainMapScreen(
                             color = Pst.textMuted,
                         )
                     }
+                    if (name != null && !determining) {
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                            PstButton(
+                                text = "Закрыть",
+                                onClick = { missingDismissed = true; determineMessage = null; savedName = null },
+                                kind = PstButtonKind.TEXT, height = 32.dp, fontSize = 13,
+                            )
+                        }
+                    }
                     if (name != null) {
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(
@@ -2181,38 +2306,58 @@ internal fun TrainMapScreen(
                                     color = Pst.text,
                                 )
                                 Text(
-                                    text = if (determineFailed) {
-                                        "Не удалось определить местоположение. Проверьте GPS и доступ к местоположению."
-                                    } else {
-                                        "Определим по вашему текущему месту и сохраним в справочник станций."
-                                    },
+                                    text = determineMessage ?: "Найдём станцию на карте по названию — вы подтвердите место перед сохранением в справочник.",
                                     style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp),
-                                    color = if (determineFailed) Pst.danger else Pst.textMuted,
+                                    color = if (determineMessage != null) Pst.danger else Pst.textMuted,
                                 )
                             }
                         }
-                        PstButton(
-                            text = if (determining) "Определяем…" else "Определить координаты по GPS",
-                            kind = PstButtonKind.CTA,
-                            enabled = !determining,
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = {
-                                determining = true
-                                determineFailed = false
-                                scope.launch {
-                                    val ok = onDetermine(name)
-                                    determining = false
-                                    if (ok) {
-                                        savedName = name
-                                        missing = missingStation()
-                                    } else {
-                                        determineFailed = true
+                        if (findStation != null) {
+                            PstButton(
+                                text = if (determining) "Ищем…" else "Найти станцию на карте",
+                                kind = PstButtonKind.CTA,
+                                enabled = !determining,
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = {
+                                    determineMessage = null
+                                    networkGate.run {
+                                        determining = true
+                                        scope.launch {
+                                            val found = findStation(name, stops.map { it.latitude to it.longitude })
+                                            determining = false
+                                            when {
+                                                found == null -> determineMessage = "Не удалось выполнить поиск. Проверьте интернет и повторите."
+                                                found.isEmpty() -> determineMessage = "Станция не найдена на карте. Укажите место вручную."
+                                                found.any { it.approximate } || found.size > 1 -> choosing = found
+                                                else -> proposal = proposalOf(name, found.first(), map)
+                                            }
+                                        }
                                     }
-                                }
-                            },
-                        )
+                                },
+                            )
+                        }
+                        if (onSetCoordinates != null) {
+                            PstButton(
+                                text = "Указать на карте",
+                                kind = PstButtonKind.OUTLINED,
+                                enabled = !determining,
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = { determineMessage = null; pickingStation = true },
+                            )
+                        }
                     }
                 }
+            }
+            choosing?.let { list ->
+                val stationName = missing.orEmpty()
+                StationChoiceSheet(
+                    query = stationName,
+                    candidates = list,
+                    current = null,
+                    onChoose = { proposal = proposalOf(stationName, it, map); choosing = null },
+                    onDismiss = { choosing = null },
+                    onPickOnMap = { choosing = null; pickingStation = true },
+                )
             }
         }
     }
@@ -2469,4 +2614,33 @@ private fun baseMapLabels(m: MapLibreMap, width: Int, height: Int, cache: StopRe
     } catch (e: Exception) {
         emptyList()
     }
+}
+
+
+/** Предложенное место станции [name]: что показать в подтверждении и где поставить точку. */
+private data class StationProposal(
+    val name: String,
+    val latitude: Double,
+    val longitude: Double,
+    val title: String,
+    val subtitle: String,
+    val manual: Boolean = true,
+)
+
+/** Предложение по найденной станции: камера переходит к ней, чтобы пользователь увидел место. */
+private fun proposalOf(
+    name: String,
+    c: com.z_company.repository.remote_rest.response.OsmStationCandidate,
+    map: MapLibreMap?,
+): StationProposal {
+    map?.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(c.latitude, c.longitude), 13.0), 600)
+    val kind = if (c.kind == "halt") "О.П." else "станция"
+    return StationProposal(
+        name = name,
+        latitude = c.latitude,
+        longitude = c.longitude,
+        title = "Нашлось: ${c.name}, $kind",
+        subtitle = listOfNotNull(c.railwayLabel() ?: c.operator ?: c.region, "Проверьте место на карте и подтвердите.").joinToString(" · "),
+        manual = false,
+    )
 }

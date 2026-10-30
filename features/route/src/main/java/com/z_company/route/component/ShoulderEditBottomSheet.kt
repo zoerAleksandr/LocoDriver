@@ -735,6 +735,8 @@ fun ShoulderEditBottomSheet(
             mapNeighbours = near,
             findCoordinates = { query -> autoVm.lookup(query, country, near) },
             onWriteSupport = ::sendMissingStationReport,
+            directoryStation = { n -> directoryPoints[ServicePhaseStationsMerge.normalizeName(n)] },
+            directoryNames = directoryPoints.values.map { it.name.trim() },
             neighbours = if (isStart) null to stations.firstOrNull()?.name else stations.lastOrNull()?.name to null,
         )
     }
@@ -765,6 +767,8 @@ fun ShoulderEditBottomSheet(
                 autoVm.lookup(query, country, near)
             },
             onWriteSupport = ::sendMissingStationReport,
+            directoryStation = { n -> directoryPoints[ServicePhaseStationsMerge.normalizeName(n)] },
+            directoryNames = directoryPoints.values.map { it.name.trim() },
             mapNeighbours = buildList {
                 val idx = stations.indexOfFirst { it.id == editingStation?.id }
                 listOfNotNull(stations.getOrNull(idx - 1), stations.getOrNull(idx + 1))

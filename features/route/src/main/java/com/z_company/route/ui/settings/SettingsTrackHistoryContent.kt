@@ -133,7 +133,6 @@ fun SettingsTrackHistoryContent(viewModel: TrackHistoryViewModel, onRequestSync:
             loadRailLine = { ServicePhaseAutoFillViewModel.RailLineResult.NoPath },
             currentFix = { null },
             loadTrack = { viewModel.mapTrack(opened) },
-            onDetermine = { false },
             onDismiss = viewModel::closeOpened,
             title = opened.title,
             viewOnly = true,

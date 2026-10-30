@@ -380,7 +380,8 @@ fun FormTrainScreen(
                 loadRecordingState = { viewModel.trainMapRecordingState() },
                 makeTarget = { viewModel.trainMapMakeTarget() },
                 loadConflictText = { viewModel.trainMapConflictText() },
-                onDetermine = { viewModel.saveStationCoordinatesFromGps(it) },
+                findStation = { q, near -> railVm.lookup(q, viewModel.userCountry, near) },
+        onSetCoordinates = { n, lat, lon -> viewModel.saveStationCoordinates(n, lat, lon) },
                 loadZone = { viewModel.trainMapZone() },
                 planKey = remember { viewModel.trainMapPlanKey() },
                 // Карта остаётся «открытой» (rememberSaveable): после «Готово» в настройках согласия возвращаемся на неё.

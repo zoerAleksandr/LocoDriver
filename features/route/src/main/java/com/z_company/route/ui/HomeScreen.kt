@@ -472,7 +472,6 @@ fun HomeScreen(
             stops = emptyList(),
             loadRailLine = { com.z_company.route.viewmodel.ServicePhaseAutoFillViewModel.RailLineResult.NoPath },
             currentFix = { com.z_company.route.util.DeviceLocation.currentFix(mapContext.applicationContext) },
-            onDetermine = { false },
             autoRecording = bareAutoState.enabled,
             onToggleRecording = bareToggle,
             // showBareMap сохраняется: после «Готово» в настройках согласия возвращаемся на карту.

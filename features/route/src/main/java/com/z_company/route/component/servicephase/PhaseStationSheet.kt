@@ -85,6 +85,10 @@ internal fun PhaseStationSheet(
     terminalTitle: String? = null,
     /** «Написать в поддержку» при ненайденной станции (название); null — кнопки нет. */
     onWriteSupport: ((String) -> Unit)? = null,
+    /** Станция справочника по названию (с координатами) или null; координаты подставляются сами, поиск не нужен. */
+    directoryStation: ((String) -> com.z_company.domain.entities.norma_time.StationNorm?)? = null,
+    /** Названия станций справочника с координатами - в подсказки названия. */
+    directoryNames: List<String> = emptyList(),
 ) {
     val terminal = terminalTitle != null
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -114,11 +118,19 @@ internal fun PhaseStationSheet(
         (km == null || km <= 0.0 || (phaseDistance > 0 && km >= phaseDistance))
     val canSave = name.text.isNotBlank() && !kmInvalid
 
-    val suggestions = remember(name.text, stationList) { suggest(stationList, name.text) }
+    val allNames = remember(stationList, directoryNames) { (stationList + directoryNames).distinctBy { it.trim().lowercase() } }
+    val suggestions = remember(name.text, allNames) { suggest(allNames, name.text) }
+    // Координаты из справочника по введённому названию: уступают явному выбору (карта, поиск), но побеждают сохранённые в плече.
+    val dirHit = directoryStation?.invoke(name.text.trim())?.takeIf { it.hasCoordinates && picked == null && coords !is CoordState.Found }
 
     LaunchedEffect(Unit) { if (isNew) nameFocus.requestFocus() }
 
-    val coordinateStation = (station ?: newStationDraft).copy(name = name.text.trim())
+    val coordinateStation = (station ?: newStationDraft).copy(name = name.text.trim()).let { st ->
+        if (dirHit == null) st else st.copy(
+            latitude = dirHit.latitude, longitude = dirHit.longitude,
+            esr = dirHit.esr ?: st.esr, osmId = dirHit.osmId ?: st.osmId, source = ServicePhaseStationSource.MAP,
+        )
+    }
     if (mapOpen && mapNeighbours != null) {
         val found = (coords as? CoordState.Found)?.candidate
         PhaseMapPicker(
@@ -264,6 +276,7 @@ internal fun PhaseStationSheet(
                         neighbours = neighbours,
                         onPickOnMap = if (mapNeighbours != null) ({ mapOpen = true }) else null,
                         notFoundName = name.text.trim().ifBlank { coordinateStation.name },
+                        fromDirectory = dirHit != null,
                         onWriteSupport = onWriteSupport,
                         onFind = findCoordinates?.let { find ->
                             {
@@ -318,7 +331,7 @@ internal fun PhaseStationSheet(
                         val trimmed = name.text.trim()
                         val kmValue = km?.let { kotlin.math.round(it * 10) / 10 }
                         val found = (coords as? CoordState.Found)?.candidate
-                        val point = picked
+                        val point = picked ?: dirHit?.let { PickedPoint(it.latitude!!, it.longitude!!, null) }
                         val result = when {
                             station == null -> ServicePhaseStation(
                                 id = newStationDraft.id,
@@ -384,6 +397,7 @@ private fun CoordinatesCard(
     onCancelSearch: () -> Unit,
     onReject: () -> Unit,
     notFoundName: String = station.name,
+    fromDirectory: Boolean = false,
     onWriteSupport: ((String) -> Unit)? = null,
 ) {
     val has = station.hasCoordinates
@@ -403,7 +417,7 @@ private fun CoordinatesCard(
                     val c = state.candidate
                     val between = listOfNotNull(neighbours.first, neighbours.second)
                     val place = listOfNotNull(
-                        c.operator ?: c.region,
+                        c.railwayLabel() ?: c.operator ?: c.region,
                         between.takeIf { it.size == 2 }?.let { "между ${it[0]} и ${it[1]}" },
                     ).joinToString(" · ")
                     CoordRow(
@@ -414,13 +428,8 @@ private fun CoordinatesCard(
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 6.dp, bottom = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.End,
                     ) {
-                        Text(
-                            text = "Сохранится вместе со станцией",
-                            style = Pst.sans.copy(fontSize = 13.sp),
-                            color = Pst.textMuted,
-                            modifier = Modifier.weight(1f),
-                        )
                         PstButton(text = "Не та станция", onClick = onReject, kind = PstButtonKind.TEXT, height = 36.dp, fontSize = 14)
                     }
                 }
@@ -453,6 +462,7 @@ private fun CoordinatesCard(
                         title = if (has) "Координаты есть" else "Нет координат",
                         subtitle = when {
                             !has -> "Без них станция не определится по GPS"
+                            fromDirectory -> "Из справочника станций"
                             station.source == ServicePhaseStationSource.MAP -> "Указаны на карте"
                             else -> "Станция определится по GPS"
                         },

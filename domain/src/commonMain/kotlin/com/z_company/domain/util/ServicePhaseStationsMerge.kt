@@ -18,6 +18,8 @@ object ServicePhaseStationsMerge {
     fun normalizeName(name: String): String =
         name.replace('ё', 'е').replace('Ё', 'Е').replace('-', ' ')
             .trim().split(Regex("\\s+")).joinToString(" ").lowercase()
+            // «22км» и «22 км» - одна станция.
+            .replace(Regex("(\\d)(?=\\p{L})"), "$1 ")
 
     /** Имеющаяся станция, совпадающая с найденной; null — найденная новая. */
     fun existingMatch(found: ServicePhaseStation, existing: List<ServicePhaseStation>): ServicePhaseStation? {

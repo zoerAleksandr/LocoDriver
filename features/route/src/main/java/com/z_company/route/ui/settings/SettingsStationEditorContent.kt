@@ -51,6 +51,7 @@ import com.z_company.route.viewmodel.AutoFillFailure
 import com.z_company.route.viewmodel.message
 import com.z_company.route.component.servicephase.PhaseMapPicker
 import com.z_company.route.component.servicephase.StationChoiceSheet
+import com.z_company.route.component.servicephase.railwayLabel
 import com.z_company.domain.entities.setting.ServicePhaseStationKind
 import com.z_company.repository.remote_rest.response.OsmStationCandidate
 import androidx.compose.runtime.rememberCoroutineScope
@@ -579,7 +580,7 @@ private fun StationCoordinatesSection(viewModel: StationNormEditorViewModel, sta
                 val c = s.candidate
                 val title = listOfNotNull(
                     "Нашлась: ${c.name}" + if (c.kind == "halt") ", О.П." else "",
-                    c.region ?: c.operator,
+                    c.railwayLabel() ?: c.region ?: c.operator,
                 ).joinToString(" · ")
                 if (s.candidates.size > 1) {
                     SearchNote(text = title, action = "Выбрать другую", onAction = { choosing = s.candidates })

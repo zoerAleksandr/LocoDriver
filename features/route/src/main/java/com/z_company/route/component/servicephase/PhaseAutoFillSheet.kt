@@ -915,7 +915,7 @@ internal fun CandidateList(
                                 modifier = Modifier.padding(top = 4.dp),
                             )
                         }
-                        listOfNotNull(c.operator, c.region).takeIf { it.isNotEmpty() }?.let {
+                        listOfNotNull(c.railwayLabel() ?: c.operator, c.region).takeIf { it.isNotEmpty() }?.let {
                             Text(text = it.joinToString(", "), style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted)
                         }
                         if (c.neighbours.isNotEmpty()) {

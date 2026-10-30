@@ -715,11 +715,9 @@ class TrainFormViewModel(
     /** Текущее местоположение для карты поезда; null — нет разрешения/сигнала. */
     suspend fun trainMapCurrentFix(): GeoFix? = DeviceLocation.currentFix(appContext)
 
-    /** Определить координаты [stationName] по текущему месту и записать в справочник (только если их там нет). */
-    suspend fun saveStationCoordinatesFromGps(stationName: String): Boolean {
-        val fix = DeviceLocation.currentFix(appContext, timeoutMs = 10_000) ?: return false
-        lastFix = fix
-        stationDirectory.fillCoordinates(stationName, fix.latitude, fix.longitude)
+    /** Записать в справочник координаты станции, указанные пользователем на карте (только если их там нет). */
+    suspend fun saveStationCoordinates(stationName: String, latitude: Double, longitude: Double): Boolean {
+        stationDirectory.fillCoordinates(stationName, latitude, longitude)
         return true
     }
 
