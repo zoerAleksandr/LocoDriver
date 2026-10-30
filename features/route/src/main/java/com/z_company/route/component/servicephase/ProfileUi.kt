@@ -543,6 +543,14 @@ internal fun ProfileChart(
                 val c = if (pos.offRoute || !pos.locked) muted else accent
                 drawLine(c, Offset(xx, yy), Offset(xx, bottomOfRows), strokeWidth = 2f * dp)
                 drawCircle(c, radius = 5f * dp, center = Offset(xx, yy))
+                // Голова поезда: стрелка по ходу (вид всегда повёрнут так, что поезд идёт вправо).
+                val arrow = Path().apply {
+                    moveTo(xx + 7f * dp, yy - 4f * dp)
+                    lineTo(xx + 13f * dp, yy)
+                    lineTo(xx + 7f * dp, yy + 4f * dp)
+                    close()
+                }
+                drawPath(arrow, c)
             }
         }
     }

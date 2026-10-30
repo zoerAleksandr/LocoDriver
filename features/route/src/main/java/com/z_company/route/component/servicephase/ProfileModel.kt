@@ -924,8 +924,8 @@ internal class ProfileModel(
     }
 
     fun toggleDirection() {
+        // Вид зеркалится сам (reversed): поезд идёт к +x вида, хвост слева - переворачивать хвост ещё раз нельзя (он вернётся на прежнюю сторону оси).
         manualReversed = !reversed
-        trainFlipped = !trainFlipped
         rebuild()
     }
 
@@ -934,7 +934,6 @@ internal class ProfileModel(
         val s = section ?: return
         val dir = SignalRules.axisDir(s.signals, signalsKm, target) ?: return
         val wantReversed = dir < 0
-        if (wantReversed != reversed) trainFlipped = !trainFlipped
         manualReversed = wantReversed
         rebuild()
     }
@@ -946,7 +945,6 @@ internal class ProfileModel(
         motionReversed = null
         resetMotion()
         rebuild()
-        if (reversed != before) trainFlipped = !trainFlipped
     }
 
     fun chooseWrongTrack(wrong: Boolean) { wrongTrack = wrong }
@@ -1104,11 +1102,11 @@ internal class ProfileModel(
         /** Ограничения, о которых уже сообщили «километраж неизвестен» (раз за запуск приложения, чтобы не повторять при каждом открытии). */
         val noticedRejections = HashSet<String>()
 
+        /** Станция плеча попадает на профиль, если её координаты не дальше этого от оси участка. */
+        const val LEG_STATION_MAX_OFFSET_M = 500.0
 
         /** Граница зоны ограничения дальше этого от линии плеча на ней «не лежит» (м): ось участка редкая, допуск шире, чем у цели. */
         const val ZONE_ON_LINE_M = 400.0
-        /** Станция плеча попадает на профиль, если её координаты не дальше этого от оси участка. */
-        const val LEG_STATION_MAX_OFFSET_M = 500.0
         const val MOTION_KM = 0.3
         const val MAX_STEP_KM = 1.0
         const val NEAR_RELOAD_M = 2_000.0
@@ -1162,8 +1160,8 @@ internal fun rememberProfileModel(
 internal class RejectNotice(val places: List<String>) {
     val title: String get() = if (places.size == 1) "Не поставлено: ${places.first()}" else "Не поставлено ограничений: ${places.size}"
     val text: String
+        get() = TrackWarnings.UNKNOWN_KM_MESSAGE + if (places.size > 1) "\n\n" + places.joinToString("\n") { "• $it" } else ""
+}
 
 /** Зоны ограничений для расчёта прибытия; [note] - предупреждение пользователю, когда расчёт неполный (null - всё учтено). */
 internal class SpeedZonesResult(val zones: List<com.z_company.domain.util.ArrivalPlan.SpeedZone>, val note: String? = null)
-        get() = TrackWarnings.UNKNOWN_KM_MESSAGE + if (places.size > 1) "\n\n" + places.joinToString("\n") { "• $it" } else ""
-}
