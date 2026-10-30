@@ -1654,25 +1654,20 @@ private fun LocomotiveSubItem(locomotive: Locomotive, index: Int) {
 
 @Composable
 private fun TrainSubItem(index: Int, train: Train) {
+    val names = train.stations.mapNotNull { it.stationName?.takeIf { n -> n.isNotBlank() } }
+    val stationStart = names.firstOrNull() ?: ""
+    val stationEnd = if (names.size > 1) " - ${names.last()}" else ""
+
     if (train.number.isNullOrBlank()) {
+        // Без номера: станция (одна) или перегон (первая - последняя); иначе «Поезд № N».
         Text(
-            text = "Поезд № ${index + 1}",
+            text = if (names.isEmpty()) "Поезд № ${index + 1}" else "$stationStart$stationEnd",
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.primary
         )
     } else {
-        val stationStart = if (train.stations.isNotEmpty()) {
-            train.stations.first().stationName ?: ""
-        } else {
-            ""
-        }
-
-        val stationEnd = if (train.stations.isNotEmpty() && train.stations.size > 1) {
-            " - ${train.stations.last().stationName ?: ""}"
-        } else {
-            ""
-        }
-
         // Номер поезда — Mono (идентификатор), названия станций — Inter (имена собственные).
         Text(
             text = buildAnnotatedString {
