@@ -1911,7 +1911,6 @@ internal fun TrainMapScreen(
                             height = stripH,
                             onHide = { TrainMapPrefs.setProfileVisible(context, false) },
                             onExpand = { showProfileFull = true },
-                            gnss = gnssNow,
                             modifier = Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.MapTourStep.PROFILE)),
                         )
                     } else {

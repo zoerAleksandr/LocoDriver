@@ -130,8 +130,6 @@ internal fun ProfileStrip(
     onHide: () -> Unit,
     onExpand: () -> Unit,
     modifier: Modifier = Modifier,
-    /** Качество GPS: при плохой связи рядом с километром показывается чип («Слабый GPS», «Нет GPS», «Помеха GPS»). */
-    gnss: com.z_company.domain.gnss.GnssQuality? = null,
 ) {
     Row(
         modifier = modifier
@@ -163,7 +161,6 @@ internal fun ProfileStrip(
                     gradeText(live, pos?.element)?.let {
                         Text(it, style = Pst.mono.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, maxLines = 1)
                     }
-                    if (gnss != null) com.z_company.route.autorecord.GnssBadChip(gnss)
                 }
                 ProfileChart(model, model.stripWindow(live, STRIP_BEHIND_KM + STRIP_AHEAD_KM), detailed = false, modifier = Modifier.weight(1f).fillMaxWidth())
             } else {
