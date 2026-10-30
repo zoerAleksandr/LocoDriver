@@ -28,6 +28,11 @@ internal class TrackWarningStore(context: Context) {
         prefs.all.keys.filter { it == sectionId || it.startsWith("$sectionId|") }.flatMap { load(it, sectionId) }.distinctBy { it.id }
     }.getOrDefault(emptyList())
 
+    /** Вся история по всем участкам без повторов: для подбора прошлых предупреждений плеча без загрузки профиля. */
+    fun loadEvery(): List<TrackWarning> = runCatching {
+        prefs.all.keys.flatMap { load(it, it.substringBefore('|')) }.distinctBy { it.id }
+    }.getOrDefault(emptyList())
+
     fun save(key: String, list: List<TrackWarning>) {
         runCatching {
             if (list.isEmpty()) prefs.edit().remove(key).apply()

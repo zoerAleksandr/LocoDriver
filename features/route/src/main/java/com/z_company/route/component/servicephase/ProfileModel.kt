@@ -27,6 +27,7 @@ import com.z_company.domain.track.TrackSignal
 import com.z_company.domain.track.TravelParity
 import com.z_company.domain.util.GeoFix
 import com.z_company.domain.util.TrainMapStop
+import com.z_company.domain.track.LegWarnings
 import com.z_company.repository.remote_rest.tracks.SectionProfileRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +43,13 @@ internal class TrainLengthStore(context: android.content.Context) {
     fun set(trainId: String, meters: Int?) {
         prefs.edit().apply { if (meters == null) remove(trainId) else putInt(trainId, meters) }.apply()
     }
+}
+
+/** Отказ от предложения прошлых ДУ-61 (SharedPreferences `profile_offer_declined`, ключ «поезд|участок»): пока поезд тот же, не спрашиваем снова. */
+internal class OfferDeclineStore(context: android.content.Context) {
+    private val prefs = context.applicationContext.getSharedPreferences("profile_offer_declined", android.content.Context.MODE_PRIVATE)
+    fun all(): Set<String> = prefs.all.keys.toSet()
+    fun add(key: String) { prefs.edit().putBoolean(key, true).apply() }
 }
 
 /** Строка списка выбора участка. */
@@ -70,6 +78,7 @@ internal class ProfileModel(
     private val journal: com.z_company.domain.track.RestrictionJournalStore? = null,
     private val nowMs: () -> Long = { System.currentTimeMillis() },
     private val lengthStore: TrainLengthStore? = null,
+    private val declineStore: OfferDeclineStore? = null,
 ) {
     /** Не вошёл в аккаунт: участки отдаются только вошедшему (25.10.2026), кэш прежнего аккаунта не показываем. */
     var needLogin by mutableStateOf(false)
@@ -174,6 +183,14 @@ internal class ProfileModel(
     private var history by mutableStateOf<List<TrackWarning>>(emptyList())
     private var historySectionId: String? = null
     private var offeredSections by mutableStateOf<Set<String>>(emptySet())
+
+    /** Участки, от предложения на которых отказались для конкретного поезда («поезд|участок»): переживает перезапуск и повторную прокладку маршрута. */
+    private var declinedOffers by mutableStateOf(declineStore?.all().orEmpty())
+    private fun declineKey(): String? {
+        val t = train?.id ?: return null
+        val s = section ?: return null
+        return "$t|${s.id}"
+    }
     private val spokenAt = HashMap<String, Long>()
     private val passes = com.z_company.domain.track.WarningPassTracker()
     private var passDir = 0
@@ -244,12 +261,19 @@ internal class ProfileModel(
     /** Участок выбран и поддерживает предупреждения. */
     val canEditWarnings: Boolean get() = live != null && warningStore != null
 
-    /** Прошлые ограничения участка, которые ещё не применили и не отклонили в этом проезде (предложение при открытии участка). */
+    /**
+     * Прошлые ограничения участка, которые ещё не применили и не отклонили в этом проезде (предложение при открытии участка).
+     * Предлагаем только когда плечо указано в разделе «Поезд» (есть минимум две станции): при автоопределении участка
+     * по положению направление ещё может быть неверным, и предложение подставило бы чужие ограничения. Из прошлых берём только
+     * лежащие на станциях и перегонах плеча и в том же направлении ([LegWarnings]).
+     */
     val warningOffer: List<TrackWarning>
         get() {
+            if (stopNames.size < 2) return emptyList()
+            if (declineKey() in declinedOffers) return emptyList()
             val k = warningsKey ?: return emptyList()
             if (k in offeredSections || activeList.isNotEmpty()) return emptyList()
-            return pastWarnings
+            return pastWarnings.filter { LegWarnings.matches(it.place, stopNames) }
         }
 
     fun voices(): List<android.speech.tts.Voice> = voice?.voices().orEmpty()
@@ -467,6 +491,7 @@ internal class ProfileModel(
     fun answerOffer(ids: Set<String>) {
         val k = warningsKey ?: return
         offeredSections = offeredSections + k
+        declineKey()?.let { declineStore?.add(it); declinedOffers = declinedOffers + it }
         ids.forEach { activatePast(it) }
     }
 
@@ -857,7 +882,6 @@ internal class ProfileModel(
     /** Вернуть автоматическое направление (по плечу поезда, а без плеча - по движению). */
     fun useAutoDirection() {
         if (manualReversed == null) return
-        val before = reversed
         manualReversed = null
         motionReversed = null
         resetMotion()
@@ -1053,7 +1077,7 @@ internal fun rememberProfileModel(
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { voice.shutdown() } }
     val journal: com.z_company.domain.track.RestrictionJournalStore = koinInject()
     val model = remember {
-        ProfileModel(repo, ProfileCalibrationStore(context), scope, railLookup, TrackWarningStore(context), voice, voiceSettings, journal, lengthStore = TrainLengthStore(context))
+        ProfileModel(repo, ProfileCalibrationStore(context), scope, railLookup, TrackWarningStore(context), voice, voiceSettings, journal, lengthStore = TrainLengthStore(context), declineStore = OfferDeclineStore(context))
     }
     model.stopNames = remember(stops) { stops.map { it.name }.filter { it.isNotBlank() } }
     model.stopPoints = stops

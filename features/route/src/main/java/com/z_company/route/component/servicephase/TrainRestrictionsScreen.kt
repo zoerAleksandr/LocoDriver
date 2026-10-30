@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
+import com.z_company.domain.track.LegWarnings
 import com.z_company.domain.track.RestrictionJournalStore
 import com.z_company.domain.track.RestrictionPass
 import com.z_company.domain.track.RestrictionReport
@@ -108,6 +109,21 @@ internal fun TrainRestrictionsScreen(
         }
     }
     val legSelected = leg.title != null
+    // Порядок станций плеча по ходу движения: по нему сортируется список и подбираются прошлые предупреждения.
+    val order = remember(stops, legFrom, legTo) { stops.map { it.name }.filter { it.isNotBlank() }.ifEmpty { listOfNotNull(legFrom, legTo) } }
+    val warningStore = remember { TrackWarningStore(context.applicationContext) }
+    var pastAll by remember { mutableStateOf(emptyList<TrackWarning>()) }
+    LaunchedEffect(trainId, legSelected) {
+        pastAll = if (legSelected) withContext(Dispatchers.Default) { warningStore.loadEvery() } else emptyList()
+    }
+    val pastCandidates = remember(pastAll, entries, order) {
+        val active = entries.filter { !it.isDeleted }.map { it.warningId }.toSet()
+        val t = trains.firstOrNull { it.id == trainId }
+        val planned = pastAll.filter { it.id !in active && LegWarnings.matches(it.place, order) }
+            .map { RestrictionPass.planned(trainId, t?.routeId.orEmpty(), it, 0L, t?.lengthM) }
+        sortRestrictions(planned, order)
+    }
+    var pastChecked by remember { mutableStateOf(emptySet<String>()) }
     val placements by rememberPlacements(entries, stops)
     val rows = remember(entries, zone) { RestrictionReport.rows(entries, zone) }
     val ready = RestrictionReport.isReady(entries)
@@ -180,10 +196,34 @@ internal fun TrainRestrictionsScreen(
                 else -> "Все отслеживаемые ограничения проследованы — можно сформировать отчёт."
             }
             Text(hint, style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted)
+            if (!legSelected) {
+                Text("Выберите плечо для подбора предупреждений из прошлых поездок", style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted)
+            }
             // Порядок по ходу движения: места плеча (станции и перегоны) по порядку станций плеча; ограничения без места плеча - в конце.
-            val order = remember(stops, legFrom, legTo) { stops.map { it.name }.filter { it.isNotBlank() }.ifEmpty { listOfNotNull(legFrom, legTo) } }
             val sorted = remember(entries, order) { sortRestrictions(entries, order) }
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (pastCandidates.isNotEmpty()) item(key = "past_offer") {
+                    PastOfferCard(
+                        candidates = pastCandidates, zone = zone, checked = pastChecked,
+                        onToggle = { id -> pastChecked = if (id in pastChecked) pastChecked - id else pastChecked + id },
+                        onApply = {
+                            val chosen = pastAll.filter { it.id in pastChecked }
+                            val t = trains.firstOrNull { it.id == trainId }
+                            pastChecked = emptySet()
+                            scope.launch(Dispatchers.Default) {
+                                runCatching {
+                                    chosen.forEach { w ->
+                                        val old = store.peek(trainId, w.id)
+                                        if (old != null && !old.isDeleted) return@forEach
+                                        store.upsert(RestrictionPass.planned(trainId, t?.routeId.orEmpty(), w, maxOf(System.currentTimeMillis(), (old?.updatedAt ?: 0L) + 1), t?.lengthM))
+                                    }
+                                    entries = store.forTrain(trainId)
+                                }
+                                upload.trigger()
+                            }
+                        },
+                    )
+                }
                 itemsIndexed(sorted, key = { _, e -> e.warningId }) { index, e ->
                     val row = RestrictionReport.rows(listOf(e), zone).first()
                     // Тот же свайп-удаление, что у маршрутов на Главном (красная кнопка, затем подтверждение); нажатие - правка.
@@ -209,7 +249,6 @@ internal fun TrainRestrictionsScreen(
     }
 
     editing?.let { e ->
-        val warningStore = remember { TrackWarningStore(context.applicationContext) }
         RestrictionFormSheet(
             sectionId = e.sectionId,
             place = e.place,
@@ -247,6 +286,35 @@ internal fun TrainRestrictionsScreen(
         )
     }
     pdfUri?.let { PdfActionSheet(uri = it, onDismiss = { pdfUri = null }) }
+}
+
+/** Прошлые предупреждения плеча (из истории участков): выбранные добавляются в журнал поезда. */
+@Composable
+private fun PastOfferCard(
+    candidates: List<RestrictionPass>,
+    zone: String,
+    checked: Set<String>,
+    onToggle: (String) -> Unit,
+    onApply: () -> Unit,
+) {
+    Column(Modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(14.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Из прошлых поездок", style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+        Text(
+            "Предупреждения на станциях и перегонах этого плеча (по ходу движения). Отметьте действующие и добавьте их в журнал поезда.",
+            style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted,
+        )
+        candidates.forEach { c ->
+            val row = RestrictionReport.rows(listOf(c), zone).first()
+            val isSpeed = c.kind == "speed"
+            RestrictionItem(
+                place = row.place.ifBlank { row.title }, limit = row.limit.takeIf { isSpeed }, exceeded = false, kmText = row.kmText,
+                boldTitle = row.title.takeIf { !isSpeed },
+                modifier = Modifier.clickable { onToggle(c.warningId) },
+                leading = { androidx.compose.material3.Checkbox(checked = c.warningId in checked, onCheckedChange = { onToggle(c.warningId) }) },
+            )
+        }
+        PstButton("Добавить выбранные (${checked.size})", onApply, kind = PstButtonKind.FILLED, enabled = checked.isNotEmpty(), height = 40.dp, fontSize = 14)
+    }
 }
 
 @Composable
@@ -368,11 +436,42 @@ private fun RestrictionAddHost(
 }
 
 /** Положение места на плече по ходу движения: станция - её номер среди станций плеча, перегон - между номерами концов; нет на плече - в конец. */
-/** Порядок ограничений поезда по ходу движения: место на плече, затем км начала, время захода; общий для «Ограничений поезда» и экрана ДУ-61. */
-internal fun sortRestrictions(entries: List<RestrictionPass>, order: List<String>): List<RestrictionPass> =
-    entries.filter { !it.isDeleted }.sortedWith(
-        compareBy<RestrictionPass>({ locationKey(it.place, order) }, { it.startAbsKm ?: Double.MAX_VALUE }, { it.enterAt ?: Long.MAX_VALUE }, { it.updatedAt }),
+/**
+ * Порядок ограничений поезда по ходу движения: место на плече, затем км начала (в сторону движения: при убывающем километраже - по убыванию),
+ * время захода; общий для «Ограничений поезда» и экрана ДУ-61.
+ */
+internal fun sortRestrictions(entries: List<RestrictionPass>, order: List<String>): List<RestrictionPass> {
+    val live = entries.filter { !it.isDeleted }
+    val sign = if (kmDecreasesAlongTravel(live, order)) -1.0 else 1.0
+    return live.sortedWith(
+        compareBy<RestrictionPass>({ locationKey(it.place, order) }, { it.startAbsKm?.let { km -> km * sign } ?: Double.MAX_VALUE }, { it.enterAt ?: Long.MAX_VALUE }, { it.updatedAt }),
     )
+}
+
+/**
+ * Убывает ли железнодорожный км по ходу поезда. Главное - сами записи: у мест, идущих по плечу друг за другом, км начала растёт или падает
+ * (наклон по номеру места на плече). Место одно - смотрим стороны оси у проследованных записей: направление по оси и соотношение км оси и
+ * железнодорожного км. Данных нет - считаем, что растёт.
+ */
+internal fun kmDecreasesAlongTravel(entries: List<RestrictionPass>, order: List<String>): Boolean {
+    val pts = entries.mapNotNull { e ->
+        val km = e.startAbsKm ?: return@mapNotNull null
+        val loc = locationKey(e.place, order).takeIf { it != Double.MAX_VALUE } ?: return@mapNotNull null
+        loc to km
+    }
+    if (pts.map { it.first }.distinct().size >= 2) {
+        val mx = pts.sumOf { it.first } / pts.size
+        val my = pts.sumOf { it.second } / pts.size
+        val cov = pts.sumOf { (it.first - mx) * (it.second - my) }
+        if (cov != 0.0) return cov < 0
+    }
+    val bySide = entries.sumOf { e ->
+        val sa = e.startAbsKm; val ea = e.endAbsKm
+        if (e.dir == 0 || !e.tracked || sa == null || ea == null) return@sumOf 0
+        e.dir * Math.signum(ea - sa).toInt() * Math.signum(e.endRelKm - e.startRelKm).toInt()
+    }
+    return bySide < 0
+}
 
 /** Правка ограничения поезда формой ДУ-61: журнал поезда и история участка обновляются одинаково из любого экрана. */
 internal fun applyRestrictionEdit(
