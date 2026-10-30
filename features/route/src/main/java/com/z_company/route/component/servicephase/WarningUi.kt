@@ -145,7 +145,7 @@ private fun Chip(text: String, on: Boolean, onClick: () -> Unit) {
  * удалением); выбор места открывает форму, после «Сохранить» возвращаемся к списку, «Готово» закрывает.
  */
 @Composable
-internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss: () -> Unit, leg: LegContext? = null, gnss: com.z_company.domain.gnss.GnssQuality? = null) {
+internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss: () -> Unit, leg: LegContext? = null) {
     val live = model.live
     if (live == null) { onDismiss(); return }
     val section = live.section
@@ -197,7 +197,7 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
                 }
             }
             // Плечо поезда: то же, что в «Поезде» и «Ограничениях поезда» (выбор плеча, пометка «проверено на карте», кнопка «Определить»).
-            if (leg != null) LegBlock(leg, gnss = gnss)
+            if (leg != null) LegBlock(leg)
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (active.isNotEmpty()) {
                     item { SmallCaps("ДЕЙСТВУЮЩИЕ — общий список поезда") }

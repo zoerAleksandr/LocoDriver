@@ -354,7 +354,6 @@ fun FormTrainScreen(
         )
         if (showRestrictions && currentTrain != null) {
             val restrictionsZone by androidx.compose.runtime.produceState("GMT+3") { value = viewModel.trainMapZone() }
-            val restrictionsGnss by autoRecordManager.gnssQuality.collectAsState()
             com.z_company.route.component.servicephase.TrainRestrictionsScreen(
                 trainId = currentTrain.trainId,
                 trainTitle = currentTrain.number?.takeIf { it.isNotBlank() }?.let { "Поезд № $it" } ?: "Поезд без номера",
@@ -365,7 +364,6 @@ fun FormTrainScreen(
                 trains = viewModel.trainMapTrains(),
                 zone = restrictionsZone,
                 onDismiss = { showRestrictions = false },
-                gnss = restrictionsGnss.takeIf { autoRecordState.enabled },
             )
         }
         // Карта поезда (SCREEN_SPECS §6.9)

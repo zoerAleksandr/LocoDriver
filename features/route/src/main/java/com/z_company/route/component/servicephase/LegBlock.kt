@@ -54,13 +54,11 @@ internal class LegContext(
 
 /** Строка плеча + пометка «проверено на карте» или кнопка «Определить» (расстояние, координаты и промежуточные станции одной кнопкой). */
 @Composable
-internal fun LegBlock(ctx: LegContext, modifier: Modifier = Modifier, gnss: com.z_company.domain.gnss.GnssQuality? = null) {
+internal fun LegBlock(ctx: LegContext, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         LegRow(title = ctx.title, onSelectLeg = ctx.onSelect)
         val phase = ctx.phase
         if (ctx.title != null && phase != null) LegDetermineRow(ctx, phase)
-        // Связь со спутниками под плечом: ДУ-61 пишет проследование по GPS, при плохой связи показываем чип (хороший сигнал - ничего).
-        if (gnss != null) com.z_company.route.autorecord.GnssBadChip(gnss)
     }
 }
 

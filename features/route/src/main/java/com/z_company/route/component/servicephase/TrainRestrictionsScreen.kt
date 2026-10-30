@@ -90,8 +90,6 @@ internal fun TrainRestrictionsScreen(
     trains: List<ProfileTrain>,
     zone: String,
     onDismiss: () -> Unit,
-    /** Качество GPS (по службе «АВТО»): при плохой связи чип показывается под плечом. */
-    gnss: com.z_company.domain.gnss.GnssQuality? = null,
 ) {
     val store: RestrictionJournalStore = koinInject()
     val upload: TrackUploadTrigger = koinInject()
@@ -168,7 +166,7 @@ internal fun TrainRestrictionsScreen(
                     }
                 }
             }
-            LegBlock(leg, Modifier.coachAnchor(tourAnchors.getValue(RestrictionsTourStep.LEG)), gnss = gnss)
+            LegBlock(leg, Modifier.coachAnchor(tourAnchors.getValue(RestrictionsTourStep.LEG)))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 PstButton(
                     "Добавить", { showAdd = true }, kind = PstButtonKind.FILLED, enabled = legSelected, height = 44.dp, fontSize = 14,
