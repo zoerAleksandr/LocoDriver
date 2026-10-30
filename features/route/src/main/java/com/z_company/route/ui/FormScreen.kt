@@ -1662,6 +1662,7 @@ private fun TrainSubItem(index: Int, train: Train) {
         // Без номера: станция (одна) или перегон (первая - последняя); иначе «Поезд № N».
         Text(
             text = if (names.isEmpty()) "Поезд № ${index + 1}" else "$stationStart$stationEnd",
+            modifier = Modifier.testTag("form_train_item"),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodyLarge,
@@ -1674,6 +1675,7 @@ private fun TrainSubItem(index: Int, train: Train) {
                 withStyle(SpanStyle(fontFamily = MonoFont)) { append("№ ${train.number}") }
                 append(" $stationStart$stationEnd")
             },
+            modifier = Modifier.testTag("form_train_item"),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodyLarge,

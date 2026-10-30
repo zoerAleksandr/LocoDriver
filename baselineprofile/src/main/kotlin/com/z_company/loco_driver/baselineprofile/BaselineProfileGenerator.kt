@@ -4,6 +4,7 @@ import androidx.benchmark.macro.MacrobenchmarkScope
 import androidx.benchmark.macro.junit4.BaselineProfileRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
@@ -38,6 +39,7 @@ import org.junit.runner.RunWith
  *  14. FormTrainScreen — форма поезда
  *  15. FormPassengerScreen — форма пассажира
  *  16. Карта (плитка на Главной) и справочник «Напарники» в Настройках
+ *  17. Карта поезда из формы поезда: жесты, подписи станций, полосы профиля пути и скорости
  *
  * Эффект: cold start −30-40%, исчезают JIT-spike (которые мы видели в трейсе на 154ms).
  */
@@ -48,6 +50,15 @@ class BaselineProfileGenerator {
     val rule = BaselineProfileRule()
 
     private val pkg = "com.z_company.loco_driver"
+
+    /**
+     * Поиск по testTag Compose. UiAutomator видит тег как простой resource-id («home_lazy_column»), а `By.res(pkg, tag)`
+     * ищет «пакет:id/тег» и ничего не находит - тогда все ожидания по тегам истекают, а шаги сценария молча пропускаются.
+     * Шаблон принимает оба вида.
+     */
+    private fun byTag(tag: String): BySelector =
+        By.res(java.util.regex.Pattern.compile("(?:.*:id/)?" + java.util.regex.Pattern.quote(tag)))
+
 
     @Test
     fun generate() = rule.collect(
@@ -81,8 +92,8 @@ class BaselineProfileGenerator {
         // состояния HomeScreen). Поэтому дожидаемся именно content-зависимого маркера —
         // home_all_routes_button, который появляется только когда маршруты реально
         // подгружены.
-        device.wait(Until.hasObject(By.res(pkg, "home_lazy_column")), 30_000)
-        device.wait(Until.hasObject(By.res(pkg, "home_all_routes_button")), 30_000)
+        device.wait(Until.hasObject(byTag("home_lazy_column")), 30_000)
+        device.wait(Until.hasObject(byTag("home_all_routes_button")), 30_000)
         Thread.sleep(1000)
 
         // ===== ЗАКРЫТЬ «НОВОСТЬ ПРИ ЗАПУСКЕ» (AnnouncementScreen), ЕСЛИ ЕСТЬ =====
@@ -101,7 +112,7 @@ class BaselineProfileGenerator {
         if (allBtn != null) {
             allBtn.click()
             val opened = device.wait(
-                Until.hasObject(By.res(pkg, "all_route_lazy_column")),
+                Until.hasObject(byTag("all_route_lazy_column")),
                 10_000
             )
             if (opened) {
@@ -109,7 +120,7 @@ class BaselineProfileGenerator {
                 scrollList("all_route_lazy_column", times = 3)
             }
             device.pressBack()
-            device.wait(Until.hasObject(By.res(pkg, "home_lazy_column")), 5000)
+            device.wait(Until.hasObject(byTag("home_lazy_column")), 5000)
             Thread.sleep(500)
         }
 
@@ -182,7 +193,7 @@ class BaselineProfileGenerator {
         if (proCard != null) {
             proCard.click()
             val purchasesOpened = device.wait(
-                Until.hasObject(By.res(pkg, "purchases_scroll_column")),
+                Until.hasObject(byTag("purchases_scroll_column")),
                 8000
             )
             if (purchasesOpened) {
@@ -190,25 +201,25 @@ class BaselineProfileGenerator {
                 scrollList("purchases_scroll_column", times = 2)
             }
             device.pressBack()
-            device.wait(Until.hasObject(By.res(pkg, "profile_lazy_column")), 5000)
+            device.wait(Until.hasObject(byTag("profile_lazy_column")), 5000)
             Thread.sleep(500)
         }
 
         // ===== BOTTOM NAV: HOME (Главная) =====
         waitFindText("Главная")?.click()
-        device.wait(Until.hasObject(By.res(pkg, "home_lazy_column")), 5000)
+        device.wait(Until.hasObject(byTag("home_lazy_column")), 5000)
         Thread.sleep(800)
 
         // ===== HOME → FORM (открытие первого маршрута) → SUB-FORMS =====
         // Скроллим к началу списка (если ниже)
-        device.findObject(By.res(pkg, "home_lazy_column"))?.scroll(Direction.UP, 1.0f)
+        device.findObject(byTag("home_lazy_column"))?.scroll(Direction.UP, 1.0f)
         Thread.sleep(500)
 
         // Тапаем по первой карточке маршрута через явный testTag
         val firstRouteCard = waitFindRes("home_first_route_card")
         firstRouteCard?.click()
 
-        val formOpened = device.wait(Until.hasObject(By.res(pkg, "form_lazy_column")), 8000)
+        val formOpened = device.wait(Until.hasObject(byTag("form_lazy_column")), 8000)
         if (formOpened) {
             Thread.sleep(2000)
             scrollList("form_lazy_column", times = 2)
@@ -221,7 +232,7 @@ class BaselineProfileGenerator {
             if (addButtons.isNotEmpty()) {
                 addButtons[0].click()
                 val locoOpened = device.wait(
-                    Until.hasObject(By.res(pkg, "form_loco_lazy_column")),
+                    Until.hasObject(byTag("form_loco_lazy_column")),
                     5000
                 )
                 if (locoOpened) {
@@ -232,25 +243,29 @@ class BaselineProfileGenerator {
                     // Просто скроллим — это прогреет обе ветки
                     scrollList("form_loco_lazy_column", times = 1)
                     device.pressBack()
-                    device.wait(Until.hasObject(By.res(pkg, "form_lazy_column")), 5000)
+                    device.wait(Until.hasObject(byTag("form_lazy_column")), 5000)
                     Thread.sleep(800)
                 }
             }
 
-            // ===== FORM → ADD TRAIN → BACK =====
+            // ===== FORM → TRAIN (существующий, иначе новый) → КАРТА ПОЕЗДА → BACK =====
+            // Существующий поезд (плечо, станции) прогревает карту поезда целиком: рельсы, подписи станций, полосы профиля
+            // пути и скорости. Новый пустой поезд - запасной вариант, если в маршруте поездов нет.
             device.wait(Until.hasObject(By.text("Добавить")), 5000)
+            val existingTrain = device.findObject(byTag("form_train_item"))
             val addButtons2 = device.findObjects(By.text("Добавить"))
-            if (addButtons2.size >= 2) {
-                addButtons2[1].click()
+            if (existingTrain != null || addButtons2.size >= 2) {
+                if (existingTrain != null) existingTrain.click() else addButtons2[1].click()
                 val trainOpened = device.wait(
-                    Until.hasObject(By.res(pkg, "form_train_lazy_column")),
+                    Until.hasObject(byTag("form_train_lazy_column")),
                     5000
                 )
                 if (trainOpened) {
                     Thread.sleep(1500)
                     scrollList("form_train_lazy_column", times = 1)
+                    openTrainMapAndBack()
                     device.pressBack()
-                    device.wait(Until.hasObject(By.res(pkg, "form_lazy_column")), 5000)
+                    device.wait(Until.hasObject(byTag("form_lazy_column")), 5000)
                     Thread.sleep(800)
                 }
             }
@@ -261,21 +276,21 @@ class BaselineProfileGenerator {
             if (addButtons3.size >= 3) {
                 addButtons3[2].click()
                 val passengerOpened = device.wait(
-                    Until.hasObject(By.res(pkg, "form_passenger_lazy_column")),
+                    Until.hasObject(byTag("form_passenger_lazy_column")),
                     5000
                 )
                 if (passengerOpened) {
                     Thread.sleep(1500)
                     scrollList("form_passenger_lazy_column", times = 1)
                     device.pressBack()
-                    device.wait(Until.hasObject(By.res(pkg, "form_lazy_column")), 5000)
+                    device.wait(Until.hasObject(byTag("form_lazy_column")), 5000)
                     Thread.sleep(800)
                 }
             }
 
             // Возврат на HomeScreen
             device.pressBack()
-            device.wait(Until.hasObject(By.res(pkg, "home_lazy_column")), 5000)
+            device.wait(Until.hasObject(byTag("home_lazy_column")), 5000)
         }
     }
 
@@ -291,14 +306,14 @@ class BaselineProfileGenerator {
         val btn = waitFindText(buttonText) ?: return
         btn.click()
 
-        val opened = device.wait(Until.hasObject(By.res(pkg, destinationTag)), 10_000)
+        val opened = device.wait(Until.hasObject(byTag(destinationTag)), 10_000)
         if (opened) {
             Thread.sleep(1000)
             scrollList(destinationTag, times = scrollTimes)
         }
 
         device.pressBack()
-        device.wait(Until.hasObject(By.res(pkg, "home_lazy_column")), 5000)
+        device.wait(Until.hasObject(byTag("home_lazy_column")), 5000)
         Thread.sleep(500)
     }
 
@@ -310,7 +325,7 @@ class BaselineProfileGenerator {
      * Best-effort — если список не найден, тихо выходит.
      */
     private fun MacrobenchmarkScope.scrollHomeToActionCards() {
-        if (device.findObject(By.res(pkg, "home_lazy_column")) == null) return
+        if (device.findObject(byTag("home_lazy_column")) == null) return
         // Реальный тач-свайп вместо UiObject2.scroll() (semantic accessibility-action):
         // home_lazy_column — единственный список в сценарии, где внутри одного из
         // item'ов лежит ВЛОЖЕННЫЙ горизонтальный LazyRow (карточки Календарь/
@@ -370,7 +385,43 @@ class BaselineProfileGenerator {
         device.swipe(w / 2, h / 2, w / 2 - 200, h / 2 + 100, 20)
         Thread.sleep(800)
         device.pressBack()
-        device.wait(Until.hasObject(By.res(pkg, "home_lazy_column")), 5000)
+        device.wait(Until.hasObject(byTag("home_lazy_column")), 5000)
+        Thread.sleep(500)
+    }
+
+    /**
+     * Открывает карту поезда из формы поезда (кнопка «Карта» в нижней панели), даёт время на загрузку стиля и тайлов,
+     * двигает и увеличивает карту, раскрывает полосы «Профиль пути» и «График скорости», если они есть, и возвращается
+     * в форму. Диалоги разрешений и согласия отклоняет. Best-effort.
+     */
+    private fun MacrobenchmarkScope.openTrainMapAndBack() {
+        val btn = device.findObject(By.desc("Карта")) ?: return
+        btn.click()
+        Thread.sleep(800)
+        device.findObject(By.textContains("Не разрешать"))?.click()
+        device.findObject(By.textContains("Отмена"))?.click()
+        Thread.sleep(6000)
+        val w = device.displayWidth
+        val h = device.displayHeight
+        // Панорамирование и приближение прогревают жесты карты и пересчёт подписей станций.
+        device.swipe(w / 2, h / 2, w / 2 - 250, h / 2 + 120, 20)
+        Thread.sleep(800)
+        device.swipe(w / 2, h / 2, w / 2 + 250, h / 2 - 120, 20)
+        Thread.sleep(800)
+        device.findObject(By.res("android:id/content"))?.pinchOpen(0.5f)
+        Thread.sleep(1500)
+        // Полосы профиля пути и скорости: раскрытие на весь экран и возврат.
+        listOf("Профиль пути на весь экран", "График скорости на весь экран").forEach { label ->
+            val strip = device.findObject(By.descContains(label))
+            if (strip != null) {
+                strip.click()
+                Thread.sleep(2500)
+                device.pressBack()
+                Thread.sleep(800)
+            }
+        }
+        device.pressBack()
+        device.wait(Until.hasObject(byTag("form_train_lazy_column")), 5000)
         Thread.sleep(500)
     }
 
@@ -382,21 +433,21 @@ class BaselineProfileGenerator {
     private fun MacrobenchmarkScope.navigateSearch() {
         val btn = waitFindText("Поиск") ?: return
         btn.click()
-        val opened = device.wait(Until.hasObject(By.res(pkg, "search_screen")), 10_000)
+        val opened = device.wait(Until.hasObject(byTag("search_screen")), 10_000)
         if (opened) {
             Thread.sleep(1000)
             val field = device.findObject(By.clazz("android.widget.EditText"))
             if (field != null) {
                 field.text = "а"
-                device.wait(Until.hasObject(By.res(pkg, "search_lazy_column")), 4000)
+                device.wait(Until.hasObject(byTag("search_lazy_column")), 4000)
                 Thread.sleep(1200)
-                if (device.hasObject(By.res(pkg, "search_lazy_column"))) {
+                if (device.hasObject(byTag("search_lazy_column"))) {
                     scrollList("search_lazy_column", times = 2)
                 }
             }
         }
         device.pressBack()
-        device.wait(Until.hasObject(By.res(pkg, "home_lazy_column")), 5000)
+        device.wait(Until.hasObject(byTag("home_lazy_column")), 5000)
         Thread.sleep(500)
     }
 
@@ -412,7 +463,7 @@ class BaselineProfileGenerator {
         val tab = waitFindText(tabText) ?: return
         tab.click()
 
-        val opened = device.wait(Until.hasObject(By.res(pkg, destinationTag)), 10_000)
+        val opened = device.wait(Until.hasObject(byTag(destinationTag)), 10_000)
         if (opened) {
             Thread.sleep(1500)
             scrollList(destinationTag, times = scrollTimes)
@@ -432,7 +483,7 @@ class BaselineProfileGenerator {
         row.click()
         Thread.sleep(1500)
         device.pressBack()
-        device.wait(Until.hasObject(By.res(pkg, "settings_scroll_column")), 5000)
+        device.wait(Until.hasObject(byTag("settings_scroll_column")), 5000)
         Thread.sleep(300)
     }
 
@@ -451,12 +502,12 @@ class BaselineProfileGenerator {
 
     /** То же самое для поиска по testTag/resource-id. */
     private fun MacrobenchmarkScope.waitFindRes(tag: String, timeoutMs: Long = 5000): UiObject2? {
-        device.wait(Until.hasObject(By.res(pkg, tag)), timeoutMs)
-        return device.findObject(By.res(pkg, tag))
+        device.wait(Until.hasObject(byTag(tag)), timeoutMs)
+        return device.findObject(byTag(tag))
     }
 
     private fun MacrobenchmarkScope.scrollList(tag: String, times: Int) {
-        val list = device.findObject(By.res(pkg, tag)) ?: return
+        val list = device.findObject(byTag(tag)) ?: return
         repeat(times) {
             list.scroll(Direction.DOWN, 0.8f)
             Thread.sleep(250)
