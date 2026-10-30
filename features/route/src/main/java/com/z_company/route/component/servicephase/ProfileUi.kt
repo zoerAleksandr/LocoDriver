@@ -1122,17 +1122,13 @@ internal fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
     var waitedForFix by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { kotlinx.coroutines.delay(2_000); waitedForFix = true }
     val sorting = !model.hasFix && !waitedForFix && model.summaries.isNotEmpty()
-    // Порядок меняется от положения GPS (ближайшие сверху): LazyColumn держит прежнюю строку на месте, и новая верхняя уезжала
-    // за край. Пока пользователь сам не листал вниз, при смене порядка возвращаем список к началу.
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-    var atTop by remember { mutableStateOf(true) }
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.isScrollInProgress }.collect { moving ->
-            atTop = !moving && listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0
-        }
+    // Порядок фиксируем в момент первого показа (на запрос поиска): дальше список не переставляется и не дёргается, даже
+    // если положение уточнилось; расстояния в строках обновляются, новые строки идут в конец.
+    var frozen by remember(query.text) { mutableStateOf<Map<String, Int>?>(null) }
+    LaunchedEffect(sorting, rows) {
+        if (!sorting && frozen == null && rows.isNotEmpty()) frozen = rows.mapIndexed { i, r -> r.summary.id to i }.toMap()
     }
-    val order = rows.map { it.summary.id }
-    LaunchedEffect(order) { if (atTop) listState.scrollToItem(0) }
+    val shown = frozen?.let { f -> rows.sortedBy { f[it.summary.id] ?: Int.MAX_VALUE } } ?: rows
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
@@ -1176,8 +1172,8 @@ internal fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
                     )
                 }
             } else {
-                LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
-                    items(rows, key = { it.summary.id }) { row ->
+                LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
+                    items(shown, key = { it.summary.id }) { row ->
                         val s = row.summary
                         val chosen = s.id == model.section?.id
                         Row(
