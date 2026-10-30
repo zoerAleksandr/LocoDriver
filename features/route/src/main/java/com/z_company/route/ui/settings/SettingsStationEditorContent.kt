@@ -66,6 +66,7 @@ fun SettingsStationEditorContent(
     viewModel: StationNormEditorViewModel,
     onDone: () -> Unit,
 ) {
+    com.z_company.core.ui.perf.ScreenOpenTrace("station_editor")
     val state by viewModel.state.collectAsState()
 
     // Navigate only when deleted

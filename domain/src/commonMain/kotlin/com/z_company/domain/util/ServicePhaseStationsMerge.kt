@@ -15,11 +15,15 @@ import com.z_company.domain.entities.setting.ServicePhaseStation
  */
 object ServicePhaseStationsMerge {
 
+    // Регулярки компилируются один раз: normalizeName вызывается тысячи раз (сортировка подсказок станций).
+    private val WHITESPACE = Regex("\\s+")
+    private val DIGIT_BEFORE_LETTER = Regex("(\\d)(?=\\p{L})")
+
     fun normalizeName(name: String): String =
         name.replace('ё', 'е').replace('Ё', 'Е').replace('-', ' ')
-            .trim().split(Regex("\\s+")).joinToString(" ").lowercase()
+            .trim().split(WHITESPACE).joinToString(" ").lowercase()
             // «22км» и «22 км» - одна станция.
-            .replace(Regex("(\\d)(?=\\p{L})"), "$1 ")
+            .replace(DIGIT_BEFORE_LETTER, "$1 ")
 
     /** Имеющаяся станция, совпадающая с найденной; null — найденная новая. */
     fun existingMatch(found: ServicePhaseStation, existing: List<ServicePhaseStation>): ServicePhaseStation? {

@@ -203,11 +203,11 @@ object StationSuggestionOrder {
                 }
             }.filter { it.second <= ServicePhaseStationPicker.NEAR_RADIUS_M }.minByOrNull { it.second }?.first
         }
-        val count = { n: String -> usage[ServicePhaseStationsMerge.normalizeName(n)] ?: 0 }
+        // Частота считается один раз на название, а не на каждое сравнение при сортировке.
         val rest = names.filter { it != nearest }
-            .withIndex()
-            .sortedWith(compareByDescending<IndexedValue<String>> { count(it.value) }.thenBy { it.index })
-            .map { it.value }
+            .mapIndexed { i, n -> Triple(i, n, usage[ServicePhaseStationsMerge.normalizeName(n)] ?: 0) }
+            .sortedWith(compareByDescending<Triple<Int, String, Int>> { it.third }.thenBy { it.first })
+            .map { it.second }
         return listOfNotNull(nearest) + rest
     }
 
