@@ -161,6 +161,10 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
     val active = sortRestrictions(model.trainRestrictions, order)
     val past = model.pastWarnings
     val pastHidden = rememberPastHidden()
+    var pastChecked by remember(section.id) { mutableStateOf(emptySet<String>()) }
+    // Выбранные, которых уже нет среди прошлых (стали действующими/удалены), из выбора выпадают.
+    val pastIds = past.map { it.id }.toSet()
+    val checkedNow = pastChecked.filter { it in pastIds }.toSet()
     val placements by rememberPlacements(active, model.stopPoints)
     var added by remember { mutableStateOf(0) }
     val places = remember(section.id, live.reversed, model.stopPoints) { warningPlaces(section, live.reversed, model.stopPoints) }
@@ -208,17 +212,29 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
                         ) { _ -> RestrictionCard(row, e, placementNote(placements[e.warningId])) }
                     }
                 }
-                if (past.isNotEmpty()) {
-                    item {
-                        PastHeader(
-                            title = if (pastHidden.hidden) "ПРОШЛЫЕ НА ЭТОМ УЧАСТКЕ (${past.size})" else "ПРОШЛЫЕ НА ЭТОМ УЧАСТКЕ — нажмите, чтобы сделать действующим",
-                            hidden = pastHidden.hidden, onToggle = pastHidden.toggle,
-                            titleStyle = Pst.mono.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold), titleColor = Pst.textMuted,
-                        )
-                    }
-                    if (!pastHidden.hidden) items(past, key = { "p" + it.id }) { w ->
-                        WarningItem(section, w, onClick = { model.activatePast(w.id) }, onDelete = { toForget = w })
-                    }
+                if (past.isNotEmpty()) item(key = "past_block") {
+                    PastRestrictionsBlock(
+                        title = "Прошлые на этом участке",
+                        rows = past.map { w ->
+                            PastRow(
+                                id = w.id, place = w.place.ifBlank { w.label },
+                                limit = if (w.type == WarningType.SPEED) w.speedKmh?.let { "$it км/ч" } else null,
+                                kmText = kmText(section, w),
+                                boldTitle = w.label.replaceFirstChar { it.uppercase() }.takeIf { w.type != WarningType.SPEED },
+                            )
+                        },
+                        checked = checkedNow,
+                        hidden = pastHidden.hidden,
+                        onToggleHidden = pastHidden.toggle,
+                        onToggle = { id -> pastChecked = if (id in checkedNow) checkedNow - id else checkedNow + id },
+                        onSelectAll = { pastChecked = past.map { it.id }.toSet() },
+                        onClear = { pastChecked = emptySet() },
+                        onApply = {
+                            checkedNow.forEach { model.activatePast(it) }
+                            pastChecked = emptySet()
+                        },
+                        onForget = { id -> toForget = past.firstOrNull { it.id == id } },
+                    )
                 }
             }
         }
@@ -337,26 +353,6 @@ internal fun LegPickerDialog(
 @Composable
 private fun SmallCaps(text: String) {
     Text(text, style = Pst.mono.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted, modifier = Modifier.padding(top = 6.dp))
-}
-
-/** Элемент ограничения участка: тот же `RestrictionItem` и тот же свайп-удаление, что в «Ограничениях поезда»; нажатие - [onClick]. */
-@Composable
-private fun WarningItem(section: SectionProfile, w: TrackWarning, onClick: () -> Unit, onDelete: () -> Unit) {
-    com.z_company.route.component.SwipeToRevealDelete(
-        modifier = Modifier.fillMaxWidth(),
-        onDeleteClick = onDelete,
-        onContentClick = onClick,
-        backgroundVerticalPadding = 0.dp,
-        itemKey = w.id,
-    ) { _ ->
-        RestrictionItem(
-            place = w.place.ifBlank { w.label },
-            limit = if (w.type == WarningType.SPEED) w.speedKmh?.let { "$it км/ч" } else null,
-            exceeded = false,
-            kmText = kmText(section, w),
-            boldTitle = w.label.replaceFirstChar { it.uppercase() }.takeIf { w.type != WarningType.SPEED },
-        )
-    }
 }
 
 /**

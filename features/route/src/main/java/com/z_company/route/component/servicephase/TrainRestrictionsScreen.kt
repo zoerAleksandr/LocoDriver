@@ -206,11 +206,19 @@ internal fun TrainRestrictionsScreen(
             val sorted = remember(entries, order) { sortRestrictions(entries, order) }
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (pastCandidates.isNotEmpty()) item(key = "past_offer") {
-                    PastOfferCard(
-                        candidates = pastCandidates, zone = zone, checked = pastChecked,
+                    PastRestrictionsBlock(
+                        title = "Из прошлых поездок",
+                        rows = pastCandidates.map { c ->
+                            val row = RestrictionReport.rows(listOf(c), zone).first()
+                            val isSpeed = c.kind == "speed"
+                            PastRow(c.warningId, row.place.ifBlank { row.title }, row.limit.takeIf { isSpeed }, row.kmText, row.title.takeIf { !isSpeed })
+                        },
+                        checked = pastChecked,
                         hidden = past.hidden,
                         onToggleHidden = past.toggle,
                         onToggle = { id -> pastChecked = if (id in pastChecked) pastChecked - id else pastChecked + id },
+                        onSelectAll = { pastChecked = pastCandidates.map { it.warningId }.toSet() },
+                        onClear = { pastChecked = emptySet() },
                         onApply = {
                             val chosen = pastAll.filter { it.id in pastChecked }
                             val t = trains.firstOrNull { it.id == trainId }
@@ -293,39 +301,61 @@ internal fun TrainRestrictionsScreen(
     pdfUri?.let { PdfActionSheet(uri = it, onDismiss = { pdfUri = null }) }
 }
 
-/** Прошлые предупреждения плеча (из истории участков): выбранные добавляются в журнал поезда. */
+/** Строка прошлого ограничения для [PastRestrictionsBlock]: одинаково выглядит в «Ограничениях поезда» и в ДУ-61 на карте. */
+internal class PastRow(val id: String, val place: String, val limit: String?, val kmText: String?, val boldTitle: String?)
+
+/**
+ * Прошлые ограничения плеча/участка - один и тот же блок на обоих экранах ДУ-61: заголовок с «Скрыть/Показать», строки
+ * (`RestrictionItem`) с чекбоксами, внизу «Выбрать все», «Отменить» (снять выбор) и «Добавить выбранные (N)».
+ * [onForget] - свайп «убрать из прошлых» (есть только в ДУ-61 на карте).
+ */
 @Composable
-private fun PastOfferCard(
-    candidates: List<RestrictionPass>,
-    zone: String,
+internal fun PastRestrictionsBlock(
+    title: String,
+    rows: List<PastRow>,
     checked: Set<String>,
     hidden: Boolean,
     onToggleHidden: () -> Unit,
     onToggle: (String) -> Unit,
+    onSelectAll: () -> Unit,
+    onClear: () -> Unit,
     onApply: () -> Unit,
+    onForget: ((String) -> Unit)? = null,
 ) {
-    Column(Modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(14.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         PastHeader(
-            title = if (hidden) "Из прошлых поездок (${candidates.size})" else "Из прошлых поездок",
+            title = if (hidden) "$title (${rows.size})" else title,
             hidden = hidden, onToggle = onToggleHidden,
             titleStyle = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), titleColor = Pst.text,
         )
         if (hidden) return@Column
         Text(
-            "Предупреждения на станциях и перегонах этого плеча (по ходу движения). Отметьте действующие и добавьте их в журнал поезда.",
+            "Отметьте действующие и добавьте их в журнал поезда.",
             style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted,
         )
-        candidates.forEach { c ->
-            val row = RestrictionReport.rows(listOf(c), zone).first()
-            val isSpeed = c.kind == "speed"
-            RestrictionItem(
-                place = row.place.ifBlank { row.title }, limit = row.limit.takeIf { isSpeed }, exceeded = false, kmText = row.kmText,
-                boldTitle = row.title.takeIf { !isSpeed },
-                modifier = Modifier.clickable { onToggle(c.warningId) },
-                leading = { androidx.compose.material3.Checkbox(checked = c.warningId in checked, onCheckedChange = { onToggle(c.warningId) }) },
-            )
+        rows.forEach { r ->
+            val item: @Composable (Modifier) -> Unit = { m ->
+                RestrictionItem(
+                    place = r.place, limit = r.limit, exceeded = false, kmText = r.kmText, boldTitle = r.boldTitle,
+                    modifier = m,
+                    leading = { androidx.compose.material3.Checkbox(checked = r.id in checked, onCheckedChange = { onToggle(r.id) }) },
+                )
+            }
+            if (onForget != null) {
+                com.z_company.route.component.SwipeToRevealDelete(
+                    modifier = Modifier.fillMaxWidth(),
+                    onDeleteClick = { onForget(r.id) },
+                    onContentClick = { onToggle(r.id) },
+                    backgroundVerticalPadding = 0.dp,
+                    itemKey = r.id,
+                ) { _ -> item(Modifier) }
+            } else item(Modifier.clickable { onToggle(r.id) })
         }
-        PstButton("Добавить выбранные (${checked.size})", onApply, kind = PstButtonKind.FILLED, enabled = checked.isNotEmpty(), height = 40.dp, fontSize = 14)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PstButton("Выбрать все", onSelectAll, kind = PstButtonKind.TONAL, enabled = checked.size < rows.size, height = 40.dp, fontSize = 14, modifier = Modifier.weight(1f))
+            PstButton("Отменить", onClear, kind = PstButtonKind.TONAL, enabled = checked.isNotEmpty(), height = 40.dp, fontSize = 14, modifier = Modifier.weight(1f))
+        }
+        PstButton("Добавить выбранные (${checked.size})", onApply, kind = PstButtonKind.FILLED, enabled = checked.isNotEmpty(), height = 40.dp, fontSize = 14, modifier = Modifier.fillMaxWidth())
     }
 }
 
