@@ -1116,7 +1116,12 @@ private const val FAR_KM = 2.0
 @Composable
 internal fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
     var query by remember { mutableStateOf(TextFieldValue("")) }
-    val rows = remember(query.text, model.summaries, model.sections, model.manualId) { model.rows(query.text) }
+    val rows = remember(query.text, model.summaries, model.sections, model.manualId, model.hasFix) { model.rows(query.text) }
+    // Сначала ждём положение (до 2 с) и показываем уже отсортированный список; пока ждём - индикатор загрузки. Положения нет -
+    // показываем как есть (по названию), список не «прыгает» после появления.
+    var waitedForFix by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(2_000); waitedForFix = true }
+    val sorting = !model.hasFix && !waitedForFix && model.summaries.isNotEmpty()
     // Порядок меняется от положения GPS (ближайшие сверху): LazyColumn держит прежнюю строку на месте, и новая верхняя уезжала
     // за край. Пока пользователь сам не листал вниз, при смене порядка возвращаем список к началу.
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -1157,7 +1162,11 @@ internal fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
                     modifier = Modifier.fillMaxWidth().clickable { model.useAuto(); onDismiss() }.padding(horizontal = 16.dp, vertical = 12.dp),
                 )
             }
-            if (rows.isEmpty()) {
+            if (sorting) {
+                Box(Modifier.weight(1f).fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                    androidx.compose.material3.CircularProgressIndicator(color = Pst.accent, modifier = Modifier.size(32.dp), strokeWidth = 3.dp)
+                }
+            } else if (rows.isEmpty()) {
                 Box(Modifier.weight(1f).fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                     Text(
                         text = if (model.needLogin) "Профиль пути доступен после входа в аккаунт." else if (model.rateLimited) RATE_LIMITED_TEXT else if (model.summaries.isEmpty()) "Участки не загружены. Проверьте интернет." else "Ничего не найдено. Данные профилей собираются — список пополняется.",

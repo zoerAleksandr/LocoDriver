@@ -162,7 +162,8 @@ internal class ProfileModel(
     /** Крайние станции плеча по названиям: не зависят от того, есть ли у станции координаты ([stopNames] строится по станциям с координатами). */
     var legEnds: Pair<String, String>? = null
     private var lastFix: GeoFix? = null
-    private var hasFix by mutableStateOf(false)
+    var hasFix by mutableStateOf(false)
+        private set
 
     /** Точка положения не на железнодорожных путях (по серверу: дальше ~60 м от рельсов); null - неизвестно (нет сети, лимит). */
     var offRails by mutableStateOf<Boolean?>(null)
