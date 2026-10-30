@@ -626,7 +626,6 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
             ) {
                 MapButton(onClick = onDismiss, description = "Назад", size = 38.dp) { PstIcon(PstIcons.ChevronLeft, 22.dp, Pst.text) }
                 SectionHeader(model, Modifier.weight(1f)) { showPicker = true }
-                if (gnss != null) com.z_company.route.autorecord.GnssBadChip(gnss)
                 if (reason == null && live != null) {
                     val length = live.lengthKm
                     ProfileScale.values().forEach { sc ->
@@ -752,7 +751,7 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
         }
     }
     if (showPicker) SectionPickerDialog(model, onDismiss = { showPicker = false })
-    if (showWarnings) WarningsDialog(model, onVoice = { showVoice = true }, onDismiss = { showWarnings = false }, leg = leg)
+    if (showWarnings) WarningsDialog(model, onVoice = { showVoice = true }, onDismiss = { showWarnings = false }, leg = leg, gnss = gnss)
     if (showVoice) WarningVoiceDialog(model, onDismiss = { showVoice = false })
     WarningEditDialog(model)
     if (showSettings && model.hasSignals) ProfileSettingsDialog(model, onDismiss = { showSettings = false })
