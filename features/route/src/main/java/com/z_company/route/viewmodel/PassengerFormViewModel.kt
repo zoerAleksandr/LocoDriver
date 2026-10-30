@@ -47,6 +47,8 @@ class PassengerFormViewModel(
     private val settingsUseCase: SettingsUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
     private val stationDirectory: com.z_company.domain.use_cases.StationDirectoryUseCase by inject()
+    private val appContext: android.content.Context by inject()
+    private val stationSorter = com.z_company.route.util.StationSuggestionSorter(appContext, stationDirectory)
 
     private val routeBasicId: String = basicId
 
@@ -81,6 +83,7 @@ class PassengerFormViewModel(
         }
 
     init {
+        stationSorter.start(viewModelScope)
         viewModelScope.launch {
             if (passengerId == NULLABLE_ID) {
                 isNewPassenger = true
@@ -557,11 +560,11 @@ class PassengerFormViewModel(
     fun onChangedDropDownContentDepartureStation(value: String) {
         if (value.isEmpty()) {
             changeExpandMenuDepartureStation(false)
-            currentStationList.addAllOrSkip(initStationList)
+            currentStationList.addAllOrSkip(stationSorter.sort(initStationList))
         } else {
             currentStationList.clear()
             val newStationList =
-                initStationList
+                stationSorter.sort(initStationList)
                     .filter { com.z_company.route.util.stationNameMatches(it, value) }
                     .filterNot { it == value }
                     .toMutableStateList()
@@ -575,11 +578,11 @@ class PassengerFormViewModel(
     fun onChangedDropDownContentArrivalStation(value: String) {
         if (value.isEmpty()) {
             changeExpandMenuArrivalStation(false)
-            currentStationList.addAllOrSkip(initStationList)
+            currentStationList.addAllOrSkip(stationSorter.sort(initStationList))
         } else {
             currentStationList.clear()
             val newStationList =
-                initStationList
+                stationSorter.sort(initStationList)
                     .filter { com.z_company.route.util.stationNameMatches(it, value) }
                     .filterNot { it == value }
                     .toMutableStateList()
