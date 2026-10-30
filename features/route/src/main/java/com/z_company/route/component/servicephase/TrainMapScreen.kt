@@ -386,6 +386,7 @@ internal fun TrainMapScreen(
             if (!viewOnly && permGranted) gnssMonitor.start()
             onDispose { gnssMonitor.stop() }
         }
+        val gnssNow by gnssMonitor.quality.collectAsState()
         val alive = remember { AtomicBoolean(true) }
         val scope = rememberCoroutineScope()
 
@@ -1910,6 +1911,7 @@ internal fun TrainMapScreen(
                             height = stripH,
                             onHide = { TrainMapPrefs.setProfileVisible(context, false) },
                             onExpand = { showProfileFull = true },
+                            gnss = gnssNow,
                             modifier = Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.MapTourStep.PROFILE)),
                         )
                     } else {
@@ -1971,7 +1973,7 @@ internal fun TrainMapScreen(
                     onDismiss = { showSettings = false },
                 )
             }
-            if (showProfileFull) ProfileFullScreen(profileModel, onDismiss = { showProfileFull = false }, leg = leg)
+            if (showProfileFull) ProfileFullScreen(profileModel, onDismiss = { showProfileFull = false }, leg = leg, gnss = gnssNow)
             WarningOfferDialog(profileModel)
             if (!showProfileFull) WarningEditDialog(profileModel)
 

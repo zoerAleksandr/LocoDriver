@@ -130,6 +130,8 @@ internal fun ProfileStrip(
     onHide: () -> Unit,
     onExpand: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Качество GPS: при плохой связи рядом с километром показывается чип («Слабый GPS», «Нет GPS», «Помеха GPS»). */
+    gnss: com.z_company.domain.gnss.GnssQuality? = null,
 ) {
     Row(
         modifier = modifier
@@ -161,6 +163,7 @@ internal fun ProfileStrip(
                     gradeText(live, pos?.element)?.let {
                         Text(it, style = Pst.mono.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, maxLines = 1)
                     }
+                    if (gnss != null) com.z_company.route.autorecord.GnssBadChip(gnss)
                 }
                 ProfileChart(model, model.stripWindow(live, STRIP_BEHIND_KM + STRIP_AHEAD_KM), detailed = false, modifier = Modifier.weight(1f).fillMaxWidth())
             } else {
@@ -575,7 +578,7 @@ internal enum class ProfileScale(val label: String, val spanKm: Double) {
  * График масштабируется щипком и сдвигается пальцем; пока окно двигали вручную, оно не следует за поездом.
  */
 @Composable
-internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: LegContext? = null) {
+internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: LegContext? = null, gnss: com.z_company.domain.gnss.GnssQuality? = null) {
     var showPicker by rememberSaveable { mutableStateOf(false) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var spanKm by rememberSaveable { mutableStateOf(6f) }
@@ -604,6 +607,7 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
             ) {
                 MapButton(onClick = onDismiss, description = "Назад", size = 38.dp) { PstIcon(PstIcons.ChevronLeft, 22.dp, Pst.text) }
                 SectionHeader(model, Modifier.weight(1f)) { showPicker = true }
+                if (gnss != null) com.z_company.route.autorecord.GnssBadChip(gnss)
                 if (reason == null && live != null) {
                     val length = live.lengthKm
                     ProfileScale.values().forEach { sc ->

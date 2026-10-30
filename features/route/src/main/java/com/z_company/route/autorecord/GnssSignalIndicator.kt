@@ -1,9 +1,11 @@
 package com.z_company.route.autorecord
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.size
@@ -152,5 +154,47 @@ fun GnssSignalIndicator(
                 }
             }
         }
+    }
+}
+
+
+/**
+ * Компактный чип плохой связи для узких мест (полоса «Профиль пути», шапка профиля на весь экран): значок «штрихи» и короткая
+ * подпись. Показывается только при слабом сигнале, потере сигнала и помехе; при хорошем сигнале и «поиске спутников» - ничего.
+ */
+@Composable
+fun GnssBadChip(quality: GnssQuality, modifier: Modifier = Modifier) {
+    val level = quality.level
+    if (level != GnssLevel.WEAK && level != GnssLevel.LOST && level != GnssLevel.INTERFERENCE) return
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val color = GnssSignalStyle.color(level, dark)
+    val filled = GnssSignalStyle.bars(level)
+    val label = when (level) {
+        GnssLevel.LOST -> "Нет GPS"
+        GnssLevel.INTERFERENCE -> "Помеха GPS"
+        else -> "Слабый GPS"
+    }
+    Row(
+        modifier = modifier
+            .background(color.copy(alpha = 0.14f), RoundedCornerShape(8.dp))
+            .semantics { contentDescription = GnssQualityText.description(quality) }
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(5.dp),
+    ) {
+        Canvas(modifier = Modifier.size(12.dp)) {
+            val barW = size.width * 0.22f
+            val gap = (size.width - 3 * barW) / 2f
+            for (i in 0 until 3) {
+                val h = size.height * (0.4f + 0.3f * i)
+                drawRoundRect(
+                    color = if (i < filled || level != GnssLevel.WEAK) color else color.copy(alpha = 0.3f),
+                    topLeft = Offset(i * (barW + gap), size.height - h),
+                    size = Size(barW, h),
+                    cornerRadius = CornerRadius(barW / 3f),
+                )
+            }
+        }
+        Text(text = label, color = color, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, maxLines = 1, softWrap = false)
     }
 }
