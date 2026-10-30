@@ -68,10 +68,44 @@ class WarningPassTrackerTest {
         t.update(r, 10.5, 1, 0.2)
         t.reset()
         assertEquals(listOf(WarningEvent.ENTER), t.update(r, 10.6, 1, 0.2))
-        assertEquals("Начало ограничения скорости 40 километров в час", r.warning.spokenEnter())
-        assertEquals("Конец ограничения скорости 40 километров в час", r.warning.spokenExit())
+        assertEquals("Ограничение скорости на 40", r.warning.spokenEnter())
+        assertEquals("Конец ограничения скорости на 40", r.warning.spokenExit())
+        assertEquals("Через 500 метров ограничение скорости на 40", r.warning.spoken(500))
         val p = speed(10.0, 11.0, WarningType.PANTOGRAPH).warning
         assertEquals("Опустите токоприёмники", p.spokenEnter())
         assertNull(p.spokenExit())
+    }
+
+    @Test
+    fun is_done_after_exit_and_for_zone_behind() {
+        val t = WarningPassTracker()
+        val r = speed(10.0, 11.0)
+        assertEquals(false, t.isDone("w"))
+        t.update(r, 10.5, 1, 0.2)
+        assertEquals(false, t.isDone("w"))
+        t.update(r, 11.5, 1, 0.2)
+        assertEquals(true, t.isDone("w"))
+        val behind = WarningPassTracker()
+        behind.update(r, 12.0, 1, 0.2)
+        assertEquals(true, behind.isDone("w"))
+    }
+
+    @Test
+    fun speech_queue_orders_enter_ahead_exit_no_more() {
+        val q = WarningSpeechQueue()
+        q.add(WARNING_SPEECH_NO_MORE, WarningSpeechPriority.NO_MORE)
+        q.add("выход", WarningSpeechPriority.EXIT)
+        q.add("впереди 1", WarningSpeechPriority.AHEAD)
+        q.add("заход", WarningSpeechPriority.ENTER)
+        q.add("впереди 2", WarningSpeechPriority.AHEAD)
+        q.add("впереди 1", WarningSpeechPriority.AHEAD) // дубль не добавляется
+        assertEquals(listOf("заход", "впереди 1", "впереди 2", "выход", WARNING_SPEECH_NO_MORE), generateSequence { q.poll() }.toList())
+        assertNull(q.poll())
+    }
+
+    @Test
+    fun chart_label_is_speed_number_or_text() {
+        assertEquals("40", speed(10.0, 11.0).warning.chartLabel)
+        assertEquals("опустить токоприёмники", speed(10.0, 11.0, WarningType.PANTOGRAPH).warning.chartLabel)
     }
 }

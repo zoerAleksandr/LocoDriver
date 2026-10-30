@@ -40,13 +40,17 @@ data class TrackWarning(
             WarningType.OTHER -> note.ifBlank { "предупреждение" }
         }
 
+    /** Подпись на профиле пути: у ограничения скорости - только число («40»), у остальных видов - текст предупреждения. */
+    val chartLabel: String
+        get() = if (type == WarningType.SPEED) "${speedKmh ?: "?"}" else label
+
     /** Заголовок карточки на карте: «Ограничение 40 км/ч». */
     val title: String get() = label.replaceFirstChar { it.uppercase() }
 
     /** Что делать/что за предупреждение - для озвучки (без расстояния). */
     private val instruction: String
         get() = when (type) {
-            WarningType.SPEED -> "ограничение скорости ${speedKmh ?: 0} километров в час"
+            WarningType.SPEED -> "ограничение скорости на ${speedKmh ?: 0}"
             WarningType.PANTOGRAPH -> "опустите токоприёмники"
             WarningType.POWER_OFF -> "выключите ток"
             WarningType.OTHER -> note.ifBlank { "предупреждение" }
@@ -58,15 +62,15 @@ data class TrackWarning(
     fun spoken(meters: Int): String = "Через $meters ${meterWord(meters)} $instruction$noteSuffix"
 
     /**
-     * Озвучка при заходе головы поезда в зону: у ограничения скорости - «Начало ограничения скорости 40 километров в час»
-     * (выход озвучивается отдельно, [spokenExit]); у остальных видов - сама инструкция («Опустите токоприёмники»).
+     * Озвучка при заходе головы поезда в зону: у ограничения скорости - «Ограничение скорости на 40» (выход озвучивается
+     * отдельно, [spokenExit]); у остальных видов - сама инструкция («Опустите токоприёмники»).
      */
     fun spokenEnter(): String =
-        if (type == WarningType.SPEED) "Начало ограничения скорости ${speedKmh ?: 0} километров в час$noteSuffix" else "${instruction.replaceFirstChar { it.uppercase() }}$noteSuffix"
+        if (type == WarningType.SPEED) "Ограничение скорости на ${speedKmh ?: 0}$noteSuffix" else "${instruction.replaceFirstChar { it.uppercase() }}$noteSuffix"
 
     /** Озвучка выхода: только у ограничения скорости, когда зону проследовал весь поезд; у остальных видов выхода нет. */
     fun spokenExit(): String? =
-        if (type == WarningType.SPEED) "Конец ограничения скорости ${speedKmh ?: 0} километров в час" else null
+        if (type == WarningType.SPEED) "Конец ограничения скорости на ${speedKmh ?: 0}" else null
 
     private fun meterWord(n: Int): String {
         val a = n % 100
@@ -185,6 +189,9 @@ class WarningPassTracker {
 
     fun forget(id: String) { states.remove(id) }
 
+    /** Предупреждение проследовано (заход для видов без выхода, выход всем составом - у ограничения скорости) или осталось позади. */
+    fun isDone(id: String): Boolean = states[id] == State.DONE
+
     /**
      * [headKm] - голова на оси участка, [dir] = +1 к росту км оси, [lengthKm] - длина поезда (null - 0, выход по голове).
      * События возвращаются в порядке ENTER, EXIT.
@@ -220,4 +227,38 @@ class WarningPassTracker {
     /** Хвост (позади головы на длину поезда) вышел за дальний край зоны. */
     private fun tailClear(r: ResolvedWarning, p: Double, dir: Int, lengthKm: Double): Boolean =
         if (dir >= 0) p - lengthKm >= r.toKm else p + lengthKm <= r.fromKm
+}
+
+/** Приоритеты голосовых сообщений ДУ-61: меньше число - раньше. */
+enum class WarningSpeechPriority { ENTER, AHEAD, EXIT, NO_MORE }
+
+/** Фраза, когда последнее предупреждение проследовано. */
+const val WARNING_SPEECH_NO_MORE = "Больше предупреждений нет"
+
+/**
+ * Очередь голосовых сообщений: говорится сперва заход головы на место ограничения, потом лежащее впереди, потом выход всем
+ * составом, потом «больше предупреждений нет»; внутри одного приоритета - в порядке поступления. Одинаковое сообщение,
+ * уже стоящее в очереди, повторно не добавляется. Не потокобезопасна.
+ */
+class WarningSpeechQueue {
+    private class Item(val seq: Long, val text: String, val priority: WarningSpeechPriority)
+
+    private val items = ArrayList<Item>()
+    private var seq = 0L
+
+    fun add(text: String, priority: WarningSpeechPriority) {
+        if (items.any { it.text == text && it.priority == priority }) return
+        items += Item(seq++, text, priority)
+    }
+
+    /** Следующее сообщение или null. */
+    fun poll(): String? {
+        val next = items.minWithOrNull(compareBy<Item> { it.priority.ordinal }.thenBy { it.seq }) ?: return null
+        items.remove(next)
+        return next.text
+    }
+
+    fun clear() = items.clear()
+
+    val isEmpty: Boolean get() = items.isEmpty()
 }

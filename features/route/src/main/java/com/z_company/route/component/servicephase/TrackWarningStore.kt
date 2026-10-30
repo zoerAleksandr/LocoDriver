@@ -1,5 +1,8 @@
 package com.z_company.route.component.servicephase
 
+import com.z_company.domain.track.WarningSpeechPriority
+import com.z_company.domain.track.WarningSpeechQueue
+
 import android.content.Context
 import android.speech.tts.TextToSpeech
 import android.speech.tts.Voice
@@ -110,16 +113,30 @@ internal class WarningVoiceSettings(context: Context) {
         set(v) { prefs.edit().putFloat("rate", v).apply() }
 }
 
-/** Озвучка через системный TextToSpeech (русский). Освобождается через [shutdown]. */
+/**
+ * Озвучка через системный TextToSpeech (русский). Сообщения идут через очередь с приоритетами ([WarningSpeechQueue]): заход на
+ * место ограничения, затем лежащее впереди, затем выход всем составом, затем «больше предупреждений нет»; говорящееся сейчас
+ * не обрывается. Освобождается через [shutdown].
+ */
 internal class WarningVoice(context: Context, private val settings: WarningVoiceSettings) {
     private var ready = false
     private var tts: TextToSpeech? = null
+    private val queue = WarningSpeechQueue()
+    private var speaking = false
 
     init {
         tts = TextToSpeech(context.applicationContext) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 ready = true
                 apply()
+                runCatching {
+                    tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                        override fun onStart(utteranceId: String?) = Unit
+                        override fun onDone(utteranceId: String?) = finished()
+                        @Deprecated("Deprecated in Java")
+                        override fun onError(utteranceId: String?) = finished()
+                    })
+                }
             }
         }
     }
@@ -140,16 +157,35 @@ internal class WarningVoice(context: Context, private val settings: WarningVoice
         }
     }
 
-    /** [append] - не обрывать то, что говорится сейчас (заход/выход из зоны не должны перебивать друг друга). */
-    fun speak(text: String, append: Boolean = false) {
+    /** Поставить сообщение в очередь с приоритетом; если сейчас тишина - начать говорить. */
+    fun speak(text: String, priority: WarningSpeechPriority = WarningSpeechPriority.AHEAD) {
         if (!ready || !settings.enabled) return
-        val mode = if (append) TextToSpeech.QUEUE_ADD else TextToSpeech.QUEUE_FLUSH
-        runCatching { tts?.speak(text, mode, null, "warning") }
+        synchronized(queue) { queue.add(text, priority) }
+        speakNext()
     }
+
+    /** Фраза закончилась (или не удалась): говорить следующую по приоритету. */
+    private fun finished() {
+        synchronized(queue) { speaking = false }
+        speakNext()
+    }
+
+    private fun speakNext() {
+        val text = synchronized(queue) {
+            if (speaking && !ttsIdle()) return
+            queue.poll().also { speaking = it != null }
+        } ?: return
+        val ok = runCatching { tts?.speak(text, TextToSpeech.QUEUE_ADD, null, "warning") }.getOrNull()
+        if (ok != TextToSpeech.SUCCESS) synchronized(queue) { speaking = false }
+    }
+
+    /** Движок не говорит (страховка от потерянного onDone: иначе очередь встала бы навсегда). */
+    private fun ttsIdle(): Boolean = runCatching { tts?.isSpeaking != true }.getOrDefault(true)
 
     fun shutdown() {
         runCatching { tts?.stop(); tts?.shutdown() }
         tts = null
         ready = false
+        synchronized(queue) { queue.clear(); speaking = false }
     }
 }

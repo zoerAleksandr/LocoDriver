@@ -283,7 +283,7 @@ internal class ProfileModel(
     fun applyVoice() { voice?.apply() }
     fun testVoice() {
         voice?.apply()
-        voice?.speak("Через 500 метров ограничение скорости 40 километров в час")
+        voice?.speak("Через 500 метров ограничение скорости на 40")
     }
 
     /** Синхронизация с хранилищами: история участка и журнал поезда; зовётся при смене участка и опросом (журнал меняют и другие экраны). */
@@ -505,12 +505,15 @@ internal class ProfileModel(
         if (!settings.enabled || p == null || p.offRoute || !p.locked) return
         val dir = if (reversed) -1 else 1
         if (dir != passDir) { passDir = dir; passes.reset() }
+        var progressed = false
         activeWarnings.forEach { r ->
             // Заход головы и (у ограничения скорости) выход всей длиной поезда; вход в зону озвучивается один раз.
+            // Порядок речи задаёт очередь голоса: заход, затем впереди лежащее, затем выход, затем «больше предупреждений нет».
             passes.update(r, p.kmAxis, dir, trainLengthKm).forEach { e ->
+                progressed = true
                 when (e) {
-                    com.z_company.domain.track.WarningEvent.ENTER -> v.speak(r.warning.spokenEnter(), append = true)
-                    com.z_company.domain.track.WarningEvent.EXIT -> r.warning.spokenExit()?.let { v.speak(it, append = true) }
+                    com.z_company.domain.track.WarningEvent.ENTER -> v.speak(r.warning.spokenEnter(), com.z_company.domain.track.WarningSpeechPriority.ENTER)
+                    com.z_company.domain.track.WarningEvent.EXIT -> r.warning.spokenExit()?.let { v.speak(it, com.z_company.domain.track.WarningSpeechPriority.EXIT) }
                 }
             }
             val d = TrackWarnings.distanceAheadM(r, p.kmAxis, dir)
@@ -521,8 +524,12 @@ internal class ProfileModel(
             val due = last == null || (settings.repeatSec > 0 && nowMs - last >= settings.repeatSec * 1000L)
             if (due) {
                 spokenAt[id] = nowMs
-                v.speak(r.warning.spoken(TrackWarnings.roundedMeters(d)))
+                v.speak(r.warning.spoken(TrackWarnings.roundedMeters(d)), com.z_company.domain.track.WarningSpeechPriority.AHEAD)
             }
+        }
+        // Последнее предупреждение проследовано (в этом такте что-то закончилось и больше впереди ничего нет): один раз сообщаем.
+        if (progressed && activeWarnings.isNotEmpty() && activeWarnings.all { passes.isDone(it.warning.id) }) {
+            v.speak(com.z_company.domain.track.WARNING_SPEECH_NO_MORE, com.z_company.domain.track.WarningSpeechPriority.NO_MORE)
         }
     }
 

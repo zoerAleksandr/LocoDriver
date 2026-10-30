@@ -207,7 +207,7 @@ internal fun ProfileChart(
     val labelStyle: TextStyle = Pst.mono.copy(fontSize = 10.sp, color = muted)
     val cellStyle: TextStyle = Pst.mono.copy(fontSize = 10.sp, color = ink)
     val kmStyle: TextStyle = Pst.mono.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = ink)
-    val warningStyle: TextStyle = Pst.sans.copy(fontSize = if (detailed) 11.sp else 9.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF3D2F00))
+    val warningStyle: TextStyle = Pst.sans.copy(fontSize = if (detailed) 11.sp else 9.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1B1400))
     val stationStyle: TextStyle = Pst.sans.copy(fontSize = 10.sp, color = muted)
     val noDataStyle: TextStyle = Pst.sans.copy(fontSize = if (detailed) 12.sp else 10.sp, color = ink.copy(alpha = 0.7f))
     val section = live.section
@@ -296,13 +296,32 @@ internal fun ProfileChart(
             val x2 = max(px(b), x1 + 3f * dp)
             drawRect(WarningYellow.copy(alpha = 0.38f), Offset(x1, topPad), androidx.compose.ui.geometry.Size(x2 - x1, bottomOfRows - topPad))
             drawLine(WarningYellow, Offset(x1, topPad), Offset(x1, bottomOfRows), strokeWidth = 2f * dp)
-            if (x2 - x1 > 24f * dp) {
-                val tl = measurer.measure(
-                    r.warning.label, warningStyle, overflow = TextOverflow.Ellipsis, maxLines = 1,
-                    constraints = androidx.compose.ui.unit.Constraints(maxWidth = (x2 - x1 - 6f * dp).toInt().coerceAtLeast(1)),
-                )
-                drawText(tl, topLeft = Offset(x1 + 4f * dp, topPad + 2f * dp))
+            // Подпись - карточка с жёлтой рамкой и указателем вниз, как на карте, но короче: у ограничения скорости только число,
+            // у остальных видов - текст. Стоит по центру видимой части зоны и может быть шире самой зоны (внутри зоны подпись не влезала).
+            val tl = measurer.measure(
+                r.warning.chartLabel, warningStyle, overflow = TextOverflow.Ellipsis, maxLines = 1,
+                constraints = androidx.compose.ui.unit.Constraints(maxWidth = (140f * dp).toInt()),
+            )
+            val padX = 5f * dp
+            val padY = 2f * dp
+            val pointer = 4f * dp
+            val cw = tl.size.width + padX * 2
+            val ch = tl.size.height + padY * 2
+            val plotL = px(window.fromX)
+            val plotR = px(window.toX)
+            val cl = ((x1 + x2) / 2f - cw / 2f).coerceIn(plotL, max(plotL, plotR - cw))
+            val ct = topPad + 2f * dp
+            val card = Path().apply {
+                addRoundRect(androidx.compose.ui.geometry.RoundRect(cl, ct, cl + cw, ct + ch, androidx.compose.ui.geometry.CornerRadius(5f * dp)))
+                val mid = ((x1 + x2) / 2f).coerceIn(cl + 6f * dp, cl + cw - 6f * dp)
+                moveTo(mid - pointer, ct + ch - 0.5f)
+                lineTo(mid, ct + ch + pointer)
+                lineTo(mid + pointer, ct + ch - 0.5f)
+                close()
             }
+            drawPath(card, Color.White)
+            drawPath(card, WarningYellow, style = Stroke(width = 1.5f * dp))
+            drawText(tl, topLeft = Offset(cl + padX, ct + padY))
         }
         val stroke = Path().apply {
             moveTo(px(xs[0]), py(hs[0]))
