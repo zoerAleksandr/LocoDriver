@@ -5,6 +5,7 @@ import com.z_company.domain.track.AxisPoint
 import com.z_company.domain.track.PendingContribSession
 import com.z_company.domain.track.SectionAxis
 import java.io.File
+import javax.crypto.spec.SecretKeySpec
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -36,7 +37,7 @@ class AltitudeContribFilesTest {
     @Test
     fun axisCacheKeepsOnlyListedSections() {
         val dir = tmp()
-        val cache = FileAxisCache(File(dir, "a"))
+        val cache = FileAxisCache(File(dir, "a"), LocalSeal { SecretKeySpec(ByteArray(32) { it.toByte() }, "AES") })
         val pts = listOf(AxisPoint(0.0, 55.0, 37.0), AxisPoint(1.0, 55.01, 37.0))
         cache.save(SectionAxis("s1", "h1", pts))
         cache.save(SectionAxis("s2", "h2", pts))
