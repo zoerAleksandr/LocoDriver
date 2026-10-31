@@ -39,6 +39,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -1890,85 +1891,88 @@ fun FormTrainScreen(
                         )
                         val nextIsDeparture = viewModel.isNextDeparture()
                         Column(modifier = Modifier.fillMaxWidth()) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // Слева: «АВТО»
+                            // Ряд [Автозапись | секундомер | GO]: чип «Автозапись» занимает сколько ему нужно (длинный
+                            // текст обрезается многоточием), секундомер стоит по центру ОСТАВШЕГОСЯ места между
+                            // чипом и кнопкой «GO».
+                            androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                                val goReserve = 64.dp
+                                val stopwatchReserve = if (stopwatch != null) 100.dp else 8.dp
+                                val chipMaxWidth = (maxWidth - goReserve - stopwatchReserve).coerceAtLeast(96.dp)
                                 Row(
-                                    modifier = Modifier.weight(1f),
-                                    horizontalArrangement = Arrangement.Start,
-                                    verticalAlignment = Alignment.CenterVertically
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.Top
                                 ) {
                                     DisposableEffect(Unit) { onDispose { autoAnchor.bounds = null } }
                                     AutoRecordChip(
                                         state = autoRecordState,
                                         onToggle = onAutoToggle,
                                         goHeight = true,
-                                        modifier = Modifier.coachAnchor(autoAnchor),
+                                        modifier = Modifier
+                                            .widthIn(max = chipMaxWidth)
+                                            .coachAnchor(autoAnchor),
                                     )
-                                }
 
-                                // Центр: чип секундомера — ровно по горизонтальной середине строки
-                                // (левая и правая группы имеют равный weight(1f), середина не зависит
-                                // от их ширины). Форма и высота — как у «АВТО» и «GO».
-                                Row(
-                                    modifier = Modifier.weight(1f),
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    if (stopwatch != null) {
-                                        Box(
-                                            modifier = Modifier
-                                                .height(com.z_company.route.autorecord.AutoRecordStyle.height)
-                                                .clip(com.z_company.route.autorecord.AutoRecordStyle.shape)
-                                                .background(stopwatch.bg)
-                                                .padding(horizontal = 14.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
+                                    // Центр свободного места между чипом и «GO». Форма и высота - как у чипа и «GO».
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                    ) {
+                                        if (stopwatch != null) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .height(com.z_company.route.autorecord.AutoRecordStyle.height)
+                                                    .clip(com.z_company.route.autorecord.AutoRecordStyle.shape)
+                                                    .background(stopwatch.bg)
+                                                    .padding(horizontal = 14.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = stopwatch.timeText,
+                                                    maxLines = 1,
+                                                    softWrap = false,
+                                                    style = MaterialTheme.typography.titleMedium.copy(
+                                                        fontFamily = com.z_company.core.ui.theme.MonoFont,
+                                                        fontWeight = FontWeight.Bold
+                                                    ),
+                                                    color = stopwatch.fg
+                                                )
+                                            }
+                                            // Подпись - строго под плашкой (что показывает секундомер).
                                             Text(
-                                                text = stopwatch.timeText,
+                                                text = stopwatch.label,
+                                                modifier = Modifier.padding(top = 3.dp),
                                                 maxLines = 1,
                                                 softWrap = false,
-                                                style = MaterialTheme.typography.titleMedium.copy(
-                                                    fontFamily = com.z_company.core.ui.theme.MonoFont,
-                                                    fontWeight = FontWeight.Bold
-                                                ),
-                                                color = stopwatch.fg
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                     }
-                                }
 
-                                // Справа: play/pause
-                                Row(
-                                    modifier = Modifier.weight(1f),
-                                    horizontalArrangement = Arrangement.End,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    OutlinedButton(
-                                        onClick = { askLocation { viewModel.onGoClicked() } },
-                                        shape = com.z_company.route.autorecord.AutoRecordStyle.shape,
-                                        border = BorderStroke(
-                                            width = 1.dp,
-                                            color = if (nextIsDeparture) MaterialTheme.colorScheme.surfaceContainerLow
-                                            else MaterialTheme.colorScheme.surfaceContainerHigh
-                                        )
-                                    ) {
-                                        AnimatedContent(targetState = nextIsDeparture) {
-                                            val icon =
-                                                if (it) com.z_company.route.R.drawable.play_arrow_24px
-                                                else com.z_company.route.R.drawable.pause_24px
-                                            Icon(
-                                                painter = painterResource(icon),
-                                                contentDescription = null,
-                                                tint = if (it) MaterialTheme.colorScheme.surfaceContainerLow
+                                    // Справа: play/pause
+                                        OutlinedButton(
+                                            onClick = { askLocation { viewModel.onGoClicked() } },
+                                            shape = com.z_company.route.autorecord.AutoRecordStyle.shape,
+                                            border = BorderStroke(
+                                                width = 1.dp,
+                                                color = if (nextIsDeparture) MaterialTheme.colorScheme.surfaceContainerLow
                                                 else MaterialTheme.colorScheme.surfaceContainerHigh
                                             )
+                                        ) {
+                                            AnimatedContent(targetState = nextIsDeparture) {
+                                                val icon =
+                                                    if (it) com.z_company.route.R.drawable.play_arrow_24px
+                                                    else com.z_company.route.R.drawable.pause_24px
+                                                Icon(
+                                                    painter = painterResource(icon),
+                                                    contentDescription = null,
+                                                    tint = if (it) MaterialTheme.colorScheme.surfaceContainerLow
+                                                    else MaterialTheme.colorScheme.surfaceContainerHigh
+                                                )
+                                            }
                                         }
                                     }
                                 }
-                            }
 
                             val autoGnss by autoRecordManager.gnssQuality.collectAsState()
                             com.z_company.route.autorecord.AutoGnssNotice(
@@ -1976,18 +1980,6 @@ fun FormTrainScreen(
                                 quality = autoGnss,
                             )
 
-                            // Подпись под чипом (что показывает секундомер)
-                            if (stopwatch != null) {
-                                Text(
-                                    text = stopwatch.label,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 3.dp),
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
                         }
                     }
 
@@ -2442,7 +2434,7 @@ private fun TrainBottomAppBar(
                     ),
                 ) {
                     Icon(
-                        modifier = Modifier.size(32.dp),
+                        modifier = Modifier.size(28.dp),
                         painter = painterResource(com.z_company.route.R.drawable.ic_add_plain_24),
                         contentDescription = "Добавить станцию",
                     )

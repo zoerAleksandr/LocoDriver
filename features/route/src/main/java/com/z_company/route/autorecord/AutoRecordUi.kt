@@ -286,6 +286,7 @@ fun AutoRecordChip(
                             lineHeight = 13.sp,
                             maxLines = 1,
                             softWrap = false,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         )
                         Text(
                             text = "прервано",
@@ -295,6 +296,7 @@ fun AutoRecordChip(
                             lineHeight = 11.sp,
                             maxLines = 1,
                             softWrap = false,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         )
                     }
                 } else {
@@ -305,6 +307,7 @@ fun AutoRecordChip(
                         fontSize = 13.sp,
                         maxLines = 1,
                         softWrap = false,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                 }
             }
