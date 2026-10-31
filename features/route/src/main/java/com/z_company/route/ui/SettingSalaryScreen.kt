@@ -851,7 +851,7 @@ private fun PayTierSection(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f, fill = false),
                     text = label,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -891,12 +891,27 @@ private fun ColumnScope.PhaseTiersList(
     rows: @Composable ColumnScope.(ServicePhase) -> Unit,
 ) {
     var expandedId by remember { mutableStateOf<String?>(null) }
-    Text(
-        text = "По плечам",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
-    )
+    var listVisible by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .noRippleEffect { listVisible = !listVisible }
+            .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "По плечам",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = if (listVisible) "Скрыть" else "Показать",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.tertiary,
+        )
+    }
+    if (!listVisible) return
     phases.forEach { phase ->
         key(phase.id) {
             val expanded = expandedId == phase.id
