@@ -56,6 +56,14 @@ internal fun httpFailureOf(text: String): AutoFillFailure? = when {
     else -> null
 }
 
+/**
+ * Ответ сервера «путь не найден» (404 с описанием, [route/length]) - а не отсутствие эндпоинта у старого сервера
+ * (его тело - `{"detail":"Not Found"}`). Ktor пишет статус как «404 Not Found», поэтому искать в тексте нужно
+ * кавычки вокруг «Not Found» из JSON-тела, а не саму фразу: иначе настоящее «путь не найден» выглядело как «сервис не ответил».
+ */
+internal fun isNoPathHttpError(message: String): Boolean =
+    message.contains("404") && !message.contains("\"Not Found\"")
+
 /** Вариант пути между крайними станциями плеча (route/length, alternatives). [via] — станции по пути. */
 data class RouteVariant(val id: String, val lengthKm: Double, val line: List<Pair<Double, Double>>, val via: List<RouteVia>) {
     /** «Через …» в чипе: первая станция по пути (сервер отдаёт только станции, не о.п.); нет — без подписи. */
@@ -329,7 +337,7 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
     } catch (e: Exception) {
         val msg = e.message.orEmpty()
         // 404 «Not Found» — эндпоинта ещё нет на сервере; наш 404 — «путь не найден».
-        if (msg.contains("404") && !msg.contains("Not Found")) MeasureResult.NoPath
+        if (isNoPathHttpError(msg)) MeasureResult.NoPath
         else MeasureResult.Failed(failureOf(e))
     }
 
@@ -434,7 +442,7 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
             } catch (e: Exception) {
                 val msg = e.message.orEmpty()
                 android.util.Log.w("ServicePhaseMap", "rail line: ${e::class.simpleName}")
-                if (msg.contains("404") && !msg.contains("Not Found")) RailLineResult.NoPath
+                if (isNoPathHttpError(msg)) RailLineResult.NoPath
                 else RailLineResult.Failed(failureOf(e))
             }
             // Повторяем только сбой сети/сервера: «путь не найден» не изменится.
