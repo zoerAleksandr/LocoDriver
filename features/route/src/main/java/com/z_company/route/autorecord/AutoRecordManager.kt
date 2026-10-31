@@ -747,7 +747,7 @@ class AutoRecordManager(
         routeUseCase.getListRoutes().findCurrentRoute(nowMs(), settings)
 
     private fun recorderConfig(until: Long) = GpsRecorderConfig(
-        notificationTitle = "LocoDriver",
+        notificationTitle = "Машинист",
         notificationText = "Автозапись включена до ${formatTime(context, until)}",
         stopActionLabel = "Выключить",
         smallIconRes = R.drawable.ic_stat_auto,
@@ -834,7 +834,7 @@ class AutoRecordManager(
         }
         val b = NotificationCompat.Builder(context, ALERT_CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_auto)
-            .setContentTitle("LocoDriver")
+            .setContentTitle("Машинист")
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setAutoCancel(true)
