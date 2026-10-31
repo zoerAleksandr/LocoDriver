@@ -88,6 +88,22 @@ internal fun HomeTrainMap(
             onDismiss = { showLegPicker = false },
         )
     }
+    // Редактор плеча поверх карты (карта остаётся): «В редакторе» из диалога уточнений и «Открыть редактор плеча» в шторке.
+    var editingLeg by remember { mutableStateOf<com.z_company.domain.entities.setting.ServicePhase?>(null) }
+    var legAutoFill by remember { mutableStateOf(false) }
+    editingLeg?.let { phase ->
+        com.z_company.route.component.ShoulderEditBottomSheet(
+            phase = phase,
+            stationList = viewModel.stationList,
+            onSave = { p, _ -> viewModel.updateServicePhase(p) },
+            onDelete = null,
+            onDeleteStationName = { viewModel.removeStationName(it) },
+            onDismiss = { editingLeg = null; legAutoFill = false },
+            country = viewModel.userCountry,
+            onAddStationNames = viewModel::addStationNames,
+            autoStartAutoFill = legAutoFill,
+        )
+    }
     TrainMapScreen(
         missingStation = { viewModel.trainMapMissingStation() },
         stops = remember(formUiState.selectedServicePhase, viewModel.fullSelectedPhaseOrNull()) { viewModel.trainMapStops() },
@@ -116,9 +132,12 @@ internal fun HomeTrainMap(
             onSelect = { showLegPicker = true },
             onUpdate = { viewModel.updateServicePhase(it) },
             onAddNames = { viewModel.addStationNames(it) },
-            // Автоопределение не справилось (неоднозначные названия): справочник открывается в поезде, здесь выбор плеча.
-            onOpenEditor = {},
-            editorAvailable = false,
+            // Автоопределение не справилось (неоднозначные названия): открываем редактор этого плеча, продолжая подбор в нём.
+            onOpenEditor = { viewModel.fullSelectedPhaseOrNull()?.let { legAutoFill = true; editingLeg = it } },
+            editorAvailable = true,
+            // «Уточнить» / «Открыть редактор плеча»: тот же редактор без автоподбора, карта остаётся под ним.
+            onEditLeg = { viewModel.fullSelectedPhaseOrNull()?.let { legAutoFill = false; editingLeg = it } },
+            editOverMap = true,
         ),
         trainChips = chips,
         onSelectTrain = { id -> routeTrains.firstOrNull { it.trainId == id }?.let(onSelectTrain) },

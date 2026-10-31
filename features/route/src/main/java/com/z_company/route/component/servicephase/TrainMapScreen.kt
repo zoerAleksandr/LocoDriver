@@ -235,6 +235,8 @@ internal fun TrainMapScreen(
         var locationDenied by remember { mutableStateOf(false) }
         var missing by remember { mutableStateOf(missingStation()) }
         var determining by remember { mutableStateOf(false) }
+        // Плечо определено (координаты легли в справочник) - недостающая станция пересчитывается, шторка уходит.
+        LaunchedEffect(leg?.phase) { missing = missingStation() }
         var determineMessage by remember { mutableStateOf<String?>(null) }
         // Предложенные координаты станции (найденные поиском или точка, куда нажал пользователь) - сохраняются только после подтверждения.
         var proposal by remember { mutableStateOf<StationProposal?>(null) }
@@ -291,17 +293,19 @@ internal fun TrainMapScreen(
         var showChart by rememberSaveable { mutableStateOf(false) }
         // Метки первого открытия карты + кнопка «?» для повтора (ONBOARDING_MATERIALS §2): один раз, не во время записи.
         val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
-        var mapHintsOpen by rememberSaveable { mutableStateOf(false) }
+        // Решение об экскурсии принимается в первом кадре: шторки внизу ждут её конца, а не мелькают вместе с ней.
+        val tourOnOpen = remember {
+            !viewOnly && com.z_company.domain.onboarding.OnboardingHints.canShow(
+                id = com.z_company.domain.onboarding.HintId.MAP_FIRST_OPEN,
+                shown = onboardingHints.shown,
+                homeReached = onboardingHints.homeReached,
+                recording = autoRecording,
+            )
+        }
+        var mapHintsOpen by rememberSaveable { mutableStateOf(tourOnOpen) }
         val tourAnchors = com.z_company.domain.onboarding.MapTourStep.entries.associateWith { com.z_company.route.component.rememberCoachAnchor() }
         LaunchedEffect(Unit) {
-            if (!viewOnly && com.z_company.domain.onboarding.OnboardingHints.canShow(
-                    id = com.z_company.domain.onboarding.HintId.MAP_FIRST_OPEN,
-                    shown = onboardingHints.shown,
-                    homeReached = onboardingHints.homeReached,
-                    recording = autoRecording,
-                )
-            ) {
-                mapHintsOpen = true
+            if (tourOnOpen) {
                 // Помечаем сразу при показе: вышли с карты, не дойдя до конца, - второй раз экскурсия уже не навязывается («?» открывает снова).
                 onboardingHints.markShown(com.z_company.domain.onboarding.HintId.MAP_FIRST_OPEN)
             }
@@ -2125,7 +2129,10 @@ internal fun TrainMapScreen(
                 )
             }
 
-            val name = missing.takeUnless { missingDismissed || pickingStation }
+            // Экскурсия идёт первой: шторка «нет координат» появляется после неё.
+            val name = missing.takeUnless { missingDismissed || pickingStation || mapHintsOpen }
+            // У плеча нет координат крайних станций (так у всех, кто обновился с версии без геоданных плеч): определяем плечо целиком.
+            val geoPhase = leg?.takeIf { it.title != null }?.phase?.takeIf { it.departurePoint == null || it.arrivalPoint == null }
             val rail = railState
             if (hasRoute && !(planCardVisible || planChipVisible) && (rail !is ServicePhaseAutoFillViewModel.RailLineResult.Ok ||
                     (rail.fromCache && name == null && savedName == null))
@@ -2196,7 +2203,7 @@ internal fun TrainMapScreen(
                             if (rail == ServicePhaseAutoFillViewModel.RailLineResult.NoPath && editLeg != null) {
                                 PstButton(
                                     text = "Уточнить",
-                                    onClick = { onDismiss(); editLeg() },
+                                    onClick = { if (leg?.editOverMap != true) onDismiss(); editLeg() },
                                     kind = PstButtonKind.TEXT,
                                     height = 36.dp,
                                     fontSize = 14,
@@ -2285,7 +2292,7 @@ internal fun TrainMapScreen(
                     )
                 }
             }
-            if (!pickingStation && proposal == null && (name != null || savedName != null)) {
+            if (!pickingStation && proposal == null && !mapHintsOpen && (name != null || savedName != null)) {
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -2320,18 +2327,34 @@ internal fun TrainMapScreen(
                             ) { PstIcon(PstIcons.MapPin, 18.dp, Pst.accent) }
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "У станции «$name» нет координат",
+                                    text = if (geoPhase != null) "У плеча нет геоданных" else "У станции «$name» нет координат",
                                     style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
                                     color = Pst.text,
                                 )
                                 Text(
-                                    text = determineMessage ?: "Найдём станцию на карте по названию — вы подтвердите место перед сохранением в справочник.",
+                                    text = determineMessage ?: if (geoPhase != null) {
+                                        "Определите плечо ${geoPhase.departureStation} — ${geoPhase.arrivalStation}: координаты станций, расстояние и промежуточные станции — тогда на карте появится маршрут."
+                                    } else {
+                                        "Найдём станцию на карте по названию — вы подтвердите место перед сохранением в справочник."
+                                    },
                                     style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp),
                                     color = if (determineMessage != null) Pst.danger else Pst.textMuted,
                                 )
                             }
                         }
-                        if (findStation != null) {
+                        if (geoPhase != null && leg != null) {
+                            LegDetermineRow(leg, geoPhase, wideButtonText = "Найти автоматически")
+                            val editLeg = leg.takeIf { it.editorAvailable }?.onEditLeg
+                            if (editLeg != null) {
+                                PstButton(
+                                    text = "Открыть редактор плеча",
+                                    kind = PstButtonKind.OUTLINED,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    onClick = { if (leg?.editOverMap != true) onDismiss(); editLeg() },
+                                )
+                            }
+                        }
+                        if (findStation != null && geoPhase == null) {
                             PstButton(
                                 text = if (determining) "Ищем…" else "Найти станцию на карте",
                                 kind = PstButtonKind.CTA,

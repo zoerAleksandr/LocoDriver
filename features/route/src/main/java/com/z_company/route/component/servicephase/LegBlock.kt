@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -52,6 +54,8 @@ internal class LegContext(
     val editorAvailable: Boolean = true,
     /** Открыть редактор плеча как есть, без автоопределения («Уточнить» на карте, когда путь не найден); null - недоступно. */
     val onEditLeg: (() -> Unit)? = null,
+    /** Редактор плеча открывается поверх карты (карта остаётся); false - карта закрывается перед открытием редактора. */
+    val editOverMap: Boolean = false,
 )
 
 /** Строка плеча + пометка «проверено на карте» или кнопка «Определить» (расстояние, координаты и промежуточные станции одной кнопкой). */
@@ -65,7 +69,7 @@ internal fun LegBlock(ctx: LegContext, modifier: Modifier = Modifier) {
 }
 
 @Composable
-internal fun LegDetermineRow(ctx: LegContext, phase: ServicePhase) {
+internal fun LegDetermineRow(ctx: LegContext, phase: ServicePhase, wideButtonText: String? = null) {
     if (phase.isMapVerified) {
         Row(
             Modifier.background(Pst.success.copy(alpha = 0.12f), RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 6.dp),
@@ -125,11 +129,42 @@ internal fun LegDetermineRow(ctx: LegContext, phase: ServicePhase) {
         com.z_company.route.component.AppAlertDialog(
             onDismissRequest = { refine = null },
             title = "Плечо требует уточнений",
-            text = if (ctx.editorAvailable) "$reason\n\nОткрыть справочник плеч, чтобы уточнить?" else "$reason\n\nУточните плечо в разделе «Поезд» (справочник плеч).",
-            confirmText = if (ctx.editorAvailable) "Открыть справочник" else "Понятно",
+            text = if (ctx.editorAvailable) "$reason\n\nОткройте редактор плеча, чтобы уточнить." else "$reason\n\nУточните плечо в редакторе плеча.",
+            confirmText = if (ctx.editorAvailable) "В редактор" else "Понятно",
             dismissText = if (ctx.editorAvailable) "Не сейчас" else null,
             onConfirm = { refine = null; if (ctx.editorAvailable) ctx.onOpenEditor() },
         )
+    }
+    val start = {
+        message = null
+        running = true
+        vm.start(
+            departure = phase.departureStation,
+            arrival = phase.arrivalStation,
+            country = ctx.country,
+            departureOsmId = phase.departurePoint?.osmId,
+            arrivalOsmId = phase.arrivalPoint?.osmId,
+            departurePoint = phase.departurePoint?.let { it.latitude to it.longitude },
+            arrivalPoint = phase.arrivalPoint?.let { it.latitude to it.longitude },
+            // Как «Подобрать станции» в справочнике: уже есть станции с координатами - путь строго через них (по выбранному
+            // маршруту); нет - сперва выбор маршрута, если путей несколько (это делает справочник).
+            viaPoints = phase.intermediateStations.filter { it.hasCoordinates }.map { it.latitude!! to it.longitude!! },
+            pickRoute = phase.intermediateStations.none { it.hasCoordinates },
+        )
+    }
+    // Широкая кнопка без пояснительного блока (шторка карты «У плеча нет геоданных»: пояснение уже в её заголовке).
+    if (wideButtonText != null) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (running || applying) {
+                Box(Modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = Pst.accent)
+                }
+            } else {
+                PstButton(wideButtonText, { start() }, kind = PstButtonKind.FILLED, height = 48.dp, fontSize = 15, modifier = Modifier.fillMaxWidth())
+            }
+            message?.let { Text(it, style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.danger) }
+        }
+        return
     }
     Column(
         Modifier.fillMaxWidth().background(Pst.surface, RoundedCornerShape(12.dp)).padding(start = 14.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
@@ -145,23 +180,7 @@ internal fun LegDetermineRow(ctx: LegContext, phase: ServicePhase) {
             } else {
                 PstButton(
                     "Определить",
-                    {
-                        message = null
-                        running = true
-                        vm.start(
-                            departure = phase.departureStation,
-                            arrival = phase.arrivalStation,
-                            country = ctx.country,
-                            departureOsmId = phase.departurePoint?.osmId,
-                            arrivalOsmId = phase.arrivalPoint?.osmId,
-                            departurePoint = phase.departurePoint?.let { it.latitude to it.longitude },
-                            arrivalPoint = phase.arrivalPoint?.let { it.latitude to it.longitude },
-                            // Как «Подобрать станции» в справочнике: уже есть станции с координатами - путь строго через них (по выбранному
-                            // маршруту); нет - сперва выбор маршрута, если путей несколько (это делает справочник).
-                            viaPoints = phase.intermediateStations.filter { it.hasCoordinates }.map { it.latitude!! to it.longitude!! },
-                            pickRoute = phase.intermediateStations.none { it.hasCoordinates },
-                        )
-                    },
+                    { start() },
                     kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14,
                 )
             }
