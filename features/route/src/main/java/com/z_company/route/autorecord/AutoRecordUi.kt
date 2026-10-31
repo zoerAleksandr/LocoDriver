@@ -95,13 +95,13 @@ fun rememberAutoRecordToggle(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
         // Отказ от уведомлений запись не блокирует; без геолокации — включать нечего.
-        enableNow({ Toast.makeText(context, "АВТО: нужен доступ к геолокации", Toast.LENGTH_LONG).show() })
+        enableNow({ Toast.makeText(context, "Автозапись: нужен доступ к геолокации", Toast.LENGTH_LONG).show() })
     }
     if (showHelp) {
         markBatteryHelpShown(context)
         AppAlertDialog(
             onDismissRequest = { showHelp = false },
-            title = "Чтобы АВТО не отключалось",
+            title = "Чтобы автозапись не отключалась",
             text = "Android может останавливать фоновую запись ради экономии батареи. Разрешите LocoDriver " +
                 "работать без ограничений батареи.\n\n" +
                 "Xiaomi, Huawei, Samsung: дополнительно включите «Автозапуск» и выберите «Без ограничений» " +
@@ -130,7 +130,6 @@ fun rememberAutoRecordToggle(
     var showConsent by remember { mutableStateOf(false) }
     if (showConsent) {
         TrackConsentDialog(
-            initialChecked = false,
             onContinue = { checked, shareAltitudes ->
                 showConsent = false
                 consent.setConsent(checked)
@@ -280,7 +279,7 @@ fun AutoRecordChip(
                 if (twoLines) {
                     Column {
                         Text(
-                            text = "АВТО",
+                            text = "АВТОЗАПИСЬ",
                             color = colors.content,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
@@ -300,7 +299,7 @@ fun AutoRecordChip(
                     }
                 } else {
                     Text(
-                        text = if (broken) "АВТО · прервано" else "АВТО",
+                        text = if (broken) "АВТОЗАПИСЬ · прервано" else "АВТОЗАПИСЬ",
                         color = colors.content,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,

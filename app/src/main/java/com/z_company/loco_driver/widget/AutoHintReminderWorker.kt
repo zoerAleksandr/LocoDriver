@@ -62,7 +62,7 @@ class AutoHintReminderWorker(
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
             nm.createNotificationChannel(
-                NotificationChannel(CHANNEL, "Подсказки про «АВТО»", NotificationManager.IMPORTANCE_LOW),
+                NotificationChannel(CHANNEL, "Подсказки про автозапись", NotificationManager.IMPORTANCE_LOW),
             )
         }
         val intent = Intent(ctx, MainActivity::class.java).apply {

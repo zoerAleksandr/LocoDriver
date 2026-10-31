@@ -412,7 +412,7 @@ class AutoRecordManager(
         GpsRecorder.stop(context)
         val open = launchIntent(enable = true)
         notify(
-            INTERRUPTED_ID, "АВТО остановлено системой. Включить снова", open,
+            INTERRUPTED_ID, "Автозапись остановлена системой. Включить снова", open,
             actions = emptyList(),
         )
     }
@@ -748,14 +748,14 @@ class AutoRecordManager(
 
     private fun recorderConfig(until: Long) = GpsRecorderConfig(
         notificationTitle = "LocoDriver",
-        notificationText = "АВТО включено до ${formatTime(context, until)}",
+        notificationText = "Автозапись включена до ${formatTime(context, until)}",
         stopActionLabel = "Выключить",
         smallIconRes = R.drawable.ic_stat_auto,
-        channelName = "Запись АВТО",
+        channelName = "Автозапись",
     )
 
     private fun showExpiredNotification() =
-        notify(EXPIRED_ID, "АВТО выключено: прошло 12 часов", launchIntent(enable = false), emptyList())
+        notify(EXPIRED_ID, "Автозапись выключена: прошло 12 часов", launchIntent(enable = false), emptyList())
 
     /** «АВТО включено, но текущего маршрута нет» — не чаще раза в 30 мин, с «Выключить» и «Открыть приложение». */
     private fun notifyNoRoute() {
@@ -769,7 +769,7 @@ class AutoRecordManager(
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         notify(
-            NO_ROUTE_ID, "АВТО включено, но текущего маршрута нет (работа окончена?)",
+            NO_ROUTE_ID, "Автозапись включена, но текущего маршрута нет (работа окончена?)",
             launchIntent(enable = false),
             listOf("Выключить" to off, "Открыть приложение" to launchIntent(enable = false)),
         )
@@ -829,7 +829,7 @@ class AutoRecordManager(
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
         if (Build.VERSION.SDK_INT >= 26) {
             nm.createNotificationChannel(
-                NotificationChannel(ALERT_CHANNEL, "АВТО: предупреждения", NotificationManager.IMPORTANCE_DEFAULT),
+                NotificationChannel(ALERT_CHANNEL, "Автозапись: предупреждения", NotificationManager.IMPORTANCE_DEFAULT),
             )
         }
         val b = NotificationCompat.Builder(context, ALERT_CHANNEL)

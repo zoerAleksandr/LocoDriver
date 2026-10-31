@@ -75,7 +75,7 @@ object TrackEmptyReasons {
         }
     }
 
-    /** «согласие: вкл · АВТО: выкл · цель: этот · точек: 3» - только флаги и счётчик, без координат. */
+    /** «согласие: вкл · автозапись: выкл · цель: этот · точек: 3» - только флаги и счётчик, без координат. */
     fun debugLine(state: TrackRecordingState?, pointsInTrack: Int): String {
         if (state == null) return "состояние записи неизвестно · точек: $pointsInTrack"
         val target = when {
@@ -84,17 +84,17 @@ object TrackEmptyReasons {
             else -> "другой"
         }
         fun onOff(v: Boolean) = if (v) "вкл" else "выкл"
-        return "согласие: ${onOff(state.consent)} · АВТО: ${onOff(state.autoEnabled)} · цель: $target · точек: $pointsInTrack"
+        return "согласие: ${onOff(state.consent)} · автозапись: ${onOff(state.autoEnabled)} · цель: $target · точек: $pointsInTrack"
     }
 
     /** Текст пустого графика по причине (по центру экрана). */
     fun message(reason: TrackEmptyReason, otherTrainNumber: String? = null): String = when (reason) {
-        TrackEmptyReason.UNKNOWN -> "Нет записи скорости. Включите АВТО и согласие на сохранение трека"
+        TrackEmptyReason.UNKNOWN -> "Нет записи скорости. Включите автозапись и согласие на сохранение трека"
         TrackEmptyReason.CONSENT_OFF -> "Для записи скорости дайте согласие на сохранение трека"
-        TrackEmptyReason.AUTO_OFF -> "Для записи скорости включите режим АВТО"
+        TrackEmptyReason.AUTO_OFF -> "Для записи скорости включите автозапись"
         TrackEmptyReason.OTHER_TRAIN ->
-            "АВТО записывает другой поезд" + otherTrainNumber?.takeIf { it.isNotBlank() }?.let { " (№$it)" }.orEmpty()
-        TrackEmptyReason.NO_TARGET -> "АВТО включено, но поезд для записи не выбран"
+            "Автозапись ведётся для другого поезда" + otherTrainNumber?.takeIf { it.isNotBlank() }?.let { " (№$it)" }.orEmpty()
+        TrackEmptyReason.NO_TARGET -> "Автозапись включена, но поезд для записи не выбран"
         TrackEmptyReason.NO_POINTS_YET -> "Запись идёт. Для построения графика скорости нужно начать движение"
         TrackEmptyReason.NO_SPEED -> "Нет данных о скорости от GPS"
     }
@@ -109,7 +109,7 @@ object TrackEmptyReasons {
 
     /** Подпись кнопки действия. */
     fun actionLabel(action: TrackEmptyAction, reason: TrackEmptyReason): String = when (action) {
-        TrackEmptyAction.ENABLE_AUTO -> "Включить АВТО"
+        TrackEmptyAction.ENABLE_AUTO -> "Включить автозапись"
         TrackEmptyAction.OPEN_CONSENT -> if (reason == TrackEmptyReason.CONSENT_OFF) "Открыть согласие" else "Настройки согласия"
         TrackEmptyAction.MAKE_TARGET -> "Записывать этот поезд"
         TrackEmptyAction.NONE -> ""

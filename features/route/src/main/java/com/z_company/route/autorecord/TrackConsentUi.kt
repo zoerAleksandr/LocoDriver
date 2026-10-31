@@ -1,6 +1,14 @@
 package com.z_company.route.autorecord
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import com.z_company.route.component.servicephase.PstIcon
+import com.z_company.route.component.servicephase.PstIcons
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +21,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.HorizontalDivider
@@ -39,7 +48,7 @@ object TrackConsentTexts {
     const val TITLE = "Сохранять мои треки и историю поездок"
     /** Подпись самого переключателя (заголовок экрана/блока - [TITLE]). */
     const val SWITCH_LABEL = "Сохранять треки"
-    const val BODY = "Когда включен режим «АВТО», приложение записывает ваш путь: время, положение и скорость " +
+    const val BODY = "Когда включен режим «Автозапись», приложение записывает ваш путь: время, положение и скорость " +
         "в точках следования. Это нужно, чтобы вы могли открыть пройденный путь на карте, посмотреть скорость " +
         "и историю поездок."
 
@@ -50,15 +59,24 @@ object TrackConsentTexts {
         "Срок хранения — 180 дней. Избранные треки, отмеченные звездой в разделе «Мои треки», не удаляются " +
             "автоматически.",
     )
-    const val NO_CONSENT_NOTE = "Без согласия режим «АВТО» продолжит записывать стоянки и отправления поезда, " +
+    const val NO_CONSENT_NOTE = "Без согласия режим «Автозапись» продолжит записывать стоянки и отправления поезда, " +
         "но путь не сохранится."
     const val CONTINUE = "Продолжить"
 
     // Экран первого включения «АВТО» (ONBOARDING_MATERIALS §3 - дословно): над переключателями согласий.
-    const val INTRO_TITLE = "Режим «АВТО»"
-    const val INTRO_TEXT = "АВТО сам записывает стоянки и отправления вашего поезда по скорости и месту. " +
+    const val INTRO_TITLE = "Автозапись"
+    const val INTRO_TEXT = "Автозапись сама записывает стоянки и отправления вашего поезда по скорости и месту. " +
         "Время считается по тому моменту, когда поезд остановился или тронулся. Режим выключится сам через 12 часов."
     const val CANCEL = "Отмена"
+    const val CONSENT_LEAD = "Если вы согласитесь:"
+    val CONSENT_POINTS = listOf(
+        "сохраним ваши поездки: путь на карте, скорость и историю. Они хранятся на устройстве и в зашифрованном " +
+            "виде на сервере, администраторы их не видят. Срок хранения - 180 дней, избранные не удаляются;",
+        "передадим обезличенные данные для карт: километр пути, высоту и места потери GPS - без вашего имени " +
+            "и точного времени.",
+    )
+    const val AGREE = "Согласиться и включить"
+    const val WITHOUT_SAVING = "Включить без сохранения"
     const val REVOKE_TITLE = "Отозвать согласие?"
     const val REVOKE_TEXT = "Новые треки сохраняться не будут. Уже записанные треки останутся в разделе «Мои треки» — " +
         "удалить их можно там."
@@ -79,120 +97,87 @@ object TrackConsentTexts {
 }
 
 /**
- * Экран согласия №1 при первом включении «АВТО»: переключатель по умолчанию ВЫКЛ (без предустановленной
- * галочки), «Продолжить» включает «АВТО» с выбранным значением, «Назад» отменяет включение.
+ * Экран первого включения «Автозаписи»: одно согласие на оба пункта (сохранение треков и обезличенные
+ * данные для карт). Текст и пункты - на белом фоне, две кнопки закреплены внизу: «Согласиться и включить»
+ * выставляет оба согласия, «Включить без сохранения» включает режим без них (согласие добровольно).
+ * Крестик вверху справа отменяет включение.
  */
 @Composable
 fun TrackConsentDialog(
-    initialChecked: Boolean,
     onContinue: (saveTracks: Boolean, shareAltitudes: Boolean) -> Unit,
     onDismiss: () -> Unit,
-    initialAltitudeChecked: Boolean = false,
 ) {
-    var checked by remember { mutableStateOf(initialChecked) }
-    var altChecked by remember { mutableStateOf(initialAltitudeChecked) }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
-        Surface(modifier = Modifier.fillMaxSize().testTag("track_consent_screen"), color = MaterialTheme.colorScheme.background) {
+        Surface(modifier = Modifier.fillMaxSize().testTag("track_consent_screen"), color = MaterialTheme.colorScheme.surface) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .statusBarsPadding()
                     .navigationBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
             ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    Box(
+                        Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable(onClick = onDismiss)
+                            .testTag("track_consent_cancel"),
+                        contentAlignment = Alignment.Center,
+                    ) { PstIcon(PstIcons.Close, 18.dp, MaterialTheme.colorScheme.onSurfaceVariant, description = TrackConsentTexts.CANCEL) }
+                }
                 Column(
                     modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text(
                         TrackConsentTexts.INTRO_TITLE,
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.testTag("track_consent_intro_title"),
                     )
                     Text(
                         TrackConsentTexts.INTRO_TEXT,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
-                    // Кнопки - над переключателями согласий (ONBOARDING_MATERIALS §3).
-                    Button(
-                        onClick = { onContinue(checked, altChecked) },
-                        modifier = Modifier.fillMaxWidth().testTag("track_consent_continue"),
-                    ) { Text(TrackConsentTexts.CONTINUE) }
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.fillMaxWidth().testTag("track_consent_cancel"),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-                    ) {
-                        Text(TrackConsentTexts.CANCEL)
-                    }
-                    HorizontalDivider()
                     Text(
-                        TrackConsentTexts.TITLE,
-                        style = MaterialTheme.typography.titleMedium,
+                        TrackConsentTexts.CONSENT_LEAD,
+                        style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.testTag("track_consent_short"),
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            TrackConsentTexts.SWITCH_LABEL,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Switch(
-                            checked = checked,
-                            onCheckedChange = { checked = it },
-                            colors = com.z_company.route.ui.settings.settingsSwitchColors(),
-                            modifier = Modifier.testTag("track_consent_switch"),
-                        )
-                    }
-                    Text(
-                        TrackConsentTexts.BODY,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    TrackConsentTexts.POINTS.forEach { point ->
+                    TrackConsentTexts.CONSENT_POINTS.forEach { point ->
                         Text(
                             "• $point",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
                     Text(
                         TrackConsentTexts.NO_CONSENT_NOTE,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
-                    HorizontalDivider()
-                    // Согласие №2: независимо от первого, по умолчанию выключено.
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            TrackConsentTexts.ALT_SWITCH_LABEL,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Switch(
-                            checked = altChecked,
-                            onCheckedChange = { altChecked = it },
-                            colors = com.z_company.route.ui.settings.settingsSwitchColors(),
-                            modifier = Modifier.testTag("track_consent_altitude_switch"),
-                        )
-                    }
-                    Text(
-                        TrackConsentTexts.ALT_NOTE,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { onContinue(true, true) },
+                        modifier = Modifier.fillMaxWidth().testTag("track_consent_continue"),
+                    ) { Text(TrackConsentTexts.AGREE) }
+                    OutlinedButton(
+                        onClick = { onContinue(false, false) },
+                        modifier = Modifier.fillMaxWidth().testTag("track_consent_without"),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+                    ) { Text(TrackConsentTexts.WITHOUT_SAVING) }
                 }
             }
         }
