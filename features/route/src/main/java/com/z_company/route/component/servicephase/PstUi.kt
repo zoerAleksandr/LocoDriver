@@ -196,6 +196,7 @@ internal fun PstButton(
     height: Dp = if (kind == PstButtonKind.CTA) 52.dp else 44.dp,
     contentPadding: PaddingValues = PaddingValues(horizontal = if (kind == PstButtonKind.TEXT) 12.dp else 20.dp),
     fontSize: Int = 15,
+    maxLines: Int = 1,
 ) {
     val (bg, fg) = when (kind) {
         PstButtonKind.FILLED -> Pst.accent to Pst.onAccent
@@ -230,7 +231,8 @@ internal fun PstButton(
             text = text,
             color = content,
             style = Pst.sans.copy(fontSize = fontSize.sp, fontWeight = FontWeight.SemiBold),
-            maxLines = 1,
+            maxLines = maxLines,
+            textAlign = if (maxLines > 1) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Unspecified,
         )
     }
 }

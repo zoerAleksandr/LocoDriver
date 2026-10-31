@@ -2191,6 +2191,17 @@ internal fun TrainMapScreen(
                                     fontSize = 14,
                                 )
                             }
+                            // Путь не найден: поправить плечо - сразу в редактор этого плеча (карта закрывается).
+                            val editLeg = leg?.takeIf { it.editorAvailable }?.onEditLeg
+                            if (rail == ServicePhaseAutoFillViewModel.RailLineResult.NoPath && editLeg != null) {
+                                PstButton(
+                                    text = "Уточнить",
+                                    onClick = { onDismiss(); editLeg() },
+                                    kind = PstButtonKind.TEXT,
+                                    height = 36.dp,
+                                    fontSize = 14,
+                                )
+                            }
                         }
                     }
                 }

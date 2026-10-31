@@ -463,6 +463,16 @@ internal fun PhaseRouteMap(
                                     fontSize = 14,
                                 )
                             }
+                            // Путь не найден: карта открыта из редактора плеча - «Уточнить» возвращает к нему.
+                            if (rail == ServicePhaseAutoFillViewModel.RailLineResult.NoPath) {
+                                PstButton(
+                                    text = "Уточнить",
+                                    onClick = onDismiss,
+                                    kind = PstButtonKind.TEXT,
+                                    height = 36.dp,
+                                    fontSize = 14,
+                                )
+                            }
                         }
                     }
                 }

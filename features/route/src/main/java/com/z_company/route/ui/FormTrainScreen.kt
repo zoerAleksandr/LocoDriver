@@ -352,6 +352,16 @@ fun FormTrainScreen(
                     showEditPhaseSheet = true
                 }
             },
+            // «Уточнить» на карте: тот же редактор, но без автоопределения - пользователь сразу правит станции.
+            onEditLeg = {
+                val full = servicePhaseList.firstOrNull { it.id == formUiState.selectedServicePhase?.id }
+                if (full != null) {
+                    editingPhase = full
+                    autoStartPhaseFill = false
+                    returnToRestrictions = false
+                    showEditPhaseSheet = true
+                }
+            },
         )
         if (showRestrictions && currentTrain != null) {
             val restrictionsZone by androidx.compose.runtime.produceState("GMT+3") { value = viewModel.trainMapZone() }

@@ -194,9 +194,8 @@ fun ShoulderEditBottomSheet(
     // Доплаты плеча за тяжеловесные/длинные составы; пусто - действуют настройки ЗП.
     val heavyRows = remember { mutableStateListOf<com.z_company.domain.entities.setting.SurchargeHeavyTrains>().apply { addAll(phase?.surchargeHeavyTrainsList.orEmpty()) } }
     val longRows = remember { mutableStateListOf<com.z_company.domain.entities.setting.SurchargeLongTrains>().apply { addAll(phase?.surchargeLongTrainsList.orEmpty()) } }
-    var surchargesOpen by remember {
-        mutableStateOf(heavyRows.isNotEmpty() || longRows.isNotEmpty() || (phase?.linearMileageRate ?: 0.0) > 0.0)
-    }
+    // По умолчанию свёрнуты (даже если доплаты заданы - раскрываются по «Настроить»).
+    var surchargesOpen by remember { mutableStateOf(false) }
     val stations = remember { mutableStateListOf<ServicePhaseStation>().apply { addAll(phase?.intermediateStations.orEmpty()) } }
     var editMode by remember { mutableStateOf(false) }
     // Остались только крайние станции — править нечего: режим «Изменить» выходит сам.
@@ -1069,7 +1068,7 @@ fun ShoulderEditBottomSheet(
             EditorTopBar(
                 anchors = tourAnchors,
                 onHelp = { tourOpen = true },
-                title = if (isNew) "Новое плечо" else "Редактировать плечо",
+                title = if (isNew) "Новое плечо" else "Плечо",
                 onBack = ::close,
                 // Карта открывается всегда - и без координат станций (там можно указать станции нажатием на карте).
                 onMap = { showRouteMap = true },
@@ -1805,6 +1804,7 @@ private fun MeasureByMap(isMeasured: Boolean, measuring: Boolean, onMeasure: () 
             height = 56.dp,
             fontSize = 14,
             contentPadding = PaddingValues(horizontal = 10.dp),
+            maxLines = 2,
         )
     }
 }
