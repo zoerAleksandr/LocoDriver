@@ -655,6 +655,9 @@ private fun ResultCard(result: BrakeCertificateResult?, state: BrakeCertificateU
                         align = TextAlign.End, modifier = Modifier.weight(0.8f),
                     )
                 }
+                if (result.totalAxles > 0) {
+                    VuHint("Потребное на ось: ${fmt(result.requiredPressure / result.totalAxles, 2)} тс (норма ${category.norm} тс на 100 тс веса)", Modifier.padding(top = 6.dp))
+                }
                 result.loco?.let { l ->
                     VuHint("Локомотив учтён: ${l.axles} осей, ${fmt(l.pressureTc)} тс, вес ${fmt(l.weight)} т - входят в потребное, фактическое и число осей", Modifier.padding(top = 6.dp))
                 }
@@ -951,6 +954,12 @@ private fun FrontBody(
         Text("Требуется нажатие тормозных колодок в тс.", Modifier.weight(1f), fontSize = 14.sp, color = t.text, lineHeight = 18.sp)
         VuInk(result?.let { fmt(it.requiredPressure) } ?: "", Modifier.width(92.dp), calc = true, align = TextAlign.End)
         VuMiniHelp { help("required") }
+    }
+    if (result != null) {
+        VuHint(
+            "${if (state.categoryManual) "Выбрано" else "Авто"} (${category.norm} тс на 100 т веса)",
+            Modifier.fillMaxWidth().padding(start = 4.dp, end = 13.dp), align = TextAlign.End,
+        )
     }
     result?.loco?.let { LocoCaption(it) }
     VuFillRow(end = true) {

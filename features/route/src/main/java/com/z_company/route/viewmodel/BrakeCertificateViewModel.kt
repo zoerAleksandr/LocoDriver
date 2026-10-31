@@ -209,7 +209,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     private val _state = MutableStateFlow(
         BrakeCertificateUiState(
             manualOverride = loadManualOverride(),
-            categoryManual = prefs.getBoolean(KEY_CATEGORY_MANUAL, false),
+            categoryManual = false,
             autoblock3 = prefs.getBoolean(KEY_AUTOBLOCK, DEFAULT_AUTOBLOCK),
             compositeShare = loadCompositeShare(),
             categoryId = loadCategoryId(),
@@ -274,6 +274,7 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         viewModelScope.launch {
             loadStored()
             if (q.routeId != null) fillFromRoute(onOpen = true)
+            autoCategory()
             startPersisting()
         }
     }
@@ -422,9 +423,8 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
             sug.categoryId?.let { applyCategory(it) }
             _state.update { it.copy(categoryNote = sug.note) }
             // «Заполнить из маршрута» сбрасывает ручной выбор категории; номер (однозначный) приоритетнее нагрузки
-            prefs.edit().putBoolean(KEY_CATEGORY_MANUAL, false).apply()
             _state.update { it.copy(categoryManual = false, loadNote = null) }
-            recomputeByAxleLoad()
+            autoCategory()
             // «Учитывать локомотив» следует категории: в пассажирских и грузопассажирских включено, в грузовых выключено (ручная правка действует до следующего заполнения)
             val cat = BrakeNorms.category(_state.value.categoryId)
             if (cat != null) _state.update { it.copy(locoEnabled = cat.locoCountedByDefault) }
@@ -584,15 +584,34 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     /** Выбор категории пользователем запоминается и становится значением по умолчанию для новой справки (у сохранённой справки своя категория). */
     fun setCategory(id: String) {
         if (BrakeNorms.category(id) == null) return
-        prefs.edit().putString(KEY_CATEGORY, id).putBoolean(KEY_CATEGORY_MANUAL, true).apply()
+        prefs.edit().putString(KEY_CATEGORY, id).apply()
         applyCategory(id)
         _state.update { it.copy(categoryManual = true, loadNote = null) }
+    }
+
+    private fun axlesForCategory(st: BrakeCertificateUiState): Int? =
+        st.totalAxlesText.trim().toIntOrNull() ?: st.effectiveRows().sumOf { it.axlesText.trim().toIntOrNull() ?: 0 }.takeIf { it > 0 }
+
+    /**
+     * Автоподбор категории (пока она не выбрана вручную): однозначный номер поезда, иначе нагрузка на ось.
+     * Вызывается при открытии справки и при изменении номера, веса, осей и строк таблицы.
+     */
+    private fun autoCategory() {
+        val st = _state.value
+        if (st.categoryManual) return
+        val byNum = BrakeCategory.byTrainNumber(st.trainNumberText, axlesForCategory(st))
+        if (byNum != null) {
+            if (byNum.id != st.categoryId) applyCategory(byNum.id)
+            _state.update { it.copy(loadNote = null) }
+            return
+        }
+        recomputeByAxleLoad()
     }
 
     /** Подбор груженый/порожний по нагрузке на ось (пока категория не выбрана вручную и не определена номером поезда). */
     private fun recomputeByAxleLoad() {
         val st = _state.value
-        val axles = st.totalAxlesText.trim().toIntOrNull() ?: st.effectiveRows().sumOf { it.axlesText.trim().toIntOrNull() ?: 0 }.takeIf { it > 0 }
+        val axles = axlesForCategory(st)
         val byNumber = BrakeCategory.byTrainNumber(st.trainNumberText, axles) != null
         val sug = BrakeCategory.suggestByAxleLoad(st.categoryId, st.categoryManual, byNumber, st.weightText.toFiniteDoubleOrNull(), axles)
         if (sug == null) {
@@ -634,9 +653,9 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     }
     fun setDate(v: String) = _state.update { it.copy(dateText = com.z_company.domain.brake.DateInput.mask(it.dateText, v)) }
     fun setLocoNumber(v: String) = _state.update { it.copy(locoNumberText = v) }
-    fun setTrainNumber(v: String) = _state.update { it.copy(trainNumberText = v) }
-    fun setWeight(v: String) { _state.update { it.copy(weightText = v) }; recomputeByAxleLoad() }
-    fun setTotalAxles(v: String) { _state.update { it.copy(totalAxlesText = v) }; recomputeByAxleLoad() }
+    fun setTrainNumber(v: String) { _state.update { it.copy(trainNumberText = v) }; autoCategory() }
+    fun setWeight(v: String) { _state.update { it.copy(weightText = v) }; autoCategory() }
+    fun setTotalAxles(v: String) { _state.update { it.copy(totalAxlesText = v) }; autoCategory() }
 
     /**
      * Серия локомотива: вес, оси, нажатие и объём ГР подставляются (и правятся вручную). Приоритет: запись справочника
@@ -725,13 +744,16 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     }
 
     /** Переключает ввод «одно среднее нажатие» / «оси по типам»; при переходе в таблицу первая строка берётся из среднего. */
-    fun setRowsMode(on: Boolean) = _state.update {
-        if (on == it.rowsMode) it
-        else if (on) it.copy(
-            rowsMode = true,
-            rows = listOf(BrakeRowUi(id = it.nextRowId, pressureText = it.avgPressureText, axlesText = it.totalAxlesText)),
-            nextRowId = it.nextRowId + 1,
-        ) else it.copy(rowsMode = false)
+    fun setRowsMode(on: Boolean) {
+        _state.update {
+            if (on == it.rowsMode) it
+            else if (on) it.copy(
+                rowsMode = true,
+                rows = listOf(BrakeRowUi(id = it.nextRowId, pressureText = it.avgPressureText, axlesText = it.totalAxlesText)),
+                nextRowId = it.nextRowId + 1,
+            ) else it.copy(rowsMode = false)
+        }
+        autoCategory()
     }
 
     /** Режим таблицы с заполнением первой строки из среднего нажатия и «Всего осей». */
@@ -746,7 +768,12 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     }
 
     /** Число осей для значения нажатия в таблице бланка (пусто - строка удаляется). */
-    fun setAxlesForPressure(pressure: Double, axles: String) = _state.update { s0 ->
+    fun setAxlesForPressure(pressure: Double, axles: String) {
+        updateAxlesForPressure(pressure, axles)
+        autoCategory()
+    }
+
+    private fun updateAxlesForPressure(pressure: Double, axles: String) = _state.update { s0 ->
         val st = seedRows(s0)
         val idx = st.rows.indexOfFirst { it.pressureText.toFiniteDoubleOrNull() == pressure }
         val clean = axles.filter { it.isDigit() }.take(5)
@@ -764,13 +791,16 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     // ── Таблица ──
     fun addRow() = _state.update { it.copy(rows = it.rows + BrakeRowUi(id = it.nextRowId), nextRowId = it.nextRowId + 1) }
 
-    fun removeRow(id: Int) = _state.update {
-        val left = it.rows.filterNot { r -> r.id == id }
-        it.copy(rows = left.ifEmpty { listOf(BrakeRowUi(id = it.nextRowId)) }, nextRowId = it.nextRowId + 1)
+    fun removeRow(id: Int) {
+        _state.update {
+            val left = it.rows.filterNot { r -> r.id == id }
+            it.copy(rows = left.ifEmpty { listOf(BrakeRowUi(id = it.nextRowId)) }, nextRowId = it.nextRowId + 1)
+        }
+        autoCategory()
     }
 
     fun setRowPressure(id: Int, v: String) = updateRow(id) { it.copy(pressureText = v) }
-    fun setRowAxles(id: Int, v: String) = updateRow(id) { it.copy(axlesText = v) }
+    fun setRowAxles(id: Int, v: String) { updateRow(id) { it.copy(axlesText = v) }; autoCategory() }
 
     private fun updateRow(id: Int, f: (BrakeRowUi) -> BrakeRowUi) = _state.update {
         it.copy(rows = it.rows.map { r -> if (r.id == id) f(r) else r })
@@ -984,7 +1014,6 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         const val DEFAULT_AUTOBLOCK = false
         private const val KEY_COMPOSITE = "composite_share"
         private const val KEY_CATEGORY = "last_category"
-        private const val KEY_CATEGORY_MANUAL = "category_manual"
         val DEFAULT_COMPOSITE = CompositeShare.P100
 
         fun fmtNum(p: Double): String =
@@ -1068,7 +1097,7 @@ fun BrakeCertificateUiState.effectiveRows(): List<BrakeRowUi> =
 fun BrakeCertificateUiState.toData(updatedAt: Long = 0L): BrakeCertificateData {
     fun m(kind: TimerKind, t: DensityTimerState) = DensityMeasurementData(kind.name, t.recordedSec, drop = t.dropText, manual = t.manual, grStart = t.grStartText, grEnd = t.grEndText)
     return BrakeCertificateData(
-        routeId = routeId, trainId = trainId, categoryId = categoryId, grade = grade, slope = slope, autoblock3 = autoblock3, manualNorm = manualOverride,
+        routeId = routeId, trainId = trainId, categoryId = categoryId, categoryManual = categoryManual, grade = grade, slope = slope, autoblock3 = autoblock3, manualNorm = manualOverride,
         station = stationText, issueTime = issueTimeText, date = dateText, locoSeries = locoSeriesText, locoNumber = locoNumberText,
         trainNumber = trainNumberText, weight = weightText, totalAxles = totalAxlesText,
         avgPressure = avgPressureText, rowsMode = rowsMode, rows = rows.map { AxleRowData(it.pressureText, it.axlesText) },
@@ -1093,7 +1122,7 @@ fun BrakeCertificateData.toUiState(base: BrakeCertificateUiState): BrakeCertific
     var next = 0
     val rowUi = rows.map { BrakeRowUi(id = next++, pressureText = it.pressure, axlesText = it.axles) }.ifEmpty { listOf(BrakeRowUi(id = next++)) }
     return base.copy(
-        categoryId = categoryId, slope = slope, autoblock3 = base.autoblock3, manualOverride = manualNorm ?: base.manualOverride,
+        categoryId = categoryId, categoryManual = categoryManual ?: true, slope = slope, autoblock3 = base.autoblock3, manualOverride = manualNorm ?: base.manualOverride,
         stationText = station, issueTimeText = issueTime, dateText = date.ifBlank { base.dateText },
         locoSeriesText = locoSeries, locoNumberText = locoNumber, trainNumberText = trainNumber,
         weightText = weight, totalAxlesText = totalAxles, avgPressureText = avgPressure, rowsMode = rowsMode,

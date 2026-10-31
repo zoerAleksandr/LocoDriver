@@ -332,9 +332,9 @@ internal fun VuTag(text: String, modifier: Modifier = Modifier, color: Color? = 
 
 /** Подсказка-абзац (13, muted). */
 @Composable
-internal fun VuHint(text: String, modifier: Modifier = Modifier, color: Color? = null) {
+internal fun VuHint(text: String, modifier: Modifier = Modifier, color: Color? = null, align: androidx.compose.ui.text.style.TextAlign? = null) {
     val t = vuColors()
-    Text(InstructionRef.annotate(text), modifier = modifier, fontSize = 13.sp, lineHeight = 18.sp, color = color ?: t.muted)
+    Text(InstructionRef.annotate(text), modifier = modifier, fontSize = 13.sp, lineHeight = 18.sp, color = color ?: t.muted, textAlign = align)
 }
 
 /**

@@ -17,6 +17,8 @@ data class BrakeCertificateData(
     val trainId: String? = null,
     // Параметры расчёта
     val categoryId: String = "FREIGHT_LOADED",
+    /** Категория выбрана вручную (автоподбор по номеру и нагрузке на ось её не меняет). null - справка сохранена до появления поля: считается ручной. */
+    val categoryManual: Boolean? = null,
     val grade: GradeClass = GradeClass.UP_TO_006,
     val autoblock3: Boolean = false,
     /** Ручное переопределение нормы ручных осей; null - «Авто» по уклону. */
