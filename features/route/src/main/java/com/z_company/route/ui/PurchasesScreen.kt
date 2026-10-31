@@ -430,6 +430,20 @@ fun PurchasesScreen(
             ) {
                 Spacer(modifier = Modifier.height(4.dp))
 
+                // Автопродление стоит над списком тарифов.
+                val autoRenewBlock: @Composable () -> Unit = {
+                    if (isSubscriptionLoaded && !tariffsLoading && selectedProduct != null) {
+                        AutoRenewSection(
+                            status = recurringStatus,
+                            terms = recurringTerms?.takeIf { it.tariffCode == selectedProduct?.code },
+                            checked = autoRenewChecked,
+                            onCheckedChange = viewModel::setAutoRenewChecked,
+                            formatDate = { converter?.getDate(it) ?: "" },
+                            onDisableClick = { showDisableRecurringDialog = true },
+                        )
+                    }
+                }
+
                 if (!isSubscriptionLoaded) {
                     // Статус подписки ещё грузится — нейтральная шапка + лоадер
                     // тарифов, без вида «неактивной подписки».
@@ -438,6 +452,7 @@ fun PurchasesScreen(
                 } else when (purchaseState) {
                     is PurchaseUi.Paywall -> {
                         ProHeroWithFeatures()
+                        autoRenewBlock()
                         SectionLabel("ВЫБЕРИТЕ ТАРИФ")
                         if (tariffsLoading) TariffsLoading() else PlanList(
                             plans = plans,
@@ -497,6 +512,7 @@ fun PurchasesScreen(
                             WarningBanner(daysLeft = purchaseState.daysLeft)
                         }
 
+                        autoRenewBlock()
                         SectionLabel("ПЕРИОД ПРОДЛЕНИЯ")
                         if (tariffsLoading) {
                             TariffsLoading()
@@ -555,6 +571,7 @@ fun PurchasesScreen(
                             )
                         }
 
+                        autoRenewBlock()
                         SectionLabel("ВЫБЕРИТЕ ТАРИФ")
                         if (tariffsLoading) TariffsLoading() else PlanList(
                             plans = plans,
@@ -564,17 +581,6 @@ fun PurchasesScreen(
                             onSelect = { selectedProduct = it },
                         )
                     }
-                }
-
-                if (isSubscriptionLoaded && !tariffsLoading && selectedProduct != null) {
-                    AutoRenewSection(
-                        status = recurringStatus,
-                        terms = recurringTerms?.takeIf { it.tariffCode == selectedProduct?.code },
-                        checked = autoRenewChecked,
-                        onCheckedChange = viewModel::setAutoRenewChecked,
-                        formatDate = { converter?.getDate(it) ?: "" },
-                        onDisableClick = { showDisableRecurringDialog = true },
-                    )
                 }
 
                 if (referralStatus?.canApplyCode == true) {
@@ -633,7 +639,9 @@ fun PurchasesScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .shadow(elevation = 8.dp)
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Button(
@@ -657,13 +665,6 @@ fun PurchasesScreen(
                     )
                 }
                 Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = ctaNote,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                )
-                Spacer(modifier = Modifier.height(12.dp))
                 OutlinedButton(
                     onClick = { selectedProduct?.let(viewModel::onFallbackPaymentClick) },
                     enabled = !isStartingPayment,
@@ -683,6 +684,13 @@ fun PurchasesScreen(
                         ),
                     )
                 }
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = ctaNote,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
                 Spacer(modifier = Modifier.height(8.dp))
             }
             }
@@ -848,12 +856,6 @@ private fun ProHero(modifier: Modifier = Modifier, flush: Boolean = false) {
                 )
             }
         }
-        Spacer(modifier = Modifier.height(14.dp))
-        Text(
-            text = "Облако, экспорт и безлимит истории. Все поездки под рукой и в безопасности.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
-        )
     }
 }
 
@@ -876,10 +878,6 @@ private fun ProHeroWithFeatures() {
             FeatureRow(
                 iconRes = com.z_company.core.R.drawable.rounded_cloud_upload_24,
                 label = "Облачная копия и синхронизация",
-            )
-            FeatureRow(
-                iconRes = R.drawable.picture_as_pdf_24px,
-                label = "Экспорт в PDF",
             )
             FeatureRow(
                 iconRes = R.drawable.notes_24px,
@@ -1315,7 +1313,7 @@ private fun DateTransitionCard(
             .shadow(elevation = 1.dp, shape = Shapes.medium)
             .clip(Shapes.medium)
             .background(MaterialTheme.colorScheme.surface)
-            .padding(horizontal = 10.dp, vertical = 16.dp),
+            .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -1369,10 +1367,10 @@ private fun DateChunk(
             ),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(modifier = Modifier.height(5.dp))
+        Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = date,
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
             color = if (accent) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
         )
     }
@@ -1433,7 +1431,7 @@ private fun AutoRenewConsentCard(
     val consent = remember(terms.consentText, terms.offerUrl, accent) {
         consentAnnotated(terms.consentText, terms.offerUrl, accent)
     }
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(Shapes.medium)
@@ -1446,22 +1444,26 @@ private fun AutoRenewConsentCard(
             .clickable(role = androidx.compose.ui.semantics.Role.Checkbox) { onCheckedChange(!checked) }
             .padding(start = 4.dp, end = 16.dp, top = 4.dp, bottom = 14.dp)
             .testTag("auto_renew_consent"),
-        verticalAlignment = Alignment.Top,
     ) {
-        Checkbox(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = CheckboxDefaults.colors(checkedColor = accent),
-        )
-        Column(modifier = Modifier.padding(top = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                colors = CheckboxDefaults.colors(checkedColor = accent),
+            )
             Text(
                 text = "Автопродление",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = consent, style = MaterialTheme.typography.bodySmall, color = muted)
         }
+        // Текст согласия — на всю ширину карточки, под чекбоксом.
+        Text(
+            text = consent,
+            style = MaterialTheme.typography.bodySmall,
+            color = muted,
+            modifier = Modifier.padding(start = 12.dp),
+        )
     }
 }
 
