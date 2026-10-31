@@ -109,6 +109,15 @@ object AutoTrainWriter {
         return train.copy(stations = stations)
     }
 
+    /**
+     * Зафиксировано ли прибытие на конечную станцию: станция с флагом «конечная» или (при выбранном плече)
+     * последняя станция - прибытие плеча. Тогда «Автозапись» выключается (SCREEN_SPECS §6.2 п.6а).
+     */
+    fun hasTerminalArrival(train: Train): Boolean {
+        if (train.stations.any { it.isFinalStation && it.timeArrival != null }) return true
+        return train.servicePhase != null && train.stations.size >= 2 && train.stations.last().timeArrival != null
+    }
+
     private fun sameStation(a: String?, b: String?): Boolean =
         !a.isNullOrBlank() && !b.isNullOrBlank() &&
             ServicePhaseStationsMerge.normalizeName(a) == ServicePhaseStationsMerge.normalizeName(b)

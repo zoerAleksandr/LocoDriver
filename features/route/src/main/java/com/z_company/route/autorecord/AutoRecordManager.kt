@@ -156,6 +156,10 @@ class AutoRecordManager(
     private var pointsJob: Job? = null
     private var watchJob: Job? = null
     private var expiryJob: Job? = null
+    private var targetWatchJob: Job? = null
+
+    /** Был ли у цели на момент первого наблюдения уже записан приход на конечную: тогда по нему не выключаемся. */
+    private var terminalBaseline: Pair<String, Boolean>? = null
     private val writeLock = Mutex()
     @Volatile
     private var settings: UserSettings = UserSettings()
@@ -436,8 +440,14 @@ class AutoRecordManager(
         watchJob?.cancel()
         expiryJob?.cancel()
         qualityJob?.cancel()
+        targetWatchJob?.cancel()
+        terminalBaseline = null
         lostSinceMs = null
         lostNotified = false
+        // Цель удалена (поезд или маршрут) / записано прибытие на конечную - выключаемся.
+        targetWatchJob = scope.launch {
+            routeUseCase.getListRoutesAsFlow().catch { }.collect { checkTarget() }
+        }
         qualityJob = scope.launch { GpsRecorder.quality.collect { onQuality(it) } }
 
         pointsJob = scope.launch {
@@ -481,6 +491,8 @@ class AutoRecordManager(
         pointsJob?.cancel()
         watchJob?.cancel()
         expiryJob?.cancel()
+        targetWatchJob?.cancel()
+        terminalBaseline = null
         prefs.edit().remove(KEY_UNTIL).remove(KEY_TARGET).remove(KEY_STOPPED).remove(KEY_STOPPED_SINCE)
             .remove(KEY_INTERRUPTED_UNTIL).putBoolean(KEY_INTERRUPTED, false).apply()
         _target.value = null
@@ -491,6 +503,45 @@ class AutoRecordManager(
         setState(AutoRecordState())
         if (stopService) GpsRecorder.stop(context)
         if (wasEnabled && notifyExpired) showExpiredNotification()
+    }
+
+    /**
+     * Правила автовыключения по цели (SCREEN_SPECS §6.2 п.6а): поезд цели удалён (сам или вместе с маршрутом) либо
+     * в нём записано прибытие на конечную станцию. Проверка под [writeLock], чтобы не гоняться с записью события.
+     */
+    private suspend fun checkTarget() {
+        if (!_state.value.enabled) return
+        val id = prefs.getString(KEY_TARGET, null) ?: return
+        if (id == NO_TRAIN_ID) return
+        writeLock.withLock {
+            if (!_state.value.enabled || prefs.getString(KEY_TARGET, null) != id) return
+            // Свежее чтение из БД, не значение потока: только что созданный поезд-цель мог ещё не дойти до потока.
+            val train = withContext(Dispatchers.Default) {
+                TrainOrdering.findTargetTrain(
+                    routeUseCase.getListRoutes().filter { !it.basicData.isDeleted }.map { it.trains }, id,
+                )
+            }
+            if (train == null) {
+                // Новый поезд открытой формы ещё не сохранён - не удалён.
+                if (editor?.trainId == id) return
+                stopWithNotice("Автозапись выключена: поезд, в который шла запись, удалён")
+                return
+            }
+            val terminal = AutoTrainWriter.hasTerminalArrival(train)
+            val base = terminalBaseline
+            if (base == null || base.first != id) {
+                terminalBaseline = id to terminal
+                return
+            }
+            if (terminal && !base.second) {
+                stopWithNotice("Автозапись выключена: записано прибытие на конечную станцию")
+            }
+        }
+    }
+
+    private fun stopWithNotice(text: String) {
+        stopInternal(notifyExpired = false)
+        notify(EXPIRED_ID, text, launchIntent(enable = false), emptyList())
     }
 
     private var signalDrops = 0
@@ -687,6 +738,11 @@ class AutoRecordManager(
             routeUseCase.getListRoutes().filter { !it.basicData.isDeleted }.map { it.trains }, saved,
         )
         var train = withContext(Dispatchers.Default) { findInDb() }
+        if (train == null && saved != null) {
+            // Поезд цели удалён (сам или с маршрутом) - запись прекращаем, а не переносим в другой поезд.
+            stopWithNotice("Автозапись выключена: поезд, в который шла запись, удалён")
+            return
+        }
         if (train == null) {
             // Цели нет / поезд удалён: правило TrainOrdering на текущем маршруте; пустого поезда нет - он создаётся
             // СРАЗУ и один раз (RecordTargetResolver), чтобы формы и главный экран увидели его через подписку на БД.

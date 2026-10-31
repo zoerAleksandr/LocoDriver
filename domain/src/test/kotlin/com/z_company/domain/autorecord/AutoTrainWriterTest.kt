@@ -156,4 +156,16 @@ class AutoTrainWriterTest {
         assertEquals("В", t.stations[1].stationName)
         assertNull(t.stations[2].timeArrival)
     }
+
+    @Test
+    fun `terminal arrival - flagged final station or last station of phase`() {
+        val phase = ServicePhase(departureStation = "А", arrivalStation = "В", distance = 5)
+        val a = Station(stationName = "А", timeDeparture = base)
+        assertEquals(false, AutoTrainWriter.hasTerminalArrival(train(a, Station(stationName = "В"), phase = phase)))
+        assertEquals(true, AutoTrainWriter.hasTerminalArrival(train(a, Station(stationName = "В", timeArrival = base + min), phase = phase)))
+        // без плеча последняя станция конечной не считается
+        assertEquals(false, AutoTrainWriter.hasTerminalArrival(train(a, Station(stationName = "Б", timeArrival = base + min))))
+        assertEquals(true, AutoTrainWriter.hasTerminalArrival(train(a, Station(stationName = "Б", timeArrival = base + min, isFinalStation = true))))
+        assertEquals(false, AutoTrainWriter.hasTerminalArrival(train(a, Station(stationName = "Б", isFinalStation = true))))
+    }
 }
