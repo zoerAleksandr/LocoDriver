@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- двухтонная: бледный корпус, яркие шапка, кольца и дни (как ic_map_pin_color) -->
+    <path android:fillColor="#000000" android:fillAlpha="0.35" android:pathData="M5,5h14a2,2 0 0 1 2,2v12a2,2 0 0 1 -2,2H5a2,2 0 0 1 -2,-2V7a2,2 0 0 1 2,-2z" />
+    <!-- кант: яркая окантовка по краю страницы -->
+    <path android:fillColor="#000000" android:fillType="evenOdd" android:pathData="M5,5h14a2,2 0 0 1 2,2v12a2,2 0 0 1 -2,2H5a2,2 0 0 1 -2,-2V7a2,2 0 0 1 2,-2zM5,5.7a1.3,1.3 0 0 0 -1.3,1.3v12a1.3,1.3 0 0 0 1.3,1.3h14a1.3,1.3 0 0 0 1.3,-1.3V7a1.3,1.3 0 0 0 -1.3,-1.3z" />
+    <path android:fillColor="#000000" android:pathData="M5,5h14a2,2 0 0 1 2,2v2H3V7a2,2 0 0 1 2,-2z" />
+    <path android:fillColor="#000000" android:pathData="M7,2.5a1,1 0 0 1 2,0V6H7zM15,2.5a1,1 0 0 1 2,0V6h-2z" />
+    <path android:fillColor="#000000" android:pathData="M7,12h2v2H7zM11,12h2v2h-2zM15,12h2v2h-2zM7,16h2v2H7zM11,16h2v2h-2z" />
+</vector>

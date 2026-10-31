@@ -1753,6 +1753,28 @@ fun HomeScreen(
                                     }
                                 )
                             }
+                            // Карточка «ВУ-45» — расчёт справки о тормозах (SCREEN_SPECS §26); данные берутся
+                            // из поезда текущего маршрута (правило «АВТО»), если он есть.
+                            item {
+                                ActionCard(
+                                    title = "ВУ-45",
+                                    iconRes = R.drawable.ic_card_brake,
+                                    iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    iconContent = { com.z_company.route.component.Vu45BlankIcon(size = 62.dp, tint = MaterialTheme.colorScheme.surfaceContainerLow) },
+                                    widthScreen = widthScreen,
+                                    interactionSource = interactionSource,
+                                    onSizeChanged = { size ->
+                                        if (size.height > maxHeightBox) {
+                                            maxHeightBox = size.height
+                                        }
+                                    },
+                                    minHeightDp = maxHeightBox.toDp(),
+                                    onClick = {
+                                        // справка из «Инструментов» открывается пустой; данные подставляет «Заполнить из маршрута»
+                                        onBrakeCertificate(null)
+                                    }
+                                )
+                            }
                             // Плашка «Статистика» — экран сводной статистики
                             item {
                                 ActionCard(
@@ -1768,28 +1790,6 @@ fun HomeScreen(
                                     },
                                     minHeightDp = maxHeightBox.toDp(),
                                     onClick = { onStatistics() }
-                                )
-                            }
-                            // Карточка «ВУ-45» — расчёт справки о тормозах (SCREEN_SPECS §26); данные берутся
-                            // из поезда текущего маршрута (правило «АВТО»), если он есть.
-                            item {
-                                ActionCard(
-                                    title = "ВУ-45",
-                                    iconRes = R.drawable.ic_card_brake,
-                                    iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
-                                    iconContent = { com.z_company.route.component.Vu45Icon(size = 72.dp, tint = MaterialTheme.colorScheme.surfaceContainerLow) },
-                                    widthScreen = widthScreen,
-                                    interactionSource = interactionSource,
-                                    onSizeChanged = { size ->
-                                        if (size.height > maxHeightBox) {
-                                            maxHeightBox = size.height
-                                        }
-                                    },
-                                    minHeightDp = maxHeightBox.toDp(),
-                                    onClick = {
-                                        // справка из «Инструментов» открывается пустой; данные подставляет «Заполнить из маршрута»
-                                        onBrakeCertificate(null)
-                                    }
                                 )
                             }
                             // Карточка "PDF" — открывает диалог формирования PDF
