@@ -182,18 +182,27 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
                     )
                 }
             }
-            val buttons: @Composable () -> Unit = {
+            // «Голос» стоит рядом с «Добавить», а «Готово» - отдельно, у противоположного края (чтобы не нажать по ошибке).
+            val leftButtons: @Composable () -> Unit = {
                 PstButton("Добавить", { showWhere = true }, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
                 PstButton("Голос", onVoice, kind = PstButtonKind.TONAL, height = 40.dp, fontSize = 14)
+            }
+            val doneButton: @Composable () -> Unit = {
                 PstButton("Готово", onDismiss, kind = PstButtonKind.TONAL, height = 40.dp, fontSize = 14)
             }
             if (portrait) {
                 titleBlock(Modifier.fillMaxWidth())
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) { buttons() }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    leftButtons()
+                    androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                    doneButton()
+                }
             } else {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     titleBlock(Modifier.weight(1f))
-                    buttons()
+                    leftButtons()
+                    androidx.compose.foundation.layout.Spacer(Modifier.size(24.dp))
+                    doneButton()
                 }
             }
             // Плечо поезда: то же, что в «Поезде» и «Ограничениях поезда» (выбор плеча, пометка «проверено на карте», кнопка «Определить»).
@@ -438,7 +447,8 @@ internal fun WarningOfferDialog(model: ProfileModel) {
     }
 }
 
-/** «Голос предупреждений»: включение, за сколько метров, как часто повторять, голос и скорость речи. */
+/** «Голос предупреждений» (шторка): включение, за сколько метров, как часто повторять, голос и скорость речи. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 internal fun WarningVoiceDialog(model: ProfileModel, onDismiss: () -> Unit) {
     val settings = model.voiceSettings ?: run { onDismiss(); return }
@@ -448,27 +458,19 @@ internal fun WarningVoiceDialog(model: ProfileModel, onDismiss: () -> Unit) {
     var rate by remember { mutableStateOf(settings.rate) }
     var voiceName by remember { mutableStateOf(settings.voiceName) }
     val voices = remember { model.voices() }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        WarningPanel(widthFraction = 0.75f) {
-            val portrait = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
-            val title: @Composable (Modifier) -> Unit = { m ->
-                Text("Голос ДУ-61", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, modifier = m)
-            }
-            val buttons: @Composable () -> Unit = {
-                PstButton("Проверить", { model.testVoice() }, kind = PstButtonKind.TONAL, height = 40.dp, fontSize = 14)
-                PstButton("Готово", onDismiss, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
-            }
-            if (portrait) {
-                // Вертикально: заголовок над кнопками (в одну строку он не помещается и ломается по буквам).
-                title(Modifier.fillMaxWidth())
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) { buttons() }
-            } else {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    title(Modifier.weight(1f))
-                    buttons()
-                }
-            }
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Pst.bg,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        dragHandle = { PstGrabber() },
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.92f)) {
+            PstSheetHeader(title = "Голос ДУ-61", onClose = onDismiss)
+            Column(
+                Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Chip("Озвучка включена", enabled) { enabled = true; settings.enabled = true }
                     Chip("Выключена", !enabled) { enabled = false; settings.enabled = false }
@@ -500,6 +502,10 @@ internal fun WarningVoiceDialog(model: ProfileModel, onDismiss: () -> Unit) {
                         style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted,
                     )
                 }
+            }
+            PstSheetFooter {
+                PstButton("Проверить", { model.testVoice() }, kind = PstButtonKind.TONAL, modifier = Modifier.fillMaxWidth())
+                PstButton("Готово", onDismiss, kind = PstButtonKind.CTA, modifier = Modifier.fillMaxWidth())
             }
         }
     }
