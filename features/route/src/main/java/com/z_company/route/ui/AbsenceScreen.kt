@@ -77,6 +77,24 @@ fun AbsenceScreen(
 
     Scaffold(
         containerColor = cs.background,
+        topBar = {
+            com.z_company.route.component.ScreenHeader(
+                navigation = { com.z_company.route.component.HeaderBackTile(onBack) },
+                title = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Новое отвлечение", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = cs.primary, maxLines = 1)
+                        Text(
+                            when {
+                                days > 1 -> "Выбран диапазон дат"
+                                days == 1 -> "Выбрана 1 дата"
+                                else -> "Выберите даты"
+                            },
+                            fontSize = 12.sp, color = cs.onSurfaceVariant, maxLines = 1,
+                        )
+                    }
+                },
+            )
+        },
         bottomBar = {
             Box(
                 modifier = Modifier
@@ -120,33 +138,6 @@ fun AbsenceScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
-            // Шапка
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(18.dp))
-                        .clickable { onBack() }
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                ) {
-                    Text("‹ Назад", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = cs.primary)
-                }
-                Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Новое отвлечение", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = cs.primary)
-                    Text(
-                        when {
-                            days > 1 -> "Выбран диапазон дат"
-                            days == 1 -> "Выбрана 1 дата"
-                            else -> "Выберите даты"
-                        },
-                        fontSize = 12.sp, color = cs.onSurfaceVariant,
-                    )
-                }
-                Spacer(Modifier.width(56.dp))
-            }
-
             // Месяц (со стрелками переключения — диапазон можно начать в одном
             // месяце и закончить в другом)
             Row(
