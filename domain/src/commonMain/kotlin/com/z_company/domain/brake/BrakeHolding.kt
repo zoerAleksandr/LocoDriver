@@ -50,10 +50,13 @@ data class HoldingResult(
     val remainingMass: Double,
     /** Потребное число ручных осей; null - ручными тормозами закрепить нельзя (нет нормы) или закреплять нечего. */
     val manualAxles: Int?,
-    /** Вагонов с ручным тормозом на 4 оси без раздельного торможения; null - ручные не нужны/невозможны. */
-    val manualWagons4: Int?,
-    /** Вагонов с ручным тормозом при раздельном торможении (два цилиндра, 2 оси на тормоз). */
-    val manualWagons2: Int?,
+    /** Вагонов, у которых надо затормозить ручной тормоз: ручной тормоз вагона действует на 4 оси; null - ручные не нужны/невозможны. */
+    val manualWagons: Int?,
+    /**
+     * Ручных тормозов, если у вагонов раздельное торможение (два тормозных цилиндра): у такого вагона ДВА ручных тормоза, каждый на 2 оси, - на каждом
+     * из [manualWagons] вагонов затормаживаются оба (всего столько ручных тормозов); null - ручные не нужны/невозможны.
+     */
+    val manualBrakesSplit: Int?,
     /** Закрепление невозможно имеющимися средствами (нет нормы для ручных или осей поезда не хватает). */
     val impossible: Boolean,
     val warnings: List<String>,
@@ -73,7 +76,8 @@ object BrakeHolding {
     private val manualAxles = listOf(0.4, 0.4, 0.4, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8)
 
     const val AXLES_PER_MANUAL_WAGON = 4
-    const val AXLES_PER_MANUAL_WAGON_SPLIT = 2
+    /** При раздельном торможении у вагона два ручных тормоза, каждый действует на 2 оси. */
+    const val AXLES_PER_MANUAL_BRAKE_SPLIT = 2
 
     /** Порог нагрузки на ось, тс: 10 и более - груженый (памятка), менее - порожний. */
     const val LOADED_AXLE_LOAD = 10.0
@@ -112,8 +116,8 @@ object BrakeHolding {
         val warnings = mutableListOf<String>()
 
         var axles: Int? = null
-        var w4: Int? = null
-        var w2: Int? = null
+        var wagons: Int? = null
+        var brakesSplit: Int? = null
         var impossible = false
         if (remaining > EPS) {
             if (kAxle == null) {
@@ -121,8 +125,8 @@ object BrakeHolding {
                 warnings += "На уклоне круче 0,020 ручными тормозами поезд не закрепляется (нормы нет): нужны только башмаки - не хватает ${required - used}."
             } else {
                 axles = ceil(remaining / 100.0 * kAxle - EPS).toInt()
-                w4 = ceil(axles.toDouble() / AXLES_PER_MANUAL_WAGON - EPS).toInt()
-                w2 = ceil(axles.toDouble() / AXLES_PER_MANUAL_WAGON_SPLIT - EPS).toInt()
+                wagons = ceil(axles.toDouble() / AXLES_PER_MANUAL_WAGON - EPS).toInt()
+                brakesSplit = ceil(axles.toDouble() / AXLES_PER_MANUAL_BRAKE_SPLIT - EPS).toInt()
                 input.trainAxles?.let {
                     if (axles > it) {
                         impossible = true
@@ -142,8 +146,8 @@ object BrakeHolding {
             coveredMass = covered,
             remainingMass = remaining,
             manualAxles = axles,
-            manualWagons4 = w4,
-            manualWagons2 = w2,
+            manualWagons = wagons,
+            manualBrakesSplit = brakesSplit,
             impossible = impossible,
             warnings = warnings,
         )

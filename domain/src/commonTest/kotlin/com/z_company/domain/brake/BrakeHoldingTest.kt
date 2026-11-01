@@ -24,13 +24,13 @@ class BrakeHoldingTest {
     }
 
     @Test fun loadedExample_fiveShoes_manualBrakes() {
-        // 5 башмаков закрепляют 833 т; остаток 6567 т -> 106 осей; 27 вагонов по 4 оси (по 2 оси - 53)
+        // 5 башмаков закрепляют 833 т; остаток 6567 т -> 106 осей; 27 вагонов (ручной тормоз на 4 оси); при раздельном торможении - 53 ручных тормоза (по 2 на вагон)
         val r = calc(HoldingInput(7100.0, 300.0, HoldingLoad.LOADED, 18.0, shoesAvailable = 5, trainAxles = 384))
         assertEquals(833.0, r.coveredMass, 0.5)
         assertEquals(6567.0, r.remainingMass, 0.5)
         assertEquals(106, r.manualAxles)
-        assertEquals(27, r.manualWagons4)
-        assertEquals(53, r.manualWagons2)
+        assertEquals(27, r.manualWagons)
+        assertEquals(53, r.manualBrakesSplit)
         assertFalse(r.impossible)
     }
 
@@ -43,7 +43,7 @@ class BrakeHoldingTest {
         assertEquals(313.0, r.coveredMass, 0.5)
         assertEquals(2387.0, r.remainingMass, 0.5)
         assertEquals(39, r.manualAxles)
-        assertEquals(10, r.manualWagons4)
+        assertEquals(10, r.manualWagons)
     }
 
     @Test fun slopeNotInTable_takesNearestGreater() {
