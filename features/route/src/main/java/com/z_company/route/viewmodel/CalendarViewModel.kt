@@ -417,7 +417,7 @@ class CalendarViewModel : ViewModel(), KoinComponent {
                 if (saveResult is ResultState.Success) autoPushSettings()
                 // Синхронизируем объединённый месяц (с отвлечениями) в settings.selectMonthOfYear —
                 // именно оттуда расчёт зарплаты/нормы читает дни, поэтому без этого ×2 за DayOff
-                // не применится. Так же делает SelectReleaseDaysViewModel.
+                // не применится.
                 runCatching {
                     calendarUseCase.loadFlowMonthOfYearListState().first()
                         .find { it.year == m.year && it.month == m.month }

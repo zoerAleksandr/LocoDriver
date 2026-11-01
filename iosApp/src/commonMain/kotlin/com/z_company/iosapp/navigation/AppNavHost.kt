@@ -85,8 +85,5 @@ fun AppNavHost() {
         composable(AllRouteScreenRoute.route) {
             StubScreen(title = "Все маршруты", router = router)
         }
-        composable(SelectReleaseDaysScreenRoute.route) {
-            StubScreen(title = "Дни отдыха", router = router)
-        }
     }
 }

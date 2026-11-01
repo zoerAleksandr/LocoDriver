@@ -1,5 +1,8 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.HeaderBackTile
+import com.z_company.route.component.HeaderTextTile
+import com.z_company.route.component.ScreenHeader
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -157,33 +160,16 @@ fun FormOtherWorkScreen(
             }
         },
         topBar = {
-            CenterAlignedTopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                ),
-                title = {
-                    Text(
-                        text = "Прочая работа",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Medium
-                        ),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                },
-                navigationIcon = {
-                    TextButton(
+            ScreenHeader(
+                title = "Прочая работа",
+                navigation = {
+                    HeaderBackTile(
                         onClick = {
                             keyboardController?.hide()
                             focusManager.clearFocus()
                             onExit()
                         },
-                    ) {
-                        Text(
-                            text = "Готово",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.tertiary,
-                        )
-                    }
+                    )
                 },
             )
         }

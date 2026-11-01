@@ -1,5 +1,9 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.HeaderTile
+import com.z_company.route.component.HeaderTextTile
+import com.z_company.route.component.HeaderBackTile
+import com.z_company.route.component.ScreenHeader
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -331,83 +335,69 @@ fun SettingsScreen(
             // и раньше был у стрелки). Справочники (Серии/Станции/Плечи/
             // Напарники — списки и их редакторы) сохраняют старое поведение.
             if (currentSubScreen in SETTINGS_CENTERED_DONE_SCREENS) {
-                CenterAlignedTopAppBar(
-                    navigationIcon = {
-                        TextButton(onClick = {
-                            if (currentSubScreen == SettingsSubScreen.NORMA_MONTH) {
-                                currentSubScreen = SettingsSubScreen.NORMA
-                            } else if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
-                        }) {
-                            Text(
-                                text = "Готово",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.tertiary,
-                            )
-                        }
-                    },
-                    title = {
-                        Text(
-                            text = currentSubScreen.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary
+                ScreenHeader(
+                    title = currentSubScreen.title,
+                    navigation = {
+                        HeaderBackTile(
+                            onClick = {
+                                if (currentSubScreen == SettingsSubScreen.NORMA_MONTH) {
+                                    currentSubScreen = SettingsSubScreen.NORMA
+                                } else if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
+                            },
                         )
                     },
                     actions = {
                         if (currentSubScreen == SettingsSubScreen.NORMA_MONTH) {
-                            Box(Modifier.padding(end = 12.dp)) {
-                                Box(
-                                    Modifier.coachAnchor(
-                                        normTourAnchors.getValue(com.z_company.domain.onboarding.NormMonthTourStep.HELP)
+                            Box(
+                                Modifier.coachAnchor(
+                                    normTourAnchors.getValue(com.z_company.domain.onboarding.NormMonthTourStep.HELP)
+                                )
+                            ) {
+                                HeaderTile(onClick = { normTourOpen = true }, description = "Подсказки") {
+                                    Text(
+                                        "?",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
-                                ) {
-                                    com.z_company.route.component.servicephase.MapButton(
-                                        onClick = { normTourOpen = true },
-                                        description = "Подсказки",
-                                        size = 40.dp,
-                                    ) {
-                                        Text(
-                                            "?",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
                                 }
                             }
                         }
                     },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors().copy(
-                        containerColor = Color.Transparent,
-                    )
                 )
             } else {
-                CenterAlignedTopAppBar(
-                    navigationIcon = {
+                ScreenHeader(
+                    title = when (currentSubScreen) {
+                        SettingsSubScreen.SERIES_EDITOR -> {
+                            if (selectedSeriesId != null)
+                                seriesListViewModel?.seriesFlow?.collectAsState()?.value
+                                    ?.find { it.seriesId == selectedSeriesId }?.name
+                                    ?: "Новая серия"
+                            else "Новая серия"
+                        }
+                        else -> currentSubScreen.title
+                    },
+                    navigation = {
                         val isEditor = currentSubScreen == SettingsSubScreen.STATION_EDITOR ||
                             currentSubScreen == SettingsSubScreen.SERIES_EDITOR
                         if (isEditor) {
-                            // В редакторе станции/серии — синий «Готово» (как в форме
-                            // маршрута): сохраняет и возвращает к списку.
-                            TextButton(onClick = {
-                                when (currentSubScreen) {
-                                    SettingsSubScreen.STATION_EDITOR -> {
-                                        activeStationEditor?.commit()
-                                        if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.STATION_LIST
+                            // В редакторе станции/серии — «Готово» (как в форме маршрута): сохраняет и возвращает к списку.
+                            HeaderBackTile(
+                                onClick = {
+                                    when (currentSubScreen) {
+                                        SettingsSubScreen.STATION_EDITOR -> {
+                                            activeStationEditor?.commit()
+                                            if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.STATION_LIST
+                                        }
+                                        SettingsSubScreen.SERIES_EDITOR -> {
+                                            activeSeriesEditor?.commit()
+                                            if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.SERIES_LIST
+                                        }
+                                        else -> {}
                                     }
-                                    SettingsSubScreen.SERIES_EDITOR -> {
-                                        activeSeriesEditor?.commit()
-                                        if (editorEnteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.SERIES_LIST
-                                    }
-                                    else -> {}
-                                }
-                            }) {
-                                Text(
-                                    text = "Готово",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.tertiary,
-                                )
-                            }
+                                },
+                            )
                         } else if (currentSubScreen != SettingsSubScreen.HUB) {
-                            IconButton(onClick = {
+                            HeaderBackTile(onClick = {
                                 when (currentSubScreen) {
                                     SettingsSubScreen.PARTNER_EDITOR -> {
                                         activePartnerEditor?.save()
@@ -415,35 +405,9 @@ fun SettingsScreen(
                                     }
                                     else -> if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
                                 }
-                            }) {
-                                Icon(
-                                    painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back),
-                                    contentDescription = "Назад",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
+                            })
                         }
                     },
-                    title = {
-                        val titleText = when (currentSubScreen) {
-                            SettingsSubScreen.SERIES_EDITOR -> {
-                                if (selectedSeriesId != null)
-                                    seriesListViewModel?.seriesFlow?.collectAsState()?.value
-                                        ?.find { it.seriesId == selectedSeriesId }?.name
-                                        ?: "Новая серия"
-                                else "Новая серия"
-                            }
-                            else -> currentSubScreen.title
-                        }
-                        Text(
-                            text = titleText,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors().copy(
-                        containerColor = Color.Transparent,
-                    )
                 )
             }
         }

@@ -1,5 +1,9 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.HeaderBackTile
+import com.z_company.route.component.HeaderTile
+import com.z_company.route.component.HeaderTextTile
+import com.z_company.route.component.ScreenHeader
 import com.z_company.domain.autorecord.TrainOrdering
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -550,13 +554,10 @@ fun FormScreen(
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                ),
-                title = {
+            ScreenHeader(
+                title = run {
                     val routeNumber = currentRoute?.basicData?.number
-                    val titleText = when {
+                    when {
                         // Маршрут создаётся (новый или копия) — «Новый маршрут»
                         isNewRoute || isCopy -> "Новый маршрут"
                         // Открыт повторно без номера — «Маршрут б/н»
@@ -564,31 +565,15 @@ fun FormScreen(
                         // Открыт повторно с номером — «Маршрут · №N»
                         else -> "Маршрут · №$routeNumber"
                     }
-                    Text(
-                        text = titleText,
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
-                        ),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
                 },
-                navigationIcon = {
-                    TextButton(onClick = viewModel::onSaveClick) {
-                        Text(
-                            text = "Готово",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.tertiary,
-                        )
-                    }
-                },
+                navigation = { HeaderBackTile(viewModel::onSaveClick) },
                 actions = {
-                    // Шестерёнка ведёт на экран настроек формы маршрута
-                    // (Настройки → Маршрут).
-                    IconButton(onClick = onFormSettingsClick) {
+                    // Шестерёнка ведёт на экран настроек формы маршрута (Настройки → Маршрут).
+                    HeaderTile(onClick = onFormSettingsClick, description = "Настройки маршрута") {
                         Icon(
                             painter = painterResource(R.drawable.settings_24px),
-                            contentDescription = "Настройки маршрута",
-                            tint = MaterialTheme.colorScheme.primary
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
                         )
                     }
                 },

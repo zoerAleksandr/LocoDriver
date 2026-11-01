@@ -1,5 +1,9 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.HeaderTile
+import com.z_company.route.component.HeaderTextTile
+import com.z_company.route.component.HeaderBackTile
+import com.z_company.route.component.ScreenHeader
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Canvas
@@ -243,66 +247,46 @@ fun AllRouteScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             Column {
-                CenterAlignedTopAppBar(
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                ),
-                navigationIcon = {
-                    if (isSelectionMode) {
-                        // Выделить все видимые маршруты / снять выделение со всех.
-                        TextButton(onClick = { viewModel.toggleSelectAll() }) {
-                            Text(
-                                text = if (isAllSelected) "Снять" else "Все",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                            )
+                ScreenHeader(
+                    title = if (isSelectionMode) "Выбрано: ${selectedIds.size}" else "Маршруты",
+                    navigation = {
+                        if (isSelectionMode) {
+                            // Выделить все видимые маршруты / снять выделение со всех.
+                            HeaderTextTile(if (isAllSelected) "Снять" else "Все", { viewModel.toggleSelectAll() }, color = MaterialTheme.colorScheme.surfaceContainerLow)
+                        } else {
+                            HeaderBackTile(onBack)
                         }
-                    } else {
-                        IconButton(onClick = onBack) {
-                            Text("‹", style = MaterialTheme.typography.headlineLarge,
-                                color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                },
-                title = {
-                    Text(
-                        text = if (isSelectionMode) "Выбрано: ${selectedIds.size}"
-                        else "Маршруты",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                },
-                actions = {
-                    // Красный индикатор: фоновая синхронизация не достучалась до сервера.
-                    if (state.isOffline) {
-                        IconButton(onClick = {
-                            coroutineScope.launch {
-                                snackbarHostState.currentSnackbarData?.dismiss()
-                                snackbarHostState.showSnackbar("Нет связи с сервером")
+                    },
+                    actions = {
+                        // Красный индикатор: фоновая синхронизация не достучалась до сервера.
+                        if (state.isOffline) {
+                            HeaderTile(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        snackbarHostState.currentSnackbarData?.dismiss()
+                                        snackbarHostState.showSnackbar("Нет связи с сервером")
+                                    }
+                                },
+                                description = "Нет связи с сервером",
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_offline_24px),
+                                    contentDescription = "Нет связи с сервером",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(22.dp)
+                                )
                             }
-                        }) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_offline_24px),
-                                contentDescription = "Нет связи с сервером",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(22.dp)
-                            )
                         }
-                    }
-                    // Вход/выход из режима множественного выбора.
-                    TextButton(
-                        onClick = {
-                            if (isSelectionMode) viewModel.exitSelectionMode()
-                            else viewModel.enterSelectionMode()
-                        }
-                    ) {
-                        Text(
+                        // Вход/выход из режима множественного выбора.
+                        HeaderTextTile(
                             text = if (isSelectionMode) "Готово" else "Выбрать",
-                            style = MaterialTheme.typography.bodyMedium,
+                            onClick = {
+                                if (isSelectionMode) viewModel.exitSelectionMode()
+                                else viewModel.enterSelectionMode()
+                            },
                             color = MaterialTheme.colorScheme.surfaceContainerLow,
                         )
-                    }
-                },
+                    },
                 )
             }
         },
