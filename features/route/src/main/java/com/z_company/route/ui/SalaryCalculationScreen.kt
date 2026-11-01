@@ -932,7 +932,7 @@ private fun DataCell(cell: CellVal, width: Dp, type: ColType, alignStart: Boolea
             // Сумма справочной строки отступает от правого края, чтобы не стоять в одной колонке с выплатами.
             end = if (cell.note && type == ColType.MONEY) 18.dp else 4.dp,
             top = if (cell.note) 0.dp else 13.dp,
-            bottom = if (cell.note) 9.dp else if (tightBottom) 3.dp else 13.dp,
+            bottom = if (cell.note) (if (tightBottom) 2.dp else 9.dp) else if (tightBottom) 3.dp else 13.dp,
         ),
         contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.CenterEnd,
     ) {
@@ -999,30 +999,36 @@ private fun AccrualsCard(
         PayColumn("СУММА", ColType.MONEY),
     )
     val accrualRows = buildAccrualRows(uiState)
+    val mileage = accrualRows.filter { it.paymentId == SalaryPaymentId.LINEAR_MILEAGE }
+    val mileagePrefix = "Доплата за пробег: "
     val rows = accrualRows.flatMapIndexed { index, row ->
-        val main = listOf(
-            CellVal(PayrollPaymentCatalog[row.paymentId].codeLabel, faint = PayrollPaymentCatalog[row.paymentId].codes.isEmpty()),
-            CellVal(row.title),
-            CellVal(row.hours?.let { convertTimeToStringFormat(it) } ?: "—", faint = row.hours == null),
-            CellVal(row.percent?.let { formatPercent(it) } ?: "—", faint = row.percent == null),
-            CellVal(formatMoney(row.money)),
+        fun main(r: AccrualRow, title: String = r.title) = listOf(
+            CellVal(PayrollPaymentCatalog[r.paymentId].codeLabel, faint = PayrollPaymentCatalog[r.paymentId].codes.isEmpty()),
+            CellVal(title),
+            CellVal(r.hours?.let { convertTimeToStringFormat(it) } ?: "—", faint = r.hours == null),
+            CellVal(r.percent?.let { formatPercent(it) } ?: "—", faint = r.percent == null),
+            CellVal(formatMoney(r.money)),
         )
-        // Справочный итог по 011L: после последней из нескольких строк пробега.
-        val mileage = accrualRows.filter { it.paymentId == SalaryPaymentId.LINEAR_MILEAGE }
-        val isLastMileage = row.paymentId == SalaryPaymentId.LINEAR_MILEAGE &&
-            accrualRows.drop(index + 1).none { it.paymentId == SalaryPaymentId.LINEAR_MILEAGE }
-        if (isLastMileage && mileage.size > 1) {
-            listOf(
-                main,
-                listOf(
-                    CellVal("", note = true),
-                    CellVal("Всего по ${PayrollPaymentCatalog[SalaryPaymentId.LINEAR_MILEAGE].codeLabel}", note = true),
-                    CellVal("", note = true),
-                    CellVal("", note = true),
-                    CellVal(formatMoney(mileage.sumOf { it.money ?: 0.0 }), note = true),
-                ),
-            )
-        } else listOf(main)
+        when {
+            // Несколько плеч с 011L: одна строка с общей суммой, ниже мелко - сумма по каждому плечу.
+            row.paymentId == SalaryPaymentId.LINEAR_MILEAGE && mileage.size > 1 -> {
+                if (accrualRows.take(index).any { it.paymentId == SalaryPaymentId.LINEAR_MILEAGE }) {
+                    emptyList()
+                } else {
+                    listOf(main(row.copy(title = "Доплата за пробег", money = mileage.sumOf { it.money ?: 0.0 }))) +
+                        mileage.map { leg ->
+                            listOf(
+                                CellVal("", note = true),
+                                CellVal(leg.title.removePrefix(mileagePrefix), note = true),
+                                CellVal("", note = true),
+                                CellVal("", note = true),
+                                CellVal(formatMoney(leg.money), note = true),
+                            )
+                        }
+                }
+            }
+            else -> listOf(main(row))
+        }
     }
 
     PayCard {
