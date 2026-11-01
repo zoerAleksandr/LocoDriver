@@ -32,6 +32,7 @@ import com.z_company.route.navigation.ScheduleWizardRoute
 import com.z_company.route.navigation.AbsenceRoute
 import com.z_company.route.navigation.StatisticsRoute
 import com.z_company.route.navigation.BrakeCertificateRoute
+import com.z_company.route.navigation.BrakeHoldingRoute
 import com.z_company.route.navigation.login.LogInScreenRoute
 import com.z_company.route.navigation.login.SignInScreenRoute
 
@@ -201,6 +202,10 @@ class RouterImpl(
 
     override fun showAbsence() {
         requireNavController().navigate(AbsenceRoute.route)
+    }
+
+    override fun showBrakeHolding(prefill: com.z_company.domain.brake.BrakePrefill?) {
+        requireNavController().navigate(BrakeHoldingRoute.buildRoute(prefill))
     }
 
     override fun showBrakeCertificate(prefill: com.z_company.domain.brake.BrakePrefill?) {

@@ -251,6 +251,7 @@ fun HomeScreen(
     onConsentSettings: () -> Unit = {},
     onStatistics: () -> Unit = {},
     onBrakeCertificate: (com.z_company.domain.brake.BrakePrefill?) -> Unit = {},
+    onBrakeHolding: (com.z_company.domain.brake.BrakePrefill?) -> Unit = {},
     normaHours: Int? = null,
     unsyncedRoutesCount: Int = 0,
     hasActiveSubscription: Boolean = false,
@@ -1773,6 +1774,24 @@ fun HomeScreen(
                                         // справка из «Инструментов» открывается пустой; данные подставляет «Заполнить из маршрута»
                                         onBrakeCertificate(null)
                                     }
+                                )
+                            }
+                            // Карточка «Закрепление» - башмаки и ручные тормоза при вынужденной остановке (SCREEN_SPECS §27)
+                            item {
+                                ActionCard(
+                                    title = "Закрепление",
+                                    iconRes = R.drawable.ic_card_brake,
+                                    iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    iconContent = { com.z_company.route.component.HoldingIcon(size = 62.dp, tint = MaterialTheme.colorScheme.surfaceContainerLow) },
+                                    widthScreen = widthScreen,
+                                    interactionSource = interactionSource,
+                                    onSizeChanged = { size ->
+                                        if (size.height > maxHeightBox) {
+                                            maxHeightBox = size.height
+                                        }
+                                    },
+                                    minHeightDp = maxHeightBox.toDp(),
+                                    onClick = { onBrakeHolding(null) }
                                 )
                             }
                             // Плашка «Статистика» — экран сводной статистики

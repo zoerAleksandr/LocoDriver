@@ -190,6 +190,7 @@ fun FormTrainScreen(
     onDeleteServicePhase: (ServicePhase) -> Unit = {},
     dateAndTimeConverter: DateAndTimeConverter?,
     onBrakeCertificateClick: () -> Unit = {},
+    onBrakeHoldingClick: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -2273,6 +2274,7 @@ fun FormTrainScreen(
                     onboardingHints.markShown(com.z_company.domain.onboarding.HintId.TRAIN_VU45)
                     onBrakeCertificateClick()
                 },
+                onBrakeHoldingClick = onBrakeHoldingClick,
                 vuAnchor = vuAnchor,
                 restrictionsAnchor = restrictionsAnchor,
                 onRestrictionsClick = {
@@ -2357,13 +2359,14 @@ private fun TrainBottomAppBar(
     onRestrictionsClick: () -> Unit,
     restrictionsCount: Int = 0,
     onBrakeCertificateClick: () -> Unit,
+    onBrakeHoldingClick: () -> Unit = {},
     mapAnchor: com.z_company.route.component.CoachAnchor? = null,
     vuAnchor: com.z_company.route.component.CoachAnchor? = null,
     restrictionsAnchor: com.z_company.route.component.CoachAnchor? = null,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
-        // Шесть равных по ширине слотов (weight 1): центры кнопок равноудалены (шаг = ширина/5),
+        // Семь равных по ширине слотов (weight 1): центры кнопок равноудалены (шаг = ширина/6),
         // большая «+» (самая правая) не нарушает шаг, т.к. центрируется в своём слоте.
         Row(
             modifier = Modifier
@@ -2418,6 +2421,16 @@ private fun TrainBottomAppBar(
                     contentDescription = "Справка ВУ-45",
                     active = false,
                     onClick = onBrakeCertificateClick,
+                )
+            }
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                TrainBottomIconButton(
+                    modifier = Modifier.width(48.dp),
+                    iconRes = com.z_company.route.R.drawable.ic_card_brake,
+                    iconContent = { com.z_company.route.component.HoldingIcon(size = 28.dp, tint = MaterialTheme.colorScheme.primary) },
+                    contentDescription = "Закрепление поезда",
+                    active = false,
+                    onClick = onBrakeHoldingClick,
                 )
             }
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {

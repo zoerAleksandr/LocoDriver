@@ -232,6 +232,13 @@ object BrakeCertificateRoute: AppRoutes("BrakeCertificateRoute") {
         return if (parts.isEmpty()) basicRoute else "$basicRoute?${parts.joinToString("&")}"
     }
 }
+/** «Закрепление поезда»: те же параметры предзаполнения, что у справки ВУ-45 (вес, оси, локомотив). */
+object BrakeHoldingRoute: AppRoutes("BrakeHoldingRoute") {
+    override val route: String = BrakeCertificateRoute.route.replace("BrakeCertificateRoute", basicRoute)
+    val navArguments = BrakeCertificateRoute.navArguments
+    fun getPrefill(backStackEntry: NavBackStackEntry) = BrakeCertificateRoute.getPrefill(backStackEntry)
+    fun buildRoute(p: com.z_company.domain.brake.BrakePrefill?): String = BrakeCertificateRoute.buildRoute(p).replaceFirst(BrakeCertificateRoute.basicRoute, basicRoute)
+}
 object CalendarRoute: AppRoutes("CalendarRoute")
 object ScheduleWizardRoute: AppRoutes("ScheduleWizardRoute")
 object AbsenceRoute: AppRoutes("AbsenceRoute")
