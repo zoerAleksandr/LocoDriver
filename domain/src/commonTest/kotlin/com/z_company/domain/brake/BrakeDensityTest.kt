@@ -13,7 +13,7 @@ class BrakeDensityTest {
         assertEquals(46.0, BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 230, null))
         assertEquals(98.0, BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 100, null))
         assertEquals(45.0, BrakeDensity.minTimeSeconds(DensityLocoGroup.G7, 480, null))
-        // колонка 481-530 (табл. IV.1 Правил): 1000 л -> 11 с, 1800 л -> 20 с, 3000 л -> 33 с
+        // колонка 481-530 (табл. 4 п. 9.3.3 Правил): 1000 л -> 11 с, 1800 л -> 20 с, 3000 л -> 33 с
         assertEquals(20.0, BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 481, null))
         assertEquals(11.0, BrakeDensity.minTimeSeconds(DensityLocoGroup.G1, 530, null))
         assertEquals(33.0, BrakeDensity.minTimeSeconds(DensityLocoGroup.G7, 500, null))
@@ -27,9 +27,10 @@ class BrakeDensityTest {
 
     @Test
     fun chargePressureReducesNorm() {
-        // Правила: только 0,52-0,54 МПа (5,3-5,5 кгс/см2) -> минус 10 %; поправка «-20 % при 5,6-5,8» из Инструкции 277 удалена
+        // Правила 2025 г. (прим. 1 к табл. 4 п. 9.3.3): 0,52-0,55 МПа (5,3-5,6 кгс/см2) -> минус 10 %; поправка «-20 % при 5,6-5,8» из Инструкции 277 не применяется
         assertEquals(46.0, BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 230, 5.7))
         assertEquals(46.0, BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 230, 5.8))
+        assertEquals(46.0 * 0.9, BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 230, 5.6))
         assertEquals(46.0 * 0.9, BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 230, 5.4))
         assertEquals(46.0 * 0.9, BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 230, 5.3))
         assertEquals(46.0 * 0.9, BrakeDensity.minTimeSeconds(DensityLocoGroup.G4, 230, 5.5))
@@ -93,14 +94,15 @@ class BrakeDensityTest {
     fun passengerDensity() {
         assertEquals(BrakeDensity.Verdict.OK, BrakeDensity.assessPassenger(60.0, 0.2).verdict)
         assertEquals(BrakeDensity.Verdict.FAIL, BrakeDensity.assessPassenger(60.0, 0.25).verdict)
-        assertEquals(BrakeDensity.Verdict.OK, BrakeDensity.assessPassenger(150.0, 0.5).verdict)
-        assertEquals(BrakeDensity.Verdict.FAIL, BrakeDensity.assessPassenger(150.0, 0.55).verdict)
+        // п. 9.3.5 Правил 2025 г.: не более 0,2 кгс/см2 за 60 с; вариант «0,5 за 2,5 мин» из Правил 2014 г. не сохранён
+        assertEquals(BrakeDensity.Verdict.FAIL, BrakeDensity.assessPassenger(150.0, 0.5).verdict)
+        assertEquals(BrakeDensity.Verdict.OK, BrakeDensity.assessPassenger(150.0, 0.2).verdict)
         assertEquals(BrakeDensity.Verdict.NO_NORM, BrakeDensity.assessPassenger(40.0, 0.1).verdict)
     }
 
     @Test
     fun tailPressure() {
-        // п. 48 а)-в) Правил: отклонение от зарядного не более 0,3 (до 300 осей), 0,5 (300-400), 0,7 (более 400)
+        // п. 9.3.3 а)-в) Правил: отклонение от зарядного не более 0,3 (до 300 осей), 0,5 (300-400), 0,7 (более 400)
         assertEquals(4.7, BrakeDensity.minTailPressure(5.0, 200))
         assertEquals(4.7, BrakeDensity.minTailPressure(5.0, 300))
         assertEquals(4.5, BrakeDensity.minTailPressure(5.0, 301))
@@ -244,8 +246,9 @@ class BrakeTurnaroundTest {
 
     @Test
     fun noMinusTwentyPercentCorrection() {
-        for (c in listOf(4.8, 5.2, 5.6, 5.7, 5.8)) assertEquals(1.0, BrakeDensity.chargeFactor(c), "$c")
+        for (c in listOf(4.8, 5.2, 5.7, 5.8)) assertEquals(1.0, BrakeDensity.chargeFactor(c), "$c")
         assertEquals(0.9, BrakeDensity.chargeFactor(5.4))
+        assertEquals(0.9, BrakeDensity.chargeFactor(5.6))
     }
 
     @Test

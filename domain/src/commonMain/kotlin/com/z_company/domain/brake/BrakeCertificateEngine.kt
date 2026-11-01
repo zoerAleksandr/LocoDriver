@@ -80,7 +80,7 @@ object BrakeCertificateEngine {
         }
     }
 
-    /** Итоговая группа плотности: свой объём ГР (прим. 3 к табл. IV.1) > выбранная вручную > автоподбор по серии и номеру локомотива. */
+    /** Итоговая группа плотности: свой объём ГР (прим. 4 к табл. 4 п. 9.3.3) > выбранная вручную > автоподбор по серии и номеру локомотива. */
     fun effectiveDensityGroup(d: BrakeCertificateData): DensityLocoGroup? =
         if (d.customVolume.isNotBlank()) (BrakeDensity.groupByVolume(d.customVolume) as? BrakeDensity.VolumeGroup.Found)?.group
         else d.densityGroup ?: BrakeDensity.groupForLoco(d.locoSeries, d.locoNumber)

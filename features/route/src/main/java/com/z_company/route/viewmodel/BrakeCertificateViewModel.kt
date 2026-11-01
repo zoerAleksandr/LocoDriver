@@ -89,7 +89,7 @@ data class BrakeCertificateUiState(
     val categoryId: String = "FREIGHT_LOADED",
     val slope: SlopeStep = SlopeStep.S006,
     val autoblock3: Boolean = false,
-    /** Ручное переопределение нормы ручных осей (запоминается); null - «Авто» по уклону (табл. III.4, не менее 0,6). */
+    /** Ручное переопределение нормы ручных осей (запоминается); null - «Авто» по уклону (табл. 4 прил. 2, не менее 0,6). */
     val manualOverride: BrakeNorms.ManualBrakeNorm? = null,
     // Шапка бланка
     val stationText: String = "",
@@ -845,10 +845,10 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
 
     // ── Плотность ──
     fun setChargePressure(v: String) = _state.update { it.copy(chargePressureText = v) }
-    /** Выбор группы по табл. IV.1 вручную сбрасывает свой объём. */
+    /** Выбор группы по табл. 4 п. 9.3.3 вручную сбрасывает свой объём. */
     fun setDensityGroup(g: DensityLocoGroup?) = _state.update { it.copy(densityGroup = g, customVolumeText = "", volumeAuto = false) }
 
-    /** Свой объём ГР, л: группа определяется по прим. 3 к табл. IV.1 (ближайший наименьший объём). Пусто - свой объём не задан. */
+    /** Свой объём ГР, л: группа определяется по прим. 4 к табл. 4 п. 9.3.3 (ближайший наименьший объём). Пусто - свой объём не задан. */
     fun setCustomVolume(v: String) {
         _state.update { it.copy(customVolumeText = v, volumeAuto = false, densityGroup = if (v.isBlank()) it.densityGroup else null) }
         scheduleSeriesWriteBack(SeriesPassportField.VOLUME)
@@ -1136,7 +1136,7 @@ fun BrakeCertificateData.toUiState(base: BrakeCertificateUiState): BrakeCertific
     )
 }
 
-/** Итоговая группа плотности: свой объём ГР (прим. 3 к табл. IV.1) > выбранная вручную > автоподбор по серии и номеру локомотива из маршрута. */
+/** Итоговая группа плотности: свой объём ГР (прим. 4 к табл. 4 п. 9.3.3) > выбранная вручную > автоподбор по серии и номеру локомотива из маршрута. */
 fun BrakeCertificateUiState.effectiveDensityGroup(): DensityLocoGroup? =
     if (customVolumeText.isNotBlank()) (BrakeDensity.groupByVolume(customVolumeText) as? BrakeDensity.VolumeGroup.Found)?.group
     else densityGroup ?: BrakeDensity.groupForLoco(locoSeriesText, locoNumberText)

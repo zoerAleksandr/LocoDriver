@@ -27,7 +27,7 @@ class BrakeStatusTest {
         val st = BrakeStatusResolver.resolve(r, true)
         assertEquals(StatusLevel.WARNING, st.level)
         assertTrue(st.headline.startsWith("Не хватает 1,5 тс на 100 тс веса; скорость не снижена"), st.headline)
-        assertTrue(st.headline.contains("п. 31 прил. 2 Правил ТО тормозного оборудования"))
+        assertTrue(st.headline.contains("п. 3.4 прил. 2 Правил ТО тормозного оборудования"))
     }
 
     @Test fun shortButSpeedKept_composite100_boundary30() {
@@ -51,7 +51,7 @@ class BrakeStatusTest {
     }
 
     @Test fun composite50_boundary32() {
-        // п. 31 Правил: К-50 - не менее 32 тс на 100 тс веса, скорость не снижается (до 80)
+        // п. 3.4 прил. 2 Правил: К-50 - не менее 32 тс на 100 тс веса, скорость не снижается (до 80)
         assertEquals(StatusLevel.WARNING, BrakeStatusResolver.resolve(calc(32.0, CompositeShare.P50), true).level)
         assertEquals(StatusLevel.DANGER, BrakeStatusResolver.resolve(calc(31.9, CompositeShare.P50), true).level)
         // К-75: 31, К-100: 30
@@ -60,16 +60,38 @@ class BrakeStatusTest {
     }
 
     @Test fun headAndTailJoinedTrain_minSpeeds() {
-        // табл. III.2 Правил, «28 | 65 | 50 | (50)»
+        // табл. 2 прил. 2 Правил, «28 | 65 | 50 | (50)»
         val c = BrakeNorms.category("HEAD_TAIL_12")!!
         assertEquals(listOf<Int?>(65, 50, 50), c.minSpeeds)
         assertEquals(28, c.minNorm)
     }
 
+    @Test fun categories_followTable1_2025() {
+        // нумерация строк табл. 1 прил. 2 Правил 2025 г.: порожние 350-520 - 15.1/15.2, соединённые и повышенного веса - 15.3-15.7
+        assertEquals("15.1", BrakeNorms.category("EMPTY_350_400")!!.tableRow)
+        assertEquals("15.2", BrakeNorms.category("EMPTY_400_520")!!.tableRow)
+        assertEquals("15.3", BrakeNorms.category("JOINED_SEPARATE")!!.tableRow)
+        assertEquals("15.4", BrakeNorms.category("HEAD_TAIL_12")!!.tableRow)
+        assertEquals("15.5", BrakeNorms.category("JOINED_UNITED")!!.tableRow)
+        assertEquals("15.6", BrakeNorms.category("HEAD_THIRD_16")!!.tableRow)
+        assertEquals("15.7", BrakeNorms.category("JOINED_EMPTY_800")!!.tableRow)
+        // 15.5: до 14,2 тыс. тс - 33; 75(80)/65; табл. 2 (стр. 16): 28; 55, 55, (50)
+        val u = BrakeNorms.category("JOINED_UNITED")!!
+        assertEquals(listOf(33, 75, 80, 65), listOf(u.norm, u.vFlat, u.vFlatAutoblock, u.vSteep))
+        assertEquals(listOf<Int?>(55, 55, 50), u.minSpeeds)
+        // 15.7: 33; 70(80)/60; табл. 2 (стр. 18): 28; 60, 60, (55)
+        val e = BrakeNorms.category("JOINED_EMPTY_800")!!
+        assertEquals(listOf(33, 70, 80, 60), listOf(e.norm, e.vFlat, e.vFlatAutoblock, e.vSteep))
+        assertEquals(28, e.minNorm)
+        assertEquals(listOf<Int?>(60, 60, 55), e.minSpeeds)
+        assertEquals(BrakeNorms.categories.size, BrakeNorms.categories.map { it.id }.toSet().size)
+    }
+
     @Test fun blankAxlePressures_haveFormRows() {
-        // форма ВУ-45 (808-2022 прил. М): в том числе 7,5 и 9,5
+        // форма ВУ-45 (прил. 1 Правил 2025 г.): в том числе 7,5 и 9,5; строки 20,0 в форме нет
         assertTrue(7.5 in BrakeNorms.blankAxlePressures && 9.5 in BrakeNorms.blankAxlePressures)
-        assertEquals(27, BrakeNorms.blankAxlePressures.size)
+        assertEquals(26, BrakeNorms.blankAxlePressures.size)
+        assertTrue(20.0 !in BrakeNorms.blankAxlePressures)
     }
 
     @Test fun isCalculated_needsWeightAndPressure() {
@@ -94,7 +116,8 @@ class BrakeStatusTest {
     }
 
     @Test fun sourceRefs_point_to_808_2022() {
-        assertEquals("Инструкция 808-2022 ПКБ ЦВ, прил. М", InstructionRef.FORM_DOC)
+        assertEquals("Правила ТО тормозного оборудования, прил. 1", InstructionRef.FORM_DOC)
+        assertEquals("Инструкция 808-2022 ПКБ ЦВ, прил. М", InstructionRef.FILL_DOC)
     }
 
     @Test fun byTrainNumber_unambiguousRanges() {
