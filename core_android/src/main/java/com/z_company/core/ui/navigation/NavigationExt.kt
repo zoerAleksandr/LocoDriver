@@ -11,15 +11,20 @@ import com.google.accompanist.navigation.animation.composable
 fun NavGraphBuilder.composableScreen(
     route: String,
     arguments: List<NamedNavArgument> = emptyList(),
+    // По умолчанию переходы - fade; экран может задать свои (например, въезд справа из хаба «Настройки»).
+    enterTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition?) = { fadeIn() },
+    exitTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition?) = { fadeOut() },
+    popEnterTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition?) = { fadeIn() },
+    popExitTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition?) = { fadeOut() },
     content: @Composable AnimatedVisibilityScope.(NavBackStackEntry) -> Unit
 ) {
     composable(
         route = route,
         arguments = arguments,
-        enterTransition = { fadeIn() },
-        exitTransition = { fadeOut() },
-        popEnterTransition = { fadeIn() },
-        popExitTransition = { fadeOut() },
+        enterTransition = enterTransition,
+        exitTransition = exitTransition,
+        popEnterTransition = popEnterTransition,
+        popExitTransition = popExitTransition,
         content = content
     )
 }

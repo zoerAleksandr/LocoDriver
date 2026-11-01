@@ -4,6 +4,10 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.navigation
 import com.z_company.core.ui.navigation.composableScreen
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
 import com.z_company.domain.navigation.Router
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -33,7 +37,14 @@ fun NavGraphBuilder.homeGraph(
         }
         composableScreen(
             route = SettingsScreenRoute.route,
-            arguments = SettingsScreenRoute.navArguments
+            arguments = SettingsScreenRoute.navArguments,
+            // «Зарплата» открывается из хаба как остальные подэкраны: хаб уезжает влево, при возврате въезжает слева.
+            exitTransition = {
+                if (targetState.destination.route == SettingSalaryRoute.route) slideOutHorizontally { -it } else fadeOut()
+            },
+            popEnterTransition = {
+                if (initialState.destination.route == SettingSalaryRoute.route) slideInHorizontally { -it } else fadeIn()
+            },
         ) { backStackEntry ->
             SettingDestination(router = router, backStackEntry = backStackEntry)
         }
@@ -127,7 +138,14 @@ fun NavGraphBuilder.homeGraph(
             PurchasesDestination(router = router)
         }
         composableScreen(
-            route = SettingSalaryRoute.route
+            route = SettingSalaryRoute.route,
+            // Из хаба «Настройки» въезжает справа, как остальные подэкраны; из других мест - fade.
+            enterTransition = {
+                if (initialState.destination.route?.startsWith(SettingsScreenRoute.route.substringBefore('?')) == true) slideInHorizontally { it } else fadeIn()
+            },
+            popExitTransition = {
+                if (targetState.destination.route?.startsWith(SettingsScreenRoute.route.substringBefore('?')) == true) slideOutHorizontally { it } else fadeOut()
+            },
         ) {
             SettingSalaryDestination(router = router)
         }
