@@ -775,6 +775,7 @@ fun ProfileScreen(
                                     },
                                     onFail = { oneTapAuth, vkIdAuthFail ->
                                         Log.d("zzz", "onFail migration $oneTapAuth ${vkIdAuthFail.description}")
+                                        reportVkIdFail("migration", vkIdAuthFail.description)
                                     },
                                     signInAnotherAccountButtonEnabled = true,
                                 )
@@ -995,7 +996,10 @@ fun ProfileScreen(
                                                             vkAccessToken = accessToken.token
                                                         )
                                                     },
-                                                    onFail = { _, f -> scope.launch { snackbarHostState.showSnackbar("Ошибка привязки VK: ${f.description}") } },
+                                                    onFail = { _, f ->
+                                                        reportVkIdFail("link", f.description)
+                                                        scope.launch { snackbarHostState.showSnackbar("Ошибка привязки VK: ${f.description}") }
+                                                    },
                                                     signInAnotherAccountButtonEnabled = true,
                                                 )
                                             }
@@ -1079,7 +1083,10 @@ fun ProfileScreen(
                                                             )
                                                         }
                                                     },
-                                                    onFail = { _, f -> scope.launch { snackbarHostState.showSnackbar("Ошибка привязки VK: ${f.description}") } },
+                                                    onFail = { _, f ->
+                                                        reportVkIdFail("link", f.description)
+                                                        scope.launch { snackbarHostState.showSnackbar("Ошибка привязки VK: ${f.description}") }
+                                                    },
                                                     signInAnotherAccountButtonEnabled = true,
                                                 )
                                             }
@@ -1808,6 +1815,7 @@ fun ProfileScreen(
                                 },
                                 onFail = { oneTapAuth, vkIdAuthFail ->
                                     Log.d("zzz", "onFail login $oneTapAuth ${vkIdAuthFail.description}")
+                                    reportVkIdFail("login", vkIdAuthFail.description)
                                 },
                                 signInAnotherAccountButtonEnabled = true,
                             )
