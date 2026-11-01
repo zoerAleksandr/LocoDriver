@@ -497,7 +497,7 @@ private fun CalcTab(
 
 /** Блок «Расчёта»: заголовок моно-капслоком над карточкой (стиль групп «Настроек»), поля внутри карточки. */
 @Composable
-private fun VuBlock(title: String, content: @Composable ColumnScope.() -> Unit) {
+internal fun VuBlock(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         VuTag(title, Modifier.padding(horizontal = 4.dp))
         VuCard {
