@@ -61,17 +61,14 @@ class BrakeHoldingViewModel(application: Application) : AndroidViewModel(applica
         BrakeHoldingUiState(
             stopStartMs = prefs.getLong(KEY_STOP, 0L).takeIf { it > 0L },
             doneSteps = prefs.getStringSet(KEY_DONE, emptySet()).orEmpty().mapNotNull { it.toIntOrNull() }.toSet(),
+            // место остановки (километр/пикет по GPS) хранится вместе с остановкой; остальное в сообщениях - из поезда и локомотива
             radio = HoldingRadioData(
-                surname = prefs.getString(KEY_SURNAME, "").orEmpty(),
-                trainNumber = prefs.getString(KEY_TRAIN, "").orEmpty(),
                 km = prefs.getString(KEY_KM, "").orEmpty(),
                 picket = prefs.getString(KEY_PICKET, "").orEmpty(),
-                evenTrack = when (prefs.getInt(KEY_TRACK, -1)) { 1 -> true; 0 -> false; else -> null },
-                stretch = prefs.getString(KEY_STRETCH, "").orEmpty(),
-                cause = prefs.getString(KEY_CAUSE, "").orEmpty(),
-                locoSection = prefs.getString(KEY_SECTION, "").orEmpty(),
-                locoSeries = prefs.getString(KEY_SERIES, "").orEmpty(),
-                locoNumber = prefs.getString(KEY_NUMBER, "").orEmpty(),
+                // поезд и локомотив запомнены только на время идущей остановки (иначе подставляются из «Поезда»)
+                trainNumber = if (prefs.getLong(KEY_STOP, 0L) > 0L) prefs.getString(KEY_TRAIN, "").orEmpty() else "",
+                locoSeries = if (prefs.getLong(KEY_STOP, 0L) > 0L) prefs.getString(KEY_SERIES, "").orEmpty() else "",
+                locoNumber = if (prefs.getLong(KEY_STOP, 0L) > 0L) prefs.getString(KEY_NUMBER, "").orEmpty() else "",
             ),
         ),
     )
@@ -112,13 +109,15 @@ class BrakeHoldingViewModel(application: Application) : AndroidViewModel(applica
     fun startStop(nowMs: Long = System.currentTimeMillis()) {
         if (_state.value.stopStartMs != null) return
         _state.update { it.copy(stopStartMs = nowMs) }
-        prefs.edit().putLong(KEY_STOP, nowMs).apply()
+        prefs.edit().putLong(KEY_STOP, nowMs)
+            .putString(KEY_TRAIN, _state.value.radio.trainNumber).putString(KEY_SERIES, _state.value.radio.locoSeries).putString(KEY_NUMBER, _state.value.radio.locoNumber)
+            .apply()
     }
 
-    /** Сброс остановки: таймер и отметки шагов (реквизиты радиосообщений остаются). */
+    /** Сброс остановки: таймер, отметки шагов и место остановки. */
     fun resetStop() {
-        _state.update { it.copy(stopStartMs = null, doneSteps = emptySet()) }
-        prefs.edit().remove(KEY_STOP).remove(KEY_DONE).apply()
+        _state.update { it.copy(stopStartMs = null, doneSteps = emptySet(), radio = it.radio.copy(km = "", picket = "")) }
+        prefs.edit().remove(KEY_STOP).remove(KEY_DONE).remove(KEY_KM).remove(KEY_PICKET).apply()
     }
 
     fun toggleStep(i: Int) {
@@ -127,21 +126,16 @@ class BrakeHoldingViewModel(application: Application) : AndroidViewModel(applica
         prefs.edit().putStringSet(KEY_DONE, next.map(Int::toString).toSet()).apply()
     }
 
-    fun setRadio(transform: (HoldingRadioData) -> HoldingRadioData) {
-        val r = transform(_state.value.radio)
-        _state.update { it.copy(radio = r) }
-        prefs.edit()
-            .putString(KEY_SURNAME, r.surname).putString(KEY_TRAIN, r.trainNumber).putString(KEY_KM, r.km).putString(KEY_PICKET, r.picket)
-            .putInt(KEY_TRACK, when (r.evenTrack) { true -> 1; false -> 0; null -> -1 })
-            .putString(KEY_STRETCH, r.stretch).putString(KEY_CAUSE, r.cause).putString(KEY_SECTION, r.locoSection)
-            .putString(KEY_SERIES, r.locoSeries).putString(KEY_NUMBER, r.locoNumber).apply()
+    /** Место остановки по GPS: километр и пикет для радиосообщений. */
+    fun setPlace(km: String, picket: String) {
+        _state.update { it.copy(radio = it.radio.copy(km = km, picket = picket)) }
+        prefs.edit().putString(KEY_KM, km).putString(KEY_PICKET, picket).apply()
     }
 
     private companion object {
         const val KEY_STOP = "stop_start_ms"; const val KEY_DONE = "done_steps"
-        const val KEY_SURNAME = "r_surname"; const val KEY_TRAIN = "r_train"; const val KEY_KM = "r_km"; const val KEY_PICKET = "r_picket"
-        const val KEY_TRACK = "r_track"; const val KEY_STRETCH = "r_stretch"; const val KEY_CAUSE = "r_cause"
-        const val KEY_SECTION = "r_section"; const val KEY_SERIES = "r_series"; const val KEY_NUMBER = "r_number"
+        const val KEY_KM = "r_km"; const val KEY_PICKET = "r_picket"
+        const val KEY_TRAIN = "r_train"; const val KEY_SERIES = "r_series"; const val KEY_NUMBER = "r_number"
     }
 
     private fun fmt(v: Double): String = if (v % 1.0 == 0.0) v.toLong().toString() else v.toString().replace('.', ',')

@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import com.z_company.domain.brake.BrakeHoldingRadio
 import androidx.compose.foundation.layout.Arrangement
@@ -166,9 +167,18 @@ private fun HoldingResultCard(result: HoldingResult?, state: BrakeHoldingUiState
                     "Ручных тормозных осей: ${result.manualAxles}",
                     fontFamily = VuMono, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = t.text,
                 )
+                Text(
+                    "Вагонов с ручным тормозом: ${result.manualWagons}",
+                    fontFamily = VuMono, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = t.text,
+                )
                 VuHint(
-                    "На остаток ${fmtHold(result.remainingMass, 0)} т. Вагонов с ручным тормозом: ${result.manualWagons4} (по 4 оси); " +
-                        "при раздельном торможении (два тормозных цилиндра): ${result.manualWagons2} (по 2 оси).",
+                    "Пересчёт на вагоны: остаток ${fmtHold(result.remainingMass, 0)} т = ${result.manualAxles} осей; ручной тормоз вагона действует на 4 оси, " +
+                        "то есть ${result.manualAxles} / 4 → ${result.manualWagons} вагонов.",
+                )
+                VuWarnVerdict(
+                    "У вагонов с раздельным торможением (два тормозных цилиндра) ДВА ручных тормоза, каждый на 2 оси: на таких вагонах " +
+                        "затормозите оба - всего ${result.manualBrakesSplit} ручных тормозов на те же ${result.manualWagons} вагонов.",
+                    size = 14,
                 )
             }
         }
@@ -194,7 +204,6 @@ private val HOLDING_STEPS = listOf(
 @Composable
 private fun HoldingStepsTab(state: BrakeHoldingUiState, vm: BrakeHoldingViewModel) {
     val t = vuColors()
-    val context = androidx.compose.ui.platform.LocalContext.current
     val view = androidx.compose.ui.platform.LocalView.current
     val running = state.stopStartMs != null
     // таймер: тик раз в секунду, пока идёт остановка; экран не гаснет
@@ -255,41 +264,53 @@ private fun HoldingStepsTab(state: BrakeHoldingUiState, vm: BrakeHoldingViewMode
         VuHint("Расчёт закрепления бригада делает заранее - перед отправлением с начальной станции (пункта смены бригад) по самому крутому уклону участка - и фиксирует на бланке ДУ-61.")
 
         VuBlock("СООБЩЕНИЯ ПО РАДИО") {
-            VuInput("Фамилия машиниста", state.radio.surname, onChange = { v -> vm.setRadio { it.copy(surname = v) } }, sunk = true, text = true, maxLen = 40)
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                VuInput("Поезд №", state.radio.trainNumber, Modifier.weight(1f), onChange = { v -> vm.setRadio { it.copy(trainNumber = v) } }, sunk = true, text = true)
-                VuInput("Километр", state.radio.km, Modifier.weight(1f), onChange = { v -> vm.setRadio { it.copy(km = v) } }, sunk = true, keyboard = KeyboardType.Number, maxLen = 5)
-                VuInput("Пикет", state.radio.picket, Modifier.weight(1f), onChange = { v -> vm.setRadio { it.copy(picket = v) } }, sunk = true, keyboard = KeyboardType.Number, maxLen = 2)
-            }
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                VuChip("Чётный путь", state.radio.evenTrack == true, { vm.setRadio { it.copy(evenTrack = if (it.evenTrack == true) null else true) } }, Modifier.widthIn(min = 110.dp))
-                VuChip("Нечётный путь", state.radio.evenTrack == false, { vm.setRadio { it.copy(evenTrack = if (it.evenTrack == false) null else false) } }, Modifier.widthIn(min = 110.dp))
-            }
-            VuInput("Перегон", state.radio.stretch, onChange = { v -> vm.setRadio { it.copy(stretch = v) } }, sunk = true, text = true, maxLen = 60)
-            VuInput("Причина", state.radio.cause, onChange = { v -> vm.setRadio { it.copy(cause = v) } }, sunk = true, text = true, maxLen = 80)
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                VuInput("Секция", state.radio.locoSection, Modifier.weight(0.7f), onChange = { v -> vm.setRadio { it.copy(locoSection = v) } }, sunk = true, text = true, maxLen = 3)
-                VuInput("Серия", state.radio.locoSeries, Modifier.weight(1f), onChange = { v -> vm.setRadio { it.copy(locoSeries = v) } }, sunk = true, text = true, maxLen = 12)
-                VuInput("Номер", state.radio.locoNumber, Modifier.weight(1f), onChange = { v -> vm.setRadio { it.copy(locoNumber = v) } }, sunk = true, text = true, maxLen = 8)
-            }
+            HoldingGpsPlace(state, vm)
         }
-        HoldingMessageCard("Об остановке", BrakeHoldingRadio.stopMessage(radio), context)
-        HoldingMessageCard("Требование вспомогательного локомотива", BrakeHoldingRadio.helpLocoMessage(radio), context)
-        VuHint("Тексты - по технологической карте ЦТ-162/р (операции 4.1 и 7.2). Время записать на обороте бланка ДУ-61 и в журнал формы ТУ-152.")
+        HoldingMessageCard("Об остановке", BrakeHoldingRadio.stopMessage(radio))
+        HoldingMessageCard("Требование вспомогательного локомотива", BrakeHoldingRadio.helpLocoMessage(radio))
+        VuHint("Тексты - по технологической карте ЦТ-162/р (операции 4.1 и 7.2): в них подставлены известные данные (поезд, локомотив, время, место по GPS), остальное - «…» - назовите сами. Время записать на обороте бланка ДУ-61 и в журнал формы ТУ-152.")
     }
 }
 
 @Composable
-private fun HoldingMessageCard(title: String, text: String, context: android.content.Context) {
+private fun HoldingMessageCard(title: String, text: String) {
     val t = vuColors()
     VuCard {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             VuTag(title)
             Text(text, fontSize = 15.sp, lineHeight = 22.sp, color = t.text)
-            VuBtn("Копировать", {
-                val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                cm.setPrimaryClip(android.content.ClipData.newPlainText(title, text))
-            }, Modifier.fillMaxWidth(), kind = VuBtnKind.Tonal, h = 44.dp)
+        }
+    }
+}
+
+/** Кнопка «Определить место по GPS»: километр и пикет для сообщений (положение + участок с отметками, как на профиле пути; нужен вход и участок рядом). */
+@Composable
+private fun HoldingGpsPlace(state: BrakeHoldingUiState, vm: BrakeHoldingViewModel) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var requested by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var note by remember { mutableStateOf<String?>(null) }
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+        if (granted.values.any { it }) { requested = true; busy = true } else note = "Нет доступа к геолокации: разрешите его в настройках телефона или назовите место по столбикам."
+    }
+    val place = state.radio.km.takeIf { it.isNotBlank() }?.let { "${state.radio.km} км ${state.radio.picket} пк" }
+    VuBtn(
+        if (busy) "Определяем место…" else "Определить место по GPS",
+        {
+            note = null
+            if (com.z_company.route.util.DeviceLocation.hasPermission(context)) { requested = true; busy = true }
+            else launcher.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION))
+        },
+        Modifier.fillMaxWidth(), kind = VuBtnKind.Tonal, enabled = !busy,
+    )
+    VuHint(
+        note ?: place?.let { "Место по GPS: $it (подставлено в сообщения)." }
+            ?: "Подставит километр и пикет в сообщения, если есть GPS, вход в аккаунт и участок пути рядом. Иначе назовите их по столбикам.",
+    )
+    if (requested) {
+        com.z_company.route.component.servicephase.HoldingPositionResolver { km, pk, message ->
+            requested = false; busy = false
+            if (km != null && pk != null) vm.setPlace(km, pk) else note = message
         }
     }
 }
