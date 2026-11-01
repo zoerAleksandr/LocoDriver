@@ -929,8 +929,7 @@ private fun DataCell(cell: CellVal, width: Dp, type: ColType, alignStart: Boolea
     Box(
         modifier = Modifier.width(width).padding(
             start = 4.dp,
-            // Сумма справочной строки отступает от правого края, чтобы не стоять в одной колонке с выплатами.
-            end = if (cell.note && type == ColType.MONEY) 18.dp else 4.dp,
+            end = 4.dp,
             top = if (cell.note) 0.dp else 13.dp,
             bottom = if (cell.note) (if (tightBottom) 2.dp else 9.dp) else if (tightBottom) 3.dp else 13.dp,
         ),
