@@ -883,7 +883,7 @@ private fun ColumnScope.PhaseTiersList(
         modifier = Modifier
             .fillMaxWidth()
             .noRippleEffect { listVisible = !listVisible }
-            .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
