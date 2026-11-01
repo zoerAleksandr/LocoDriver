@@ -109,11 +109,13 @@ fun CoachTour(
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val hPx = with(LocalDensity.current) { maxHeight.toPx() }
             val gap = 16.dp
+            // Цель может оказаться за краем экрана (прокрутка, устаревшие координаты):
+            // отрицательный padding роняет Compose (IllegalArgumentException), поэтому зажимаем в 0.
             val above = target.center.y > hPx / 2f
             val cardMod = if (above) {
-                Modifier.align(Alignment.BottomCenter).padding(bottom = with(LocalDensity.current) { (hPx - target.top + padPx).toDp() } + gap)
+                Modifier.align(Alignment.BottomCenter).padding(bottom = with(LocalDensity.current) { (hPx - target.top + padPx).coerceAtLeast(0f).toDp() } + gap)
             } else {
-                Modifier.align(Alignment.TopCenter).padding(top = with(LocalDensity.current) { (target.bottom + padPx).toDp() } + gap)
+                Modifier.align(Alignment.TopCenter).padding(top = with(LocalDensity.current) { (target.bottom + padPx).coerceAtLeast(0f).toDp() } + gap)
             }
             Column(
                 modifier = cardMod

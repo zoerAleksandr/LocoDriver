@@ -40,6 +40,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -393,6 +396,22 @@ internal fun TrainMapScreen(
         }
         val gnssNow by gnssMonitor.quality.collectAsState()
         val alive = remember { AtomicBoolean(true) }
+        // Экран виден (между onStart и onStop). В фоне поверхность карты уничтожается, а координаты продолжают приходить
+        // (запись поездки идёт в сервисе) - запрос к отрисовщику (queryRenderedFeatures) в этот момент роняет приложение нативно
+        // (SIGSEGV в MapRenderer::actor, Sentry ANDROID-5W). Поэтому запросы к отрисовке выполняются только пока экран виден.
+        val lifecycleOwner = LocalLifecycleOwner.current
+        val visible = remember { AtomicBoolean(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) }
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_START -> visible.set(true)
+                    Lifecycle.Event.ON_STOP -> visible.set(false)
+                    else -> {}
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        }
         val scope = rememberCoroutineScope()
 
         // Маркер положения: выбранный значок всегда; повёрнут по курсу (на стоянке - последний известный, пока курса нет - «вверх»).
@@ -772,7 +791,7 @@ internal fun TrainMapScreen(
         fun refreshStopSources(cause: Int = REFRESH_DATA) {
             val m = map ?: return
             val style = m.style ?: return
-            if (!alive.get()) return
+            if (!alive.get() || !visible.get()) return
             // «Впереди» — вдоль рельсовой линии с сервера (не по прямым между станциями); без линии не выделяется.
             val railLine = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line
             val ahead = if (hasRoute) TrainMapRoute.nextAhead(stops, railLine, ActualRails.alongRouteFix(railLine, factLines, myFix))?.index else null
@@ -1226,6 +1245,7 @@ internal fun TrainMapScreen(
             val on = warnings.isNotEmpty() && styleReady
             fun refresh() {
                 val m = map ?: return
+                if (!alive.get() || !visible.get()) return
                 // Запрос слоёв до готовности стиля/рендерера роняет нативный код карты.
                 if (m.style?.isFullyLoaded != true || mapView.width == 0 || mapView.height == 0) return
                 warnRails = RailSnap.railLines(m, mapView.width, mapView.height)
