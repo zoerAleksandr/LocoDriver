@@ -5,6 +5,7 @@ import com.z_company.domain.entities.ReleaseDay
 import com.z_company.domain.entities.ReleaseType
 import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.WorkScheduleProfile
+import kotlinx.datetime.LocalDate
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -90,49 +91,92 @@ class NormaUseCase(
         month: Int,
         upToDayInclusive: Int = Int.MAX_VALUE,
         profile: WorkScheduleProfile = WorkScheduleProfile.standard(),
-    ): Int {
-        // Среди дублей MonthOfYear берём с наибольшим числом дней —
-        // та же логика дедупликации, что в SettingsViewModel.
-        val monthOfYear = months
-            .filter { it.year == year && it.month == month }
-            .maxByOrNull { it.days.size }
-            ?: return 0
+    ): Int = buildMonthNorm(months, releaseDays, year, month, profile)
+        .filter { it.day <= upToDayInclusive }
+        .sumOf { it.countedHours }
+}
 
-        // Дни отвлечений из новой таблицы ReleaseDay (добавленные после миграции).
-        // «Выходной» (DayOff) — перенос выходного дня, а не отвлечение: он НЕ
-        // уменьшает норму месяца (работник отрабатывает другой день). Поэтому
-        // DayOff-дни исключаем из набора «пропускаемых» — они считаются в норму
-        // как обычные дни. Единственный эффект DayOff — ×2 при работе.
-        // «Технические занятия» тоже НЕ уменьшают норму: они оплачиваются
-        // отдельной строкой по среднему часу за явно заданные часы
-        // (см. UtilForMonthOfYear.reducesNorma — правило должно совпадать).
-        val releaseDayNumbers = releaseDays
-            .filter {
-                it.releaseType != ReleaseType.DayOff &&
-                    it.releaseType != ReleaseType.BusinessTrip &&
-                    it.releaseType != ReleaseType.TechnicalStudy
-            }
-            .map { it.dayOfMonth }
-            .toSet()
+/**
+ * Норма по дням месяца: те же правила, что в [calculate] (он суммирует этот список), плюс
+ * данные для календаря нормы («Своя настройка»). Пустой список — месяца нет в календаре.
+ *
+ * [MonthNormDay.hours] — норма дня по профилю (праздник и личный «Выходной» в режиме
+ * «Своя настройка» — 0); [MonthNormDay.countedHours] — то, что идёт в норму месяца
+ * (0 для дней, закрытых отпуском/больничным и т.п.).
+ */
+fun buildMonthNorm(
+    months: List<MonthOfYear>,
+    releaseDays: List<ReleaseDay>,
+    year: Int,
+    month: Int,
+    profile: WorkScheduleProfile,
+): List<MonthNormDay> {
+    // Среди дублей MonthOfYear берём с наибольшим числом дней —
+    // та же логика дедупликации, что в SettingsViewModel.
+    val monthOfYear = months
+        .filter { it.year == year && it.month == month }
+        .maxByOrNull { it.days.size }
+        ?: return emptyList()
 
-        var norma = 0
-        monthOfYear.days.forEach { day ->
-            // Считаем норму только по дням до указанной даты включительно
-            if (day.dayOfMonth > upToDayInclusive) return@forEach
-            // Пропускаем норму-уменьшающие отвлечения: устаревший флаг isReleaseDay
-            // (кроме DayOff и «Технических занятий») ИЛИ день в таблице ReleaseDay
-            // (уже без DayOff и «Технических занятий»).
-            val isNormReducingRelease =
-                (day.isReleaseDay &&
-                    day.releaseType != ReleaseType.DayOff &&
-                    day.releaseType != ReleaseType.BusinessTrip &&
-                    day.releaseType != ReleaseType.TechnicalStudy) ||
-                    day.dayOfMonth in releaseDayNumbers
-            if (!isNormReducingRelease) {
-                val date = dateOfDayOrNull(year, month, day.dayOfMonth) ?: return@forEach
-                norma += profile.effectiveHours(date, day.tag)
-            }
+    // «Выходной» (DayOff) — перенос выходного дня, а не отвлечение: он НЕ
+    // уменьшает норму месяца (работник отрабатывает другой день). Поэтому
+    // DayOff-дни исключаем из набора «пропускаемых» — они считаются в норму
+    // как обычные дни. Единственный эффект DayOff — ×2 при работе.
+    // Исключение — режим «Своя настройка»: там «Выходной» это день графика без нормы
+    // (WorkScheduleProfile.effectiveHours).
+    // «Технические занятия» тоже НЕ уменьшают норму: они оплачиваются
+    // отдельной строкой по среднему часу за явно заданные часы
+    // (см. UtilForMonthOfYear.reducesNorma — правило должно совпадать).
+    val releaseDayNumbers = releaseDays
+        .filter {
+            it.releaseType != ReleaseType.DayOff &&
+                it.releaseType != ReleaseType.BusinessTrip &&
+                it.releaseType != ReleaseType.TechnicalStudy
         }
-        return norma
+        .map { it.dayOfMonth }
+        .toSet()
+    val dayOffNumbers = releaseDays
+        .filter { it.releaseType == ReleaseType.DayOff }
+        .map { it.dayOfMonth }
+        .toSet()
+
+    return monthOfYear.days.sortedBy { it.dayOfMonth }.mapNotNull { day ->
+        val date = dateOfDayOrNull(year, month, day.dayOfMonth) ?: return@mapNotNull null
+        // Пропускаем норму-уменьшающие отвлечения: устаревший флаг isReleaseDay
+        // (кроме DayOff и «Технических занятий») ИЛИ день в таблице ReleaseDay
+        // (уже без DayOff и «Технических занятий»).
+        val isNormReducingRelease =
+            (day.isReleaseDay &&
+                day.releaseType != ReleaseType.DayOff &&
+                day.releaseType != ReleaseType.BusinessTrip &&
+                day.releaseType != ReleaseType.TechnicalStudy) ||
+                day.dayOfMonth in releaseDayNumbers
+        val isDayOff = day.dayOfMonth in dayOffNumbers ||
+            (day.isReleaseDay && day.releaseType == ReleaseType.DayOff)
+        val hours = profile.effectiveHours(date, day.tag, isDayOff)
+        MonthNormDay(
+            day = day.dayOfMonth,
+            date = date,
+            tag = day.tag,
+            hours = hours,
+            isDayOff = isDayOff,
+            isNormReducing = isNormReducingRelease,
+            isCustom = day.tag != TagForDay.HOLIDAY && profile.customHoursFor(date) != null,
+            countedHours = if (isNormReducingRelease) 0 else hours,
+        )
     }
 }
+
+/** День месяца в расчёте нормы, см. [NormaUseCase.buildMonthNorm]. */
+data class MonthNormDay(
+    val day: Int,
+    val date: LocalDate,
+    val tag: TagForDay,
+    val hours: Int,
+    val isDayOff: Boolean,
+    /** День закрыт отпуском/больничным и т.п. — в норму месяца не входит. */
+    val isNormReducing: Boolean,
+    /** Норма дня задана пользователем в календаре нормы. */
+    val isCustom: Boolean,
+    val countedHours: Int,
+)

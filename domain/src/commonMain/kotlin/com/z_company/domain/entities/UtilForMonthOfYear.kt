@@ -30,6 +30,10 @@ object UtilForMonthOfYear {
             // норму не влияют (решение пользователя): норма остаётся полной.
             releaseType != ReleaseType.TechnicalStudy
 
+    // Личный «Выходной»: в режиме «Своя настройка» такой день не имеет нормы
+    // (WorkScheduleProfile.effectiveHours с isDayOff), в остальных режимах норму не меняет.
+    private fun Day.isDayOff(): Boolean = isReleaseDay && releaseType == ReleaseType.DayOff
+
     // Оставляем безаргументную перегрузку: Android-виджет и старые уже
     // скомпилированные модули вызывают именно JVM-сигнатуру
     // getPersonalNormaHours(MonthOfYear). Значение по умолчанию у параметра
@@ -42,7 +46,7 @@ object UtilForMonthOfYear {
         this.days.forEach { day ->
             if (!day.reducesNorma()) {
                 val date = dateOfDayOrNull(day.dayOfMonth) ?: return@forEach
-                normaOfMonth += profile.effectiveHours(date, day.tag)
+                normaOfMonth += profile.effectiveHours(date, day.tag, day.isDayOff())
             }
         }
         return normaOfMonth
@@ -124,7 +128,7 @@ object UtilForMonthOfYear {
         var normaOfMonth = 0
         this.days.forEach { day ->
             val date = dateOfDayOrNull(day.dayOfMonth) ?: return@forEach
-            normaOfMonth += profile.effectiveHours(date, day.tag)
+            normaOfMonth += profile.effectiveHours(date, day.tag, day.isDayOff())
         }
         return normaOfMonth
     }
@@ -166,7 +170,7 @@ object UtilForMonthOfYear {
                 if (day.dayOfMonth in period.first..period.second) {
                     // Как в getPersonalNormaHours: «31 сентября» пропускаем, а не падаем.
                     val date = dateOfDayOrNull(day.dayOfMonth) ?: return@forEach
-                    normaOfMonth += profile.effectiveHours(date, day.tag)
+                    normaOfMonth += profile.effectiveHours(date, day.tag, day.isDayOff())
                 }
             }
         }

@@ -40,7 +40,6 @@ fun SettingDestination(
         restTimeChanged = settingsViewModel::changeMinTimeRest,
         secondRestTimeChanged = settingsViewModel::changeMinTimeRestSecond,
         homeRestTimeChanged = settingsViewModel::changeMinTimeHomeRest,
-        showAbsenceScreen = router::showAbsence,
         logOut = router::showSignIn,
         resetUploadState = settingsViewModel::resetUploadState,
         resetDownloadState = settingsViewModel::resetDownloadState,

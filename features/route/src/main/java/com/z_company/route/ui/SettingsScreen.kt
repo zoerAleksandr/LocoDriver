@@ -98,6 +98,10 @@ import com.z_company.route.viewmodel.PartnerListViewModel
 import com.z_company.route.viewmodel.PartnerEditorViewModel
 import com.z_company.route.viewmodel.TrashViewModel
 import org.koin.androidx.compose.koinViewModel
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.z_company.route.component.coachAnchor
+import com.z_company.route.viewmodel.NormMonthViewModel
+import com.z_company.route.ui.settings.SettingsNormMonthContent
 import org.koin.core.parameter.parametersOf
 import kotlinx.coroutines.launch
 import androidx.core.net.toUri
@@ -114,6 +118,7 @@ enum class SettingsSubScreen(val title: String, val depth: Int) {
     ROUTE("Основные", 1),
     ROUTE_FORM("Маршрут", 1),
     NORMA("Норма/Регион", 1),
+    NORMA_MONTH("Норма по месяцам", 2),
     ACCOUNTING("Учёт", 1),
     REST("Отдых", 1),
     SHOULDERS("Плечи", 1),
@@ -134,6 +139,7 @@ private val SETTINGS_CENTERED_DONE_SCREENS = setOf(
     SettingsSubScreen.ROUTE,
     SettingsSubScreen.ROUTE_FORM,
     SettingsSubScreen.NORMA,
+    SettingsSubScreen.NORMA_MONTH,
     SettingsSubScreen.ACCOUNTING,
     SettingsSubScreen.REST,
     SettingsSubScreen.LOCOMOTIVE,
@@ -152,7 +158,6 @@ fun SettingsScreen(
     secondRestTimeChanged: (Long) -> Unit,
     homeRestTimeChanged: (Long) -> Unit,
     logOut: () -> Unit,
-    showAbsenceScreen: () -> Unit,
     resetUploadState: () -> Unit,
     resetDownloadState: () -> Unit,
     changeStartNightTime: (Int, Int) -> Unit,
@@ -278,7 +283,21 @@ fun SettingsScreen(
     // Любой подэкран Настроек глубже хаба — нижнее меню приложения на нём не показываем (SCREEN_SPECS §3.1).
     com.z_company.route.navigation.HideBottomMenu(hide = currentSubScreen != SettingsSubScreen.HUB)
 
+    // Экскурсия по календарю нормы: кнопка «?» в шапке, затемнение — на весь экран, включая шапку.
+    val normTourAnchors = remember {
+        com.z_company.domain.onboarding.NormMonthTourStep.entries.associateWith { com.z_company.route.component.CoachAnchor() }
+    }
+    var normTourOpen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(currentSubScreen) {
+        if (currentSubScreen != SettingsSubScreen.NORMA_MONTH) normTourOpen = false
+    }
+
     BackHandler(currentSubScreen != SettingsSubScreen.HUB) {
+        // «Назад» при открытой экскурсии закрывает её.
+        if (normTourOpen) {
+            normTourOpen = false
+            return@BackHandler
+        }
         when (currentSubScreen) {
             SettingsSubScreen.SERIES_EDITOR -> {
                 activeSeriesEditor?.commit()
@@ -292,12 +311,14 @@ fun SettingsScreen(
                 activePartnerEditor?.save()
                 currentSubScreen = SettingsSubScreen.PARTNER_LIST
             }
+            SettingsSubScreen.NORMA_MONTH -> currentSubScreen = SettingsSubScreen.NORMA
             else -> {
                 if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
             }
         }
     }
 
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         snackbarHost = {
             SnackbarHost(snackbarHostState) { snackBarData ->
@@ -313,7 +334,9 @@ fun SettingsScreen(
                 CenterAlignedTopAppBar(
                     navigationIcon = {
                         TextButton(onClick = {
-                            if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
+                            if (currentSubScreen == SettingsSubScreen.NORMA_MONTH) {
+                                currentSubScreen = SettingsSubScreen.NORMA
+                            } else if (enteredDirectly) onBack() else currentSubScreen = SettingsSubScreen.HUB
                         }) {
                             Text(
                                 text = "Готово",
@@ -328,6 +351,29 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
+                    },
+                    actions = {
+                        if (currentSubScreen == SettingsSubScreen.NORMA_MONTH) {
+                            Box(Modifier.padding(end = 12.dp)) {
+                                Box(
+                                    Modifier.coachAnchor(
+                                        normTourAnchors.getValue(com.z_company.domain.onboarding.NormMonthTourStep.HELP)
+                                    )
+                                ) {
+                                    com.z_company.route.component.servicephase.MapButton(
+                                        onClick = { normTourOpen = true },
+                                        description = "Подсказки",
+                                        size = 40.dp,
+                                    ) {
+                                        Text(
+                                            "?",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors().copy(
                         containerColor = Color.Transparent,
@@ -491,7 +537,6 @@ fun SettingsScreen(
                         SettingsSubScreen.NORMA -> {
                             SettingsNormaContent(
                                 currentSettings = settings,
-                                showAbsenceScreen = showAbsenceScreen,
                                 timeZoneRussiaList = timeZoneRussiaList,
                                 setTimeZone = setTimeZone,
                                 setCountry = viewModel::changeCountry,
@@ -504,8 +549,17 @@ fun SettingsScreen(
                                 regionLoadingState = settingsUiState.regionLoadingState,
                                 onDismissRegionDialog = viewModel::clearRegionLoadingState,
                                 normaHours = settingsUiState.normaHours,
-                                workScheduleProfile = settingsUiState.workScheduleProfile,
-                                setWorkScheduleProfile = viewModel::setWorkScheduleProfile,
+                                onOpenNormMonth = { currentSubScreen = SettingsSubScreen.NORMA_MONTH },
+                            )
+                        }
+
+                        SettingsSubScreen.NORMA_MONTH -> {
+                            SettingsNormMonthContent(
+                                initialYear = settings.selectMonthOfYear.year,
+                                initialMonth = settings.selectMonthOfYear.month,
+                                viewModel = koinViewModel<NormMonthViewModel>(),
+                                tourAnchors = normTourAnchors,
+                                onOpenTour = { normTourOpen = true },
                             )
                         }
 
@@ -698,6 +752,15 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+    if (normTourOpen && currentSubScreen == SettingsSubScreen.NORMA_MONTH) {
+        com.z_company.route.component.CoachTour(
+            steps = com.z_company.domain.onboarding.NormMonthTourStep.entries.map { st ->
+                com.z_company.route.component.TourStep(st.title, st.text, normTourAnchors.getValue(st))
+            },
+            onDismiss = { normTourOpen = false },
+        )
+    }
     }
 }
 

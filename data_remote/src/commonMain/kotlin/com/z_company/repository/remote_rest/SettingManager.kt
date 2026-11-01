@@ -135,7 +135,8 @@ class SettingManager(
         bearerToken: String,
     ): Flow<ResultState<WorkScheduleProfile>> = flow {
         emit(ResultState.Loading())
-        emit(ResultState.Success(remoteRestApi.saveWorkScheduleProfile(bearerToken, profile)))
+        // customDays («Своя настройка» по датам) — локальные данные, контракт сервера не менялся.
+        emit(ResultState.Success(remoteRestApi.saveWorkScheduleProfile(bearerToken, profile.withoutCustomDays())))
     }.catch { e ->
         emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
     }

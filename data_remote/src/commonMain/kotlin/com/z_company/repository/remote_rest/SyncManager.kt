@@ -106,6 +106,16 @@ class SyncManager(
 
     private val syncMutex = Mutex()
 
+    /**
+     * Принять профиль с сервера. Сервер не хранит [WorkScheduleProfile.customDays] —
+     * локальную норму по датам сохраняем, иначе любая синхронизация стирала бы календарь нормы.
+     */
+    private fun adoptRemoteWorkSchedule(profile: com.z_company.domain.entities.WorkScheduleProfile) {
+        sharedPrefs.setWorkScheduleProfile(
+            profile.copy(customDays = sharedPrefs.getWorkScheduleProfile().customDays)
+        )
+    }
+
     /** LWW-синхронизация отдельного персонального профиля рабочей недели. */
     private suspend fun syncWorkScheduleProfile(bearerToken: String): Boolean {
         val remote = (settingManager.getWorkScheduleProfileFromRemote(bearerToken)
@@ -114,15 +124,15 @@ class SyncManager(
         val local = sharedPrefs.getWorkScheduleProfile()
 
         if (local.updatedAt > remote.updatedAt ||
-            (local.updatedAt == remote.updatedAt && local != remote && local.mode != com.z_company.domain.entities.WorkScheduleMode.STANDARD)
+            (local.updatedAt == remote.updatedAt && local.withoutCustomDays() != remote && local.mode != com.z_company.domain.entities.WorkScheduleMode.STANDARD)
         ) {
             val saved = (settingManager.saveWorkScheduleProfileInRemote(local, bearerToken)
                 .first { it is ResultState.Success || it is ResultState.Error } as? ResultState.Success)
                 ?.data ?: return false
             // Сервер может сохранить более свежую версию другого устройства.
-            if (saved.updatedAt >= local.updatedAt) sharedPrefs.setWorkScheduleProfile(saved)
+            if (saved.updatedAt >= local.updatedAt) adoptRemoteWorkSchedule(saved)
         } else if (remote.updatedAt >= local.updatedAt) {
-            sharedPrefs.setWorkScheduleProfile(remote)
+            adoptRemoteWorkSchedule(remote)
         }
         return true
     }
@@ -1497,7 +1507,7 @@ class SyncManager(
             .catch { allOk = false }
             .collect { state ->
                 if (state is ResultState.Success && state.data.updatedAt >= localWorkSchedule.updatedAt) {
-                    sharedPrefs.setWorkScheduleProfile(state.data)
+                    adoptRemoteWorkSchedule(state.data)
                 }
                 if (state is ResultState.Error) allOk = false
             }

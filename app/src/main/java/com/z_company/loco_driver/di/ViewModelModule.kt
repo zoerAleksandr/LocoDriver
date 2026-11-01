@@ -15,6 +15,7 @@ import com.z_company.route.viewmodel.PullToSyncViewModel
 import com.z_company.route.viewmodel.SalaryCalculationViewModel
 import com.z_company.route.viewmodel.SearchViewModel
 import com.z_company.route.viewmodel.SettingSalaryViewModel
+import com.z_company.route.viewmodel.NormMonthViewModel
 import com.z_company.route.viewmodel.SettingsViewModel
 import com.z_company.route.viewmodel.SeriesListViewModel
 import com.z_company.route.viewmodel.SeriesEditorViewModel
@@ -35,6 +36,7 @@ val viewModelModule = module {
     }
     viewModel { HomeViewModel() }
     viewModel { SettingsViewModel() }
+    viewModel { NormMonthViewModel() }
     viewModel { MainViewModel() }
     viewModel { (locoId: String?, basicId: String) ->
         LocoFormViewModel(locoId = locoId, basicId = basicId)

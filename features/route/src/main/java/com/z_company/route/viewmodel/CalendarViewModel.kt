@@ -964,7 +964,7 @@ data class AbsenceInfo(
  * Ключ — (месяц 0-based, число). Переносы выходных сюда не входят — у них
  * нет собственного названия (покажется «Праздничный день»).
  */
-private val RU_FEDERAL_HOLIDAY_NAMES: Map<Pair<Int, Int>, String> = buildMap {
+internal val RU_FEDERAL_HOLIDAY_NAMES: Map<Pair<Int, Int>, String> = buildMap {
     // Январь: новогодние каникулы 1–8, Рождество 7-го
     for (d in 1..8) put(0 to d, "Новогодние каникулы")
     put(0 to 7, "Рождество Христово")
