@@ -732,7 +732,8 @@ private fun PayCard(content: @Composable () -> Unit) {
 // ===========================================
 private enum class ColType { NAME, VALUE, MONEY }
 
-private data class CellVal(val text: String, val faint: Boolean = false)
+/** [note] - справочная строка под группой начислений: мельче, курсивом, без разделителя сверху и не считается выплатой. */
+private data class CellVal(val text: String, val faint: Boolean = false, val note: Boolean = false)
 
 private data class PayColumn(
     val header: String,
@@ -874,14 +875,15 @@ private fun PayScrollTable(columns: List<PayColumn>, rows: List<List<CellVal>>) 
 
             // Строки данных
             rows.forEachIndexed { r, row ->
+                val nextIsNote = rows.getOrNull(r + 1)?.firstOrNull()?.note == true
                 Row(modifier = Modifier.horizontalScroll(scroll)) {
                     Spacer(modifier = Modifier.width(leadInset))
                     columns.forEachIndexed { c, col ->
-                        DataCell(cell = row[c], width = display[c], type = col.type, alignStart = col.alignStart)
+                        DataCell(cell = row[c], width = display[c], type = col.type, alignStart = col.alignStart, tightBottom = nextIsNote)
                     }
                     Spacer(modifier = Modifier.width(trailInset))
                 }
-                if (r < rows.lastIndex) {
+                if (r < rows.lastIndex && !nextIsNote) {
                     HorizontalDivider(
                         modifier = Modifier.padding(start = 20.dp),
                         color = MaterialTheme.colorScheme.outlineVariant,
@@ -909,7 +911,7 @@ private fun HeaderCell(text: String, width: Dp, alignStart: Boolean) {
 }
 
 @Composable
-private fun DataCell(cell: CellVal, width: Dp, type: ColType, alignStart: Boolean) {
+private fun DataCell(cell: CellVal, width: Dp, type: ColType, alignStart: Boolean, tightBottom: Boolean = false) {
     val style = when (type) {
         ColType.NAME -> MaterialTheme.typography.bodyMedium
         ColType.VALUE -> MaterialTheme.typography.bodyMedium.copy(
@@ -925,13 +927,21 @@ private fun DataCell(cell: CellVal, width: Dp, type: ColType, alignStart: Boolea
         else MaterialTheme.colorScheme.onSurfaceVariant
     }
     Box(
-        modifier = Modifier.width(width).padding(horizontal = 4.dp, vertical = 13.dp),
+        modifier = Modifier.width(width).padding(
+            start = 4.dp,
+            // Сумма справочной строки отступает от правого края, чтобы не стоять в одной колонке с выплатами.
+            end = if (cell.note && type == ColType.MONEY) 18.dp else 4.dp,
+            top = if (cell.note) 0.dp else 13.dp,
+            bottom = if (cell.note) 9.dp else if (tightBottom) 3.dp else 13.dp,
+        ),
         contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.CenterEnd,
     ) {
         Text(
             text = cell.text,
-            style = style,
-            color = color,
+            style = if (cell.note) style.copy(
+                fontSize = 12.sp, fontWeight = FontWeight.Normal, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+            ) else style,
+            color = if (cell.note) MaterialTheme.colorScheme.onSurfaceVariant else color,
             // Имя выплаты может занять до 3 строк — при крупном шрифте длинные
             // названия («Надбавка за класс квалификации») не обрезаются многоточием.
             maxLines = if (type == ColType.NAME) 3 else 1,
@@ -988,14 +998,31 @@ private fun AccrualsCard(
         PayColumn("%", ColType.VALUE),
         PayColumn("СУММА", ColType.MONEY),
     )
-    val rows = buildAccrualRows(uiState).map { row ->
-        listOf(
+    val accrualRows = buildAccrualRows(uiState)
+    val rows = accrualRows.flatMapIndexed { index, row ->
+        val main = listOf(
             CellVal(PayrollPaymentCatalog[row.paymentId].codeLabel, faint = PayrollPaymentCatalog[row.paymentId].codes.isEmpty()),
             CellVal(row.title),
             CellVal(row.hours?.let { convertTimeToStringFormat(it) } ?: "—", faint = row.hours == null),
             CellVal(row.percent?.let { formatPercent(it) } ?: "—", faint = row.percent == null),
             CellVal(formatMoney(row.money)),
         )
+        // Справочный итог по 011L: после последней из нескольких строк пробега.
+        val mileage = accrualRows.filter { it.paymentId == SalaryPaymentId.LINEAR_MILEAGE }
+        val isLastMileage = row.paymentId == SalaryPaymentId.LINEAR_MILEAGE &&
+            accrualRows.drop(index + 1).none { it.paymentId == SalaryPaymentId.LINEAR_MILEAGE }
+        if (isLastMileage && mileage.size > 1) {
+            listOf(
+                main,
+                listOf(
+                    CellVal("", note = true),
+                    CellVal("Всего по ${PayrollPaymentCatalog[SalaryPaymentId.LINEAR_MILEAGE].codeLabel}", note = true),
+                    CellVal("", note = true),
+                    CellVal("", note = true),
+                    CellVal(formatMoney(mileage.sumOf { it.money ?: 0.0 }), note = true),
+                ),
+            )
+        } else listOf(main)
     }
 
     PayCard {

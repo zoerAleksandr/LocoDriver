@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -37,6 +38,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import com.z_company.route.component.HeaderTile
+import com.z_company.route.component.servicephase.Pst
+import com.z_company.route.component.servicephase.PstIcon
+import com.z_company.route.component.servicephase.PstIcons
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -245,24 +250,22 @@ fun BrakeCertificateScreen(
         containerColor = t.bg,
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text("Справка ВУ-45", style = MaterialTheme.typography.titleMedium, color = t.text) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back), contentDescription = "Назад", tint = t.text)
+            Row(
+                Modifier.statusBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                HeaderTile(onClick = onBack, description = "Назад") { PstIcon(PstIcons.ChevronLeft, 22.dp, Pst.text) }
+                Text("Справка ВУ-45", style = MaterialTheme.typography.titleMedium, color = t.text, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.weight(1f).padding(start = 52.dp))
+                Box(Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.Vu45TourStep.HELP))) {
+                    HeaderTile(onClick = { tourOpen = true }, description = "Подсказки") {
+                        Text("?", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = Pst.textMuted)
                     }
-                },
-                actions = {
-                    Box(
-                        Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.Vu45TourStep.HELP)).size(48.dp).clickable(onClickLabel = "Подсказки") { tourOpen = true },
-                        contentAlignment = Alignment.Center,
-                    ) { Text("?", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = t.muted) }
-                    IconButton(modifier = Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.Vu45TourStep.DELETE)), onClick = { confirmDelete = true }) {
-                        Icon(painter = painterResource(com.z_company.route.R.drawable.delete_24px), contentDescription = "Удалить справку", tint = t.text)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-            )
+                }
+                Box(Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.Vu45TourStep.DELETE))) {
+                    HeaderTile(onClick = { confirmDelete = true }, description = "Удалить справку") { PstIcon(PstIcons.Trash, 22.dp, Pst.text) }
+                }
+            }
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
