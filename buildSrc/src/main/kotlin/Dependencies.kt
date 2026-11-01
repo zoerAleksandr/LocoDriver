@@ -122,7 +122,7 @@ object Versions {
     const val sentry_android_plugin_ver = "6.22.0"
     const val retrofit_ver = "2.11.0"
     const val lifecycle_runtime_compose_ver = "2.8.7"
-    const val vkIdVer = "2.7.3"
+    const val vkIdVer = "2.7.1"
 
     const val datastore_preferences_ver = "1.2.0"
     const val crypto_tink_ver = "1.7.0"
