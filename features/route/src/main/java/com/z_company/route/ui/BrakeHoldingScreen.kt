@@ -1,6 +1,16 @@
 package com.z_company.route.ui
 
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.ui.Alignment
+import com.z_company.domain.brake.BrakeHoldingRadio
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -56,7 +66,7 @@ fun BrakeHoldingScreen(
             VuTabs(HOLDING_TABS, tab, { tab = it }, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp))
             when (tab) {
                 0 -> HoldingCalcTab(state, viewModel)
-                else -> HoldingStepsTab()
+                else -> HoldingStepsTab(state, viewModel)
             }
         }
     }
@@ -182,29 +192,109 @@ private val HOLDING_STEPS = listOf(
 )
 
 @Composable
-private fun HoldingStepsTab() {
+private fun HoldingStepsTab(state: BrakeHoldingUiState, vm: BrakeHoldingViewModel) {
     val t = vuColors()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val view = androidx.compose.ui.platform.LocalView.current
+    val running = state.stopStartMs != null
+    // таймер: тик раз в секунду, пока идёт остановка; экран не гаснет
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(running) {
+        while (running) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) }
+    }
+    DisposableEffect(running) {
+        view.keepScreenOn = running
+        onDispose { view.keepScreenOn = false }
+    }
+    val elapsedSec = state.stopStartMs?.let { ((now - it) / 1000).coerceAtLeast(0) }
+    val deadlineSec = BrakeHoldingRadio.HELP_LOCO_DEADLINE_MIN * 60L
+    val stopTime = state.stopStartMs?.let { java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(it)) }
+    val radio = state.radio.copy(time = stopTime.orEmpty())
+
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         VuHint("Порядок действий при вынужденной остановке поезда на перегоне из-за неисправности локомотива и невозможности удержать поезд (распоряжение ОАО «РЖД» № ЦТ-162/р от 28.04.2025).")
+        VuBlock("ВРЕМЯ ОТ ОСТАНОВКИ") {
+            if (elapsedSec == null) {
+                VuBtn("Остановились", { vm.startStop() }, Modifier.fillMaxWidth())
+                VuHint("Нажмите после остановки: пойдёт отсчёт, а время подставится в сообщение о вспомогательном локомотиве.")
+            } else {
+                Text(fmtClock(elapsedSec), fontFamily = VuMono, fontSize = 34.sp, fontWeight = FontWeight.Bold, color = t.text)
+                val left = deadlineSec - elapsedSec
+                if (left >= 0) {
+                    VuVerdict(true, "Вспомогательный локомотив - затребовать не позднее ${BrakeHoldingRadio.HELP_LOCO_DEADLINE_MIN} мин после остановки: осталось ${fmtClock(left)}")
+                } else {
+                    VuVerdict(false, "Срок вызова вспомогательного локомотива (${BrakeHoldingRadio.HELP_LOCO_DEADLINE_MIN} мин) прошёл на ${fmtClock(-left)}: затребуйте немедленно")
+                }
+                VuHint("Остановка в $stopTime.")
+                VuBtn("Сбросить", { vm.resetStop() }, Modifier.fillMaxWidth(), kind = VuBtnKind.Tonal)
+            }
+        }
         HOLDING_STEPS.forEachIndexed { i, s ->
-            VuCard {
+            val done = i in state.doneSteps
+            VuCard(Modifier.clickable { vm.toggleStep(i) }) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         VuTag("${i + 1}. ${s.who}")
-                        VuTag(s.time, color = t.accent)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            VuTag(s.time, color = t.accent)
+                            Box(
+                                Modifier.size(22.dp).background(if (done) t.success else t.bgSubtle, CircleShape),
+                                contentAlignment = Alignment.Center,
+                            ) { if (done) Text("✓", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = t.bg) }
+                        }
                     }
-                    Text(s.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = t.text)
-                    Text(s.text, fontSize = 14.sp, lineHeight = 20.sp, color = t.text)
+                    Text(s.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = if (done) t.muted else t.text)
+                    Text(s.text, fontSize = 14.sp, lineHeight = 20.sp, color = if (done) t.muted else t.text)
                 }
             }
         }
         VuVerdict(false, "Отпуск тормозов поезда до устранения неисправности или прицепки вспомогательного локомотива ЗАПРЕЩЕНО.")
         VuHint("Расчёт закрепления бригада делает заранее - перед отправлением с начальной станции (пункта смены бригад) по самому крутому уклону участка - и фиксирует на бланке ДУ-61.")
+
+        VuBlock("СООБЩЕНИЯ ПО РАДИО") {
+            VuInput("Фамилия машиниста", state.radio.surname, onChange = { v -> vm.setRadio { it.copy(surname = v) } }, sunk = true, text = true, maxLen = 40)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                VuInput("Поезд №", state.radio.trainNumber, Modifier.weight(1f), onChange = { v -> vm.setRadio { it.copy(trainNumber = v) } }, sunk = true, text = true)
+                VuInput("Километр", state.radio.km, Modifier.weight(1f), onChange = { v -> vm.setRadio { it.copy(km = v) } }, sunk = true, keyboard = KeyboardType.Number, maxLen = 5)
+                VuInput("Пикет", state.radio.picket, Modifier.weight(1f), onChange = { v -> vm.setRadio { it.copy(picket = v) } }, sunk = true, keyboard = KeyboardType.Number, maxLen = 2)
+            }
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                VuChip("Чётный путь", state.radio.evenTrack == true, { vm.setRadio { it.copy(evenTrack = if (it.evenTrack == true) null else true) } }, Modifier.widthIn(min = 110.dp))
+                VuChip("Нечётный путь", state.radio.evenTrack == false, { vm.setRadio { it.copy(evenTrack = if (it.evenTrack == false) null else false) } }, Modifier.widthIn(min = 110.dp))
+            }
+            VuInput("Перегон", state.radio.stretch, onChange = { v -> vm.setRadio { it.copy(stretch = v) } }, sunk = true, text = true, maxLen = 60)
+            VuInput("Причина", state.radio.cause, onChange = { v -> vm.setRadio { it.copy(cause = v) } }, sunk = true, text = true, maxLen = 80)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                VuInput("Секция", state.radio.locoSection, Modifier.weight(0.7f), onChange = { v -> vm.setRadio { it.copy(locoSection = v) } }, sunk = true, text = true, maxLen = 3)
+                VuInput("Серия", state.radio.locoSeries, Modifier.weight(1f), onChange = { v -> vm.setRadio { it.copy(locoSeries = v) } }, sunk = true, text = true, maxLen = 12)
+                VuInput("Номер", state.radio.locoNumber, Modifier.weight(1f), onChange = { v -> vm.setRadio { it.copy(locoNumber = v) } }, sunk = true, text = true, maxLen = 8)
+            }
+        }
+        HoldingMessageCard("Об остановке", BrakeHoldingRadio.stopMessage(radio), context)
+        HoldingMessageCard("Требование вспомогательного локомотива", BrakeHoldingRadio.helpLocoMessage(radio), context)
+        VuHint("Тексты - по технологической карте ЦТ-162/р (операции 4.1 и 7.2). Время записать на обороте бланка ДУ-61 и в журнал формы ТУ-152.")
     }
 }
+
+@Composable
+private fun HoldingMessageCard(title: String, text: String, context: android.content.Context) {
+    val t = vuColors()
+    VuCard {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            VuTag(title)
+            Text(text, fontSize = 15.sp, lineHeight = 22.sp, color = t.text)
+            VuBtn("Копировать", {
+                val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                cm.setPrimaryClip(android.content.ClipData.newPlainText(title, text))
+            }, Modifier.fillMaxWidth(), kind = VuBtnKind.Tonal, h = 44.dp)
+        }
+    }
+}
+
+private fun fmtClock(totalSec: Long): String = "%02d:%02d".format(totalSec / 60, totalSec % 60)
 
 private fun fmtHold(v: Double, digits: Int): String {
     val f = when (digits) { 0 -> 1.0; 1 -> 10.0; else -> 100.0 }
