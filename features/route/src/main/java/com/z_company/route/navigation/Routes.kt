@@ -191,7 +191,6 @@ object SettingsScreenRoute : AppRoutes("SettingsScreen") {
     fun buildRoute(subScreen: String? = null): String =
         if (subScreen != null) "$basicRoute?$paramSubScreen=$subScreen" else basicRoute
 }
-object SelectReleaseDaysScreenRoute: AppRoutes("SelectReleaseDaysScreen")
 object ProfileRoute: AppRoutes("ProfileRoute")
 object DataPrivacyRoute: AppRoutes("DataPrivacyRoute")
 object TrackHistoryRoute: AppRoutes("TrackHistoryRoute")

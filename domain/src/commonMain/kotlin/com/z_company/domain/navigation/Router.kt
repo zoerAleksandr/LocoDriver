@@ -43,7 +43,6 @@ interface Router {
     fun showEmptyPassengerForm(basicId: String)
     fun showChangeOtherWorkForm(otherWork: OtherWork)
     fun showEmptyOtherWorkForm(basicId: String)
-    fun showSelectReleaseDayScreen()
     fun showPurchasesScreen()
 
     /**

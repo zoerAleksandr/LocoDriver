@@ -33,7 +33,10 @@ import com.z_company.route.component.servicephase.PstIcons
 
 private val HeaderTileHeight = 44.dp
 
-/** Лёгкая кнопка-плитка для шапки обычного экрана. */
+/**
+ * Лёгкая кнопка-плитка для шапки обычного экрана (не поверх карты): без тени, с тонкой рамкой.
+ * Поверх карты остаётся `MapButton` с тенью - там подложка нужна для контраста.
+ */
 @Composable
 fun HeaderTile(
     onClick: () -> Unit,
@@ -56,20 +59,19 @@ fun HeaderTile(
     ) { content() }
 }
 
+/** Плитка «Назад» с шевроном. */
 @Composable
 fun HeaderBackTile(onClick: () -> Unit, modifier: Modifier = Modifier, description: String = "Назад") {
-    HeaderTile(onClick = onClick, description = description, modifier = modifier) {
-        PstIcon(PstIcons.ChevronLeft, 22.dp, Pst.text)
-    }
+    HeaderTile(onClick = onClick, description = description, modifier = modifier) { PstIcon(PstIcons.ChevronLeft, 22.dp, Pst.text) }
 }
 
+/** Плитка «Закрыть» с крестиком. */
 @Composable
 fun HeaderCloseTile(onClick: () -> Unit, modifier: Modifier = Modifier, description: String = "Закрыть") {
-    HeaderTile(onClick = onClick, description = description, modifier = modifier) {
-        PstIcon(PstIcons.Close, 20.dp, Pst.text)
-    }
+    HeaderTile(onClick = onClick, description = description, modifier = modifier) { PstIcon(PstIcons.Close, 20.dp, Pst.text) }
 }
 
+/** Плитка с короткой подписью («Готово», «Выбрать», «Все»): ширина по тексту, высота как у иконочных. */
 @Composable
 fun HeaderTextTile(
     text: String,
@@ -94,6 +96,10 @@ fun HeaderTextTile(
     }
 }
 
+/**
+ * Шапка обычного экрана: слева [navigation], справа [actions] (плитки), название по центру экрана.
+ * Единый вид для экранов приложения вместо разных `TopAppBar`.
+ */
 @Composable
 fun ScreenHeader(
     title: String,
@@ -129,10 +135,7 @@ fun ScreenHeader(
         content = {
             Box(contentAlignment = Alignment.CenterStart) { navigation() }
             Box(contentAlignment = Alignment.Center) { title() }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) { actions() }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) { actions() }
         },
         modifier = modifier
             .fillMaxWidth()
@@ -140,23 +143,19 @@ fun ScreenHeader(
             .padding(horizontal = 16.dp, vertical = 10.dp),
     ) { measurables, constraints ->
         val loose = constraints.copy(minWidth = 0, minHeight = 0)
-        val navigationPlaceable = measurables[0].measure(loose)
-        val actionsPlaceable = measurables[2].measure(loose)
+        val nav = measurables[0].measure(loose)
+        val act = measurables[2].measure(loose)
         val gap = 8.dp.roundToPx()
-        val side = maxOf(navigationPlaceable.width, actionsPlaceable.width)
+        // Поле под название симметрично: столько, сколько занимает более широкая сторона.
+        val side = maxOf(nav.width, act.width)
         val titleMax = (constraints.maxWidth - 2 * (side + gap)).coerceAtLeast(0)
-        val titlePlaceable = measurables[1].measure(loose.copy(maxWidth = titleMax))
+        val titleP = measurables[1].measure(loose.copy(maxWidth = titleMax))
         val width = constraints.maxWidth
-        val height = maxOf(
-            HeaderTileHeight.roundToPx(),
-            navigationPlaceable.height,
-            actionsPlaceable.height,
-            titlePlaceable.height,
-        )
+        val height = maxOf(HeaderTileHeight.roundToPx(), nav.height, act.height, titleP.height)
         layout(width, height) {
-            navigationPlaceable.place(0, (height - navigationPlaceable.height) / 2)
-            actionsPlaceable.place(width - actionsPlaceable.width, (height - actionsPlaceable.height) / 2)
-            titlePlaceable.place((width - titlePlaceable.width) / 2, (height - titlePlaceable.height) / 2)
+            nav.place(0, (height - nav.height) / 2)
+            act.place(width - act.width, (height - act.height) / 2)
+            titleP.place((width - titleP.width) / 2, (height - titleP.height) / 2)
         }
     }
 }

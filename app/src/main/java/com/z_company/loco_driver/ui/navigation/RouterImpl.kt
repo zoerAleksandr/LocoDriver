@@ -25,7 +25,6 @@ import com.z_company.route.navigation.ProfileRoute
 import com.z_company.route.navigation.PurchasesRoute
 import com.z_company.route.navigation.SalaryCalculationRoute
 import com.z_company.route.navigation.SearchRoute
-import com.z_company.route.navigation.SelectReleaseDaysScreenRoute
 import com.z_company.route.navigation.SettingSalaryRoute
 import com.z_company.route.navigation.SettingsScreenRoute
 import com.z_company.route.navigation.CalendarRoute
@@ -150,12 +149,6 @@ class RouterImpl(
 
     override fun showEditPartnerEditor(partnerId: String) {
         requireNavController().navigate(PartnerEditRoute.buildRoute(partnerId))
-    }
-
-    override fun showSelectReleaseDayScreen() {
-        requireNavController().navigate(
-            SelectReleaseDaysScreenRoute.route
-        )
     }
 
     override fun showPurchasesScreen() {

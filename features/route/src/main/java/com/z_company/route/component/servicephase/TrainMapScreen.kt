@@ -1629,12 +1629,14 @@ internal fun TrainMapScreen(
                         .background(Pst.surface, RoundedCornerShape(16.dp))
                         .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
                         text = title,
                         style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
                         color = Pst.text,
                         maxLines = 1,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     )
                     if (locationDenied) {
                         Text(
@@ -1642,6 +1644,7 @@ internal fun TrainMapScreen(
                             style = Pst.sans.copy(fontSize = 12.sp),
                             color = Pst.textMuted,
                             maxLines = 1,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         )
                     }
                 }

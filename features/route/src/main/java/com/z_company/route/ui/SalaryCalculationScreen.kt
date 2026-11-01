@@ -1,8 +1,12 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.HeaderTile
+import com.z_company.route.component.HeaderBackTile
+import com.z_company.route.component.ScreenHeader
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -130,12 +134,13 @@ fun SalaryCalculationScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
+            ScreenHeader(
+                navigation = { HeaderBackTile(onBack) },
+                actions = {
+                    HeaderTile(onClick = onSettingsSalaryClick, description = "Настройки зарплаты") {
                         Icon(
-                            painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back),
-                            contentDescription = "Назад",
+                            painter = painterResource(com.z_company.route.R.drawable.settings_24px),
+                            contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     }
@@ -143,15 +148,14 @@ fun SalaryCalculationScreen(
                 title = {
                     Surface(
                         onClick = { isCodeSearchActive = true },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(end = 12.dp),
-                        shape = RoundedCornerShape(12.dp),
+                        // Высота как у плиток шапки (44 dp).
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        shape = RoundedCornerShape(14.dp),
                         color = Color.Transparent,
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(
@@ -169,19 +173,6 @@ fun SalaryCalculationScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                actions = {
-                    IconButton(
-                        modifier = Modifier.padding(end = 16.dp),
-                        onClick = onSettingsSalaryClick
-                    ) {
-                        Icon(
-                            painter = painterResource(com.z_company.route.R.drawable.settings_24px),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
             )
         },
     ) { paddingValues ->
@@ -310,59 +301,68 @@ private fun PayrollCodeSearchScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
+            ScreenHeader(
+                navigation = { HeaderBackTile(onBack, description = "Назад к расчётному листу") },
+                actions = {
+                    HeaderTile(onClick = onSettingsSalaryClick, description = "Настройки зарплаты") {
                         Icon(
-                            painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back),
-                            contentDescription = "Назад к расчётному листу",
+                            painter = painterResource(com.z_company.route.R.drawable.settings_24px),
+                            contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     }
                 },
                 title = {
-                    OutlinedTextField(
+                    // Поле той же высоты, что плитки шапки (44 dp): OutlinedTextField ниже 56 dp не бывает.
+                    androidx.compose.foundation.text.BasicTextField(
                         value = query,
                         onValueChange = onQueryChange,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .height(44.dp)
                             .focusRequester(focusRequester)
                             .testTag("payroll_code_search_field"),
-                        placeholder = { Text("Расшифровать код") },
-                        leadingIcon = {
-                            Icon(
-                                painter = painterResource(com.z_company.route.R.drawable.search_24px),
-                                contentDescription = null,
-                            )
-                        },
-                        trailingIcon = if (query.isNotEmpty()) {
-                            {
-                                IconButton(onClick = { onQueryChange("") }) {
-                                    Icon(
-                                        painter = painterResource(com.z_company.route.R.drawable.ic_close_24px),
-                                        contentDescription = "Очистить поиск",
-                                    )
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.primary),
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.tertiary),
+                        decorationBox = { inner ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outline), RoundedCornerShape(14.dp))
+                                    .padding(start = 12.dp, end = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    painter = painterResource(com.z_company.route.R.drawable.search_24px),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                                    if (query.isEmpty()) {
+                                        Text(
+                                            text = "Расшифровать код",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                    inner()
+                                }
+                                if (query.isNotEmpty()) {
+                                    IconButton(onClick = { onQueryChange("") }) {
+                                        Icon(
+                                            painter = painterResource(com.z_company.route.R.drawable.ic_close_24px),
+                                            contentDescription = "Очистить поиск",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
                             }
-                        } else null,
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        textStyle = MaterialTheme.typography.bodyLarge,
+                        },
                     )
                 },
-                actions = {
-                    IconButton(
-                        modifier = Modifier.padding(end = 16.dp),
-                        onClick = onSettingsSalaryClick,
-                    ) {
-                        Icon(
-                            painter = painterResource(com.z_company.route.R.drawable.settings_24px),
-                            contentDescription = "Настройки зарплаты",
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
         },
     ) { paddingValues ->

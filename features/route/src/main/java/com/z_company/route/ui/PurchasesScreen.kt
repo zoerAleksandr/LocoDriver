@@ -1,5 +1,8 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.HeaderTextTile
+import com.z_company.route.component.HeaderCloseTile
+import com.z_company.route.component.ScreenHeader
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.util.Log
@@ -378,31 +381,14 @@ fun PurchasesScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {},
-                navigationIcon = {
-                    IconButton(onClick = { onBack() }) {
-                        Icon(
-                            tint = MaterialTheme.colorScheme.primary,
-                            painter = painterResource(com.z_company.core.R.drawable.ic_clear),
-                            contentDescription = "Закрыть"
-                        )
-                    }
-                },
+            ScreenHeader(
+                title = "",
+                navigation = { HeaderCloseTile({ onBack() }) },
                 actions = {
                     if (showRestore) {
-                        TextButton(onClick = viewModel::restoreSubscribe) {
-                            Text(
-                                text = "Восстановить",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.SemiBold
-                                ),
-                                color = MaterialTheme.colorScheme.tertiary
-                            )
-                        }
+                        HeaderTextTile("Восстановить", viewModel::restoreSubscribe, color = MaterialTheme.colorScheme.tertiary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
         snackbarHost = {

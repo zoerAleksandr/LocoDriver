@@ -1,5 +1,9 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.HeaderBackTile
+import com.z_company.route.component.HeaderTile
+import com.z_company.route.component.HeaderTextTile
+import com.z_company.route.component.ScreenHeader
 import com.z_company.route.util.DeviceLocation
 import androidx.compose.ui.platform.LocalContext
 import androidx.activity.result.contract.ActivityResultContracts
@@ -222,40 +226,23 @@ fun FormTrainScreen(
             }
         },
         topBar = {
-            CenterAlignedTopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                ),
-                title = {
-                    Text(
-                        text = "Поезд",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
-                        ),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                },
-                navigationIcon = {
-                    TextButton(
+            ScreenHeader(
+                title = "Поезд",
+                navigation = {
+                    HeaderBackTile(
                         onClick = {
                             keyboardController?.hide()
                             focusManager.clearFocus()
                             onTrainSaved()
                         },
-                    ) {
-                        Text(
-                            text = "Готово",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.tertiary,
-                        )
-                    }
+                    )
                 },
                 actions = {
-                    IconButton(onClick = onSettingClick) {
+                    HeaderTile(onClick = onSettingClick, description = "Настройки") {
                         Icon(
                             painter = painterResource(com.z_company.route.R.drawable.settings_24px),
-                            contentDescription = "Настройки",
-                            tint = MaterialTheme.colorScheme.primary
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
                         )
                     }
                 },

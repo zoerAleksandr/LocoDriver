@@ -1,5 +1,8 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.HeaderTextTile
+import com.z_company.route.component.HeaderBackTile
+import com.z_company.route.component.ScreenHeader
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -51,24 +54,9 @@ fun DataPrivacyScreen(onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                navigationIcon = {
-                    TextButton(onClick = onBack) {
-                        Text(
-                            text = "Готово",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.tertiary,
-                        )
-                    }
-                },
-                title = {
-                    Text(
-                        text = "Данные и конфиденциальность",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors().copy(containerColor = Color.Transparent),
+            ScreenHeader(
+                title = "Данные и конфиденциальность",
+                navigation = { HeaderBackTile(onBack) },
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -165,49 +153,24 @@ fun TrackHistoryScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
-            CenterAlignedTopAppBar(
-                navigationIcon = {
+            ScreenHeader(
+                title = if (isSelectionMode) "Выбрано: ${selectedIds.size}" else "Мои треки",
+                navigation = {
                     if (isSelectionMode) {
-                        TextButton(onClick = viewModel::toggleSelectAll) {
-                            Text(
-                                text = if (isAllSelected) "Снять" else "Все",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                            )
-                        }
+                        HeaderTextTile(if (isAllSelected) "Снять" else "Все", viewModel::toggleSelectAll, color = MaterialTheme.colorScheme.surfaceContainerLow)
                     } else {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back),
-                                contentDescription = "Назад",
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                        }
+                        HeaderBackTile(onBack)
                     }
-                },
-                title = {
-                    Text(
-                        text = if (isSelectionMode) "Выбрано: ${selectedIds.size}" else "Мои треки",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
                 },
                 actions = {
                     if (isSelectionMode || ui.items.isNotEmpty()) {
-                        TextButton(
-                            onClick = {
-                                if (isSelectionMode) viewModel.exitSelectionMode() else viewModel.enterSelectionMode()
-                            },
-                        ) {
-                            Text(
-                                text = if (isSelectionMode) "Готово" else "Выбрать",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                            )
-                        }
+                        HeaderTextTile(
+                            text = if (isSelectionMode) "Готово" else "Выбрать",
+                            onClick = { if (isSelectionMode) viewModel.exitSelectionMode() else viewModel.enterSelectionMode() },
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors().copy(containerColor = Color.Transparent),
             )
         },
         bottomBar = {

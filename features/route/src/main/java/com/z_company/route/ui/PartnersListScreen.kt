@@ -1,5 +1,8 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.HeaderBackTile
+import com.z_company.route.component.HeaderTextTile
+import com.z_company.route.component.ScreenHeader
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -137,48 +140,14 @@ fun PartnersListScreen(
             if (mode == PartnerListMode.SELECT) {
                 // Экран выбора напарника (из формы маршрута): заголовок по центру,
                 // без стрелки назад — слева синий «Готово» вместо неё.
-                CenterAlignedTopAppBar(
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background
-                    ),
-                    title = {
-                        Text(
-                            text = "Напарники",
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Medium),
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    },
-                    navigationIcon = {
-                        TextButton(onClick = onDone) {
-                            Text(
-                                text = "Готово",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.tertiary,
-                            )
-                        }
-                    },
+                ScreenHeader(
+                    title = "Напарники",
+                    navigation = { HeaderBackTile(onDone) },
                 )
             } else {
-                TopAppBar(
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background
-                    ),
-                    title = {
-                        Text(
-                            text = "Напарники",
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Medium),
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Text(
-                                text = "‹",
-                                style = MaterialTheme.typography.headlineLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    },
+                ScreenHeader(
+                    title = "Напарники",
+                    navigation = { HeaderBackTile(onBack) },
                 )
             }
         },

@@ -1,5 +1,8 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.HeaderTextTile
+import com.z_company.route.component.HeaderBackTile
+import com.z_company.route.component.ScreenHeader
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
@@ -99,33 +102,19 @@ fun TrashScreen(viewModel: TrashViewModel, onBack: () -> Unit) {
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            painterResource(com.z_company.core.R.drawable.ic_arrow_back),
-                            contentDescription = "Назад",
+            ScreenHeader(
+                title = "Корзина",
+                navigation = { HeaderBackTile(onBack) },
+                actions = {
+                    if (purgeableCount > 0) {
+                        HeaderTextTile(
+                            text = if (state.isPurging) "Очистка…" else "Очистить",
+                            onClick = { showEmptyConfirmation = true },
+                            color = MaterialTheme.colorScheme.error,
+                            enabled = !state.isRestoringAll && !state.isPurging && state.restoringRouteId == null,
                         )
                     }
                 },
-                title = { Text("Корзина", style = MaterialTheme.typography.titleMedium) },
-                actions = {
-                    if (purgeableCount > 0) {
-                        TextButton(
-                            onClick = { showEmptyConfirmation = true },
-                            enabled = !state.isRestoringAll && !state.isPurging && state.restoringRouteId == null,
-                        ) {
-                            Text(
-                                if (state.isPurging) "Очистка…" else "Очистить",
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.background,
-                ),
             )
         },
         containerColor = MaterialTheme.colorScheme.background,

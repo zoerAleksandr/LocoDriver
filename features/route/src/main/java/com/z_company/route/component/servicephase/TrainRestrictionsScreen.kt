@@ -155,13 +155,13 @@ internal fun TrainRestrictionsScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MapButton(onClick = onDismiss, description = "Назад") { PstIcon(PstIcons.ChevronLeft, 22.dp, Pst.text) }
+                com.z_company.route.component.HeaderBackTile(onDismiss)
                 Column(Modifier.weight(1f)) {
                     Text("ДУ-61", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
                     Text(trainTitle, style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Box(Modifier.coachAnchor(tourAnchors.getValue(RestrictionsTourStep.HELP))) {
-                    MapButton(onClick = { tourOpen = true }, description = "Подсказки") {
+                    com.z_company.route.component.HeaderTile(onClick = { tourOpen = true }, description = "Подсказки") {
                         Text("?", style = Pst.sans.copy(fontSize = 20.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted)
                     }
                 }

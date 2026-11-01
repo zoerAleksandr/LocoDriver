@@ -1,5 +1,9 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.HeaderBackTile
+import com.z_company.route.component.HeaderTile
+import com.z_company.route.component.HeaderTextTile
+import com.z_company.route.component.ScreenHeader
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.graphicsLayer
@@ -242,41 +246,26 @@ fun FormLocoScreen(
         modifier = Modifier
             .fillMaxWidth(),
         topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        text = "Локомотив",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                },
-                navigationIcon = {
-                    TextButton(
+            ScreenHeader(
+                title = "Локомотив",
+                navigation = {
+                    HeaderBackTile(
                         onClick = {
                             keyboardController?.hide()
                             topLevelFocusManager.clearFocus()
                             onLocoSaved()
-                        }
-                    ) {
-                        Text(
-                            text = "Готово",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.tertiary,
-                        )
-                    }
+                        },
+                    )
                 },
                 actions = {
-                    IconButton(
-                        onClick = onSettingsClick
-                    ) {
+                    HeaderTile(onClick = onSettingsClick, description = "Настройки") {
                         Icon(
                             painter = painterResource(R.drawable.settings_24px),
+                            contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            contentDescription = null
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
         snackbarHost = {

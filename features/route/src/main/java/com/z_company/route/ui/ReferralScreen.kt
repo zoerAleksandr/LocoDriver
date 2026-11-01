@@ -1,5 +1,7 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.HeaderBackTile
+import com.z_company.route.component.ScreenHeader
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -51,10 +53,9 @@ fun ReferralScreen(onBack: () -> Unit) {
     // при каждом новом входе в composition — обновляем счётчики и код.
     LaunchedEffect(Unit) { vm.refresh() }
     Scaffold(topBar = {
-        TopAppBar(
-            title = { Text("Пригласить друга", fontWeight = FontWeight.SemiBold) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(painterResource(R.drawable.keyboard_arrow_left_24px), "Назад") } },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+        ScreenHeader(
+            title = "Пригласить друга",
+            navigation = { HeaderBackTile(onBack) },
         )
     }) { padding ->
         Column(

@@ -1,5 +1,7 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.HeaderBackTile
+import com.z_company.route.component.ScreenHeader
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -309,24 +311,9 @@ fun SettingSalaryScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Зарплата",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = primaryColor
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back),
-                            contentDescription = "Назад",
-                            tint = primaryColor
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+            ScreenHeader(
+                title = "Зарплата",
+                navigation = { HeaderBackTile(onBack) },
             )
         },
         snackbarHost = {
