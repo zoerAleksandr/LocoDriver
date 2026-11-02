@@ -133,7 +133,11 @@ object UtilForMonthOfYear {
         return normaOfMonth
     }
 
-    fun MonthOfYear.getNormaHoursInDate(dateInMillis: Long): Int {
+    fun MonthOfYear.getNormaHoursInDate(dateInMillis: Long): Int =
+        getNormaHoursInDate(dateInMillis, WorkScheduleProfile.standard())
+
+    /** Норма с начала месяца по [dateInMillis] включительно; норма дня — по профилю, как в [getPersonalNormaHours]. */
+    fun MonthOfYear.getNormaHoursInDate(dateInMillis: Long, profile: WorkScheduleProfile): Int {
         val tz = TimeZone.currentSystemDefault()
         val currentDate = Instant.fromEpochMilliseconds(dateInMillis).toLocalDateTime(tz)
         var normaOfMonth = 0
@@ -143,12 +147,8 @@ object UtilForMonthOfYear {
                     return@forEach
                 }
                 if (currentDate.dayOfMonth >= day.dayOfMonth) {
-                    normaOfMonth += when (day.tag) {
-                        TagForDay.WORKING_DAY -> 8
-                        TagForDay.SHORTENED_DAY -> 7
-                        TagForDay.NON_WORKING_DAY -> 0
-                        TagForDay.HOLIDAY -> 0
-                    }
+                    val date = dateOfDayOrNull(day.dayOfMonth) ?: return@forEach
+                    normaOfMonth += profile.effectiveHours(date, day.tag, day.isDayOff())
                 }
             }
         }
