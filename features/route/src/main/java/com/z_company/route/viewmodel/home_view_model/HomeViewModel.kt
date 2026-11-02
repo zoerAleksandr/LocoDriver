@@ -1766,6 +1766,11 @@ class HomeViewModel : ViewModel(), KoinComponent {
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun observeNorma() {
         viewModelScope.launch {
+            sharedPreferenceStorage.getWorkScheduleProfileFlow().collect { profile ->
+                _uiState.update { it.copy(workScheduleProfile = profile) }
+            }
+        }
+        viewModelScope.launch {
             try {
                 _uiState
                     .map { it.monthSelected }
