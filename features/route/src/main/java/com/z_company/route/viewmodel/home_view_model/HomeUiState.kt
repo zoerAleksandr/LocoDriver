@@ -85,6 +85,9 @@ data class HomeUiState(
      * null = ещё не загружена.
      */
     val normaHours: Int? = null,
+    /** Личный профиль нормы (в т.ч. норма по датам) — для нормы «на сегодня». */
+    val workScheduleProfile: com.z_company.domain.entities.WorkScheduleProfile =
+        com.z_company.domain.entities.WorkScheduleProfile.standard(),
 )
 
 @Stable
