@@ -36,7 +36,9 @@ struct FormView: View {
 
     @State private var sheet: ActiveSheet?
     @State private var pendingDelete: PendingDelete?
-    @State private var confirm: RouteConfirmModel?
+    @State private var showCopyConfirm = false
+    @State private var showDeleteRouteConfirm = false
+    @State private var clearField: RouteTimeField?
     @State private var showArrivalConfirm = false
     @State private var sharePayload: SharePayload?
     @State private var nightWarnHidden = false
@@ -44,6 +46,7 @@ struct FormView: View {
     @State private var notesText = ""
     @State private var textsLoaded = false
     @State private var started = false
+    @State private var onePerson = false
     @State private var barHidden = false
 
     var body: some View { allDialogs }
@@ -69,6 +72,12 @@ struct FormView: View {
             vm.start(routeId: routeId, isCopy: isCopy, sharedPreview: isSharedPreview)
         }
         .onChange(of: vm.state?.isLoading) { _ in loadTextsIfNeeded() }
+        .onChange(of: onePerson) { value in
+            if value != (vm.state?.isOnePerson ?? false) { vm.setOnePerson(value) }
+        }
+        .onChange(of: vm.state?.isOnePerson) { value in
+            if let value = value, value != onePerson { onePerson = value }
+        }
         .onChange(of: vm.state?.timeStartWork) { _ in nightWarnHidden = false }
         .onChange(of: vm.state?.timeEndWork) { _ in nightWarnHidden = false }
         .sheet(item: $sheet) { active in sheetContent(active) }
@@ -79,17 +88,49 @@ struct FormView: View {
 
     private var withDuplicateAndCopy: some View {
         mainView
-            .overlay {
-                if let model = confirm {
-                    RouteConfirmDialog(model: model, onCancel: cancelConfirm) { action in
-                        confirm = nil
-                        action.perform()
-                    }
-                }
+            .confirmationDialog(
+                "Маршрут с такой явкой уже сохранён.",
+                isPresented: Binding(get: { vm.state?.duplicate != nil }, set: { if !$0, vm.state?.duplicate != nil { vm.dismissDuplicate() } }),
+                titleVisibility: .visible
+            ) {
+                Button("Заменить", role: .destructive) { vm.confirmReplaceDuplicate() }
+                Button("Оставить оба") { vm.confirmKeepBothDuplicates() }
+                Button("Отмена", role: .cancel) { vm.dismissDuplicate() }
             }
-            .animation(.easeInOut(duration: 0.15), value: confirm?.id)
-            .onChange(of: vm.state?.duplicate != nil) { has in
-                if has { showDuplicateConfirm() }
+            .confirmationDialog(
+                "Создать копию маршрута?",
+                isPresented: $showCopyConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Создать копию") {
+                    if let id = vm.state?.basicId { AppRouter.shared.showRouteForm(basicId: id, isMakeCopy: true) }
+                }
+                Button("Отмена", role: .cancel) {}
+            } message: {
+                Text("Откроется редактирование копии — исходный маршрут не изменится.")
+            }
+            .confirmationDialog(
+                "Удалить маршрут?",
+                isPresented: $showDeleteRouteConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Да, удалить", role: .destructive) { vm.deleteRoute() }
+                Button("Отмена", role: .cancel) {}
+            } message: {
+                Text(deleteRouteMessage)
+            }
+            .confirmationDialog(
+                clearField?.deleteTitle ?? "",
+                isPresented: Binding(get: { clearField != nil }, set: { if !$0 { clearField = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button("Удалить значение", role: .destructive) {
+                    if let f = clearField { setTime(f, nil) }
+                    clearField = nil
+                }
+                Button("Отмена", role: .cancel) { clearField = nil }
+            } message: {
+                Text(clearField.flatMap { currentValueText($0) } ?? "")
             }
     }
 
@@ -109,53 +150,6 @@ struct FormView: View {
         } message: {
             Text("Сейчас явка определяется прибытием пассажиром. Если задать время вручную, режим «явка по прибытию» отключится.")
         }
-    }
-
-    // MARK: Подтверждения (шторка, §24.1/§24.3)
-
-    private func showCopyConfirmSheet() {
-        confirm = RouteConfirmModel(
-            title: "Создать копию маршрута?",
-            message: "Откроется редактирование копии — исходный маршрут не изменится.",
-            actions: [.init(title: "Создать копию", role: .normal) {
-                if let id = vm.state?.basicId { AppRouter.shared.showRouteForm(basicId: id, isMakeCopy: true) }
-            }]
-        )
-    }
-
-    private func showDeleteRouteSheet() {
-        confirm = RouteConfirmModel(
-            title: "Удалить маршрут?",
-            message: deleteRouteMessage,
-            actions: [.init(title: "Да, удалить", role: .destructive) { vm.deleteRoute() }]
-        )
-    }
-
-    private func showClearSheet(_ field: RouteTimeField) {
-        confirm = RouteConfirmModel(
-            title: field.deleteTitle,
-            message: currentValueText(field) ?? "",
-            actions: [.init(title: "Удалить значение", role: .destructive) { setTime(field, nil) }]
-        )
-    }
-
-    /// «Маршрут с такой явкой уже сохранён» (§5.6): закрытие шторки = отмена, ничего не сохраняется.
-    private func showDuplicateConfirm() {
-        confirm = RouteConfirmModel(
-            title: "Маршрут с такой явкой уже сохранён.",
-            message: nil,
-            isDuplicate: true,
-            actions: [
-                .init(title: "Заменить", role: .destructive) { vm.confirmReplaceDuplicate() },
-                .init(title: "Оставить оба", role: .normal) { vm.confirmKeepBothDuplicates() },
-            ]
-        )
-    }
-
-    private func cancelConfirm() {
-        confirm = nil
-        // «Отмена»/тап вне диалога дубля — ничего не сохраняется (§5.6).
-        if vm.state?.duplicate != nil { vm.dismissDuplicate() }
     }
 
     // MARK: События
@@ -178,6 +172,7 @@ struct FormView: View {
         textsLoaded = true
         numberText = state.number
         notesText = state.notes
+        onePerson = state.isOnePerson
     }
 
     // MARK: Топ-бар (§5.3 п.1)
@@ -275,7 +270,7 @@ struct FormView: View {
         }
         // Панель уезжает вниз при прокрутке вниз и возвращается при прокрутке вверх (§5.3 п.11).
         .simultaneousGesture(
-            DragGesture(minimumDistance: 12)
+            DragGesture(minimumDistance: 16)
                 .onChanged { value in
                     let hide = value.translation.height < 0
                     if hide != barHidden { withAnimation(.easeInOut(duration: 0.6)) { barHidden = hide } }
@@ -314,12 +309,23 @@ struct FormView: View {
 
     private func onePersonCard(_ state: RouteFormState) -> some View {
         DSCard {
-            Toggle(isOn: Binding(get: { state.isOnePerson }, set: { vm.setOnePerson($0) })) {
+            // Вся строка кликабельна (§5.3 п.5); сам переключатель только отображает состояние.
+            HStack {
                 Text("Работа в одно лицо").font(DSFont.sans(16, .medium)).foregroundColor(DSColor.text)
+                Spacer(minLength: 8)
+                Toggle("", isOn: $onePerson)
+                    .labelsHidden()
+                    .tint(DSColor.accent)
+                    .allowsHitTesting(false)
             }
-            .tint(DSColor.accent)
             .padding(.horizontal, DSMetrics.rowPadX)
             .padding(.vertical, 12)
+            .contentShape(Rectangle())
+            .onTapGesture { onePerson.toggle() }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("Работа в одно лицо"))
+            .accessibilityValue(Text(onePerson ? "Включено" : "Выключено"))
+            .accessibilityAddTraits(.isButton)
         }
     }
 
@@ -477,7 +483,7 @@ struct FormView: View {
                     sheet = .picker(field)
                 }
             },
-            onLongPress: value == nil ? nil : { showClearSheet(field) }
+            onLongPress: value == nil ? nil : { clearField = field }
         )
     }
 
@@ -598,7 +604,7 @@ struct FormView: View {
                     Spacer()
                     barButton(.share, filled: false, label: "Поделиться") { vm.share() }
                     Spacer()
-                    barButton(.copy, filled: false, label: "Копировать") { showCopyConfirmSheet() }
+                    barButton(.copy, filled: false, label: "Копировать") { showCopyConfirm = true }
                 }
                 .padding(.horizontal, 22)
                 .frame(height: 52)
@@ -607,7 +613,7 @@ struct FormView: View {
                 .overlay(Capsule().stroke(DSColor.border, lineWidth: 1))
                 .dsShadow(.floating)
 
-                Button { showDeleteRouteSheet() } label: {
+                Button { showDeleteRouteConfirm = true } label: {
                     DSIcon.trash.image
                         .font(.system(size: 20))
                         .foregroundColor(DSColor.danger)

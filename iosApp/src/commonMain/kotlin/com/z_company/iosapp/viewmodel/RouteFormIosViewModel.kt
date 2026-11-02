@@ -1140,7 +1140,18 @@ class RouteFormIosViewModel(
 
     // ═══ Публикация состояния ═════════════════════════════════════════════════
 
+    /**
+     * Публикация идёт через один поток и читает маршрут в момент исполнения: иначе параллельный
+     * пересчёт мог записать устаревший снимок поверх нового (переключатель «в одно лицо» «через раз»).
+     */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val publishDispatcher = Dispatchers.Default.limitedParallelism(1)
+
     private fun publishState() {
+        scope.launch(publishDispatcher) { publishStateNow() }
+    }
+
+    private fun publishStateNow() {
         val route = currentRoute.value
         val settings = userSettings.value
         if (route == null || settings == null) {
