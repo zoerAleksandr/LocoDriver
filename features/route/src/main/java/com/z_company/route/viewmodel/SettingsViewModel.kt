@@ -222,8 +222,10 @@ class SettingsViewModel : ViewModel(), KoinComponent {
     }
 
     fun setWorkScheduleProfile(profile: WorkScheduleProfile) {
+        val now = Clock.System.now().toEpochMilliseconds()
         sharedPreferenceStorage.setWorkScheduleProfile(
-            profile.copy(updatedAt = Clock.System.now().toEpochMilliseconds())
+            profile.copy(updatedAt = now)
+                .stampChangedMonths(sharedPreferenceStorage.getWorkScheduleProfile(), now)
         )
         autoPushSettings()
     }
