@@ -38,6 +38,12 @@ data class WorkScheduleProfile(
      * при приёме профиля с сервера сохраняются (см. SyncManager).
      */
     val customDays: Map<String, Int> = emptyMap(),
+    /**
+     * Время последней правки нормы по датам, по месяцам: ключ — `yyyy-MM` (месяц 1..12), значение — ms.
+     * Единица LWW-синхронизации `GET/PUT /v1/work_schedule/days/`. Месяц, где правок не осталось (сброс),
+     * хранится здесь же — чтобы сброс победил на других устройствах. Локальное поле, в `PUT /v1/work_schedule/` не уходит.
+     */
+    val customMonthStamps: Map<String, Long> = emptyMap(),
 ) {
     fun hoursFor(dayOfWeek: DayOfWeek): Int = when (dayOfWeek) {
         DayOfWeek.MONDAY -> mondayHours
@@ -111,10 +117,55 @@ data class WorkScheduleProfile(
 
     /** Профиль в том виде, в котором он хранится на сервере (без локальных данных). */
     fun withoutCustomDays(): WorkScheduleProfile =
-        if (customDays.isEmpty()) this else copy(customDays = emptyMap())
+        if (customDays.isEmpty() && customMonthStamps.isEmpty()) this
+        else copy(customDays = emptyMap(), customMonthStamps = emptyMap())
+
+    /**
+     * Проставить [now] месяцам, где норма по датам изменилась относительно [previous].
+     * Вызывается на пользовательских правках (не при приёме данных с сервера).
+     */
+    fun stampChangedMonths(previous: WorkScheduleProfile, now: Long): WorkScheduleProfile {
+        val before = previous.customDays.entries.groupBy({ monthKeyOf(it.key) }, { it.key to it.value })
+            .mapValues { it.value.toMap() }
+        val after = customDays.entries.groupBy({ monthKeyOf(it.key) }, { it.key to it.value })
+            .mapValues { it.value.toMap() }
+        val changed = (before.keys + after.keys).filter { before[it].orEmpty() != after[it].orEmpty() }
+        if (changed.isEmpty()) return this
+        return copy(customMonthStamps = customMonthStamps + changed.associateWith { now })
+    }
+
+    /** Месяцы с нормой по датам для отправки на сервер (месяц без правок, но с меткой, — сброс). */
+    fun customMonths(): List<WorkScheduleMonth> {
+        val byMonth = customDays.entries.groupBy({ monthKeyOf(it.key) }, { it.key to it.value })
+        return (byMonth.keys + customMonthStamps.keys).sorted().map { key ->
+            WorkScheduleMonth(
+                monthKey = key,
+                days = byMonth[key].orEmpty().toMap(),
+                // Правки, сделанные до появления меток, — «старше любой метки», но новее отсутствия.
+                updatedAt = customMonthStamps[key] ?: LEGACY_MONTH_STAMP,
+            )
+        }
+    }
+
+    /** Принять месяцы с сервера: дни и метка месяца заменяются целиком. */
+    fun adoptMonths(months: List<WorkScheduleMonth>): WorkScheduleProfile {
+        if (months.isEmpty()) return this
+        val adopted = months.map { it.monthKey }.toSet()
+        val keptDays = customDays.filterKeys { monthKeyOf(it) !in adopted }
+        return copy(
+            customDays = keptDays + months.flatMap { it.days.entries }.associate { it.key to it.value },
+            customMonthStamps = customMonthStamps + months.associate { it.monthKey to it.updatedAt },
+        )
+    }
 
     companion object {
         const val MAX_CUSTOM_DAY_HOURS = 12
+
+        /** Метка месяца, правленного до появления синхронизации: новее «нет на сервере», старше любой настоящей. */
+        const val LEGACY_MONTH_STAMP = 1L
+
+        /** `yyyy-MM-dd` → `yyyy-MM`. */
+        fun monthKeyOf(isoDate: String): String = isoDate.take(7)
 
         fun standard(): WorkScheduleProfile = WorkScheduleProfile()
 
@@ -129,4 +180,43 @@ data class WorkScheduleProfile(
             sundayHours = 0,
         )
     }
+}
+
+/**
+ * Норма по датам одного месяца в обмене с сервером (`/v1/work_schedule/days/`).
+ * [monthKey] — `yyyy-MM`, месяц 1..12 (не 0-based, как в остальном контракте): совпадает с префиксом ключей [days].
+ */
+@Serializable
+data class WorkScheduleMonth(
+    val monthKey: String,
+    val days: Map<String, Int> = emptyMap(),
+    val updatedAt: Long = 0L,
+)
+
+/** Результат сверки локальной нормы по датам с серверной (LWW по месяцам). */
+data class CustomDaysSyncPlan(
+    /** Месяцы, где локальная версия свежее: отправить на сервер. */
+    val toPush: List<WorkScheduleMonth>,
+    /** Месяцы, где серверная версия свежее: принять локально. */
+    val toAdopt: List<WorkScheduleMonth>,
+)
+
+fun planCustomDaysSync(local: WorkScheduleProfile, remote: List<WorkScheduleMonth>): CustomDaysSyncPlan {
+    val localByKey = local.customMonths().associateBy { it.monthKey }
+    val remoteByKey = remote.associateBy { it.monthKey }
+    val push = mutableListOf<WorkScheduleMonth>()
+    val adopt = mutableListOf<WorkScheduleMonth>()
+    (localByKey.keys + remoteByKey.keys).sorted().forEach { key ->
+        val l = localByKey[key]
+        val r = remoteByKey[key]
+        when {
+            r == null -> if (l != null) push += l
+            l == null -> adopt += r
+            l.updatedAt > r.updatedAt -> push += l
+            l.updatedAt < r.updatedAt -> adopt += r
+            // Метки равны, а содержимое разное (метка legacy и т.п.): серверная версия считается общей.
+            l.days != r.days -> adopt += r
+        }
+    }
+    return CustomDaysSyncPlan(toPush = push, toAdopt = adopt)
 }
