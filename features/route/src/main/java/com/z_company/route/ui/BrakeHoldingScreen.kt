@@ -15,6 +15,10 @@ import com.z_company.domain.brake.BrakeHoldingRadio
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -187,18 +191,105 @@ private fun HoldingResultCard(result: HoldingResult?, state: BrakeHoldingUiState
     }
 }
 
-private class HoldingStep(val time: String, val title: String, val who: String, val text: String)
+/** Пункт шага: [who] - исполнитель по технологической карте ЦТ-162/р, если он отличается от исполнителя шага. */
+private class HBullet(val text: String, val who: String? = null)
+
+/**
+ * Шаг порядка действий (технологическая карта ЦТ-162/р). [phase] - заголовок этапа над первым шагом этапа; [badge] - срок (красный чип);
+ * [forbidden] - перечень запретов (красная плашка). Нумерация шагов сохраняется: 8 - закрепление, 9 - устранение неисправности.
+ */
+private class HStep(
+    val title: String,
+    val who: String,
+    val bullets: List<HBullet>,
+    val phase: String? = null,
+    val badge: String? = null,
+    val forbiddenTitle: String? = null,
+    val forbidden: List<String> = emptyList(),
+)
+
+private const val MASH = "Машинист"
+private const val POM = "Помощник"
 
 private val HOLDING_STEPS = listOf(
-    HoldingStep("30 с", "Остановка на площадке и прямом", "Машинист", "Если не нужна экстренная остановка - остановить поезд по возможности на площадке и прямом участке (по режимной карте). Полное служебное торможение: разрядка УР на 1,5-1,7 кгс/см² за один приём, кран № 395: V, затем III положение."),
-    HoldingStep("2 с", "Автотормоз и вспомогательный", "Машинист", "Кран № 395 в III положении; вспомогательный кран № 254 - в крайнее VI положение, ручку зафиксировать на защёлку."),
-    HoldingStep("30 с", "Место остановки", "Машинист", "Определить по ближайшим километровому и пикетному столбикам."),
-    HoldingStep("1-2 мин", "Радиосвязь об остановке", "Машинист", "«Внимание все! Я, машинист (фамилия) поезда № … остановился на … километре … пикете … пути перегона … вследствие … Будьте бдительны!» Получить подтверждения от встречных и вслед идущих, ДСП, ДНЦ. Время и фамилии - на обороте бланка ДУ-61."),
-    HoldingStep("1,5 мин", "Подготовка", "Помощник", "Красные огни буферных фонарей; набрать воздух в запасный резервуар токоприёмника; убедиться, что поезд заторможен и вспомогательный кран зафиксирован."),
-    HoldingStep("до 10 мин", "Вспомогательный локомотив", "Машинист", "Затребовать НЕ ПОЗДНЕЕ 10 минут после остановки: «Я машинист … поезда № …, на … км … пикете перегона … требую вспомогательный локомотив по причине неисправности локомотива секции …, серии …, № …, из-за … Время … час … мин»."),
-    HoldingStep("2-3 мин", "Расчёт закрепления", "Помощник", "По натурному листу определить массу и груженые вагоны; рассчитать башмаки и ручные тормоза (вкладка «Расчёт»). Ручной тормоз локомотива - по часовой стрелке до упора."),
-    HoldingStep("5-90 мин", "Закрепление", "Помощник", "Башмаки - под колёса со стороны уклона (носок полоза касается обода). Недостаток - ручные тормоза вагонов. Доложить ДСП/ДНЦ: число башмаков и вагонов с ручным тормозом. Запись в журнал формы ТУ-152."),
-    HoldingStep("-", "Устранение неисправности", "Машинист", "Не отвлекаться на радиопереговоры (ведёт помощник). Захода в высоковольтную камеру - только после опускания токоприёмников и проверки отсутствия напряжения по вольтметру. Помощник отсчитывает время от остановки."),
+    HStep(
+        "Остановка и торможение", MASH, phase = "Сразу после остановки",
+        bullets = listOf(
+            HBullet("Если не нужна экстренная остановка - остановить поезд по возможности на площадке и прямом участке (по режимной карте)."),
+            HBullet("Полное служебное торможение: разрядка УР на 0,15-0,17 МПа (1,5-1,7 кгс/см²) за один приём - кран № 395: V положение, затем III."),
+        ),
+    ),
+    HStep(
+        "Автотормоз и вспомогательный тормоз", MASH,
+        bullets = listOf(
+            HBullet("Убедиться, что кран № 395 в III положении."),
+            HBullet("Вспомогательный кран № 254 - в крайнее VI положение, ручку зафиксировать на защёлку."),
+        ),
+    ),
+    HStep(
+        "Место остановки", MASH,
+        bullets = listOf(HBullet("Определить по ближайшим километровому и пикетному столбикам (или кнопкой GPS ниже).")),
+    ),
+    HStep(
+        "Радиосвязь об остановке", MASH,
+        bullets = listOf(
+            HBullet("Объявить остановку и причину машинистам поездов, следующих по перегону, и ДСП, ограничивающим перегон (текст - ниже, «Сообщения по радио»)."),
+            HBullet("Получить подтверждение от встречных и вслед идущих поездов, ДСП, ДНЦ."),
+            HBullet("Зафиксировать время передачи сообщения, а также время и фамилии подтвердивших - на обороте бланка ДУ-61.", POM),
+            HBullet("Контролировать отсчёт времени от остановки и докладывать машинисту.", POM),
+        ),
+    ),
+    HStep(
+        "Подготовка к устранению неисправности", "$MASH, ${POM.lowercase()}", phase = "Подготовка и вызов помощи",
+        bullets = listOf(
+            HBullet("Включить красные огни буферных фонарей на ведущей секции.", MASH),
+            HBullet("Набрать воздух в запасный резервуар токоприёмника.", POM),
+            HBullet("Убедиться, что поезд заторможен, а ручка вспомогательного крана в крайнем тормозном положении и зафиксирована на защёлку.", POM),
+        ),
+    ),
+    HStep(
+        "Вспомогательный локомотив", MASH, badge = "не позднее 10 мин после остановки",
+        bullets = listOf(
+            HBullet("Затребовать вспомогательный локомотив по радио у ДНЦ, ДСП (при диспетчерской централизации - у ДНЦ); текст - ниже."),
+            HBullet("Указать помощнику определить число башмаков для удержания поезда с учётом веса."),
+        ),
+    ),
+    HStep(
+        "Расчёт закрепления", POM,
+        bullets = listOf(
+            HBullet("По натурному листу определить массу поезда, число осей и вагоны с нагрузкой на ось более 10 т (их номера с головы)."),
+            HBullet("Рассчитать башмаки и ручные тормоза - вкладка «Расчёт»."),
+            HBullet("Затормозить ручной тормоз локомотива: штурвал по часовой стрелке до упора."),
+        ),
+    ),
+    HStep(
+        "Закрепление", POM, phase = "Закрепление и устранение неисправности",
+        bullets = listOf(
+            HBullet("Башмаки укладывать под колёса вагонов со стороны уклона; носок полоза башмака должен касаться обода колеса."),
+            HBullet("Разнородный состав (груженые и порожние вагоны): по натурному листу определить груженые вагоны и их номера. Если башмаки под вагоны с нагрузкой на ось более 10 т уложить нельзя - число башмаков считать по вагонам с нагрузкой менее 10 т."),
+            HBullet("Поезд на переломном профиле: закреплять со стороны предполагаемого ухода, пропорционально весу частей поезда и величине уклона."),
+            HBullet("Если башмаков на локомотиве не хватает - дополнительно затормозить ручные тормоза вагонов (число - во вкладке «Расчёт»)."),
+            HBullet("Доложить ДСП, ограничивающему перегон (ДНЦ): сколько башмаков уложено и на скольких вагонах заторможены ручные тормоза.", MASH),
+            HBullet("Записать в журнал формы ТУ-152: число башмаков и вагонов с ручными тормозами."),
+        ),
+        forbiddenTitle = "Башмаки нельзя укладывать",
+        forbidden = listOf(
+            "между колёсными парами одной тележки;",
+            "перед рельсовым стыком;",
+            "перед крестовиной стрелочного перевода;",
+            "на рамный рельс стрелочного перевода;",
+            "на наружный рельс кривой.",
+        ),
+    ),
+    HStep(
+        "Устранение неисправности", "$MASH, ${POM.lowercase()}",
+        bullets = listOf(
+            HBullet("Устранить неисправность по аварийной схеме, установленной заводом-изготовителем (перемычки, предохранители и т.п.).", MASH),
+            HBullet("Не отвлекаться на радиопереговоры; при необходимости переговоры ведёт помощник, называя должность и фамилию.", MASH),
+            HBullet("Только если для устранения нужен заход в высоковольтную камеру электровоза: визуально убедиться, что токоприёмники опущены, и по вольтметру - что напряжения нет.", POM),
+            HBullet("Отсчитывать время от остановки и докладывать машинисту.", POM),
+        ),
+    ),
 )
 
 @Composable
@@ -228,7 +319,7 @@ private fun HoldingStepsTab(state: BrakeHoldingUiState, vm: BrakeHoldingViewMode
         VuBlock("ВРЕМЯ ОТ ОСТАНОВКИ") {
             if (elapsedSec == null) {
                 VuBtn("Остановились", { vm.startStop() }, Modifier.fillMaxWidth())
-                VuHint("Нажмите после остановки: пойдёт отсчёт, а время подставится в сообщение о вспомогательном локомотиве.")
+                VuHint("Нажмите после остановки: пойдёт отсчёт, а время подставится в сообщение о вспомогательном локомотиве. Время от остановки контролирует помощник машиниста и докладывает машинисту.")
             } else {
                 Text(fmtClock(elapsedSec), fontFamily = VuMono, fontSize = 34.sp, fontWeight = FontWeight.Bold, color = t.text)
                 val left = deadlineSec - elapsedSec
@@ -243,22 +334,8 @@ private fun HoldingStepsTab(state: BrakeHoldingUiState, vm: BrakeHoldingViewMode
         }
         HOLDING_STEPS.forEachIndexed { i, s ->
             val done = i in state.doneSteps
-            VuCard(Modifier.clickable { vm.toggleStep(i) }) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        VuTag("${i + 1}. ${s.who}")
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            VuTag(s.time, color = t.accent)
-                            Box(
-                                Modifier.size(22.dp).background(if (done) t.success else t.bgSubtle, CircleShape),
-                                contentAlignment = Alignment.Center,
-                            ) { if (done) Text("✓", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = t.bg) }
-                        }
-                    }
-                    Text(s.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = if (done) t.muted else t.text)
-                    Text(s.text, fontSize = 14.sp, lineHeight = 20.sp, color = if (done) t.muted else t.text)
-                }
-            }
+            s.phase?.let { HoldingPhaseHeader(it) }
+            HoldingStepRow(i + 1, s, done, last = i == HOLDING_STEPS.lastIndex, onToggle = { vm.toggleStep(i) })
         }
         VuVerdict(false, "Отпуск тормозов поезда до устранения неисправности или прицепки вспомогательного локомотива ЗАПРЕЩЕНО.")
         VuHint("Расчёт закрепления бригада делает заранее - перед отправлением с начальной станции (пункта смены бригад) по самому крутому уклону участка - и фиксирует на бланке ДУ-61.")
@@ -269,6 +346,74 @@ private fun HoldingStepsTab(state: BrakeHoldingUiState, vm: BrakeHoldingViewMode
         HoldingMessageCard("Об остановке", BrakeHoldingRadio.stopMessage(radio))
         HoldingMessageCard("Требование вспомогательного локомотива", BrakeHoldingRadio.helpLocoMessage(radio))
         VuHint("Тексты - по технологической карте ЦТ-162/р (операции 4.1 и 7.2): в них подставлены известные данные (поезд, локомотив, время, место по GPS), остальное - «…» - назовите сами. Время записать на обороте бланка ДУ-61 и в журнал формы ТУ-152.")
+    }
+}
+
+/** Заголовок этапа: акцентная метка и линия. */
+@Composable
+private fun HoldingPhaseHeader(title: String) {
+    val t = vuColors()
+    Column(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        VuTag(title, color = t.accent)
+        Box(Modifier.fillMaxWidth().height(2.dp).background(t.accent.copy(alpha = 0.25f), CircleShape))
+    }
+}
+
+/** Шаг: слева номер в кружке (тап - «выполнено») с вертикальной линией, справа карточка: исполнитель, срок, заголовок, пункты, запреты. */
+@Composable
+private fun HoldingStepRow(number: Int, step: HStep, done: Boolean, last: Boolean, onToggle: () -> Unit) {
+    val t = vuColors()
+    Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                Modifier.size(32.dp).background(if (done) t.success else t.accent, CircleShape).clickable(onClick = onToggle),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(if (done) "✓" else number.toString(), fontFamily = VuMono, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = t.bg)
+            }
+            if (!last) Box(Modifier.padding(top = 4.dp).width(2.dp).weight(1f).background(t.border))
+        }
+        Box(Modifier.weight(1f).padding(bottom = if (last) 0.dp else 12.dp)) {
+            VuCard(Modifier.clickable(onClick = onToggle)) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    VuTag(step.who)
+                    Text(step.title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = if (done) t.muted else t.text, lineHeight = 22.sp)
+                    step.badge?.let {
+                        Text(
+                            it.uppercase(), fontFamily = VuMono, fontSize = 11.sp, letterSpacing = 0.5.sp, fontWeight = FontWeight.Bold, color = t.bg,
+                            modifier = Modifier.background(t.danger, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 3.dp),
+                        )
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        step.bullets.forEach { b ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("•", fontSize = 14.sp, color = t.accent, fontWeight = FontWeight.Bold)
+                                Text(
+                                    androidx.compose.ui.text.buildAnnotatedString {
+                                        b.who?.let { w ->
+                                            pushStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.SemiBold, color = t.accent))
+                                            append("$w: ")
+                                            pop()
+                                        }
+                                        append(b.text)
+                                    },
+                                    fontSize = 14.sp, lineHeight = 20.sp, color = if (done) t.muted else t.text,
+                                )
+                            }
+                        }
+                    }
+                    if (step.forbidden.isNotEmpty()) {
+                        Column(
+                            Modifier.fillMaxWidth().background(t.danger.copy(alpha = 0.10f), RoundedCornerShape(12.dp)).padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(step.forbiddenTitle.orEmpty().uppercase(), fontFamily = VuMono, fontSize = 11.sp, letterSpacing = 0.5.sp, fontWeight = FontWeight.Bold, color = t.danger)
+                            step.forbidden.forEach { Text("✕  $it", fontSize = 14.sp, lineHeight = 20.sp, color = t.text) }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
