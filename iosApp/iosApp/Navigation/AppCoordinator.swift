@@ -42,6 +42,7 @@ struct AppCoordinator: View {
             Button("Войти") { router.showProfile() }
             Button("Отмена", role: .cancel) {}
         }
+        .dsToastHost()
     }
 
     private func tabStack(_ tab: AppTab) -> some View {

@@ -41,6 +41,7 @@ import com.z_company.iosapp.viewmodel.ProfileIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsIosViewModel
 import com.z_company.iosapp.viewmodel.PassengerFormIosViewModel
+import com.z_company.iosapp.viewmodel.RouteFormIosViewModel
 import com.z_company.iosapp.viewmodel.TrainFormIosViewModel
 import com.z_company.repository.remote_rest.SyncManager
 import org.koin.dsl.module
@@ -119,5 +120,20 @@ val iosUseCaseModule = module {
     single { LocoFormIosViewModel(get()) }
     single { TrainFormIosViewModel(get()) }
     single { PassengerFormIosViewModel(get()) }
+    // Форма маршрута §5: factory — по экземпляру на открытую форму (копия поверх оригинала).
+    factory {
+        RouteFormIosViewModel(
+            routeUseCase = get(),
+            settingsUseCase = get(),
+            salarySettingUseCase = get(),
+            partnerUseCase = get(),
+            routeRepository = get(),
+            stationDirectory = get(),
+            sharedPrefs = get(),
+            secureTokenStorage = get(),
+            shareRouteManager = get(),
+            syncManager = get(),
+        )
+    }
     single { ProfileIosViewModel(authManager = get(), syncManager = get(), secureTokenStorage = get(), sharedPrefs = get(), remoteRestApi = get()) }
 }

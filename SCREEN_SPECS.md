@@ -1885,6 +1885,9 @@ Snackbar-сообщения экрана показываются по очер�
 задать время вручную, режим «явка по прибытию» отключится.», кнопка «Изменить».
 Отмена ничего не меняет.
 
+**iOS (волна `ios/route-form`)**: форма — `Screens/Form/FormView.swift` + Kotlin `RouteFormIosViewModel` (Koin `factory`, по экземпляру на форму).
+Отклонения от Android: нет бегунка скрытия нижней панели при прокрутке; пикер времени — нативный барабан (без календаря и recent-times); подтверждения — системные alert/confirmationDialog; свайп напарника — жест с подтверждением; удаление поезда не удаляет треки (их на iOS нет).
+
 Источник: `features/route/.../ui/FormScreen.kt`, `navigation/FormDestination.kt`,
 `viewmodel/FormViewModel.kt`, `viewmodel/RouteFormUiState.kt`,
 `viewmodel/DialogRestUiState.kt`, `viewmodel/RouteActionsHelper.kt`

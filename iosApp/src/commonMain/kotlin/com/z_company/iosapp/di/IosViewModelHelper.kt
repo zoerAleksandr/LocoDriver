@@ -8,7 +8,9 @@ import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsIosViewModel
 import com.z_company.iosapp.viewmodel.PassengerFormIosViewModel
 import com.z_company.iosapp.viewmodel.TrainFormIosViewModel
+import com.z_company.iosapp.viewmodel.RouteFormIosViewModel
 import org.koin.core.component.KoinComponent
+import org.koin.core.component.get
 import org.koin.core.component.inject
 
 /**
@@ -39,4 +41,7 @@ object IosViewModelHelper : KoinComponent {
     fun getTrainFormViewModel(): TrainFormIosViewModel = trainFormViewModel
     fun getPassengerFormViewModel(): PassengerFormIosViewModel = passengerFormViewModel
     fun getProfileViewModel(): ProfileIosViewModel = profileViewModel
+
+    /** Форма маршрута §5: новый экземпляр на каждую открытую форму; Swift вызывает `dispose()`. */
+    fun createRouteFormViewModel(): RouteFormIosViewModel = get()
 }
