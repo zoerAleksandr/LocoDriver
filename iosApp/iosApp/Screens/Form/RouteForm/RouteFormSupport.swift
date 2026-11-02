@@ -88,6 +88,16 @@ struct RouteDateTimeSheet: View {
     }
 
     var body: some View {
+        VStack(spacing: 0) {
+            // Отступ над «Отмена / Готово»: у шторки без грэббера шапка иначе прижата к краю.
+            Color.clear.frame(height: 16)
+            sheetBody
+        }
+        .background(DSColor.bg.ignoresSafeArea())
+        .interactiveDismissDisabled()
+    }
+
+    private var sheetBody: some View {
         DSBottomSheet(
             header: .cancelDone(title: title, cancel: "Отмена", done: "Готово", onDone: {
                 let ms = TimeFormatter.dateToMs(value)
@@ -103,7 +113,6 @@ struct RouteDateTimeSheet: View {
                 .environment(\.locale, Locale(identifier: "ru_RU"))
                 .frame(maxWidth: .infinity)
         }
-        .interactiveDismissDisabled()
     }
 }
 
