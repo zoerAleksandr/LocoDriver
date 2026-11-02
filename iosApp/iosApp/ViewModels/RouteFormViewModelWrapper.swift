@@ -94,4 +94,9 @@ final class RouteFormViewModelWrapper: ObservableObject {
     func suggestStations(_ query: String) -> [String] {
         (viewModel.suggestStations(query: query) as? [String]) ?? []
     }
+
+    func recentTimes(_ key: String) -> [Int64] {
+        (viewModel.recentTimes(key: key) as? [KotlinLong])?.map { $0.int64Value } ?? []
+    }
+    func rememberTime(_ key: String, _ ms: Int64) { viewModel.rememberTime(key: key, ms: ms) }
 }

@@ -711,6 +711,12 @@ class RouteFormIosViewModel(
         }
     }
 
+    /** Последние выбранные значения пикера по ключу (`time_start_work`, `time_end_work`, …) — §24.2. */
+    fun recentTimes(key: String): List<Long> = sharedPrefs.getRecentTimes(key)
+
+    /** Подтверждённое значение пикера запоминается в recent-times. */
+    fun rememberTime(key: String, ms: Long) = sharedPrefs.addRecentTime(key, ms)
+
     /** Подсказки станций для автодополнения (справочник станций). */
     fun suggestStations(query: String): List<String> {
         val q = query.trim().lowercase()

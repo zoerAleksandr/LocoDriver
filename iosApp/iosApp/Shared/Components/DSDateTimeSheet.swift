@@ -10,18 +10,29 @@ struct DSDateTimeSheet: View {
     let title: String
     let timeZone: TimeZone
     let initial: Date
+    /// Последние выбранные значения (§24.2): тап по чипу подставляет значение в барабан.
+    var recent: [Date] = []
     let onDone: (Int64) -> Void
     let onCancel: () -> Void
 
     @State private var value: Date
 
-    init(title: String, timeZone: TimeZone, initial: Date, onDone: @escaping (Int64) -> Void, onCancel: @escaping () -> Void) {
+    init(title: String, timeZone: TimeZone, initial: Date, recent: [Date] = [], onDone: @escaping (Int64) -> Void, onCancel: @escaping () -> Void) {
         self.title = title
         self.timeZone = timeZone
         self.initial = initial
+        self.recent = recent
         self.onDone = onDone
         self.onCancel = onCancel
         _value = State(initialValue: initial)
+    }
+
+    private func chipText(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = timeZone
+        f.dateFormat = "dd.MM HH:mm"
+        return f.string(from: date)
     }
 
     var body: some View {
@@ -43,6 +54,16 @@ struct DSDateTimeSheet: View {
             showsGrabber: false,
             onClose: onCancel
         ) {
+            if !recent.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(Array(recent.enumerated()), id: \.offset) { _, date in
+                            DSChip(title: chipText(date)) { value = date }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
             DatePicker("", selection: $value, displayedComponents: [.date, .hourAndMinute])
                 .datePickerStyle(.wheel)
                 .labelsHidden()
