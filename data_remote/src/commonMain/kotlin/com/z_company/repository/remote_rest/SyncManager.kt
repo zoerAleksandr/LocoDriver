@@ -111,9 +111,41 @@ class SyncManager(
      * локальную норму по датам сохраняем, иначе любая синхронизация стирала бы календарь нормы.
      */
     private fun adoptRemoteWorkSchedule(profile: com.z_company.domain.entities.WorkScheduleProfile) {
+        val current = sharedPrefs.getWorkScheduleProfile()
         sharedPrefs.setWorkScheduleProfile(
-            profile.copy(customDays = sharedPrefs.getWorkScheduleProfile().customDays)
+            profile.copy(customDays = current.customDays, customMonthStamps = current.customMonthStamps)
         )
+    }
+
+    /**
+     * Норма по датам: LWW по месяцам через `/v1/work_schedule/days/`. Ошибка не валит общую синхронизацию
+     * (старый сервер без ресурса, сеть): сверка идемпотентна и повторится при следующей.
+     */
+    private suspend fun syncCustomDays(bearerToken: String) {
+        try {
+            val remote = (settingManager.getWorkScheduleMonthsFromRemote(bearerToken)
+                .first { it is ResultState.Success || it is ResultState.Error } as? ResultState.Success)
+                ?.data ?: return
+            val plan = com.z_company.domain.entities.planCustomDaysSync(sharedPrefs.getWorkScheduleProfile(), remote)
+            if (plan.toAdopt.isNotEmpty()) {
+                // Читаем профиль заново: пользователь мог править норму, пока шёл запрос.
+                sharedPrefs.setWorkScheduleProfile(sharedPrefs.getWorkScheduleProfile().adoptMonths(plan.toAdopt))
+            }
+            if (plan.toPush.isNotEmpty()) {
+                val saved = (settingManager.saveWorkScheduleMonthsInRemote(plan.toPush, bearerToken)
+                    .first { it is ResultState.Success || it is ResultState.Error } as? ResultState.Success)
+                    ?.data ?: return
+                // Сервер мог оставить более свежую версию другого устройства.
+                val pushed = plan.toPush.associateBy { it.monthKey }
+                val newer = saved.filter { (pushed[it.monthKey]?.updatedAt ?: Long.MAX_VALUE) < it.updatedAt }
+                if (newer.isNotEmpty()) {
+                    sharedPrefs.setWorkScheduleProfile(sharedPrefs.getWorkScheduleProfile().adoptMonths(newer))
+                }
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
     }
 
     /** LWW-синхронизация отдельного персонального профиля рабочей недели. */
@@ -134,6 +166,7 @@ class SyncManager(
         } else if (remote.updatedAt >= local.updatedAt) {
             adoptRemoteWorkSchedule(remote)
         }
+        syncCustomDays(bearerToken)
         return true
     }
 
@@ -1511,6 +1544,7 @@ class SyncManager(
                 }
                 if (state is ResultState.Error) allOk = false
             }
+        syncCustomDays(bearerToken)
 
         if (!syncLocomotiveSeries(bearerToken)) allOk = false
         if (!syncStationNorms(bearerToken)) allOk = false

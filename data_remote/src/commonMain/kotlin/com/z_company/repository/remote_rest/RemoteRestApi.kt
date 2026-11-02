@@ -3,6 +3,7 @@ package com.z_company.repository.remote_rest
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ProductionCalendarDay
 import com.z_company.domain.entities.ReleaseDay
+import com.z_company.domain.entities.WorkScheduleMonth
 import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.norma_time.LocomotiveSeriesTombstone
@@ -118,6 +119,13 @@ interface RemoteRestApi {
     suspend fun saveWorkScheduleProfile(token: String, body: WorkScheduleProfile): WorkScheduleProfile
 
     suspend fun getWorkScheduleProfile(token: String): WorkScheduleProfile
+
+    // --- Норма по датам (по месяцам), GET/PUT /v1/work_schedule/days/ ---
+
+    suspend fun getWorkScheduleMonths(token: String): List<WorkScheduleMonth>
+
+    /** Отправить месяцы; ответ — актуальное состояние всех месяцев пользователя на сервере. */
+    suspend fun saveWorkScheduleMonths(token: String, months: List<WorkScheduleMonth>): List<WorkScheduleMonth>
 
     // --- NormaTime (нормы времени приёмки/сдачи) ---
 
