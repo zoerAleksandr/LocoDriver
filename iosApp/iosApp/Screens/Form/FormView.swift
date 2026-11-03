@@ -197,9 +197,6 @@ struct FormView: View {
             HStack {
                 DSNavPillButton(title: "Готово") { vm.onSaveClick() }
                 Spacer()
-                DSNavPillButton(icon: .gear, accessibilityLabel: "Настройки маршрута") {
-                    AppRouter.shared.showSettingsSection(.routeForm)
-                }
             }
         }
         .padding(.horizontal, DSMetrics.screenPadX)
@@ -252,7 +249,7 @@ struct FormView: View {
                 if state.showOtherWork {
                     // Текст «Добавить прочая работа» — как в Android (`title.lowercase()`), по спеке §5.3 п.9.
                     childSection(
-                        title: "ПРОЧАЯ РАБОТА", addTitle: "Добавить прочая работа", icon: .mapPin,
+                        title: "ПРОЧАЯ РАБОТА", addTitle: "Добавить прочая работа", icon: .wrench,
                         rows: (state.otherWorks as? [RouteChildRow]) ?? [],
                         open: { id in AppRouter.shared.showOtherWorkForm(basicId: state.basicId, otherWorkId: id) },
                         add: { AppRouter.shared.showOtherWorkForm(basicId: state.basicId, otherWorkId: nil) },
@@ -307,10 +304,19 @@ struct FormView: View {
         DSCard {
             HStack(spacing: 12) {
                 Text("Номер").font(DSFont.sans(15)).foregroundColor(DSColor.textMuted)
-                TextField("Введите номер", text: $numberText)
+                TextField("", text: $numberText)
                     .font(DSFont.mono(20, .semibold))
                     .multilineTextAlignment(.trailing)
                     .keyboardType(.numberPad)
+                    .overlay(alignment: .trailing) {
+                        // Плейсхолдер мельче вводимого текста
+                        if numberText.isEmpty {
+                            Text("Введите номер")
+                                .font(DSFont.sans(15))
+                                .foregroundColor(DSColor.textFaint)
+                                .allowsHitTesting(false)
+                        }
+                    }
                     .onChange(of: numberText) { vm.setNumber($0) }
             }
             .padding(.horizontal, DSMetrics.rowPadX)
@@ -626,6 +632,19 @@ struct FormView: View {
                 .frame(height: 120)
                 .allowsHitTesting(false)
             HStack(spacing: 8) {
+                Button { AppRouter.shared.showSettingsSection(.routeForm) } label: {
+                    DSIcon.gear.image
+                        .font(.system(size: 20))
+                        .foregroundColor(DSColor.text)
+                        .frame(width: 52, height: 52)
+                        .background(DSColor.surface)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(DSColor.border, lineWidth: 1))
+                        .dsShadow(.floating)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("Настройки маршрута"))
+
                 HStack {
                     barButton(.heart, filled: state.isFavorite, label: "Избранное") {
                         ToastCenter.shared.show(state.isFavorite ? "Убрали из избранного" : "Маршрут добавлен в избранное")
