@@ -24,9 +24,9 @@ struct RouteCalcSheet: View {
                         .padding(.vertical, 18)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                settingsRow
             }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) { pinnedSettings }
     }
 
     @ViewBuilder
@@ -115,13 +115,15 @@ struct RouteCalcSheet: View {
         .padding(.horizontal, 6)
         .padding(.top, 14)
         .padding(.bottom, 6)
-
-        settingsRow
     }
 
-    private var settingsRow: some View {
+    /// Кнопка настроек закреплена в самом низу шторки.
+    private var pinnedSettings: some View {
         RouteSheetSettingsRow(title: "Настройки зарплаты", action: onSalarySettings)
-            .padding(.top, 6)
+            .padding(.horizontal, DSMetrics.screenPadX)
+            .padding(.top, 8)
+            .padding(.bottom, 12)
+            .background(DSColor.bg)
     }
 }
 
@@ -200,9 +202,14 @@ struct RouteRestSheet: View {
                     }
                 }
             }
-
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            // Кнопка настроек закреплена в самом низу шторки.
             RouteSheetSettingsRow(title: "Настройки времени отдыха", action: onRestSettings)
-                .padding(.top, 12)
+                .padding(.horizontal, DSMetrics.screenPadX)
+                .padding(.top, 8)
+                .padding(.bottom, 12)
+                .background(DSColor.bg)
         }
     }
 
