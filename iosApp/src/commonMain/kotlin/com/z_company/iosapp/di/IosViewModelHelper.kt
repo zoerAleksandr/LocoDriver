@@ -2,6 +2,8 @@ package com.z_company.iosapp.di
 
 import com.z_company.iosapp.viewmodel.FormIosViewModel
 import com.z_company.iosapp.viewmodel.HomeIosViewModel
+import com.z_company.iosapp.viewmodel.HomeScreenIosViewModel
+import com.z_company.iosapp.viewmodel.NewRouteIosViewModel
 import com.z_company.iosapp.viewmodel.LocoFormIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
@@ -32,6 +34,8 @@ object IosViewModelHelper : KoinComponent {
     private val trainFormViewModel: TrainFormIosViewModel by inject()
     private val passengerFormViewModel: PassengerFormIosViewModel by inject()
     private val profileViewModel: ProfileIosViewModel by inject()
+    private val homeScreenViewModel: HomeScreenIosViewModel by inject()
+    private val newRouteViewModel: NewRouteIosViewModel by inject()
 
     fun getHomeViewModel(): HomeIosViewModel = homeViewModel
     fun getFormViewModel(): FormIosViewModel = formViewModel
@@ -41,6 +45,8 @@ object IosViewModelHelper : KoinComponent {
     fun getTrainFormViewModel(): TrainFormIosViewModel = trainFormViewModel
     fun getPassengerFormViewModel(): PassengerFormIosViewModel = passengerFormViewModel
     fun getProfileViewModel(): ProfileIosViewModel = profileViewModel
+    fun getHomeScreenViewModel(): HomeScreenIosViewModel = homeScreenViewModel
+    fun getNewRouteViewModel(): NewRouteIosViewModel = newRouteViewModel
 
     /** Форма маршрута §5: новый экземпляр на каждую открытую форму; Swift вызывает `dispose()`. */
     fun createRouteFormViewModel(): RouteFormIosViewModel = get()
