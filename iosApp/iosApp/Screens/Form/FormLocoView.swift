@@ -354,12 +354,9 @@ struct FormLocoView: View {
         .animation(.easeInOut(duration: 0.28), value: Int(s.sectionCount))
     }
 
-    private var sectionTransition: AnyTransition {
-        .asymmetric(
-            insertion: .opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.96, anchor: .top)),
-            removal: .opacity.combined(with: .scale(scale: 0.96, anchor: .top))
-        )
-    }
+    /// Только плавное появление/исчезновение: соседние блоки сдвигаются анимацией раскладки,
+    /// сама секция не «выезжает» сверху и не перекрывает элементы над ней.
+    private var sectionTransition: AnyTransition { .opacity }
 
     // MARK: Шторки
 

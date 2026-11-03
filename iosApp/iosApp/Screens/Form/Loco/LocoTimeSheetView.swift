@@ -91,7 +91,7 @@ struct LocoTimeSheetView: View {
     }
 
     private var blockTransition: AnyTransition {
-        .opacity.combined(with: .move(edge: .top))
+        .opacity
     }
 
     private func startIfNeeded() {
