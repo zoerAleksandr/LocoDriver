@@ -1894,6 +1894,9 @@ RuStore и виджета на iOS нет; тикер живых блоков �
 задать время вручную, режим «явка по прибытию» отключится.», кнопка «Изменить».
 Отмена ничего не меняет.
 
+**iOS (волна `ios/route-form`)**: форма — `Screens/Form/FormView.swift` + Kotlin `RouteFormIosViewModel` (Koin `factory`, по экземпляру на форму).
+Отклонения от Android: шестерёнка «Настройки маршрута» — слева в нижней панели (как в PWA), иконка «Прочая работа» — гаечный ключ; строки «Явка/Сдача/перерыв» — как в PWA (подпись слева, значение справа `дд.мм.гггг чч:мм` акцентным mono, пусто — серое «Выбрать»); пикер времени — нативный барабан (без календаря; recent-times — чипами, на iOS хранятся только до перезапуска); подтверждения — центральный диалог `RouteConfirmDialog`; панель скрывается по направлению жеста прокрутки; свайп напарника — жест с подтверждением; удаление поезда не удаляет треки (их на iOS нет).
+
 Источник: `features/route/.../ui/FormScreen.kt`, `navigation/FormDestination.kt`,
 `viewmodel/FormViewModel.kt`, `viewmodel/RouteFormUiState.kt`,
 `viewmodel/DialogRestUiState.kt`, `viewmodel/RouteActionsHelper.kt`

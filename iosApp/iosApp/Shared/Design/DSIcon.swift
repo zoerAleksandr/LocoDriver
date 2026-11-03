@@ -47,6 +47,8 @@ enum DSIcon: String {
     case filter = "line.3.horizontal.decrease" // ArFilter
     case sort = "arrow.up.arrow.down"     // ArSort
     case warning = "exclamationmark"
+    case wrench = "wrench.fill"           // прочая работа (как в PWA)
+    case bed = "bed.double"               // hotel_24px — отдых в пункте оборота
 
     var image: Image { Image(systemName: rawValue) }
 }

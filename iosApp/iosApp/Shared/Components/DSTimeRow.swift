@@ -16,6 +16,8 @@ struct DSTimeRow: View {
     /// Время «19:09» или nil → «—:—».
     let time: String?
     var tag: String? = nil
+    /// Пустое значение (нет ни даты, ни времени) показывать одной плашкой «Выбрать».
+    var collapsesWhenEmpty: Bool = false
     var onTap: (() -> Void)? = nil
     var onLongPress: (() -> Void)? = nil
 
@@ -28,8 +30,12 @@ struct DSTimeRow: View {
                 }
             }
             HStack(spacing: DSSpacing.sm) {
-                chip(date ?? "Выбрать", isEmpty: date == nil, weight: .medium)
-                chip(time ?? "—:—", isEmpty: time == nil, weight: .semibold)
+                if collapsesWhenEmpty && date == nil && time == nil {
+                    chip("Выбрать", isEmpty: true, weight: .medium)
+                } else {
+                    chip(date ?? "Выбрать", isEmpty: date == nil, weight: .medium)
+                    chip(time ?? "—:—", isEmpty: time == nil, weight: .semibold)
+                }
             }
         }
         .padding(.horizontal, DSMetrics.rowPadX)

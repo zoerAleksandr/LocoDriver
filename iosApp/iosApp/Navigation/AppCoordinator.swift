@@ -42,6 +42,7 @@ struct AppCoordinator: View {
             Button("Войти") { router.showProfile() }
             Button("Отмена", role: .cancel) {}
         }
+        .dsToastHost()
         // Гейт «+» (§3.4). Отдельный фоновый носитель — чтобы не делить view с алертом выше.
         .background(newRouteGateAlertHost)
     }

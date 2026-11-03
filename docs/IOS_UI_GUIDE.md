@@ -83,6 +83,7 @@ LocoDriver поверх фундамента (этап 0): дизайн-кит, 
 | `DSWarningBlock` | оранжевый блок предупреждения (§2.7 WarnItem, «Вторая ночь подряд») | `night-warn.jsx` RouteNightWarn; `time-sheet.jsx` NormWarn |
 | `DSGlassPill`, `DSGlassIconButton` | стеклянная пилюля (iOS 16: `.ultraThinMaterial`) | `ios-frame.jsx` IOSGlassPill |
 | `DSBottomSheet` (+ `.dsSheet`) | каркас шторки: грэббер, шапка (✕ или Отмена/Готово), прокрутка | `ios-screens.jsx` RouteSheetShell; `time-sheet.jsx` TimeSheetIOS |
+| `DSDateTimeSheet` | шторка выбора даты и времени (`AppDateTimePicker`, §24.2): барабан, пояс отображения, «Отмена · Готово»; показывать с `.presentationDetents([.height(380)])` | `time-sheet.jsx` TimeSheetIOS |
 | `DSEmptyState` | пустое состояние с CTA | `stats-screens.jsx` IOSStatsEmpty; `all-routes.jsx` ArEmpty |
 | `DSSkeletonBlock`, `DSSkeletonRouteRow`, `DSSkeletonList` | скелетон первой загрузки | `route-quick-view.jsx` QVGhostList; спека §4.1 |
 
