@@ -26,6 +26,7 @@ import com.z_company.domain.repositories.PartnerRepository
 import com.z_company.domain.repositories.StationNormRepository
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.PartnerUseCase
+import com.z_company.domain.use_cases.LocomotiveUseCase
 import com.z_company.domain.use_cases.NormaUseCase
 import com.z_company.domain.use_cases.ProductionCalendarUseCase
 import com.z_company.domain.use_cases.RoutePartnerUseCase
@@ -39,6 +40,8 @@ import com.z_company.iosapp.viewmodel.HomeIosViewModel
 import com.z_company.iosapp.viewmodel.HomeScreenIosViewModel
 import com.z_company.iosapp.viewmodel.NewRouteIosViewModel
 import com.z_company.iosapp.viewmodel.LocoFormIosViewModel
+import com.z_company.iosapp.viewmodel.LocoScreenIosViewModel
+import com.z_company.iosapp.viewmodel.LocoTimeSheetIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsIosViewModel
@@ -85,6 +88,7 @@ val iosUseCaseModule = module {
 
     // ── UseCases ──────────────────────────────────────────────────────────
     single { RouteUseCase(get()) }
+    single { LocomotiveUseCase(get()) }
     single { SettingsUseCase(get()) }
     single { com.z_company.domain.use_cases.StationDirectoryUseCase(get()) }
     single { CalendarUseCase(get()) }
@@ -120,6 +124,24 @@ val iosUseCaseModule = module {
     single { FormIosViewModel(get(), get()) }
     single { SalaryCalculationIosViewModel(get(), get(), get(), get()) }
     single { LocoFormIosViewModel(get()) }
+    // Экран «Локомотив» §1 и шторка времени §2: factory — по экземпляру на открытый экран/шторку.
+    factory {
+        LocoScreenIosViewModel(
+            locomotiveUseCase = get(),
+            routeUseCase = get(),
+            settingsUseCase = get(),
+            sharedPrefs = get(),
+            seriesRepository = get(),
+        )
+    }
+    factory {
+        LocoTimeSheetIosViewModel(
+            seriesRepository = get(),
+            stationRepository = get(),
+            sharedPrefs = get(),
+            settingsUseCase = get(),
+        )
+    }
     single { TrainFormIosViewModel(get()) }
     single { PassengerFormIosViewModel(get()) }
     // Форма маршрута §5: factory — по экземпляру на открытую форму (копия поверх оригинала).

@@ -5,6 +5,8 @@ import com.z_company.iosapp.viewmodel.HomeIosViewModel
 import com.z_company.iosapp.viewmodel.HomeScreenIosViewModel
 import com.z_company.iosapp.viewmodel.NewRouteIosViewModel
 import com.z_company.iosapp.viewmodel.LocoFormIosViewModel
+import com.z_company.iosapp.viewmodel.LocoScreenIosViewModel
+import com.z_company.iosapp.viewmodel.LocoTimeSheetIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsIosViewModel
@@ -50,4 +52,10 @@ object IosViewModelHelper : KoinComponent {
 
     /** Форма маршрута §5: новый экземпляр на каждую открытую форму; Swift вызывает `dispose()`. */
     fun createRouteFormViewModel(): RouteFormIosViewModel = get()
+
+    /** Экран «Локомотив» §1: новый экземпляр на экран; Swift вызывает `dispose()`. */
+    fun createLocoScreenViewModel(): LocoScreenIosViewModel = get()
+
+    /** Шторка времени §2: новый экземпляр на открытие; Swift вызывает `dispose()`. */
+    fun createLocoTimeSheetViewModel(): LocoTimeSheetIosViewModel = get()
 }
