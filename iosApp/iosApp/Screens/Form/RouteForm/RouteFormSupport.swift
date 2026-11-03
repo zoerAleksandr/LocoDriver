@@ -103,3 +103,81 @@ struct SharePayload: Identifiable {
     let text: String
     let subject: String
 }
+
+/// Данные центрального диалога подтверждения формы (§24.3).
+struct RouteConfirmModel: Identifiable {
+    struct Action {
+        enum Role { case normal, destructive }
+        let title: String
+        let role: Role
+        let perform: () -> Void
+    }
+
+    let id = UUID()
+    let title: String
+    let message: String?
+    let actions: [Action]
+}
+
+/// Центральный диалог подтверждения: заголовок, описание, действия «таблетками» и «Отмена».
+/// Тап по затемнению = отмена.
+struct RouteConfirmDialog: View {
+    let model: RouteConfirmModel
+    let onCancel: () -> Void
+    let onAction: (RouteConfirmModel.Action) -> Void
+
+    var body: some View {
+        ZStack {
+            DSColor.scrim
+                .ignoresSafeArea()
+                .onTapGesture(perform: onCancel)
+            VStack(spacing: 0) {
+                VStack(spacing: 8) {
+                    Text(model.title)
+                        .font(DSFont.sans(20, .bold))
+                        .foregroundColor(DSColor.text)
+                        .multilineTextAlignment(.center)
+                    if let message = model.message, !message.isEmpty {
+                        Text(message)
+                            .font(DSFont.sans(15))
+                            .foregroundColor(DSColor.textMuted)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 26)
+                .padding(.bottom, 20)
+
+                VStack(spacing: 10) {
+                    ForEach(Array(model.actions.enumerated()), id: \.offset) { _, action in
+                        pill(action.title, color: action.role == .destructive ? DSColor.danger : DSColor.text, bold: true) {
+                            onAction(action)
+                        }
+                    }
+                    pill("Отмена", color: DSColor.accent, bold: false, action: onCancel)
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
+            }
+            .frame(maxWidth: 340)
+            .background(DSColor.bgElevated)
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .dsShadow(.floating)
+            .padding(.horizontal, 24)
+        }
+        .transition(.opacity)
+    }
+
+    private func pill(_ title: String, color: Color, bold: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(DSFont.sans(17, bold ? .semibold : .regular))
+                .foregroundColor(color)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(DSColor.bgSubtle)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+}
