@@ -64,11 +64,10 @@ struct LocoRefPickerSheet: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        DSTextAction(title: isSeries ? "+ Добавить серию" : "+ Добавить станцию") { mode = .edit(id: nil) }
-                        Spacer()
+                    DSTonalButton(title: isSeries ? "Добавить серию" : "Добавить станцию", icon: .plus, tone: .subtle) {
+                        mode = .edit(id: nil)
                     }
-                    .padding(.horizontal, 4).padding(.top, 14)
+                    .padding(.top, 14)
                     if isSeries { seriesGroups } else { stationGroups }
                 }
                 .padding(.horizontal, DSMetrics.screenPadX)
