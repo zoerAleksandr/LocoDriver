@@ -81,7 +81,7 @@ struct LocoSwipeDelete<Content: View>: View {
     var body: some View {
         ZStack(alignment: .trailing) {
             Button(action: {
-                withAnimation(animation) { openId = nil }
+                // Карточка остаётся открытой: её закрытие/исчезновение ведёт экран.
                 onDelete()
             }) {
                 DSIcon.trash.image

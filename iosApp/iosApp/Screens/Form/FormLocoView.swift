@@ -17,6 +17,8 @@ struct FormLocoView: View {
     @State private var applySupplyToSection = true
     @State private var deleteRequest: DSDeleteRequest?
     @State private var swipeLock = false
+    /// Секции, которые сейчас плавно исчезают: соседи сдвигаются только после полного исчезновения.
+    @State private var fadingIds: Set<String> = []
     @State private var openSwipeId: String?
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSuggestions = false
@@ -60,6 +62,12 @@ struct FormLocoView: View {
         .sheet(item: $timeKind) { kind in timeSheet(kind) }
         .sheet(item: $coeff) { target in coeffSheet(target) }
         .dsDeleteAlert($deleteRequest)
+        .onChange(of: deleteRequest?.id) { id in
+            // «Отмена» в alert — карточка возвращается; при подтверждении она уже исчезает.
+            if id == nil && fadingIds.isEmpty && openSwipeId != nil {
+                withAnimation(.easeOut(duration: 0.22)) { openSwipeId = nil }
+            }
+        }
         // Сворачивание приложения: изменения сохраняются сразу, не дожидаясь дебаунса.
         .onChange(of: scenePhase) { phase in
             if phase != .active { vm.flush() }
@@ -124,7 +132,9 @@ struct FormLocoView: View {
         .simultaneousGesture(TapGesture().onEnded {
             // С задержкой: тап по корзине сначала обрабатывает сама кнопка (иначе её действие отменяется).
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-                if openSwipeId != nil { withAnimation(.easeOut(duration: 0.22)) { openSwipeId = nil } }
+                if openSwipeId != nil && fadingIds.isEmpty && deleteRequest == nil {
+                    withAnimation(.easeOut(duration: 0.22)) { openSwipeId = nil }
+                }
             }
         })
         .animation(.easeInOut(duration: 0.25), value: s.isElectric)
@@ -316,14 +326,34 @@ struct FormLocoView: View {
         } else {
             id = ((s.dieselSections as? [LocoDieselSectionUi]) ?? []).last?.id
         }
-        if let id = id { requestDelete(id) }
+        let isEmpty: Bool
+        if s.isElectric {
+            isEmpty = ((s.electricSections as? [LocoElectricSectionUi]) ?? []).last?.isEmpty ?? true
+        } else {
+            isEmpty = ((s.dieselSections as? [LocoDieselSectionUi]) ?? []).last?.isEmpty ?? true
+        }
+        if let id = id { requestDelete(id, isEmpty: isEmpty) }
     }
 
-    private func requestDelete(_ id: String) {
-        if !vm.requestDeleteSection(id) {
+    /// Пустая секция удаляется сразу, иначе — подтверждение (§1.3 п.4).
+    private func requestDelete(_ id: String, isEmpty: Bool) {
+        if isEmpty {
+            removeSection(id)
+        } else {
             deleteRequest = DSDeleteRequest(title: "Удалить секцию?", message: "Секция будет удалена. Это действие нельзя отменить.") {
-                vm.deleteSection(id)
+                removeSection(id)
             }
+        }
+    }
+
+    /// Сначала секция полностью исчезает (карточка остаётся на месте), и только потом
+    /// удаляется из модели — иначе нижний блок наезжает на ещё видимую карточку.
+    private func removeSection(_ id: String) {
+        withAnimation(.easeOut(duration: 0.2)) { _ = fadingIds.insert(id) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) {
+            vm.deleteSection(id)
+            openSwipeId = nil
+            fadingIds.remove(id)
         }
     }
 
@@ -334,8 +364,9 @@ struct FormLocoView: View {
                 let list = (s.electricSections as? [LocoElectricSectionUi]) ?? []
                 ForEach(Array(list.enumerated()), id: \.element.id) { i, section in
                     LocoElectricSectionCard(section: section, index: i, showOtherCurrent: s.showOtherCurrent, vm: vm, openSwipeId: $openSwipeId, swipeLock: $swipeLock) {
-                        requestDelete(section.id)
+                        requestDelete(section.id, isEmpty: section.isEmpty)
                     }
+                    .opacity(fadingIds.contains(section.id) ? 0 : 1)
                     .transition(sectionTransition)
                 }
             } else {
@@ -345,8 +376,9 @@ struct FormLocoView: View {
                         section: section, index: i, isKiloMode: s.isKiloMode, vm: vm, openSwipeId: $openSwipeId, swipeLock: $swipeLock,
                         onCoeff: { vm.openCoefficient(i); coeff = CoeffTarget(index: i, isSupply: false) },
                         onSupplyCoeff: { vm.openCoefficient(i); applySupplyToSection = true; coeff = CoeffTarget(index: i, isSupply: true) },
-                        onDelete: { requestDelete(section.id) }
+                        onDelete: { requestDelete(section.id, isEmpty: section.isEmpty) }
                     )
+                    .opacity(fadingIds.contains(section.id) ? 0 : 1)
                     .transition(sectionTransition)
                 }
             }
