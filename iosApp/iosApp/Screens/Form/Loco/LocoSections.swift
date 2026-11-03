@@ -58,6 +58,7 @@ struct LocoDieselSectionCard: View {
     let index: Int
     let isKiloMode: Bool
     let vm: LocoScreenViewModelWrapper
+    @Binding var openSwipeId: String?
     let onCoeff: () -> Void
     let onSupplyCoeff: () -> Void
     let onDelete: () -> Void
@@ -67,7 +68,7 @@ struct LocoDieselSectionCard: View {
     private var expanded: Bool { supplyExpanded ?? section.hasSupplyData }
 
     var body: some View {
-        LocoSwipeDelete(onDelete: onDelete) {
+        LocoSwipeDelete(id: section.id, openId: $openSwipeId, onDelete: onDelete) {
             DSCard {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionHeader(label: section.label, onTap: { vm.toggleNumbering() }) {
@@ -173,6 +174,7 @@ struct LocoElectricSectionCard: View {
     let index: Int
     let showOtherCurrent: Bool
     let vm: LocoScreenViewModelWrapper
+    @Binding var openSwipeId: String?
     let onDelete: () -> Void
 
     @State private var recoveryExpanded: Bool?
@@ -180,7 +182,7 @@ struct LocoElectricSectionCard: View {
     private var expanded: Bool { recoveryExpanded ?? section.hasRecoveryData }
 
     var body: some View {
-        LocoSwipeDelete(onDelete: onDelete) {
+        LocoSwipeDelete(id: section.id, openId: $openSwipeId, onDelete: onDelete) {
             DSCard {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionHeader(label: section.label, onTap: { vm.toggleNumbering() }) { EmptyView() }
@@ -315,12 +317,14 @@ private struct AmountLine: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(label).dsTextStyle(.group)
+            Text(label).dsTextStyle(.group).fixedSize()
             Spacer(minLength: 8)
             Text(value).font(DSFont.mono(big ? 28 : 18, .bold)).foregroundColor(color)
-            if !unit.isEmpty { Text(unit).font(DSFont.mono(14)).foregroundColor(DSColor.textMuted) }
+                .lineLimit(1).minimumScaleFactor(0.4).layoutPriority(1)
+            if !unit.isEmpty { Text(unit).font(DSFont.mono(14)).foregroundColor(DSColor.textMuted).fixedSize() }
             if let pill = pill {
                 Text(pill).font(DSFont.mono(13, .semibold)).foregroundColor(DSColor.text)
+                    .lineLimit(1).fixedSize()
                     .padding(.horizontal, 8).padding(.vertical, 3)
                     .background(DSColor.bgSubtle).clipShape(Capsule())
             }

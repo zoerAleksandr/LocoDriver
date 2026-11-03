@@ -573,7 +573,7 @@ class LocoScreenIosViewModel(
 
     // ═══ ДРУГОЕ и ИТОГО ═══════════════════════════════════════════════════════
 
-    // BUG-03 (паритет с Android): счётчики и нормы не вызывают автосохранение.
+    // Отклонение от Android (BUG-03): счётчики и нормы тоже автосохраняются (по требованию владельца).
     fun setCounter(field: String, text: String) {
         when (field) {
             "heatingAccepted" -> {
@@ -593,26 +593,26 @@ class LocoScreenIosViewModel(
                 loco = loco?.copy(auxiliaryCounterDelivery = text.toDoubleOrNull())
             }
         }
-        publish()
+        changesHave()
     }
 
     fun setNorma1(text: String) {
         norma1 = text.sanitizeNumericInput(allowDecimal = true)
         loco = loco?.copy(normaElectricCurrent1 = norma1.toDoubleOrNull())
-        publish()
+        changesHave()
     }
 
     fun setNorma2(text: String) {
         norma2 = text.sanitizeNumericInput(allowDecimal = true)
         loco = loco?.copy(normaElectricCurrent2 = norma2.toDoubleOrNull())
-        publish()
+        changesHave()
     }
 
     /** Строка уходит на сервер как есть — только с точкой (§1.3 п.6). */
     fun setNormaDiesel(text: String) {
         val clean = text.sanitizeNumericInput(allowDecimal = true)
         loco = loco?.copy(normaDiesel = clean.ifBlank { null })
-        publish()
+        changesHave()
     }
 
     // ═══ Сохранение (§1.2) ═════════════════════════════════════════════════════
@@ -700,6 +700,14 @@ class LocoScreenIosViewModel(
             (l.heatingCounterAccepted ?: 0.0) == 0.0 && (l.heatingCounterDelivery ?: 0.0) == 0.0 &&
             (l.auxiliaryCounterAccepted ?: 0.0) == 0.0 && (l.auxiliaryCounterDelivery ?: 0.0) == 0.0 &&
             diesel.all { isDieselEmpty(it) } && electric.all { isElectricEmpty(it) }
+
+    /** Немедленное сохранение (сворачивание приложения, «Готово»): без ожидания дебаунса. */
+    fun flush() {
+        autoSaveJob?.cancel()
+        val updated = buildLoco() ?: return
+        if (isNewLoco && isLocoEmpty(updated)) return
+        scope.launch { persist(updated) }
+    }
 
     /** Финальное сохранение при уходе с экрана (аналог `onCleared`). */
     fun dispose() {

@@ -203,6 +203,7 @@ struct LocoSeriesEditor: View {
     @State private var letters = false
     @State private var loaded = false
     @State private var saveTask: Task<Void, Never>?
+    @Environment(\.scenePhase) private var scenePhase
 
     init(sheet: LocoTimeSheetViewModelWrapper, id: String?, onDone: @escaping () -> Void) {
         self.sheet = sheet
@@ -251,6 +252,8 @@ struct LocoSeriesEditor: View {
         .onChange(of: accH) { _ in schedule() }
         .onChange(of: delH) { _ in schedule() }
         .onChange(of: letters) { _ in schedule() }
+        .onDisappear { if loaded { commit() } }
+        .onChange(of: scenePhase) { phase in if phase != .active && loaded { commit() } }
     }
 
     /// Автосохранение через 500 мс после изменения (§2.10).
@@ -282,6 +285,7 @@ struct LocoStationEditor: View {
     @State private var d = ""
     @State private var loaded = false
     @State private var saveTask: Task<Void, Never>?
+    @Environment(\.scenePhase) private var scenePhase
 
     init(sheet: LocoTimeSheetViewModelWrapper, id: String?, onDone: @escaping () -> Void) {
         self.sheet = sheet
@@ -320,6 +324,8 @@ struct LocoStationEditor: View {
         .onChange(of: b) { _ in schedule() }
         .onChange(of: c) { _ in schedule() }
         .onChange(of: d) { _ in schedule() }
+        .onDisappear { if loaded { commit() } }
+        .onChange(of: scenePhase) { phase in if phase != .active && loaded { commit() } }
     }
 
     private func schedule() {

@@ -59,17 +59,27 @@ struct LocoFieldLabel: View {
 }
 
 /// Свайп карточки влево открывает красную кнопку удаления (`SwipeToRevealDelete`, §1.3 п.4).
+/// Открытая карточка одна (`openId` у родителя): тап в любом другом месте экрана или по другой
+/// карточке закрывает её с анимацией; возврат тоже анимируется.
 struct LocoSwipeDelete<Content: View>: View {
+    let id: String
+    @Binding var openId: String?
     let onDelete: () -> Void
     @ViewBuilder let content: () -> Content
 
-    @State private var offset: CGFloat = 0
+    @State private var drag: CGFloat = 0
     private let revealWidth: CGFloat = 84
+    private let animation = Animation.easeOut(duration: 0.22)
+
+    private var isOpen: Bool { openId == id }
+    private var offset: CGFloat {
+        max(-revealWidth, min(0, (isOpen ? -revealWidth : 0) + drag))
+    }
 
     var body: some View {
         ZStack(alignment: .trailing) {
             Button(action: {
-                withAnimation(.easeOut(duration: 0.2)) { offset = 0 }
+                withAnimation(animation) { openId = nil }
                 onDelete()
             }) {
                 DSIcon.trash.image
@@ -82,19 +92,34 @@ struct LocoSwipeDelete<Content: View>: View {
             }
             .buttonStyle(.plain)
             .opacity(offset < 0 ? 1 : 0)
+            .allowsHitTesting(isOpen)
             .accessibilityLabel(Text("Удалить секцию"))
 
             content()
                 .offset(x: offset)
+                .allowsHitTesting(!isOpen)
+                .overlay {
+                    // Открытая карточка по тапу возвращается на место, а не реагирует на поля.
+                    if isOpen {
+                        Color.clear.contentShape(Rectangle()).offset(x: offset)
+                            .onTapGesture { withAnimation(animation) { openId = nil } }
+                    }
+                }
                 .simultaneousGesture(
                     DragGesture(minimumDistance: 20, coordinateSpace: .local)
                         .onChanged { value in
                             guard abs(value.translation.width) > abs(value.translation.height) else { return }
-                            offset = max(-revealWidth, min(0, value.translation.width + (offset == -revealWidth ? -revealWidth : 0)))
+                            drag = value.translation.width
                         }
                         .onEnded { value in
-                            withAnimation(.easeOut(duration: 0.2)) {
-                                offset = value.translation.width < -revealWidth / 2 ? -revealWidth : 0
+                            let final = (isOpen ? -revealWidth : 0) + value.translation.width
+                            withAnimation(animation) {
+                                drag = 0
+                                if final < -revealWidth / 2 {
+                                    openId = id
+                                } else if openId == id {
+                                    openId = nil
+                                }
                             }
                         }
                 )
@@ -124,6 +149,7 @@ struct LocoResultCard: View {
                     Text("\(sign)\(result.magnitude)")
                         .font(DSFont.mono(20, .bold))
                         .foregroundColor(DSColor.text)
+                        .lineLimit(1).minimumScaleFactor(0.5)
                     Text((unit.isEmpty ? " " : " \(unit)  ") + "(\(sign)\(result.percent)%)")
                         .font(DSFont.mono(13))
                         .foregroundColor(DSColor.textMuted)

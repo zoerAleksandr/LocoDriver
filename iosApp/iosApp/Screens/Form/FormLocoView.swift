@@ -16,6 +16,8 @@ struct FormLocoView: View {
     @State private var coeff: CoeffTarget?
     @State private var applySupplyToSection = true
     @State private var pendingDeleteId: String?
+    @State private var openSwipeId: String?
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showSuggestions = false
     @FocusState private var seriesFocused: Bool
     @State private var seriesText = ""
@@ -56,8 +58,21 @@ struct FormLocoView: View {
         }
         .sheet(item: $timeKind) { kind in timeSheet(kind) }
         .sheet(item: $coeff) { target in coeffSheet(target) }
-        .sheet(isPresented: Binding(get: { pendingDeleteId != nil }, set: { if !$0 { pendingDeleteId = nil } })) {
-            deleteSheet.presentationDetents([.height(220)])
+        .background(
+            Color.clear
+            .alert("Удалить секцию?", isPresented: Binding(get: { pendingDeleteId != nil }, set: { if !$0 { pendingDeleteId = nil } })) {
+            Button("Да, удалить", role: .destructive) {
+                if let id = pendingDeleteId { vm.deleteSection(id) }
+                pendingDeleteId = nil
+            }
+            Button("Отмена", role: .cancel) { pendingDeleteId = nil }
+            } message: {
+            Text("Секция будет удалена. Это действие нельзя отменить.")
+            }
+        )
+        // Сворачивание приложения: изменения сохраняются сразу, не дожидаясь дебаунса.
+        .onChange(of: scenePhase) { phase in
+            if phase != .active { vm.flush() }
         }
         .alert("Не удалось сохранить", isPresented: Binding(get: { vm.state?.saveError != nil }, set: { if !$0 { vm.clearSaveError() } })) {
             Button("OK", role: .cancel) { vm.clearSaveError() }
@@ -74,6 +89,7 @@ struct FormLocoView: View {
             HStack {
                 DSNavPillButton(title: "Готово") {
                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    vm.flush()
                     AppRouter.shared.back()
                 }
                 Spacer()
@@ -114,6 +130,12 @@ struct FormLocoView: View {
             .padding(.horizontal, DSMetrics.screenPadX)
         }
         .scrollDismissesKeyboardIfAvailable()
+        .simultaneousGesture(TapGesture().onEnded {
+            // С задержкой: тап по корзине сначала обрабатывает сама кнопка (иначе её действие отменяется).
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                if openSwipeId != nil { withAnimation(.easeOut(duration: 0.22)) { openSwipeId = nil } }
+            }
+        })
         .animation(.easeInOut(duration: 0.25), value: s.isElectric)
         .animation(.easeInOut(duration: 0.25), value: s.showOtherCurrent)
         .animation(.easeInOut(duration: 0.25), value: s.electricTotals.count)
@@ -316,7 +338,7 @@ struct FormLocoView: View {
             if s.isElectric {
                 let list = (s.electricSections as? [LocoElectricSectionUi]) ?? []
                 ForEach(Array(list.enumerated()), id: \.element.id) { i, section in
-                    LocoElectricSectionCard(section: section, index: i, showOtherCurrent: s.showOtherCurrent, vm: vm) {
+                    LocoElectricSectionCard(section: section, index: i, showOtherCurrent: s.showOtherCurrent, vm: vm, openSwipeId: $openSwipeId) {
                         requestDelete(section.id)
                     }
                     .transition(sectionTransition)
@@ -325,7 +347,7 @@ struct FormLocoView: View {
                 let list = (s.dieselSections as? [LocoDieselSectionUi]) ?? []
                 ForEach(Array(list.enumerated()), id: \.element.id) { i, section in
                     LocoDieselSectionCard(
-                        section: section, index: i, isKiloMode: s.isKiloMode, vm: vm,
+                        section: section, index: i, isKiloMode: s.isKiloMode, vm: vm, openSwipeId: $openSwipeId,
                         onCoeff: { vm.openCoefficient(i); coeff = CoeffTarget(index: i, isSupply: false) },
                         onSupplyCoeff: { vm.openCoefficient(i); applySupplyToSection = true; coeff = CoeffTarget(index: i, isSupply: true) },
                         onDelete: { requestDelete(section.id) }
@@ -342,20 +364,6 @@ struct FormLocoView: View {
             insertion: .opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.96, anchor: .top)),
             removal: .opacity.combined(with: .scale(scale: 0.96, anchor: .top))
         )
-    }
-
-    private var deleteSheet: some View {
-        VStack(spacing: 14) {
-            Text("Удалить секцию?").dsTextStyle(.sectionH2)
-            DSDangerButton(title: "Да, удалить") {
-                if let id = pendingDeleteId { vm.deleteSection(id) }
-                pendingDeleteId = nil
-            }
-            DSTextAction(title: "Отмена") { pendingDeleteId = nil }
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(DSColor.bg.ignoresSafeArea())
     }
 
     // MARK: Шторки

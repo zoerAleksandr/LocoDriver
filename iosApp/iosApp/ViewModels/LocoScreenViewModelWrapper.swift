@@ -21,6 +21,8 @@ final class LocoScreenViewModelWrapper: ObservableObject {
     }
 
     func start(basicId: String, locoId: String?) { viewModel.start(basicId: basicId, locoId: locoId) }
+    /// Немедленное сохранение (сворачивание приложения, уход с экрана).
+    func flush() { viewModel.flush() }
     func reloadSettings() { viewModel.reloadSettingsFromPrefs() }
 
     func setSeries(_ v: String) { viewModel.setSeries(value: v) }
