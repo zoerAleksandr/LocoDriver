@@ -64,6 +64,8 @@ struct LocoFieldLabel: View {
 struct LocoSwipeDelete<Content: View>: View {
     let id: String
     @Binding var openId: String?
+    /// Пока идёт горизонтальный свайп, прокрутка экрана блокируется (иначе тянется весь экран).
+    @Binding var lockScroll: Bool
     let onDelete: () -> Void
     @ViewBuilder let content: () -> Content
 
@@ -106,13 +108,18 @@ struct LocoSwipeDelete<Content: View>: View {
                     }
                 }
                 .simultaneousGesture(
-                    DragGesture(minimumDistance: 20, coordinateSpace: .local)
+                    DragGesture(minimumDistance: 8, coordinateSpace: .local)
                         .onChanged { value in
-                            guard abs(value.translation.width) > abs(value.translation.height) else { return }
-                            drag = value.translation.width
+                            let w = value.translation.width
+                            let h = value.translation.height
+                            // Горизонтальный жест: блокируем вертикальную прокрутку.
+                            guard lockScroll || abs(w) > abs(h) * 1.5 else { return }
+                            if !lockScroll { lockScroll = true }
+                            drag = w
                         }
                         .onEnded { value in
                             let final = (isOpen ? -revealWidth : 0) + value.translation.width
+                            lockScroll = false
                             withAnimation(animation) {
                                 drag = 0
                                 if final < -revealWidth / 2 {
@@ -124,6 +131,11 @@ struct LocoSwipeDelete<Content: View>: View {
                         }
                 )
         }
+        // Контейнер фиксированной ширины: смещённая карточка не расширяет область прокрутки
+        // (иначе при свайпе тянулся весь экран). Вертикальный запас сохраняет тень карточки.
+        .padding(.vertical, 12)
+        .clipped()
+        .padding(.vertical, -12)
     }
 }
 

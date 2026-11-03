@@ -59,6 +59,7 @@ struct LocoDieselSectionCard: View {
     let isKiloMode: Bool
     let vm: LocoScreenViewModelWrapper
     @Binding var openSwipeId: String?
+    @Binding var swipeLock: Bool
     let onCoeff: () -> Void
     let onSupplyCoeff: () -> Void
     let onDelete: () -> Void
@@ -68,7 +69,7 @@ struct LocoDieselSectionCard: View {
     private var expanded: Bool { supplyExpanded ?? section.hasSupplyData }
 
     var body: some View {
-        LocoSwipeDelete(id: section.id, openId: $openSwipeId, onDelete: onDelete) {
+        LocoSwipeDelete(id: section.id, openId: $openSwipeId, lockScroll: $swipeLock, onDelete: onDelete) {
             DSCard {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionHeader(label: section.label, onTap: { vm.toggleNumbering() }) {
@@ -175,6 +176,7 @@ struct LocoElectricSectionCard: View {
     let showOtherCurrent: Bool
     let vm: LocoScreenViewModelWrapper
     @Binding var openSwipeId: String?
+    @Binding var swipeLock: Bool
     let onDelete: () -> Void
 
     @State private var recoveryExpanded: Bool?
@@ -182,7 +184,7 @@ struct LocoElectricSectionCard: View {
     private var expanded: Bool { recoveryExpanded ?? section.hasRecoveryData }
 
     var body: some View {
-        LocoSwipeDelete(id: section.id, openId: $openSwipeId, onDelete: onDelete) {
+        LocoSwipeDelete(id: section.id, openId: $openSwipeId, lockScroll: $swipeLock, onDelete: onDelete) {
             DSCard {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionHeader(label: section.label, onTap: { vm.toggleNumbering() }) { EmptyView() }

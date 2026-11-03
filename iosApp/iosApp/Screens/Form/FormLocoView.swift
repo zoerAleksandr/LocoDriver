@@ -15,7 +15,8 @@ struct FormLocoView: View {
     @State private var timeKind: TimeKind?
     @State private var coeff: CoeffTarget?
     @State private var applySupplyToSection = true
-    @State private var pendingDeleteId: String?
+    @State private var deleteRequest: DSDeleteRequest?
+    @State private var swipeLock = false
     @State private var openSwipeId: String?
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSuggestions = false
@@ -58,18 +59,7 @@ struct FormLocoView: View {
         }
         .sheet(item: $timeKind) { kind in timeSheet(kind) }
         .sheet(item: $coeff) { target in coeffSheet(target) }
-        .background(
-            Color.clear
-            .alert("Удалить секцию?", isPresented: Binding(get: { pendingDeleteId != nil }, set: { if !$0 { pendingDeleteId = nil } })) {
-            Button("Да, удалить", role: .destructive) {
-                if let id = pendingDeleteId { vm.deleteSection(id) }
-                pendingDeleteId = nil
-            }
-            Button("Отмена", role: .cancel) { pendingDeleteId = nil }
-            } message: {
-            Text("Секция будет удалена. Это действие нельзя отменить.")
-            }
-        )
+        .dsDeleteAlert($deleteRequest)
         // Сворачивание приложения: изменения сохраняются сразу, не дожидаясь дебаунса.
         .onChange(of: scenePhase) { phase in
             if phase != .active { vm.flush() }
@@ -130,6 +120,7 @@ struct FormLocoView: View {
             .padding(.horizontal, DSMetrics.screenPadX)
         }
         .scrollDismissesKeyboardIfAvailable()
+        .scrollDisabledCompat(swipeLock)
         .simultaneousGesture(TapGesture().onEnded {
             // С задержкой: тап по корзине сначала обрабатывает сама кнопка (иначе её действие отменяется).
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
@@ -329,7 +320,11 @@ struct FormLocoView: View {
     }
 
     private func requestDelete(_ id: String) {
-        if !vm.requestDeleteSection(id) { pendingDeleteId = id }
+        if !vm.requestDeleteSection(id) {
+            deleteRequest = DSDeleteRequest(title: "Удалить секцию?", message: "Секция будет удалена. Это действие нельзя отменить.") {
+                vm.deleteSection(id)
+            }
+        }
     }
 
     @ViewBuilder
@@ -338,7 +333,7 @@ struct FormLocoView: View {
             if s.isElectric {
                 let list = (s.electricSections as? [LocoElectricSectionUi]) ?? []
                 ForEach(Array(list.enumerated()), id: \.element.id) { i, section in
-                    LocoElectricSectionCard(section: section, index: i, showOtherCurrent: s.showOtherCurrent, vm: vm, openSwipeId: $openSwipeId) {
+                    LocoElectricSectionCard(section: section, index: i, showOtherCurrent: s.showOtherCurrent, vm: vm, openSwipeId: $openSwipeId, swipeLock: $swipeLock) {
                         requestDelete(section.id)
                     }
                     .transition(sectionTransition)
@@ -347,7 +342,7 @@ struct FormLocoView: View {
                 let list = (s.dieselSections as? [LocoDieselSectionUi]) ?? []
                 ForEach(Array(list.enumerated()), id: \.element.id) { i, section in
                     LocoDieselSectionCard(
-                        section: section, index: i, isKiloMode: s.isKiloMode, vm: vm, openSwipeId: $openSwipeId,
+                        section: section, index: i, isKiloMode: s.isKiloMode, vm: vm, openSwipeId: $openSwipeId, swipeLock: $swipeLock,
                         onCoeff: { vm.openCoefficient(i); coeff = CoeffTarget(index: i, isSupply: false) },
                         onSupplyCoeff: { vm.openCoefficient(i); applySupplyToSection = true; coeff = CoeffTarget(index: i, isSupply: true) },
                         onDelete: { requestDelete(section.id) }
@@ -429,6 +424,11 @@ private struct LocoNumberField: View {
 }
 
 private extension View {
+    @ViewBuilder
+    func scrollDisabledCompat(_ disabled: Bool) -> some View {
+        if #available(iOS 16.0, *) { self.scrollDisabled(disabled) } else { self }
+    }
+
     @ViewBuilder
     func scrollDismissesKeyboardIfAvailable() -> some View {
         if #available(iOS 16.0, *) { self.scrollDismissesKeyboard(.interactively) } else { self }

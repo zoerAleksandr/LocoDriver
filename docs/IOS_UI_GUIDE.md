@@ -84,6 +84,7 @@ LocoDriver поверх фундамента (этап 0): дизайн-кит, 
 | `DSGlassPill`, `DSGlassIconButton` | стеклянная пилюля (iOS 16: `.ultraThinMaterial`) | `ios-frame.jsx` IOSGlassPill |
 | `DSBottomSheet` (+ `.dsSheet`) | каркас шторки: грэббер, шапка (✕ или Отмена/Готово), прокрутка | `ios-screens.jsx` RouteSheetShell; `time-sheet.jsx` TimeSheetIOS |
 | `DSDateTimeSheet` | шторка выбора даты и времени (`AppDateTimePicker`, §24.2): барабан, пояс отображения, «Отмена · Готово»; показывать с `.presentationDetents([.height(380)])` | `time-sheet.jsx` TimeSheetIOS |
+| `DSDeleteRequest` / `.dsDeleteAlert` | единый alert подтверждения удаления (§24.3) | форма маршрута `RouteConfirmDialog`/alert |
 | `DSEmptyState` | пустое состояние с CTA | `stats-screens.jsx` IOSStatsEmpty; `all-routes.jsx` ArEmpty |
 | `DSSkeletonBlock`, `DSSkeletonRouteRow`, `DSSkeletonList` | скелетон первой загрузки | `route-quick-view.jsx` QVGhostList; спека §4.1 |
 
@@ -145,6 +146,14 @@ LocoDriver поверх фундамента (этап 0): дизайн-кит, 
 DetailsRoute (§22), SelectReleaseDaysScreen (§16.2), «Что нового» UpdatePresentationBlock (§22),
 MigrationRecoveryScreen и диагностика (§25), ConfirmExitDialog (§3.3), CustomDatePickerDialog
 (§24.2), EnteredCoefficientDialog/EnteredRefuelDialog (§1.3).
+
+### Подтверждение удаления — единый диалог
+
+Любое подтверждение удаления на iOS — `DSDeleteRequest` + `.dsDeleteAlert($request)`
+(`Shared/Components/DSConfirmAlert.swift`): системный alert «Удалить …?», пояснение
+«… Это действие нельзя отменить.», кнопки «Да, удалить» (destructive) и «Отмена».
+Образец — форма маршрута и экран «Локомотив». Свои шторки/диалоги подтверждения не делать.
+`.dsDeleteAlert` вешает alert на отдельный фон, поэтому не конфликтует с другими `.alert` экрана.
 
 ## 6. Карта экранов
 
