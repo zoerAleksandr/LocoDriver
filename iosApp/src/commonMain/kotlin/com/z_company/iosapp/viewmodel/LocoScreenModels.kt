@@ -96,6 +96,9 @@ data class LocoScreenState(
     val acceptanceStationId: String? = null,
     val deliveryStationId: String? = null,
     val displayOffsetSeconds: Int = 3 * 3600,
+    /** Явка/окончание работы маршрута — нужны шторке времени (§1.1). */
+    val routeStartWork: Long? = null,
+    val routeEndWork: Long? = null,
 
     // Настройки видимости (§1.3 п.5, п.4)
     val showHeating: Boolean = false,

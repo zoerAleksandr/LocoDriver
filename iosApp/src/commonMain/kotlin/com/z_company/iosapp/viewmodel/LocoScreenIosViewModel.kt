@@ -94,6 +94,8 @@ class LocoScreenIosViewModel(
     private var norma1 = ""
     private var norma2 = ""
     private var saveError: String? = null
+    private var routeStartWork: Long? = null
+    private var routeEndWork: Long? = null
 
     // Снимок кг на момент открытия шторки коэффициента (режим «кг», §1.3 п.4).
     private var kgSnapshotAccepted: Double? = null
@@ -132,6 +134,16 @@ class LocoScreenIosViewModel(
                         settingsUseCase.setLocomotiveSeriesList(missing)
                     }
                 }
+            }
+            try {
+                val route = routeUseCase.routeDetails(basicId)
+                    .first { it is ResultState.Success || it is ResultState.Error }
+                (route as? ResultState.Success)?.data?.basicData?.let {
+                    routeStartWork = it.timeStartWork
+                    routeEndWork = it.timeEndWork
+                }
+            } catch (e: Exception) {
+                // Не критично: шторка покажет пустую явку
             }
             if (locoId == null) {
                 isNewLoco = true
@@ -315,6 +327,8 @@ class LocoScreenIosViewModel(
                     .first { it is ResultState.Success || it is ResultState.Error }
                 val route = (result as? ResultState.Success)?.data ?: return@launch
                 routeUseCase.saveRoute(route.copy(basicData = route.basicData.copy(timeEndWork = value))).collect {}
+                routeEndWork = value
+                publish()
             } catch (e: Exception) {
                 // Не критично
             }
@@ -923,6 +937,8 @@ class LocoScreenIosViewModel(
             acceptanceStationId = l.acceptanceStationId,
             deliveryStationId = l.deliveryStationId,
             displayOffsetSeconds = displayOffsetSeconds(),
+            routeStartWork = routeStartWork,
+            routeEndWork = routeEndWork,
             showHeating = settings?.isShowLocoHeating == true,
             showAuxiliary = settings?.isShowLocoAuxiliary == true,
             showOtherCurrent = showOtherCurrent,
