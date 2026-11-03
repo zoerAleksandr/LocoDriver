@@ -6,7 +6,9 @@ import com.z_company.domain.entities.TagForDay
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.UtilsForEntities.clipToMonth
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkStartWaitingInterval
 import com.z_company.domain.entities.route.UtilsForEntities.passengerTrainNumberList
+import com.z_company.domain.entities.route.UtilsForEntities.suburbanTrainNumberList
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.atStartOfDayIn
@@ -33,7 +35,14 @@ fun Route.buildSalarySegments(
     tariffChanges: Iterable<TariffChange> = emptyList(),
     nightWindow: NightWindow? = null,
 ): List<SalarySegment> {
-    val (start, end) = clipToMonth(monthOfYear, context) ?: return emptyList()
+    val (clippedStart, end) = clipToMonth(monthOfYear, context) ?: return emptyList()
+    val shiftInterval = TimeInterval(clippedStart, end)
+    // «Явка по прибытию» со смещением: промежуток [прибытие; явка) длиннее 1 мин
+    // оплачивается как «ожидание следования пассажиром» (018M) и входит в рабочее
+    // окно. Только когда явка маршрута принадлежит этому месяцу.
+    val startWaiting = getWorkStartWaitingInterval()
+        ?.takeIf { clippedStart == basicData.timeStartWork }
+    val start = startWaiting?.startMillis ?: clippedStart
     val workInterval = TimeInterval(start, end)
     val breakInterval = validInterval(
         basicData.timeStartBreak,
@@ -47,9 +56,9 @@ fun Route.buildSalarySegments(
     // ждёт → поехал пассажиром). Считается только при наличии следования
     // пассажиром — в чисто грузовом маршруте ожидание отсутствует.
     val passengerWaitingIntervals = passengerWaitingIntervals(
-        workInterval = workInterval,
+        workInterval = shiftInterval,
         breakInterval = breakInterval,
-    )
+    ) + listOfNotNull(startWaiting)
     val nightIntervals = nightWindow?.let { window ->
         CalculateNightTime.getNightIntervals(
             startMillis = start,
@@ -75,12 +84,15 @@ fun Route.buildSalarySegments(
             ).intersect(workInterval)
         }
         .toList()
-    val freightOnePersonIntervals = if (basicData.isOnePersonOperation) {
-        trainCategoryIntervals(workInterval, isPassengerTrain = false)
-    } else emptyList()
-    val passengerOnePersonIntervals = if (basicData.isOnePersonOperation) {
-        trainCategoryIntervals(workInterval, isPassengerTrain = true)
-    } else emptyList()
+    val onePersonIntervals = onePersonOperationIntervals(
+        workInterval = workInterval,
+        breakInterval = breakInterval,
+        passengerIntervals = passengerIntervals,
+        passengerWaitingIntervals = passengerWaitingIntervals,
+    )
+    val onePersonIsPassenger = usesOnePersonPassengerRate()
+    val freightOnePersonIntervals = if (onePersonIsPassenger) emptyList() else onePersonIntervals
+    val passengerOnePersonIntervals = if (onePersonIsPassenger) onePersonIntervals else emptyList()
     val doubledFirstIntervals = trainIntervals(workInterval) { it.doubledTrain?.isFirst == true }
     val doubledSecondIntervals = trainIntervals(workInterval) { it.doubledTrain?.isFirst == false }
     val reserveIntervals = trainIntervals(workInterval) { train ->
@@ -138,9 +150,16 @@ fun Route.buildSalarySegments(
 }
 
 /**
- * Строит непересекающиеся сегменты поездной доплаты по настраиваемым порогам.
- * Если интервалы поездов разных диапазонов пересекаются, в каждый момент
- * применяется только диапазон с наибольшим подходящим порогом.
+ * Строит сегменты поездной доплаты по настраиваемым порогам.
+ *
+ * База доплаты — вся рабочая смена маршрута (за вычетом перерыва), как в
+ * расчётных листках работодателя и в памятке («за фактически отработанное
+ * время в данной поездке»), а не интервал следования конкретного поезда по
+ * времени станций: станции часто не заполнены, и доплата тогда терялась.
+ * Если в маршруте несколько поездов, применяется ступень самого тяжёлого
+ * (наибольший превышенный порог) — одна ступень на всю смену. Пассажирские
+ * сегменты остаются в результате с условиями PASSENGER / PASSENGER_WAITING,
+ * вызывающий код их исключает.
  */
 fun Route.buildTieredTrainSurchargeSegments(
     monthOfYear: MonthOfYear,
@@ -161,50 +180,41 @@ fun Route.buildTieredTrainSurchargeSegments(
     }
     if (thresholds.isEmpty()) return emptyList()
 
-    val workInterval = clipToMonth(monthOfYear, context)
-        ?.let { (start, end) -> TimeInterval(start, end) }
-        ?: return List(thresholds.size) { emptyList() }
-    val baseSegments = buildSalarySegments(
+    val tierIndex = trains.maxOfOrNull { train ->
+        val value = valueOf(train) ?: return@maxOfOrNull -1
+        thresholds.indexOfLast { threshold ->
+            if (thresholdIsInclusive) value >= threshold else value > threshold
+        }
+    } ?: -1
+    val result = List(thresholds.size) { emptyList<SalarySegment>() }.toMutableList()
+    if (tierIndex < 0) return result
+
+    result[tierIndex] = buildTrainSurchargeSegments(
         monthOfYear = monthOfYear,
         context = context,
         initialTariffRatePerHour = initialTariffRatePerHour,
+        condition = condition,
         tariffChanges = tariffChanges,
     )
-    val intervalsByTier = thresholds.indices.map { index ->
-        val lower = thresholds[index]
-        val upper = thresholds.getOrNull(index + 1)
-        trainIntervals(workInterval) { train ->
-            val value = valueOf(train) ?: return@trainIntervals false
-            val reachesLowerBound = if (thresholdIsInclusive) value >= lower else value > lower
-            val staysBelowNextTier = upper == null ||
-                    if (thresholdIsInclusive) value < upper else value <= upper
-            reachesLowerBound && staysBelowNextTier
-        }
-    }
-    val selectedByTier = MutableList(thresholds.size) { emptyList<TimeInterval>() }
-    var intervalsClaimedByHigherTiers = emptyList<TimeInterval>()
-    for (index in thresholds.indices.reversed()) {
-        val selected = intervalsByTier[index]
-            .flatMap { it.subtractAll(intervalsClaimedByHigherTiers) }
-            .mergeTimeIntervals()
-        selectedByTier[index] = selected
-        intervalsClaimedByHigherTiers =
-            (intervalsClaimedByHigherTiers + selected).mergeTimeIntervals()
-    }
-
-    return selectedByTier.map { activeIntervals ->
-        baseSegments.flatMap { segment ->
-            activeIntervals.mapNotNull { active ->
-                segment.interval.intersect(active)?.let { intersection ->
-                    segment.copy(
-                        interval = intersection,
-                        conditions = segment.conditions + condition,
-                    )
-                }
-            }
-        }
-    }
+    return result
 }
+
+/**
+ * Сегменты всей смены маршрута с пометкой условия поездной доплаты. Ступень (процент)
+ * выбирает вызывающий код: она может быть общей из настроек ЗП или заданной на плече.
+ */
+fun Route.buildTrainSurchargeSegments(
+    monthOfYear: MonthOfYear,
+    context: TimeCalculationContext,
+    initialTariffRatePerHour: Double,
+    condition: AccrualCondition,
+    tariffChanges: Iterable<TariffChange> = emptyList(),
+): List<SalarySegment> = buildSalarySegments(
+    monthOfYear = monthOfYear,
+    context = context,
+    initialTariffRatePerHour = initialTariffRatePerHour,
+    tariffChanges = tariffChanges,
+).map { it.copy(conditions = it.conditions + condition) }
 
 /**
  * Интервалы «ожидания следования пассажиром» — непокрытый остаток рабочего
@@ -214,9 +224,13 @@ fun Route.buildTieredTrainSurchargeSegments(
  * следование с поездом (первое отправление — последнее прибытие) и следование
  * пассажиром. Перерыв исключается (он не оплачивается). Из полученного остатка
  * берутся только куски, чей конец совпадает с отправлением пассажиром — то есть
- * время «строго перед» посадкой пассажиром. Крайние остатки (подготовительно-
- * заключительное время) и остатки без последующего следования пассажиром
- * ожиданием не считаются и остаются обычной работой по тарифу.
+ * время «строго перед» посадкой пассажиром. Кроме того, кусок должен начинаться
+ * не раньше окончания работы на локомотиве или следования с поездом в этой смене
+ * («сдал → ждёт → поехал»): остаток от явки до первой посадки пассажиром — это
+ * подготовительно-заключительное время, а если время локомотива и поезда не
+ * заполнено, расчёт не знает, когда шла работа, и ожидание не начисляет.
+ * Такие остатки, как и остатки без последующего следования пассажиром, остаются
+ * обычной работой по тарифу.
  */
 private fun Route.passengerWaitingIntervals(
     workInterval: TimeInterval,
@@ -246,12 +260,15 @@ private fun Route.passengerWaitingIntervals(
         )?.intersect(workInterval)
     }
 
-    val coveredIntervals = (locomotiveIntervals + trainFollowingIntervals + passengerWithinWork)
-        .mergeTimeIntervals()
+    val workOnLocoIntervals = locomotiveIntervals + trainFollowingIntervals
+    if (workOnLocoIntervals.isEmpty()) return emptyList()
+    val firstWorkEnd = workOnLocoIntervals.minOf { it.endMillis }
+
+    val coveredIntervals = (workOnLocoIntervals + passengerWithinWork).mergeTimeIntervals()
     val exclusions = coveredIntervals + listOfNotNull(breakInterval)
 
     return workInterval.subtractAll(exclusions)
-        .filter { it.endMillis in passengerDepartures }
+        .filter { it.endMillis in passengerDepartures && it.startMillis >= firstWorkEnd }
 }
 
 private fun Route.trainIntervals(
@@ -268,32 +285,60 @@ private fun Route.trainIntervals(
     .toList()
     .mergeTimeIntervals()
 
-private fun Route.trainCategoryIntervals(
+/**
+ * Время работы в одно лицо (153L) в пределах месяца.
+ *
+ * Доплата начисляется «по маршруту машиниста» за фактически отработанное время
+ * без помощника — это вся смена от явки до сдачи, а не только интервал поезда.
+ * Из смены исключаются перерыв, следование пассажиром и ожидание следования
+ * пассажиром (018M): в это время машинист не работает на локомотиве.
+ *
+ * @param passengerTrain `true` — время по пассажирской ставке, `false` — по грузовой.
+ * Категория общая на всю смену: см. [usesOnePersonPassengerRate].
+ */
+fun Route.onePersonOperationTime(
+    monthOfYear: MonthOfYear,
+    context: TimeCalculationContext,
+    passengerTrain: Boolean,
+): Long {
+    if (!basicData.isOnePersonOperation || usesOnePersonPassengerRate() != passengerTrain) return 0L
+    val (start, end) = clipToMonth(monthOfYear, context) ?: return 0L
+    val workInterval = TimeInterval(start, end)
+    val breakInterval = validInterval(
+        basicData.timeStartBreak,
+        basicData.timeEndBreak,
+    )?.intersect(workInterval)
+    val passengerIntervals = passengers.mapNotNull { passenger ->
+        validInterval(passenger.timeDeparture, passenger.timeArrival)?.intersect(workInterval)
+    }
+    return onePersonOperationIntervals(
+        workInterval = workInterval,
+        breakInterval = breakInterval,
+        passengerIntervals = passengerIntervals,
+        passengerWaitingIntervals = passengerWaitingIntervals(workInterval, breakInterval),
+    ).sumOf { it.durationMillis }
+}
+
+/**
+ * Категория доплаты в одно лицо определяется на всю смену: достаточно одного
+ * пассажирского или пригородного поезда, чтобы вся смена шла по пассажирской
+ * ставке (КСОТ: «при вождении пассажирских и пригородных поездов» — 50%).
+ * Без таких поездов (в т. ч. без указанного поезда) — грузовая.
+ */
+fun Route.usesOnePersonPassengerRate(): Boolean = trains.any { train ->
+    val parsed = train.number?.trim()?.toIntOrNull() ?: return@any false
+    passengerTrainNumberList.any { parsed in it } || suburbanTrainNumberList.any { parsed in it }
+}
+
+private fun Route.onePersonOperationIntervals(
     workInterval: TimeInterval,
-    isPassengerTrain: Boolean,
+    breakInterval: TimeInterval?,
+    passengerIntervals: List<TimeInterval>,
+    passengerWaitingIntervals: List<TimeInterval>,
 ): List<TimeInterval> {
-    fun isPassenger(number: String?): Boolean {
-        val parsed = number?.trim()?.toIntOrNull() ?: return false
-        return passengerTrainNumberList.any { parsed in it }
-    }
-
-    // Продуктовое правило: если поезд не указан, используем грузовую ставку
-    // работы в одно лицо. Пассажирскую ставку без явного поезда не назначаем.
-    if (trains.isEmpty()) {
-        return if (isPassengerTrain) emptyList() else listOf(workInterval)
-    }
-
-    val selected = trains.filter { isPassenger(it.number) == isPassengerTrain }
-    if (selected.isEmpty()) return emptyList()
-    val timed = selected.mapNotNull { train ->
-        val start = train.stations.firstOrNull()?.timeDeparture
-        val end = train.stations.lastOrNull()?.timeArrival
-        validInterval(start, end)?.intersect(workInterval)
-    }.mergeTimeIntervals()
-    if (timed.isNotEmpty()) return timed
-
-    val routeHasOnlyThisCategory = trains.all { isPassenger(it.number) == isPassengerTrain }
-    return if (routeHasOnlyThisCategory) listOf(workInterval) else emptyList()
+    if (!basicData.isOnePersonOperation) return emptyList()
+    val exclusions = listOfNotNull(breakInterval) + passengerIntervals + passengerWaitingIntervals
+    return workInterval.subtractAll(exclusions)
 }
 
 private fun validInterval(first: Long?, second: Long?): TimeInterval? {

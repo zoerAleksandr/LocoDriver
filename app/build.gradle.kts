@@ -37,21 +37,6 @@ android {
     defaultConfig {
         buildConfigField(
             type = "String",
-            name = "MERCHANT_LOGIN",
-            value = "\"${properties.getProperty("MERCHANT_LOGIN", "default_value")}\""
-        )
-        buildConfigField(
-            type = "String",
-            name = "PASSWORD_1",
-            value = "\"${properties.getProperty("PASSWORD_1", "default_value")}\""
-        )
-        buildConfigField(
-            type = "String",
-            name = "PASSWORD_2",
-            value = "\"${properties.getProperty("PASSWORD_2", "default_value")}\""
-        )
-        buildConfigField(
-            type = "String",
             name = "SENTRY_DSN",
             value = "\"${properties.getProperty("SENTRY_DSN", "")}\""
         )
@@ -77,6 +62,8 @@ android {
         // Адрес бэкенда. Пустая строка — прод-адрес, зашитый в RemoteRestClient.
         // Подменяется только в debug (см. buildTypes ниже).
         buildConfigField(type = "String", name = "API_BASE_URL", value = "\"\"")
+        // Только debug может включить (см. buildTypes.debug); в остальных сборках всегда false.
+        buildConfigField(type = "boolean", name = "HEAVY_DEBUG_TOOLS", value = "false")
     }
     sourceSets.getByName("androidTest").assets.srcDir(
         project(":data_local").file("schemas")
@@ -91,6 +78,15 @@ android {
             val debugApiUrl: String =
                 properties.getProperty("DEBUG_API_URL") ?: ""
             buildConfigField(type = "String", name = "API_BASE_URL", value = "\"$debugApiUrl\"")
+            // Тяжёлые отладочные инструменты (LeakCanary: наблюдение за утечками и
+            // heap dump'ы, подробные логи MyTracker/VK ID) заметно тормозят бюджетные
+            // устройства, поэтому по умолчанию выключены. Включить:
+            //   ./gradlew :app:installDebug -PheavyDebugTools=true
+            val heavyDebugTools = project.findProperty("heavyDebugTools") == "true"
+            buildConfigField("boolean", "HEAVY_DEBUG_TOOLS", heavyDebugTools.toString())
+            // Переопределяют ресурсы LeakCanary (его ContentProvider ставится сам).
+            resValue("bool", "leak_canary_watcher_auto_install", heavyDebugTools.toString())
+            resValue("bool", "leak_canary_add_dynamic_shortcut", heavyDebugTools.toString())
         }
         release {
             isMinifyEnabled = true
@@ -107,6 +103,15 @@ android {
             initWith(buildTypes.getByName("release"))
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
+        }
+        // Release-подобная сборка для проверки скорости на устройстве: R8/shrink как в release,
+        // не debuggable, но подпись от debug-keystore и тот же applicationId — ставится поверх
+        // debug-версии с сохранением данных. Не для публикации.
+        create("perfRelease") {
+            initWith(buildTypes.getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            isDebuggable = false
+            matchingFallbacks += listOf("release", "debug")
         }
         create("benchmarkRelease") {
             initWith(buildTypes.getByName("release"))
@@ -155,7 +160,6 @@ kotlin {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
-    implementation(project(Libs.project_robokassa_sdk))
     implementation (Libs.ksp_api)
     implementation(Libs.mytracker_sdk)
     implementation(platform(Libs.rustore_bom))
@@ -177,6 +181,9 @@ dependencies {
     implementation(Libs.compose_ui)
     implementation(Libs.ui_tooling_preview)
     implementation(Libs.compose_material3)
+    // Только для замеров на устройстве: имена композабл-функций в трассах Perfetto (в release не попадает).
+    "perfReleaseImplementation"("androidx.compose.runtime:runtime-tracing:1.0.0-beta01")
+    "perfReleaseImplementation"("androidx.tracing:tracing-perfetto-binary:1.0.0")
     implementation(Libs.kotlin_x_serialization_json)
     implementation(Libs.kotlinx_date_time)
 

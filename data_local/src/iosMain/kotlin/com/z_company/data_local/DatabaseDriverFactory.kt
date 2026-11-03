@@ -6,6 +6,8 @@ import com.z_company.data_local.route.db.RouteDatabase
 import com.z_company.data_local.route.searchdb.SearchResponseDatabase
 import com.z_company.data_local.setting.db.SettingsDatabase
 import com.z_company.data_local.setting.salarydb.SalarySettingDatabase
+import com.z_company.data_local.brake.db.BrakeCertificateDatabase
+import com.z_company.data_local.track.db.TrackDatabase
 
 /**
  * iOS-реализация: SQLDelight NativeSqliteDriver.
@@ -25,4 +27,10 @@ actual class DatabaseDriverFactory {
 
     actual fun createSearchResponseDriver(): SqlDriver =
         NativeSqliteDriver(SearchResponseDatabase.Schema, "SearchResponse.db")
+
+    actual fun createTrackDriver(): SqlDriver =
+        NativeSqliteDriver(TrackDatabase.Schema, "Track.db")
+
+    actual fun createBrakeCertificateDriver(): SqlDriver =
+        NativeSqliteDriver(BrakeCertificateDatabase.Schema, "BrakeCertificate.db")
 }

@@ -5,7 +5,9 @@ import com.z_company.domain.entities.ProductionCalendarDay
 import com.z_company.domain.entities.ReleaseDay
 import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
+import com.z_company.domain.entities.norma_time.LocomotiveSeriesTombstone
 import com.z_company.domain.entities.norma_time.StationNorm
+import com.z_company.domain.entities.norma_time.StationTombstone
 import com.z_company.domain.entities.partner.Partner
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
@@ -119,17 +121,28 @@ interface RemoteRestApi {
 
     // --- NormaTime (нормы времени приёмки/сдачи) ---
 
-    /** Сохранить серии локомотивов на сервере (полная замена) */
-    suspend fun saveNormaTimeLocomotives(token: String, body: List<LocomotiveSeries>)
+    /**
+     * Отправить серии и надгробия удалённых; сервер сливает по `updatedAt`. Не вызывать с
+     * пустыми обоими списками: пустой список без isDeleted сервер понимает как full-replace.
+     */
+    suspend fun saveNormaTimeLocomotives(
+        token: String,
+        series: List<LocomotiveSeries>,
+        tombstones: List<LocomotiveSeriesTombstone>,
+    )
 
-    /** Получить серии локомотивов с сервера */
-    suspend fun getNormaTimeLocomotives(token: String): List<LocomotiveSeries>
+    /** Получить серии локомотивов и надгробия (`includeDeleted=true`). */
+    suspend fun getNormaTimeLocomotives(token: String): SeriesSnapshot
 
-    /** Сохранить станции с нормами на сервере (полная замена) */
-    suspend fun saveNormaTimeStations(token: String, body: List<StationNorm>)
+    /**
+     * Отправить станции и надгробия удалённых. Сервер сливает по `updatedAt`, ничего не
+     * удаляя из-за отсутствия в списке. Не вызывать с пустыми обоими списками: пустой список
+     * без поля isDeleted сервер понимает как full-replace старого клиента.
+     */
+    suspend fun saveNormaTimeStations(token: String, stations: List<StationNorm>, tombstones: List<StationTombstone>)
 
-    /** Получить станции с нормами с сервера */
-    suspend fun getNormaTimeStations(token: String): List<StationNorm>
+    /** Получить станции с нормами и надгробия (`includeDeleted=true`). */
+    suspend fun getNormaTimeStations(token: String): StationSnapshot
 
     // --- Partners (справочник напарников) ---
 
@@ -174,8 +187,58 @@ interface RemoteRestApi {
         request: CkassaCheckoutRequest,
     ): CkassaCheckoutResponse
 
+    // --- Robokassa: серверный checkout и автопродление ---
+
+    /**
+     * Создать платёж Robokassa на сервере и получить подписанную ссылку оплаты
+     * (`POST /v1/payment/checkout`, требует токен). Цена, срок и подпись — на
+     * сервере; с `autoRenew` сервер фиксирует согласие и включает автопродление
+     * после оплаты. 409 — автопродление недоступно или условия обновились.
+     */
+    suspend fun createRobokassaCheckout(
+        token: String,
+        request: com.z_company.repository.remote_rest.request.RobokassaCheckoutRequest,
+    ): com.z_company.repository.remote_rest.response.RobokassaCheckoutResponse
+
+    /** Текст согласия на автопродление для тарифа (без авторизации). */
+    suspend fun getRecurringTerms(tariffCode: String): com.z_company.repository.remote_rest.response.RecurringTermsResponse
+
+    /** Состояние автопродления текущего пользователя. */
+    suspend fun getRecurringStatus(token: String): com.z_company.repository.remote_rest.response.RecurringStatusResponse
+
+    /** Отключить автопродление. Оплаченный период сохраняется. */
+    suspend fun disableRecurring(token: String): com.z_company.repository.remote_rest.response.RecurringStatusResponse
+
     /** Личный код и право применить чужой код до первой оплаты. */
     suspend fun getReferralStatus(token: String): com.z_company.repository.remote_rest.response.ReferralStatusResponse
+
+    /**
+     * Четыре гео-эндпоинта (suggest, route/length, nearest, lookup) доступны без аккаунта (лимит по IP, SCREEN_SPECS §6.9):
+     * [token] == null - запрос без Authorization; 401 с токеном - один повтор без токена.
+     */
+    /** Автоподбор промежуточных станций плеча по OSM (сервер). */
+    suspend fun suggestServicePhaseStations(
+        token: String?,
+        body: com.z_company.repository.remote_rest.response.ServicePhaseSuggestRequest,
+    ): com.z_company.repository.remote_rest.response.ServicePhaseSuggestResponse
+
+    /** «Измерить по карте»: длина плеча по ж/д путям через станции по порядку. */
+    suspend fun measureRouteLength(
+        token: String?,
+        body: com.z_company.repository.remote_rest.response.RouteLengthRequest,
+    ): com.z_company.repository.remote_rest.response.RouteLengthResponse
+
+    /** Ближайшая станция к точке телефона (радиус по умолчанию 2 км). */
+    suspend fun nearestStation(
+        token: String?,
+        body: com.z_company.repository.remote_rest.response.NearestStationRequest,
+    ): com.z_company.repository.remote_rest.response.NearestStationResponse
+
+    /** Координаты одной станции по названию (ближние к соседям — первыми). */
+    suspend fun lookupServicePhaseStation(
+        token: String?,
+        body: com.z_company.repository.remote_rest.response.ServicePhaseLookupRequest,
+    ): com.z_company.repository.remote_rest.response.ServicePhaseLookupResponse
 
     /** Привязать код к аккаунту перед первой оплатой. */
     suspend fun applyReferralCode(
@@ -223,3 +286,15 @@ interface RemoteRestApi {
      */
     suspend fun getSharedRoute(shareId: String): Route
 }
+
+/** Справочник станций с сервера: живые станции и надгробия удалённых. */
+data class StationSnapshot(
+    val stations: List<StationNorm>,
+    val tombstones: List<StationTombstone>,
+)
+
+/** Справочник серий с сервера: живые серии и надгробия удалённых. */
+data class SeriesSnapshot(
+    val series: List<LocomotiveSeries>,
+    val tombstones: List<LocomotiveSeriesTombstone>,
+)

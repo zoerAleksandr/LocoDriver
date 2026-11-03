@@ -17,6 +17,11 @@ class SnackbarManagerImpl : ISnackbarManager {
     private val shownKeys = mutableSetOf<String>()
     private val mutex = Mutex()
 
+    // Последнее показанное сообщение — чтобы не плодить одинаковые тосты (например, «Нет сети»
+    // при синхронизации нескольких маршрутов подряд без интернета).
+    private var lastMessage: String? = null
+    private var lastMessageAt = 0L
+
     override fun show(
         message: String,
         actionLabel: String?,
@@ -24,6 +29,17 @@ class SnackbarManagerImpl : ISnackbarManager {
         onAction: (suspend () -> Unit)?,
         showOnceKey: String?
     ) {
+        // Любая сетевая ошибка → один короткий тост «Нет сети», без деталей и повторов.
+        val text = if (isConnectivityText(message)) NO_NETWORK_MESSAGE else message
+        // Повтор того же сообщения (без действия) в течение окна — отбрасываем.
+        if (actionLabel == null) {
+            synchronized(this) {
+                val now = System.currentTimeMillis()
+                if (text == lastMessage && now - lastMessageAt < DEDUP_WINDOW_MS) return
+                lastMessage = text
+                lastMessageAt = now
+            }
+        }
         if (showOnceKey != null) {
             synchronized(shownKeys) {
                 if (shownKeys.contains(showOnceKey)) return
@@ -33,7 +49,7 @@ class SnackbarManagerImpl : ISnackbarManager {
 
         _channel.trySend(
             SnackbarEvent(
-                message = message,
+                message = text,
                 actionLabel = actionLabel,
                 duration = duration,
                 onAction = onAction,
@@ -46,5 +62,20 @@ class SnackbarManagerImpl : ISnackbarManager {
         synchronized(shownKeys) {
             shownKeys.clear()
         }
+    }
+
+    private fun isConnectivityText(message: String): Boolean {
+        val m = message.lowercase()
+        return CONNECTIVITY_MARKERS.any { m.contains(it) }
+    }
+
+    private companion object {
+        const val NO_NETWORK_MESSAGE = "Нет сети"
+        const val DEDUP_WINDOW_MS = 6_000L
+        val CONNECTIVITY_MARKERS = listOf(
+            "нет соединения", "нет интернета", "нет сети", "проверьте интернет", "проверьте подключение",
+            "не удалось связаться", "превышено время ожидания", "unable to resolve", "unknownhost",
+            "failed to connect", "network is unreachable", "connection refused", "timed out",
+        )
     }
 }

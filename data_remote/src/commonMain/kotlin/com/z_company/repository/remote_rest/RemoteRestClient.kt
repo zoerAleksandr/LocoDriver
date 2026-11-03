@@ -112,6 +112,38 @@ object RemoteRestClient {
         KtorRemoteRestApi(createClient { BASE_URL })
     }
 
+    /** `/v1/tracks` (история треков, SCREEN_SPECS §6.9/§17.7) на том же клиенте, что и остальной API. */
+    val tracksApi: com.z_company.repository.remote_rest.tracks.TracksApi by lazy {
+        com.z_company.repository.remote_rest.tracks.KtorTracksApi(createClient { BASE_URL })
+    }
+
+    /** `/v1/restriction_passes` (журнал проследования ограничений) на том же клиенте. */
+    val restrictionPassApi: com.z_company.repository.remote_rest.tracks.RestrictionPassApi by lazy {
+        com.z_company.repository.remote_rest.tracks.KtorRestrictionPassApi(createClient { BASE_URL })
+    }
+
+    /**
+     * Токен входа для участков советника (они отдаются только вошедшему). Задаёт приложение при старте (DI); читается на каждый
+     * запрос, поэтому смена аккаунта подхватывается. null/пусто - не вошёл.
+     */
+    var advisorBearerToken: suspend () -> String? = { null }
+
+    /** Идентификатор аккаунта на устройстве (ключ Keystore и токен устройства участков привязаны к нему); задаёт приложение. */
+    var advisorAccountId: suspend () -> String? = { null }
+
+    /** Ключ устройства для участков (Keystore/аттестация); задаёт платформа. null - не поддерживается. */
+    var advisorDeviceKeys: com.z_company.repository.remote_rest.tracks.DeviceKeys? = null
+
+    /** Участки советника и вклад высот (согласие №2, SCREEN_SPECS §6.9/§17.7). */
+    val advisorApi: com.z_company.repository.remote_rest.tracks.AdvisorApi by lazy {
+        com.z_company.repository.remote_rest.tracks.KtorAdvisorApi(createClient { BASE_URL }, { advisorBearerToken() }, { advisorAccountId() }, { advisorDeviceKeys })
+    }
+
+    /** Общая карта зон без GPS и вклад (согласие №2, SCREEN_SPECS §6.9, «Зоны без GPS»). */
+    val gnssZonesApi: com.z_company.repository.remote_rest.tracks.GnssZonesApi by lazy {
+        com.z_company.repository.remote_rest.tracks.KtorGnssZonesApi(createClient { BASE_URL })
+    }
+
     val apiForSendEmail: ApiForSendEmail by lazy {
         KtorApiForSendEmail(createClient { BASE_URL_FOR_SEND_EMAIL })
     }
@@ -171,13 +203,24 @@ object RemoteRestClient {
         install(DefaultRequest) {
             url(baseUrl())
         }
-        HttpResponseValidator {
+        installSessionExpiredDetection()
+    }
+}
+
+/** Метка гео-запроса (SCREEN_SPECS §6.9): 401 на нём не означает конец сессии - клиент повторит запрос анонимно. */
+internal val GeoRequestKey = io.ktor.util.AttributeKey<Boolean>("GeoRequest")
+
+/** 401 с bearer-токеном - сигнал о просроченной сессии, кроме гео-запросов. */
+internal fun io.ktor.client.HttpClientConfig<*>.installSessionExpiredDetection() {
+    HttpResponseValidator {
             // Обработчик срабатывает после того, как expectSuccess уже превратил
             // 4xx в исключение; исходное исключение Ktor бросает дальше сам,
             // поэтому здесь только сигналим — поведение вызывающего кода не меняется.
             handleResponseExceptionWithRequest { cause, request ->
                 if (cause !is ClientRequestException) return@handleResponseExceptionWithRequest
                 if (cause.response.status != HttpStatusCode.Unauthorized) return@handleResponseExceptionWithRequest
+                // Гео-запрос: 401 лечится повтором без токена (withAnonymousFallback), разлогина не будет.
+                if (request.attributes.contains(GeoRequestKey)) return@handleResponseExceptionWithRequest
                 val hadAuthorization = request.headers.contains(HttpHeaders.Authorization)
                 // Тело сохранено вместе с исключением (call.save()), читать можно повторно.
                 val body = runCatching { cause.response.bodyAsText() }.getOrNull()
@@ -191,5 +234,4 @@ object RemoteRestClient {
                 }
             }
         }
-    }
 }

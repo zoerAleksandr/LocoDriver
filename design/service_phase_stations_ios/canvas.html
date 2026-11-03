@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<title>Машинист — Промежуточные станции в плечах · iOS</title>
+<meta name="viewport" content="width=1400"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>html,body{margin:0;padding:0;background:#f0eee9;font-family:"Inter",system-ui,sans-serif}*{box-sizing:border-box}a{color:#00A0F5}a:hover{color:#0091D9}@keyframes ipspin{to{transform:rotate(360deg)}}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<template id="__bundler_thumbnail" data-bg-color="#00A0F5">
+<svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#00A0F5"/><rect x="594" y="220" width="12" height="360" fill="#FFFFFF"/><g fill="#FFFFFF"><circle cx="600" cy="220" r="44"/><circle cx="600" cy="400" r="30"/><circle cx="600" cy="580" r="44"/></g></svg>
+</template>
+<body>
+<div id="root"></div>
+<script src="tokens.js"></script>
+<script type="text/babel" src="icons.jsx"></script>
+<script type="text/babel" src="ios-screens.jsx"></script>
+<script type="text/babel" src="shared-ui.jsx"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="settings-screens.jsx"></script>
+<script type="text/babel" src="ios-pst-ui.jsx"></script>
+<script type="text/babel" src="ios-pst-editor.jsx"></script>
+<script type="text/babel" src="ios-pst-autofill.jsx"></script>
+<script type="text/babel" src="ios-pst-screens.jsx"></script>
+<script type="text/babel" data-presets="react">
+const one = new URLSearchParams(location.search).get('one');
+// ?one=slug~light — один экран (для PNG). window.__shot({ slug, theme, scale, ty }) перерисовывает без перезагрузки.
+function Shot() {
+  const [slug0, theme0] = one.split('~');
+  const [st, setSt] = React.useState({ slug: slug0, theme: theme0 || 'light', scale: 1, ty: 0 });
+  window.__shot = (p) => setSt((o) => ({ ...o, ...p }));
+  const s = IP_SCREENS.find((x) => x.slug === st.slug);
+  return (
+    <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: '#ffffff' }}>
+      <div id="shot" style={{ position: 'absolute', left: 0, top: -st.ty, width: 390, height: 844, transform: `scale(${st.scale})`, transformOrigin: '0 0', background: '#ffffff' }}>
+        <IpScreen key={st.slug + st.theme} s={s} dark={st.theme === 'dark'}/>
+      </div>
+    </div>
+  );
+}
+function App() {
+  if (one) return <Shot/>;
+  const groups = [...new Set(IP_SCREENS.map((s) => s.group))];
+  return (
+    <DesignCanvas>
+      {groups.map((g, gi) => (
+        <DCSection key={g} id={'ip-g' + gi} title={g} subtitle="iOS · SwiftUI · light + dark. Имена артбордов = имена PNG в screenshots/ (с префиксом ios-).">
+          {IP_SCREENS.filter((s) => s.group === g).flatMap((s) => [false, true].map((dark) => (
+            <DCArtboard key={s.slug + dark} id={`ios-${s.slug}-${dark ? 'dark' : 'light'}`} label={`ios-${s.slug} · ${s.label} · ${dark ? 'dark' : 'light'}`} width={390} height={844}>
+              <IpScreen s={s} dark={dark}/>
+            </DCArtboard>
+          )))}
+        </DCSection>
+      ))}
+    </DesignCanvas>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

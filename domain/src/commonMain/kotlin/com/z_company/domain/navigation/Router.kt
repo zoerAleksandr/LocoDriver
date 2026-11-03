@@ -18,6 +18,9 @@ interface Router {
     fun showSettingsRouteForm() { showSettings() }
     fun showSettingsLoco(seriesName: String? = null) { showSettings() }
     fun showSettingsTrain() { showSettings() }
+    fun showDataPrivacy() { showSettings() }
+    fun showTrackHistory() { showSettings() }
+    fun showMyCertificates() { showSettings() }
     fun showSettingsRest() { showSettings() }
     fun showSettingsSeriesList() { showSettings() }
     fun showSettingsSeriesEditor(seriesId: String) { showSettingsSeriesList() }
@@ -56,4 +59,10 @@ interface Router {
     fun showScheduleWizard()
     fun showAbsence()
     fun showStatistics()
+
+    /**
+     * Инструмент «Справка ВУ-45» (расчёт обеспеченности поезда тормозами). [prefill] — предзаполнение из поезда и
+     * локомотива маршрута (строки как в `Train`/`Locomotive`). По умолчанию no-op для платформ без этого экрана.
+     */
+    fun showBrakeCertificate(prefill: com.z_company.domain.brake.BrakePrefill? = null) {}
 }

@@ -1,5 +1,9 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.coachAnchor
+import androidx.compose.ui.zIndex
+import com.z_company.route.component.reorderStep
+import com.z_company.route.component.detectReorderDrag
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -82,6 +86,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
+import com.z_company.route.util.HomeUnitPrefs
+import com.z_company.route.util.locomotivesInOrder
+import com.z_company.route.util.trainsInOrder
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -136,6 +145,9 @@ import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.toMoneyString
 import com.z_company.route.R
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
+import com.z_company.route.component.servicephase.TrainMapScreen
 import kotlin.math.abs
 import kotlin.math.ceil
 import android.net.Uri
@@ -158,6 +170,8 @@ import com.z_company.route.viewmodel.home_view_model.HomeViewModel
 import com.z_company.route.viewmodel.home_view_model.ItemState
 import com.z_company.route.viewmodel.home_view_model.RestBlockType
 import com.z_company.route.viewmodel.home_view_model.UpdateEvent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
@@ -233,7 +247,10 @@ fun HomeScreen(
     isNextDeparture: () -> Boolean,
     saveTimeEvent: SharedFlow<String>,
     onCalendar: () -> Unit,
+    /** Из карты поезда (открыта прямо с Главного): открыть настройки согласия на сохранение треков. */
+    onConsentSettings: () -> Unit = {},
     onStatistics: () -> Unit = {},
+    onBrakeCertificate: (com.z_company.domain.brake.BrakePrefill?) -> Unit = {},
     normaHours: Int? = null,
     unsyncedRoutesCount: Int = 0,
     hasActiveSubscription: Boolean = false,
@@ -241,6 +258,7 @@ fun HomeScreen(
     freeRoutesUsedCount: Int = 0,
     onPurchasesClick: () -> Unit = {},
     isBackgroundSyncing: Boolean = false,
+    isOffline: Boolean = false,
     onSyncClick: () -> Unit = {},
     showSyncDialog: Boolean = false,
     isSyncSuccess: Boolean = false,
@@ -254,6 +272,7 @@ fun HomeScreen(
     isNetworkError: Boolean = false,
     isSessionExpired: Boolean = false,
     onResetSyncState: () -> Unit = {},
+    onCancelSync: () -> Unit = {},
     isPullRefreshing: Boolean = false,
     onPullRefresh: () -> Unit = {},
     pullSyncMessage: String? = null,
@@ -261,6 +280,13 @@ fun HomeScreen(
 ) {
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
+
+    // Подсказки на месте включаются только после того, как пользователь увидел «Главную» (ONBOARDING_MATERIALS §2).
+    val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
+    // Подсказка про плитку «Карта» - только тем, кто уже видел «Главную» раньше (новичка первым запуском не перегружаем).
+    val homeSeenBefore = remember { onboardingHints.homeReached }
+    val mapTileAnchor = com.z_company.route.component.rememberCoachAnchor()
+    LaunchedEffect(Unit) { onboardingHints.markHomeReached() }
 
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
@@ -321,6 +347,9 @@ fun HomeScreen(
     }
     var isCurrentRouteReorderMode by remember { mutableStateOf(false) }
     var draggedCurrentRouteBlock by remember { mutableStateOf<String?>(null) }
+    // Смещение перетаскиваемой плитки и ширины плиток — для перестановки без прыжков.
+    var currentRouteDragOffset by remember { mutableStateOf(0f) }
+    val currentRouteTileWidths = remember { mutableMapOf<String, Int>() }
     var currentRouteBoundsInWindow by remember {
         mutableStateOf<androidx.compose.ui.geometry.Rect?>(null)
     }
@@ -413,6 +442,44 @@ fun HomeScreen(
     }
 
     var isShowDialogConfirmRemoveRoute by remember { mutableStateOf(false) }
+    // Плитка «Карта» без поезда: только карта с текущим положением (TrainMapScreen, состояние 1), без записи данных.
+    val autoRecordForMap: com.z_company.route.autorecord.AutoRecordManager = koinInject()
+    val trackRepoForMap: com.z_company.domain.track.TrackRepository = koinInject()
+    var showBareMap by rememberSaveable { mutableStateOf(false) }
+    // Плитка «Карта» с поездом: карта поезда открывается сразу поверх Главного (без формы «Поезд»).
+    var mapTrainId by rememberSaveable { mutableStateOf<String?>(null) }
+    var mapBasicId by rememberSaveable { mutableStateOf("") }
+    mapTrainId?.let { id ->
+        HomeTrainMap(
+            trainId = id, basicId = mapBasicId,
+            routeTrains = currentRoute?.trains.orEmpty(),
+            onSelectTrain = { t -> mapBasicId = t.basicId; mapTrainId = t.trainId },
+            onConsentSettings = onConsentSettings,
+            onDismiss = { mapTrainId = null },
+        )
+    }
+    if (showBareMap) {
+        val mapContext = LocalContext.current
+        // Кнопка записи на карте без поезда: цель определяется при включении (текущий/последний поезд, иначе создаётся).
+        val bareAutoManager: com.z_company.route.autorecord.AutoRecordManager = org.koin.compose.koinInject()
+        val bareAutoState by bareAutoManager.state.collectAsState()
+        val bareToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(
+            bareAutoManager,
+            resolveTarget = { bareAutoManager.resolveRecordTarget(null) },
+        )
+        TrainMapScreen(
+            missingStation = { null },
+            stops = emptyList(),
+            loadRailLine = { com.z_company.route.viewmodel.ServicePhaseAutoFillViewModel.RailLineResult.NoPath },
+            currentFix = { com.z_company.route.util.DeviceLocation.currentFix(mapContext.applicationContext) },
+            autoRecording = bareAutoState.enabled,
+            onToggleRecording = bareToggle,
+            // showBareMap сохраняется: после «Готово» в настройках согласия возвращаемся на карту.
+            onOpenConsentSettings = { onConsentSettings() },
+            onDismiss = { showBareMap = false },
+            title = "Карта",
+        )
+    }
     var copyRouteId by remember { mutableStateOf<String?>(null) }
     // Шторка подтверждения перехода на официальный сайт (клик по логотипу «Машинист»)
     var showSiteConfirmSheet by remember { mutableStateOf(false) }
@@ -421,6 +488,14 @@ fun HomeScreen(
     // Тип шторки со списком единиц текущего маршрута (loco/train/passenger), null — скрыта
     var unitsSheetType by remember { mutableStateOf<String?>(null) }
     val unitsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // «Всегда открывать последний» по типу плитки (loco/train/passenger): тап по плитке сразу
+    // открывает последний элемент, список — по бейджу-счётчику.
+    val unitsContext = LocalContext.current
+    val alwaysOpenLastUnit = remember {
+        mutableStateMapOf<String, Boolean>().apply {
+            HomeUnitPrefs.types.forEach { put(it, HomeUnitPrefs.get(unitsContext, it)) }
+        }
+    }
 
     // ItemState (а не только Route) — чтобы в быстром просмотре показать доплатные
     // признаки, вычисленные на уровне списка.
@@ -495,6 +570,7 @@ fun HomeScreen(
         isNetworkError = isNetworkError,
         isSessionExpired = isSessionExpired,
         showPercentageProgress = true,
+        onCancel = onCancelSync,
         onDismiss = onResetSyncState
     )
 
@@ -659,7 +735,7 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
                         .padding(bottom = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     val titleText = when (unitsSheetType) {
                         "loco" -> "Локомотивы · ${route.locomotives.size}"
@@ -675,15 +751,15 @@ fun HomeScreen(
                         text = titleText,
                         style = MaterialTheme.typography.headlineMedium,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(start = 4.dp, bottom = 12.dp),
+                        modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
                     )
                     when (unitsSheetType) {
-                        "loco" -> route.locomotives.forEachIndexed { index, loco ->
+                        "loco" -> route.locomotivesInOrder().forEachIndexed { index, loco ->
                             UnitSheetRow(R.drawable.ic_card_locomotive_ref, locomotiveName(loco, index + 1)) {
                                 unitsSheetType = null; onChangedLocoClick(loco)
                             }
                         }
-                        "train" -> route.trains.forEach { train ->
+                        "train" -> route.trainsInOrder().forEach { train ->
                             val first = train.stations.firstOrNull()?.stationName
                             val last = if (train.stations.size > 1) train.stations.last().stationName else null
                             UnitSheetRow(R.drawable.ic_card_train_ref, routeUnitFullName(train.number, train.servicePhase, first, last)) {
@@ -696,7 +772,6 @@ fun HomeScreen(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
                     UnitSheetAddButton(addText) {
                         val type = unitsSheetType
                         unitsSheetType = null
@@ -704,6 +779,33 @@ fun HomeScreen(
                             "loco" -> onNewLocoClick(route.basicData.id)
                             "train" -> onNewTrainClick(route.basicData.id)
                             else -> onNewPassengerClick(route.basicData.id)
+                        }
+                    }
+                    unitsSheetType?.let { sheetType ->
+                        val checked = alwaysOpenLastUnit[sheetType] == true
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                                .clickable {
+                                    alwaysOpenLastUnit[sheetType] = !checked
+                                    HomeUnitPrefs.set(unitsContext, sheetType, !checked)
+                                }
+                                .padding(top = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            androidx.compose.material3.Checkbox(
+                                checked = checked,
+                                onCheckedChange = null,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            )
+                            Column {
+                                Text(
+                                    text = "Всегда открывать последний",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
                         }
                     }
                 }
@@ -736,6 +838,9 @@ fun HomeScreen(
                     )
                 }
             },
+            contentAfterHeader = com.z_company.route.component.rememberTrackDeleteNote(
+                routeForRemove?.trains?.map { it.trainId }.orEmpty()
+            ),
             actions = listOf(
                 BottomSheetAction(text = "Да, удалить") {
                     routeForRemove?.let {
@@ -880,6 +985,22 @@ fun HomeScreen(
                         }
                     },
                     actions = {
+                        // Красный индикатор: фоновая синхронизация не достучалась до сервера.
+                        if (isOffline) {
+                            IconButton(onClick = {
+                                scope.launch {
+                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                    snackbarHostState.showSnackbar("Нет связи с сервером")
+                                }
+                            }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_offline_24px),
+                                    contentDescription = "Нет связи с сервером",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
                         IconButton(onClick = onSearchClick) {
                             Icon(
                                 painter = painterResource(R.drawable.search_24px),
@@ -889,9 +1010,6 @@ fun HomeScreen(
                         }
                     }
                 )
-                if (isBackgroundSyncing) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
                 // Заголовок месяца выровнен по общему внешнему полю контента +
                 // стрелки переключения месяца.
                 val monthYearListState by viewModel.monthYearList.collectAsState()
@@ -1154,17 +1272,42 @@ fun HomeScreen(
                                     currentRouteBoundsInWindow = it.boundsInWindow()
                                 }
                         ) {
-                            Text(
+                            Row(
                                 modifier = Modifier
-                                    .padding(horizontal = 8.dp)
-                                    .clickable(enabled = !isCurrentRouteReorderMode) {
-                                        onRouteClick(route.basicData.id)
-                                    },
-                                text = "ТЕКУЩИЙ МАРШРУТ",
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable(enabled = !isCurrentRouteReorderMode) {
+                                            onRouteClick(route.basicData.id)
+                                        },
+                                    text = "ТЕКУЩИЙ МАРШРУТ",
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                // Кнопка «АВТО» (SCREEN_SPECS §6.2 п.6а): индикатор + переключатель
+                                val autoManager: com.z_company.route.autorecord.AutoRecordManager =
+                                    org.koin.compose.koinInject()
+                                val autoState by autoManager.state.collectAsState()
+                                com.z_company.route.autorecord.AutoRecordChip(
+                                    state = autoState,
+                                    onToggle = com.z_company.route.autorecord.rememberAutoRecordToggle(autoManager),
+                                )
+                            }
+                            val noticeManager: com.z_company.route.autorecord.AutoRecordManager =
+                                org.koin.compose.koinInject()
+                            val noticeState by noticeManager.state.collectAsState()
+                            val autoGnss by noticeManager.gnssQuality.collectAsState()
+                            com.z_company.route.autorecord.AutoGnssNotice(
+                                autoEnabled = noticeState.enabled,
+                                quality = autoGnss,
+                                modifier = Modifier.padding(horizontal = 8.dp),
                             )
                             LazyRow(
                                 modifier = Modifier.padding(top = 12.dp),
@@ -1175,92 +1318,71 @@ fun HomeScreen(
                                     item(key = type) {
                                         val haptics = LocalHapticFeedback.current
                                         val density = LocalDensity.current
-                                        val reorderThresholdPx = with(density) { 81.dp.toPx() }
                                         val autoScrollEdgePx = with(density) { 36.dp.toPx() }
                                         val autoScrollStepPx = with(density) { 18.dp.toPx() }
-                                        var draggedDistance by remember(type) { mutableStateOf(0f) }
+                                        val tileGapPx = with(density) { 12.dp.toPx() }
                                         val bringIntoViewRequester = remember { BringIntoViewRequester() }
                                         val edgePadding = when (idx) {
                                             0 -> Modifier.padding(start = 8.dp)
                                             currentRouteBlockOrder.lastIndex -> Modifier.padding(end = 12.dp)
                                             else -> Modifier
                                         }
+                                        val isDraggedTile = draggedCurrentRouteBlock == type
+                                        // Плитка едет за пальцем; соседи меняются местами, когда она заходит на
+                                        // половину соседа, смещение компенсируется на его ширину — без «прыжков».
+                                        // Ключ pointerInput — только type: смена режима посреди жеста не рвёт его.
                                         val reorderModifier = edgePadding
-                                            .animateItem()
+                                            .then(if (isDraggedTile) Modifier.zIndex(1f) else Modifier.animateItem())
                                             .bringIntoViewRequester(bringIntoViewRequester)
+                                            .onSizeChanged { currentRouteTileWidths[type] = it.width }
                                             .graphicsLayer {
-                                                rotationZ = if (isCurrentRouteReorderMode) {
+                                                rotationZ = if (isCurrentRouteReorderMode && !isDraggedTile) {
                                                     reorderWiggleAngle.value * if (idx % 2 == 0) 1f else -1f
                                                 } else 0f
-                                                if (draggedCurrentRouteBlock == type) {
+                                                if (isDraggedTile) {
                                                     scaleX = 1.04f
                                                     scaleY = 1.04f
-                                                    translationX = draggedDistance
+                                                    translationX = currentRouteDragOffset
                                                 }
                                             }
-                                            .pointerInput(type, isCurrentRouteReorderMode) {
-                                                val onDragStart: (Offset) -> Unit = {
-                                                    isCurrentRouteReorderMode = true
-                                                    draggedCurrentRouteBlock = type
-                                                    draggedDistance = 0f
-                                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                    scope.launch { bringIntoViewRequester.bringIntoView() }
-                                                }
-                                                val onDragCancel: () -> Unit = {
-                                                    draggedCurrentRouteBlock = null
-                                                    draggedDistance = 0f
-                                                }
-                                                val onDragEnd: () -> Unit = {
-                                                    draggedCurrentRouteBlock = null
-                                                    draggedDistance = 0f
-                                                }
-                                                val onDrag: (androidx.compose.ui.input.pointer.PointerInputChange, Offset) -> Unit =
-                                                    { change, dragAmount ->
-                                                        change.consume()
-                                                        draggedDistance += dragAmount.x
+                                            .pointerInput(type) {
+                                                detectReorderDrag(
+                                                    immediate = { isCurrentRouteReorderMode },
+                                                    onStart = {
+                                                        isCurrentRouteReorderMode = true
+                                                        draggedCurrentRouteBlock = type
+                                                        currentRouteDragOffset = 0f
+                                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    },
+                                                    onDrag = { change, delta ->
+                                                        val before = currentRouteBlockOrder.indexOf(type)
+                                                        val order = currentRouteBlockOrder.toMutableList()
+                                                        currentRouteDragOffset = reorderStep(
+                                                            order, type, currentRouteDragOffset + delta.x,
+                                                            currentRouteTileWidths, gap = tileGapPx,
+                                                        )
+                                                        if (order.indexOf(type) != before) {
+                                                            currentRouteBlockOrder.clear()
+                                                            currentRouteBlockOrder.addAll(order)
+                                                            hasCustomCurrentRouteBlockOrder = true
+                                                            sharedPreferences.setCurrentRouteBlockOrder(order)
+                                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                        }
                                                         when {
                                                             change.position.x < autoScrollEdgePx -> scope.launch {
                                                                 currentRouteListState.scrollBy(-autoScrollStepPx)
-                                                                bringIntoViewRequester.bringIntoView()
                                                             }
                                                             change.position.x > size.width - autoScrollEdgePx -> scope.launch {
                                                                 currentRouteListState.scrollBy(autoScrollStepPx)
-                                                                bringIntoViewRequester.bringIntoView()
                                                             }
                                                         }
-                                                        if (abs(draggedDistance) >= reorderThresholdPx) {
-                                                            val from = currentRouteBlockOrder.indexOf(type)
-                                                            val to = (from + if (draggedDistance > 0) 1 else -1)
-                                                                .coerceIn(0, currentRouteBlockOrder.lastIndex)
-                                                            if (from != to) {
-                                                                currentRouteBlockOrder.removeAt(from)
-                                                                currentRouteBlockOrder.add(to, type)
-                                                                hasCustomCurrentRouteBlockOrder = true
-                                                                sharedPreferences.setCurrentRouteBlockOrder(
-                                                                    currentRouteBlockOrder.toList()
-                                                                )
-                                                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                                scope.launch { bringIntoViewRequester.bringIntoView() }
-                                                            }
-                                                            draggedDistance = 0f
-                                                        }
-                                                    }
-
-                                                if (isCurrentRouteReorderMode) {
-                                                    detectDragGestures(
-                                                        onDragStart = onDragStart,
-                                                        onDragCancel = onDragCancel,
-                                                        onDragEnd = onDragEnd,
-                                                        onDrag = onDrag,
-                                                    )
-                                                } else {
-                                                    detectDragGesturesAfterLongPress(
-                                                        onDragStart = onDragStart,
-                                                        onDragCancel = onDragCancel,
-                                                        onDragEnd = onDragEnd,
-                                                        onDrag = onDrag,
-                                                    )
-                                                }
+                                                    },
+                                                    onEnd = {
+                                                        draggedCurrentRouteBlock = null
+                                                        currentRouteDragOffset = 0f
+                                                        scope.launch { bringIntoViewRequester.bringIntoView() }
+                                                    },
+                                                )
                                             }
 
                                         if (type == CURRENT_ROUTE_WORK_BLOCK) {
@@ -1285,6 +1407,7 @@ fun HomeScreen(
                                                 onNewTrain = onNewTrainClick,
                                                 onChangedPassenger = onChangedPassengerClick,
                                                 onNewPassenger = onNewPassengerClick,
+                                                alwaysOpenLast = alwaysOpenLastUnit[type] == true,
                                             )
                                         }
                                     }
@@ -1584,6 +1707,74 @@ fun HomeScreen(
                                     onClick = { onCalendar() }
                                 )
                             }
+                            // Плитка «Карта» (после «Календаря», §4): поезд текущего маршрута -> экран «Поезд» с картой;
+                            // иначе только карта с текущим положением (без записи данных).
+                            item {
+                                if (homeSeenBefore && !showBareMap) {
+                                    com.z_company.route.component.OnceCoachMark(
+                                        id = com.z_company.domain.onboarding.HintId.HOME_MAP_TILE,
+                                        anchor = mapTileAnchor,
+                                        title = com.z_company.domain.onboarding.OnboardingHints.TITLE_HOME_MAP_TILE,
+                                        text = com.z_company.domain.onboarding.OnboardingHints.TEXT_HOME_MAP_TILE,
+                                        store = onboardingHints,
+                                    )
+                                }
+                                ActionCard(
+                                    modifier = Modifier.coachAnchor(mapTileAnchor),
+                                    title = "Карта",
+                                    iconRes = R.drawable.ic_map_pin_color,
+                                    iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    widthScreen = widthScreen,
+                                    interactionSource = interactionSource,
+                                    onSizeChanged = { size ->
+                                        if (size.height > maxHeightBox) {
+                                            maxHeightBox = size.height
+                                        }
+                                    },
+                                    minHeightDp = maxHeightBox.toDp(),
+                                    onClick = {
+                                        onboardingHints.markShown(com.z_company.domain.onboarding.HintId.HOME_MAP_TILE)
+                                        val routeTrains = currentRoute?.trains
+                                        scope.launch {
+                                            // Поезд с идущей записью, затем с самым свежим треком, затем пустой (SCREEN_SPECS §6.9).
+                                            val recordingId = if (autoRecordForMap.state.value.enabled) autoRecordForMap.targetTrainId() else null
+                                            val lastEnds = withContext(Dispatchers.Default) {
+                                                routeTrains.orEmpty().mapNotNull { t ->
+                                                    trackRepoForMap.tracksForTrain(t.trainId).maxOfOrNull { it.endedAt }?.let { t.trainId to it }
+                                                }.toMap()
+                                            }
+                                            val target = com.z_company.domain.autorecord.TrainOrdering
+                                                .pickHomeMapTargetByActivity(routeTrains, recordingId, lastEnds)
+                                            if (target != null) {
+                                                mapBasicId = target.basicId
+                                                mapTrainId = target.trainId
+                                            } else showBareMap = true
+                                        }
+                                    }
+                                )
+                            }
+                            // Карточка «ВУ-45» — расчёт справки о тормозах (SCREEN_SPECS §26); данные берутся
+                            // из поезда текущего маршрута (правило «АВТО»), если он есть.
+                            item {
+                                ActionCard(
+                                    title = "ВУ-45",
+                                    iconRes = R.drawable.ic_card_brake,
+                                    iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    iconContent = { com.z_company.route.component.Vu45BlankIcon(size = 62.dp, tint = MaterialTheme.colorScheme.surfaceContainerLow) },
+                                    widthScreen = widthScreen,
+                                    interactionSource = interactionSource,
+                                    onSizeChanged = { size ->
+                                        if (size.height > maxHeightBox) {
+                                            maxHeightBox = size.height
+                                        }
+                                    },
+                                    minHeightDp = maxHeightBox.toDp(),
+                                    onClick = {
+                                        // справка из «Инструментов» открывается пустой; данные подставляет «Заполнить из маршрута»
+                                        onBrakeCertificate(null)
+                                    }
+                                )
+                            }
                             // Плашка «Статистика» — экран сводной статистики
                             item {
                                 ActionCard(
@@ -1750,6 +1941,7 @@ private fun RouteUnitTile(
     onNewTrain: (String) -> Unit,
     onChangedPassenger: (Passenger) -> Unit,
     onNewPassenger: (String) -> Unit,
+    alwaysOpenLast: Boolean = false,
 ) {
     when (type) {
         "loco" -> StackedTile(
@@ -1758,18 +1950,20 @@ private fun RouteUnitTile(
             count = route.locomotives.size,
             iconRes = R.drawable.ic_card_locomotive_ref,
             label = "ЛОКОМОТИВ",
-            title = route.locomotives.lastOrNull()?.let { locomotiveName(it, route.locomotives.size) },
+            title = route.locomotivesInOrder().lastOrNull()?.let { locomotiveName(it, route.locomotives.size) },
             onClick = {
                 when {
+                    route.locomotives.size > 1 && alwaysOpenLast -> onChangedLoco(route.locomotivesInOrder().last())
                     route.locomotives.size > 1 -> onOpenSheet("loco")
                     route.locomotives.size == 1 -> onChangedLoco(route.locomotives.first())
                     else -> onNewLoco(route.basicData.id)
                 }
             },
             onAddClick = { onNewLoco(route.basicData.id) },
+            onStackClick = if (alwaysOpenLast) ({ onOpenSheet("loco") }) else null,
         )
         "train" -> {
-            val train = route.trains.lastOrNull()
+            val train = route.trainsInOrder().lastOrNull()
             val first = train?.stations?.firstOrNull()?.stationName
             val last = if ((train?.stations?.size ?: 0) > 1) train?.stations?.last()?.stationName else null
             StackedTile(
@@ -1782,12 +1976,14 @@ private fun RouteUnitTile(
                 subtitle = train?.let { routeUnitSubtitle(it.number, it.servicePhase, first, last) },
                 onClick = {
                     when {
+                        route.trains.size > 1 && alwaysOpenLast -> onChangedTrain(route.trainsInOrder().last())
                         route.trains.size > 1 -> onOpenSheet("train")
                         route.trains.size == 1 -> onChangedTrain(route.trains.first())
                         else -> onNewTrain(route.basicData.id)
                     }
                 },
                 onAddClick = { onNewTrain(route.basicData.id) },
+                onStackClick = if (alwaysOpenLast) ({ onOpenSheet("train") }) else null,
             )
         }
         else -> {
@@ -1802,12 +1998,14 @@ private fun RouteUnitTile(
                 subtitle = p?.let { routeUnitSubtitle(it.trainNumber, null, it.stationDeparture, it.stationArrival) },
                 onClick = {
                     when {
+                        route.passengers.size > 1 && alwaysOpenLast -> onChangedPassenger(route.passengers.last())
                         route.passengers.size > 1 -> onOpenSheet("passenger")
                         route.passengers.size == 1 -> onChangedPassenger(route.passengers.first())
                         else -> onNewPassenger(route.basicData.id)
                     }
                 },
                 onAddClick = { onNewPassenger(route.basicData.id) },
+                onStackClick = if (alwaysOpenLast) ({ onOpenSheet("passenger") }) else null,
             )
         }
     }
@@ -1819,7 +2017,7 @@ private fun RouteUnitTile(
 
 /** Локомотив: серия+номер; только серия → «серия б/н»; только номер →
  * «{тип тяги} {номер}»; пусто → «{тип тяги} {порядковый}». */
-private fun locomotiveName(loco: Locomotive, ordinal: Int): String {
+internal fun locomotiveName(loco: Locomotive, ordinal: Int): String {
     val s = loco.series?.takeIf { it.isNotBlank() }
     val n = loco.number?.takeIf { it.isNotBlank() }
     return when {
@@ -1860,7 +2058,7 @@ private fun routeUnitSubtitle(number: String?, shoulder: ServicePhase?, first: S
 }
 
 /** Полное имя для строки шторки (заголовок + станции). */
-private fun routeUnitFullName(number: String?, shoulder: ServicePhase?, first: String?, last: String?): String {
+internal fun routeUnitFullName(number: String?, shoulder: ServicePhase?, first: String?, last: String?): String {
     val title = routeUnitTitle(number, shoulder, first, last)
     val sub = routeUnitSubtitle(number, shoulder, first, last)
     return if (sub != null) "$title $sub" else title
@@ -1868,16 +2066,18 @@ private fun routeUnitFullName(number: String?, shoulder: ServicePhase?, first: S
 
 /** Строка единицы в шторке «Список»: аватар-иконка + название + шеврон. */
 @Composable
-private fun UnitSheetRow(iconRes: Int, name: String, onClick: () -> Unit) {
+internal fun UnitSheetRow(iconRes: Int, name: String, onClick: () -> Unit) {
     val c = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+            .background(c.surface)
+            .border(1.dp, c.outlineVariant, androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
             .clickable { onClick() }
-            .padding(vertical = 8.dp, horizontal = 4.dp),
+            .padding(vertical = 10.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Box(
             modifier = Modifier
@@ -1919,6 +2119,7 @@ private fun UnitSheetAddButton(text: String, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+            .background(c.surface)
             .drawBehind {
                 drawRoundRect(
                     color = border,
@@ -1957,6 +2158,9 @@ private fun StackedTile(
     subtitle: String? = null,
     onClick: () -> Unit,
     onAddClick: () -> Unit,
+    // Клик по бейджу-счётчику стопки (когда основной клик открывает последний элемент напрямую —
+    // бейдж остаётся способом открыть список).
+    onStackClick: (() -> Unit)? = null,
 ) {
     val tileSize = 150.dp
     val stackOffset = 6.dp
@@ -1980,7 +2184,12 @@ private fun StackedTile(
                 }
                 if (hasStack) {
                     Badge(
-                        modifier = Modifier.align(Alignment.TopEnd),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .then(
+                                if (onStackClick != null) Modifier.clickable(enabled = enabled) { onStackClick() }
+                                else Modifier
+                            ),
                         containerColor = c.tertiary,
                         contentColor = c.surface,
                     ) { Text("$count") }
@@ -2133,6 +2342,8 @@ private fun ActionCard(
     onSizeChanged: (androidx.compose.ui.unit.IntSize) -> Unit,
     minHeightDp: androidx.compose.ui.unit.Dp,
     enabled: Boolean = true,
+    // вместо иконки-ресурса: произвольное содержимое (например, текстовая иконка «ВУ-45»)
+    iconContent: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     Card(
@@ -2176,7 +2387,7 @@ private fun ActionCard(
                     .weight(1f),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
+                if (iconContent != null) iconContent() else Icon(
                     modifier = Modifier.size(72.dp),
                     painter = painterResource(iconRes),
                     contentDescription = title,

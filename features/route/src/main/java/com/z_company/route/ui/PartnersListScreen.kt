@@ -50,11 +50,17 @@ import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.partner.Partner
 import com.z_company.route.component.AppBottomSheet
+import com.z_company.route.component.coachAnchor
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.SwipeToRevealDelete
 import com.z_company.route.ui.partner.PartnerAvatar
 import com.z_company.route.ui.partner.PartnerSearchField
+import com.z_company.route.ui.settings.SettingsSwitchRow
+import com.z_company.route.ui.partner.PermanentPartnerChip
+import com.z_company.route.ui.partner.PermanentPartnerReplaceDialog
+import com.z_company.route.viewmodel.PermanentReplaceRequest
 import com.z_company.route.ui.partner.filterPartners
+import com.z_company.route.ui.partner.partnerShortName
 
 enum class PartnerListMode { MANAGE, SELECT }
 
@@ -70,7 +76,22 @@ fun PartnersListScreen(
     onEdit: (Partner) -> Unit,
     onDelete: (Partner) -> Unit,
     onAddNew: () -> Unit,
+    permanentCandidate: Partner? = null,
+    onMakePermanent: (Partner) -> Unit = {},
+    onUnsetPermanent: (Partner) -> Unit = {},
+    replaceRequest: PermanentReplaceRequest? = null,
+    onConfirmReplace: () -> Unit = {},
+    onDismissReplace: () -> Unit = {},
 ) {
+    replaceRequest?.let { request ->
+        PermanentPartnerReplaceDialog(
+            current = request.current,
+            newName = request.candidate.fullName,
+            onConfirm = onConfirmReplace,
+            onDismiss = onDismissReplace,
+        )
+    }
+
     var partnerForRemove by remember { mutableStateOf<Partner?>(null) }
     var swipeCloseSignal by remember { mutableStateOf(0) }
     var searchQuery by remember { mutableStateOf("") }
@@ -202,6 +223,35 @@ fun PartnersListScreen(
                     onQueryChange = { searchQuery = it },
                 )
             }
+            // Переключатель «Постоянный напарник» для отмеченного в списке напарника.
+            if (mode == PartnerListMode.SELECT && partners.isNotEmpty()) {
+                val permanentAnchor = com.z_company.route.component.rememberCoachAnchor()
+                com.z_company.route.component.OnceCoachMark(
+                    id = com.z_company.domain.onboarding.HintId.PARTNER_PERMANENT,
+                    anchor = permanentAnchor,
+                    title = com.z_company.domain.onboarding.OnboardingHints.TITLE_PARTNER_PERMANENT,
+                    text = com.z_company.domain.onboarding.OnboardingHints.TEXT_PARTNER_PERMANENT,
+                )
+                Column(
+                    modifier = Modifier
+                        .coachAnchor(permanentAnchor)
+                        .padding(start = 12.dp, end = 12.dp, top = 4.dp)
+                        .fillMaxWidth()
+                        .clip(Shapes.medium)
+                        .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
+                ) {
+                    SettingsSwitchRow(
+                        label = "Постоянный напарник",
+                        sub = permanentCandidate?.let { partnerShortName(it.fullName) }
+                            ?: "Отметьте напарника в списке",
+                        checked = permanentCandidate?.isPermanent == true,
+                        enabled = permanentCandidate != null,
+                        onCheckedChange = { value ->
+                            permanentCandidate?.let { if (value) onMakePermanent(it) else onUnsetPermanent(it) }
+                        },
+                    )
+                }
+            }
             if (partners.isEmpty()) {
                 PartnersEmptyState()
             } else if (filteredPartners.isEmpty()) {
@@ -321,6 +371,9 @@ private fun PartnerRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 1.dp),
                 )
+            }
+            if (partner.isPermanent) {
+                PermanentPartnerChip(modifier = Modifier.padding(top = 4.dp))
             }
         }
         // Карандаш → редактирование карточки этого напарника.

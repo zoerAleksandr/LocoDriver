@@ -25,6 +25,7 @@ import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.ReleaseDayUseCase
+import com.z_company.domain.use_cases.PartnerUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -70,8 +71,10 @@ class CalendarViewModel : ViewModel(), KoinComponent {
     private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val calendarUseCase: CalendarUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
+    private val partnerUseCase: PartnerUseCase by inject()
     private val releaseDayUseCase: ReleaseDayUseCase by inject()
     private val routeHelper: RouteActionsHelper by inject()
+    private val reviewPromptHelper: ReviewPromptHelper by inject()
     private val snackbarManager: ISnackbarManager by inject()
     private val secureTokenStorage: SecureTokenStorage by inject()
     private val routesManager: RoutesManager by inject()
@@ -348,8 +351,10 @@ class CalendarViewModel : ViewModel(), KoinComponent {
         _uiState.update { it.copy(operationMessage = "Создаём маршруты…\nЭто может занять несколько секунд") }
         try {
             var created = 0
+            // Постоянный напарник добавляется в каждый создаваемый маршрут.
+            val permanentPartner = partnerUseCase.getPermanent()
             for (route in routes) {
-                val res = routeUseCase.saveRoute(route)
+                val res = routeUseCase.saveRoute(PartnerUseCase.withPermanentPartner(route, permanentPartner))
                     .first { it is ResultState.Success || it is ResultState.Error }
                 if (res is ResultState.Success) created++
             }
@@ -361,6 +366,7 @@ class CalendarViewModel : ViewModel(), KoinComponent {
             )
             exitRoutePlan()
             loadMonth()
+            if (created > 0) reviewPromptHelper.onRouteSaved()
         } finally {
             _uiState.update { it.copy(operationMessage = null) }
         }
@@ -517,7 +523,7 @@ class CalendarViewModel : ViewModel(), KoinComponent {
                     }
                     is ResultState.Error -> {
                         snackbarManager.show(
-                            result.entity.message ?: result.entity.throwable?.message ?: "Ошибка"
+                            friendlyNetworkErrorMessage(result.entity.message ?: result.entity.throwable?.message, "Ошибка")
                         )
                     }
                     is ResultState.Loading -> Unit
@@ -591,8 +597,7 @@ class CalendarViewModel : ViewModel(), KoinComponent {
                         loadMonth()
                     }
                     is ResultState.Error -> {
-                        val errorMsg = resultState.entity.message
-                            ?: resultState.entity.throwable?.message ?: "Ошибка синхронизации"
+                        val errorMsg = friendlyNetworkErrorMessage(resultState.entity.message ?: resultState.entity.throwable?.message, "Ошибка синхронизации")
                         snackbarManager.show(
                             message = "$label: $errorMsg",
                             duration = androidx.compose.material3.SnackbarDuration.Long,
@@ -781,8 +786,8 @@ class CalendarViewModel : ViewModel(), KoinComponent {
             val routeFlags: Map<String, RouteQuickFlags> = if (salary != null) {
                 routes.associate { route ->
                     route.basicData.id to RouteQuickFlags(
-                        isHeavyTrains = isHeavyTrains(salary, route),
-                        isLongCompositionTrain = isLongCompositionTrain(salary, route),
+                        isHeavyTrains = isHeavyTrains(salary, route, userSettings?.servicePhases.orEmpty()),
+                        isLongCompositionTrain = isLongCompositionTrain(salary, route, userSettings?.servicePhases.orEmpty()),
                         isExtendedServicePhaseTrains = isExtendedServicePhaseTrains(salary, route),
                     )
                 }
@@ -959,7 +964,7 @@ data class AbsenceInfo(
  * Ключ — (месяц 0-based, число). Переносы выходных сюда не входят — у них
  * нет собственного названия (покажется «Праздничный день»).
  */
-private val RU_FEDERAL_HOLIDAY_NAMES: Map<Pair<Int, Int>, String> = buildMap {
+internal val RU_FEDERAL_HOLIDAY_NAMES: Map<Pair<Int, Int>, String> = buildMap {
     // Январь: новогодние каникулы 1–8, Рождество 7-го
     for (d in 1..8) put(0 to d, "Новогодние каникулы")
     put(0 to 7, "Рождество Христово")

@@ -85,6 +85,7 @@ val iosUseCaseModule = module {
     // ── UseCases ──────────────────────────────────────────────────────────
     single { RouteUseCase(get()) }
     single { SettingsUseCase(get()) }
+    single { com.z_company.domain.use_cases.StationDirectoryUseCase(get()) }
     single { CalendarUseCase(get()) }
     single { SalarySettingUseCase(get(), get()) }
     single { ReleaseDayUseCase(get()) }

@@ -1,5 +1,7 @@
 package com.z_company.route.navigation
 
+import com.z_company.core.ui.perf.ScreenOpenTrace
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -14,6 +16,7 @@ import com.z_company.route.viewmodel.TrashViewModel
 fun ProfileDestination(
     router: Router
 ){
+    ScreenOpenTrace("profile")
     val viewModel: ProfileViewModel = viewModel()
     val pullToSyncViewModel: PullToSyncViewModel = viewModel()
     val trashViewModel: TrashViewModel = viewModel()
@@ -23,6 +26,9 @@ fun ProfileDestination(
         viewModel = viewModel,
         trashViewModel = trashViewModel,
         onBillingClick = showPurchasesScreen,
+        onOpenTrackHistory = router::showTrackHistory,
+        onOpenMyCertificates = router::showMyCertificates,
+        onOpenDataPrivacy = router::showDataPrivacy,
         isPullRefreshing = pullToSyncState.isRefreshing,
         onPullRefresh = { pullToSyncViewModel.refresh(viewModel::refresh) },
         pullSyncMessage = pullToSyncState.message,

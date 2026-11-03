@@ -65,3 +65,24 @@ fun String.sanitizeNumericInput(allowDecimal: Boolean = false): String {
     }
     return result.toString()
 }
+
+/**
+ * Ввод дробного числа в поле: оставляет ASCII-цифры и ОДИН десятичный разделитель (первая запятая или точка, приводится к
+ * запятой для показа); пробелы, лишние разделители и прочие символы отбрасываются. Промежуточные значения «8,» и «,5» сохраняются
+ * (поле не «съедает» разделитель при наборе); разбор — [toFiniteDoubleOrNull] ("8," = 8.0, ",5" = 0.5).
+ */
+fun String.sanitizeDecimalInput(maxLen: Int = 10): String {
+    val sb = StringBuilder()
+    var sep = false
+    for (c in this) {
+        when {
+            c in '0'..'9' -> sb.append(c)
+            !sep && (c == ',' || c == '.') -> { sb.append(','); sep = true }
+        }
+        if (sb.length >= maxLen) break
+    }
+    return sb.toString()
+}
+
+/** Целое по смыслу поле (оси, табельный номер): только ASCII-цифры. */
+fun String.sanitizeIntegerInput(maxLen: Int = 10): String = filter { it in '0'..'9' }.take(maxLen)

@@ -115,7 +115,7 @@ private val DayOffColor = Color(0xFFF4433C)
 private val BusinessTripColor = Color(0xFF30B0C7)
 private val TechnicalStudyColor = Color(0xFF5856D6)
 
-private fun releaseColor(type: ReleaseType): Color = when (type) {
+internal fun releaseColor(type: ReleaseType): Color = when (type) {
     ReleaseType.Vacation -> VacationColor
     ReleaseType.SickLeave -> SickColor
     ReleaseType.Courses -> CoursesColor
@@ -127,7 +127,7 @@ private fun releaseColor(type: ReleaseType): Color = when (type) {
     ReleaseType.Other -> OtherColor
 }
 
-private fun absBadge(type: ReleaseType): String = when (type) {
+internal fun absBadge(type: ReleaseType): String = when (type) {
     ReleaseType.Vacation -> "ОТП"
     ReleaseType.SickLeave -> "Б/Л"
     ReleaseType.Courses -> "КУР"
@@ -726,6 +726,7 @@ fun CalendarScreen(
                     )
                 }
             },
+            contentAfterHeader = com.z_company.route.component.rememberTrackDeleteNote(route.trains.map { it.trainId }),
             actions = listOf(
                 BottomSheetAction(text = "Да, удалить") {
                     routeForRemove = null
@@ -1455,6 +1456,7 @@ private fun DayDetails(
                     )
                 }
             },
+            contentAfterHeader = com.z_company.route.component.rememberTrackDeleteNote(route.trains.map { it.trainId }),
             actions = listOf(
                 BottomSheetAction(text = "Да, удалить") { onDeleteRoute(route) }
             ),

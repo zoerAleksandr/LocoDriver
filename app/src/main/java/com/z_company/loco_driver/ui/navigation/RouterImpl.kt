@@ -32,6 +32,7 @@ import com.z_company.route.navigation.CalendarRoute
 import com.z_company.route.navigation.ScheduleWizardRoute
 import com.z_company.route.navigation.AbsenceRoute
 import com.z_company.route.navigation.StatisticsRoute
+import com.z_company.route.navigation.BrakeCertificateRoute
 import com.z_company.route.navigation.login.LogInScreenRoute
 import com.z_company.route.navigation.login.SignInScreenRoute
 
@@ -209,6 +210,10 @@ class RouterImpl(
         requireNavController().navigate(AbsenceRoute.route)
     }
 
+    override fun showBrakeCertificate(prefill: com.z_company.domain.brake.BrakePrefill?) {
+        requireNavController().navigate(BrakeCertificateRoute.buildRoute(prefill))
+    }
+
     override fun showStatistics() {
         requireNavController().navigate(StatisticsRoute.route)
     }
@@ -234,6 +239,18 @@ class RouterImpl(
 
     override fun showSettingsTrain() {
         requireNavController().navigate(SettingsScreenRoute.buildRoute("TRAIN"))
+    }
+
+    override fun showDataPrivacy() {
+        requireNavController().navigate(com.z_company.route.navigation.DataPrivacyRoute.route)
+    }
+
+    override fun showMyCertificates() {
+        requireNavController().navigate(com.z_company.route.navigation.MyCertificatesRoute.route)
+    }
+
+    override fun showTrackHistory() {
+        requireNavController().navigate(com.z_company.route.navigation.TrackHistoryRoute.route)
     }
 
     override fun showSettingsRest() {

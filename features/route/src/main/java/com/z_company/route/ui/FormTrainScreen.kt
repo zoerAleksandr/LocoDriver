@@ -1,5 +1,9 @@
 package com.z_company.route.ui
 
+import com.z_company.route.util.DeviceLocation
+import androidx.compose.ui.platform.LocalContext
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -35,6 +39,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -50,13 +55,16 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import com.z_company.route.component.separateSheetFromScroll
 import com.z_company.route.component.StationDropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -73,11 +81,15 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import com.z_company.route.autorecord.AutoRecordChip
+import com.z_company.route.component.coachAnchor
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -168,10 +180,12 @@ fun FormTrainScreen(
     onSelectServicePhase: (ServicePhase?) -> Unit,
     selectedServicePhase: ServicePhase?,
     onSettingClick: () -> Unit,
+    onConsentSettings: () -> Unit = {},
     onAddServicePhase: (ServicePhase) -> Unit = {},
     onUpdateServicePhase: (ServicePhase) -> Unit = {},
     onDeleteServicePhase: (ServicePhase) -> Unit = {},
-    dateAndTimeConverter: DateAndTimeConverter?
+    dateAndTimeConverter: DateAndTimeConverter?,
+    onBrakeCertificateClick: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -195,16 +209,7 @@ fun FormTrainScreen(
     var showSettingsSheet by remember { mutableStateOf(false) }
     var settingsSheetMode by remember { mutableStateOf(TrainExtraSheetMode.ASSISTS) }
     var showTrainDataHistory by remember { mutableStateOf(false) }
-    var bottomBarVisible by remember { mutableStateOf(true) }
-    val bottomBarNestedScroll = remember {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y < -3f) bottomBarVisible = false
-                else if (available.y > 3f) bottomBarVisible = true
-                return Offset.Zero
-            }
-        }
-    }
+    val bottomBarScroll = com.z_company.route.component.rememberBottomBarScrollState()
     // Сигнал закрытия свайп-раскрытой строки станции (при отмене подтверждения)
     var closeSwipeSignal by remember { mutableStateOf(0) }
 
@@ -279,6 +284,130 @@ fun FormTrainScreen(
         // Вторая шторка — создание/редактирование плеча.
         var showEditPhaseSheet by remember { mutableStateOf(false) }
         var editingPhase by remember { mutableStateOf<ServicePhase?>(null) }
+        // Вход «Загрузить станции плеча» с экрана «Ограничения поезда»: то же окно плеча с автозапуском подбора, по закрытии - назад на экран ограничений.
+        var autoStartPhaseFill by remember { mutableStateOf(false) }
+        var returnToRestrictions by remember { mutableStateOf(false) }
+
+        // Кнопка «АВТО» (SCREEN_SPECS §6.2 п.6а)
+        val autoRecordManager: com.z_company.route.autorecord.AutoRecordManager = org.koin.compose.koinInject()
+        val autoRecordState = com.z_company.route.autorecord.rememberAutoStateFor(autoRecordManager, currentTrain?.trainId)
+        val onAutoToggleRaw = com.z_company.route.autorecord.rememberAutoRecordToggle(
+            autoRecordManager, currentTrain?.trainId,
+        )
+
+        // Подсказки на месте (ONBOARDING_MATERIALS §2): «Карта», затем «АВТО»; один раз, не во время записи.
+        val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
+        val globalAutoState by autoRecordManager.state.collectAsState()
+        val mapAnchor = com.z_company.route.component.rememberCoachAnchor()
+        val autoAnchor = com.z_company.route.component.rememberCoachAnchor()
+        val vuAnchor = com.z_company.route.component.rememberCoachAnchor()
+        val restrictionsAnchor = com.z_company.route.component.rememberCoachAnchor()
+        val onAutoToggle: () -> Unit = {
+            onboardingHints.markShown(com.z_company.domain.onboarding.HintId.AUTO_CHIP)
+            onAutoToggleRaw()
+        }
+
+        // Геолокация для подстановки ближайшей станции: спрашиваем один раз, при первом GO /
+        // «добавить станцию».
+        val locationContext = LocalContext.current
+        var afterLocationPermission by remember { mutableStateOf<(() -> Unit)?>(null) }
+        val locationPermission = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) {
+            afterLocationPermission?.invoke()
+            afterLocationPermission = null
+        }
+        fun askLocation(action: () -> Unit) {
+            val prefs = locationContext.getSharedPreferences("service_phase_location", android.content.Context.MODE_PRIVATE)
+            if (!DeviceLocation.hasPermission(locationContext) &&
+                !prefs.getBoolean("asked", false)
+            ) {
+                prefs.edit().putBoolean("asked", true).apply()
+                afterLocationPermission = action
+                locationPermission.launch(
+                    arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                )
+            } else {
+                action()
+            }
+        }
+
+        // «Ограничения поезда»: журнал проследования, добавление предупреждений по плечу, PDF-отчёт (SCREEN_SPECS §6.9)
+        var showRestrictions by rememberSaveable { mutableStateOf(false) }
+        // Плечо для экранов ДУ-61 и карты: выбор, пометка «проверено на карте» и «Определить» - одно и то же везде.
+        val legContext = com.z_company.route.component.servicephase.LegContext(
+            title = formUiState.selectedServicePhase?.let { "${it.departureStation} — ${it.arrivalStation}" },
+            phase = servicePhaseList.firstOrNull { it.id == formUiState.selectedServicePhase?.id },
+            country = viewModel.userCountry,
+            onSelect = { showSelectServicePhase = true },
+            onUpdate = onUpdateServicePhase,
+            onAddNames = viewModel::addStationNames,
+            onOpenEditor = {
+                val full = servicePhaseList.firstOrNull { it.id == formUiState.selectedServicePhase?.id }
+                if (full != null) {
+                    editingPhase = full
+                    autoStartPhaseFill = true
+                    returnToRestrictions = showRestrictions
+                    showRestrictions = false
+                    showEditPhaseSheet = true
+                }
+            },
+            // «Уточнить» на карте: тот же редактор, но без автоопределения - пользователь сразу правит станции.
+            onEditLeg = {
+                val full = servicePhaseList.firstOrNull { it.id == formUiState.selectedServicePhase?.id }
+                if (full != null) {
+                    editingPhase = full
+                    autoStartPhaseFill = false
+                    returnToRestrictions = false
+                    showEditPhaseSheet = true
+                }
+            },
+        )
+        if (showRestrictions && currentTrain != null) {
+            val restrictionsZone by androidx.compose.runtime.produceState("GMT+3") { value = viewModel.trainMapZone() }
+            com.z_company.route.component.servicephase.TrainRestrictionsScreen(
+                trainId = currentTrain.trainId,
+                trainTitle = currentTrain.number?.takeIf { it.isNotBlank() }?.let { "Поезд № $it" } ?: "Поезд без номера",
+                leg = legContext,
+                legFrom = formUiState.selectedServicePhase?.departureStation?.takeIf { it.isNotBlank() },
+                legTo = formUiState.selectedServicePhase?.arrivalStation?.takeIf { it.isNotBlank() },
+                stops = remember(formUiState.selectedServicePhase, viewModel.fullSelectedPhaseOrNull()) { viewModel.trainMapStops() },
+                trains = viewModel.trainMapTrains(),
+                zone = restrictionsZone,
+                onDismiss = { showRestrictions = false },
+            )
+        }
+        // Карта поезда (SCREEN_SPECS §6.9)
+        var showTrainMap by rememberSaveable { mutableStateOf(false) }
+        if (showTrainMap) {
+            val railVm: com.z_company.route.viewmodel.ServicePhaseAutoFillViewModel =
+                androidx.lifecycle.viewmodel.compose.viewModel()
+            com.z_company.route.component.servicephase.TrainMapScreen(
+                missingStation = { viewModel.trainMapMissingStation() },
+                stops = remember(formUiState.selectedServicePhase, viewModel.fullSelectedPhaseOrNull()) { viewModel.trainMapStops() },
+                loadRailLine = { railVm.railLine(it) },
+                currentFix = { viewModel.trainMapCurrentFix() },
+                loadTrack = { viewModel.trainMapTrack() },
+                loadRecordingState = { viewModel.trainMapRecordingState() },
+                makeTarget = { viewModel.trainMapMakeTarget() },
+                loadConflictText = { viewModel.trainMapConflictText() },
+                findStation = { q, near -> railVm.lookup(q, viewModel.userCountry, near) },
+        onSetCoordinates = { n, lat, lon -> viewModel.saveStationCoordinates(n, lat, lon) },
+                loadZone = { viewModel.trainMapZone() },
+                planKey = remember { viewModel.trainMapPlanKey() },
+                // Карта остаётся «открытой» (rememberSaveable): после «Готово» в настройках согласия возвращаемся на неё.
+                onOpenConsentSettings = { onConsentSettings() },
+                // Та же логика, что у кнопки «АВТО» в «Поезде» (разрешения, согласие, цель - этот поезд).
+                onEnableAuto = { if (!autoRecordState.enabled) onAutoToggle() },
+                // Кнопка записи на карте: то же переключение «АВТО», цель - этот поезд.
+                autoRecording = autoRecordState.enabled,
+                onToggleRecording = onAutoToggle,
+                onDismiss = { showTrainMap = false },
+                profileTrains = viewModel.trainMapTrains(),
+                profileTrainId = viewModel.currentTrain?.trainId,
+                leg = legContext,
+            )
+        }
 
         // BottomSheet для редактирования/добавления станции
         val editingIndex = formUiState.editingStationIndex
@@ -336,7 +465,8 @@ fun FormTrainScreen(
                     { viewModel.requestDeleteStation(editingIndex) }
                 } else null,
                 onDismiss = { viewModel.stopEditingStation() },
-                dateAndTimeConverter = dateAndTimeConverter
+                dateAndTimeConverter = dateAndTimeConverter,
+                suggestedName = if (editingIndex == -1) formUiState.suggestedNewStationName else null,
             )
         }
 
@@ -373,6 +503,7 @@ fun FormTrainScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .separateSheetFromScroll()
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 20.dp)
                         .padding(bottom = 40.dp),
@@ -470,6 +601,7 @@ fun FormTrainScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
+                        .separateSheetFromScroll()
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
@@ -802,10 +934,14 @@ fun FormTrainScreen(
                     }
 
                     // ── Список плеч ──
+                    // Прокрутка списка не закрывает шторку тем же движением.
+                    val phaseListState = androidx.compose.foundation.lazy.rememberLazyListState()
                     LazyColumn(
+                        state = phaseListState,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth()
+                            .separateSheetFromScroll(phaseListState)
                     ) {
                         itemsIndexed(
                             items = servicePhaseList,
@@ -833,13 +969,9 @@ fun FormTrainScreen(
                                         .fillMaxWidth()
                                         .background(rowBg)
                                         .clickable {
-                                            // Первый тап — выделить; повторный по выделенному — применить.
-                                            if (selectedInSheet?.id == item.id) {
-                                                onSelectServicePhase(item)
-                                                showSelectServicePhase = false
-                                            } else {
-                                                selectedInSheet = item
-                                            }
+                                            // Первый тап — выделить; повторный по выделенному — снять выделение.
+                                            // Применяется только кнопкой «Выбрать».
+                                            selectedInSheet = if (selectedInSheet?.id == item.id) null else item
                                         }
                                         .padding(horizontal = 20.dp, vertical = 14.dp),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -853,14 +985,6 @@ fun FormTrainScreen(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
-                                    if (isSelected) {
-                                        Icon(
-                                            modifier = Modifier.size(18.dp),
-                                            painter = painterResource(com.z_company.route.R.drawable.check_circle_24px),
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.tertiary
-                                        )
-                                    }
                                     Text(
                                         text = "${item.distance} км",
                                         style = MaterialTheme.typography.bodyMedium.copy(
@@ -868,6 +992,17 @@ fun FormTrainScreen(
                                         ),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                    // Слот под галочку у правого края — у всех строк, чтобы «N км» не сдвигались.
+                                    Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                                        if (isSelected) {
+                                            Icon(
+                                                modifier = Modifier.size(20.dp),
+                                                painter = painterResource(com.z_company.route.R.drawable.check_circle_24px),
+                                                contentDescription = "Выбрано",
+                                                tint = MaterialTheme.colorScheme.tertiary
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -999,12 +1134,7 @@ fun FormTrainScreen(
                         onAddServicePhase(phase)
                         if (reverse) {
                             onAddServicePhase(
-                                ServicePhase(
-                                    departureStation = phase.arrivalStation,
-                                    arrivalStation = phase.departureStation,
-                                    distance = phase.distance,
-                                    linearMileageRate = phase.linearMileageRate,
-                                )
+                                phase.reversed()
                             )
                         }
                     } else {
@@ -1021,7 +1151,14 @@ fun FormTrainScreen(
                     }
                 } else null,
                 onDeleteStationName = { viewModel.removeStationName(it) },
-                onDismiss = { showEditPhaseSheet = false }
+                onDismiss = {
+                    showEditPhaseSheet = false
+                    autoStartPhaseFill = false
+                    if (returnToRestrictions) { returnToRestrictions = false; showRestrictions = true }
+                },
+                country = viewModel.userCountry,
+                onAddStationNames = viewModel::addStationNames,
+                autoStartAutoFill = autoStartPhaseFill,
             )
         }
 
@@ -1039,7 +1176,7 @@ fun FormTrainScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .nestedScroll(bottomBarNestedScroll)
+                .nestedScroll(bottomBarScroll.nestedScroll)
         ) {
             currentTrain?.let { train ->
                 LazyColumn(
@@ -1750,7 +1887,9 @@ fun FormTrainScreen(
                     item { Spacer(modifier = Modifier.height(dimensionResource(id = R.dimen.secondary_spacing))) }
                     item {
                         val stopwatch = rememberStopwatchState(
-                            stations = stationListState?.map {
+                            // Проходные станции в секундомере не участвуют: отсчёт идёт от
+                            // последней остановки/отправления, а не от времени проследования.
+                            stations = stationListState?.filterNot { it.isPassingStation }?.map {
                                 StopwatchStation(
                                     name = it.station.data,
                                     arrival = it.arrival.data,
@@ -1762,91 +1901,95 @@ fun FormTrainScreen(
                         )
                         val nextIsDeparture = viewModel.isNextDeparture()
                         Column(modifier = Modifier.fillMaxWidth()) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // Слева: сортировка
-                                Box(
-                                    modifier = Modifier.weight(1f),
-                                    contentAlignment = Alignment.CenterStart
+                            // Ряд [Автозапись | секундомер | GO]: чип «Автозапись» занимает сколько ему нужно (длинный
+                            // текст обрезается многоточием), секундомер стоит по центру ОСТАВШЕГОСЯ места между
+                            // чипом и кнопкой «GO».
+                            androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                                val goReserve = 64.dp
+                                val stopwatchReserve = if (stopwatch != null) 100.dp else 8.dp
+                                val chipMaxWidth = (maxWidth - goReserve - stopwatchReserve).coerceAtLeast(96.dp)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.Top
                                 ) {
-                                    val isReversed = formUiState.isStationsReversed
-                                    val rotation by animateFloatAsState(
-                                        targetValue = if (isReversed) 180f else 0f,
-                                        animationSpec = tween(durationMillis = 300)
-                                    )
-                                    Icon(
+                                    DisposableEffect(Unit) { onDispose { autoAnchor.bounds = null } }
+                                    AutoRecordChip(
+                                        state = autoRecordState,
+                                        onToggle = onAutoToggle,
+                                        goHeight = true,
                                         modifier = Modifier
-                                            .graphicsLayer { rotationZ = rotation }
-                                            .noRippleEffect(
-                                                onClick = { viewModel.toggleStationsSortOrder() }
-                                            ),
-                                        painter = painterResource(com.z_company.route.R.drawable.sort_24px),
-                                        contentDescription = null
+                                            .widthIn(max = chipMaxWidth)
+                                            .coachAnchor(autoAnchor),
                                     )
-                                }
 
-                                // Центр: чип секундомера — по вертикали в одну линию с кнопками
-                                if (stopwatch != null) {
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(stopwatch.bg)
-                                            .padding(horizontal = 14.dp, vertical = 6.dp),
-                                        contentAlignment = Alignment.Center
+                                    // Центр свободного места между чипом и «GO». Форма и высота - как у чипа и «GO».
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
                                     ) {
-                                        Text(
-                                            text = stopwatch.timeText,
-                                            style = MaterialTheme.typography.titleMedium.copy(
-                                                fontFamily = com.z_company.core.ui.theme.MonoFont,
-                                                fontWeight = FontWeight.Bold
-                                            ),
-                                            color = stopwatch.fg
-                                        )
-                                    }
-                                }
-
-                                // Справа: play/pause
-                                Box(
-                                    modifier = Modifier.weight(1f),
-                                    contentAlignment = Alignment.CenterEnd
-                                ) {
-                                    OutlinedButton(
-                                        onClick = { viewModel.onGoClicked() },
-                                        border = BorderStroke(
-                                            width = 1.dp,
-                                            color = if (nextIsDeparture) MaterialTheme.colorScheme.surfaceContainerLow
-                                            else MaterialTheme.colorScheme.surfaceContainerHigh
-                                        )
-                                    ) {
-                                        AnimatedContent(targetState = nextIsDeparture) {
-                                            val icon =
-                                                if (it) com.z_company.route.R.drawable.play_arrow_24px
-                                                else com.z_company.route.R.drawable.pause_24px
-                                            Icon(
-                                                painter = painterResource(icon),
-                                                contentDescription = null,
-                                                tint = if (it) MaterialTheme.colorScheme.surfaceContainerLow
-                                                else MaterialTheme.colorScheme.surfaceContainerHigh
+                                        if (stopwatch != null) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .height(com.z_company.route.autorecord.AutoRecordStyle.height)
+                                                    .clip(com.z_company.route.autorecord.AutoRecordStyle.shape)
+                                                    .background(stopwatch.bg)
+                                                    .padding(horizontal = 14.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = stopwatch.timeText,
+                                                    maxLines = 1,
+                                                    softWrap = false,
+                                                    style = MaterialTheme.typography.titleMedium.copy(
+                                                        fontFamily = com.z_company.core.ui.theme.MonoFont,
+                                                        fontWeight = FontWeight.Bold
+                                                    ),
+                                                    color = stopwatch.fg
+                                                )
+                                            }
+                                            // Подпись - строго под плашкой (что показывает секундомер).
+                                            Text(
+                                                text = stopwatch.label,
+                                                modifier = Modifier.padding(top = 3.dp),
+                                                maxLines = 1,
+                                                softWrap = false,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                     }
-                                }
-                            }
 
-                            // Подпись под чипом (что показывает секундомер)
-                            if (stopwatch != null) {
-                                Text(
-                                    text = stopwatch.label,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 3.dp),
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                                    // Справа: play/pause
+                                        OutlinedButton(
+                                            onClick = { askLocation { viewModel.onGoClicked() } },
+                                            shape = com.z_company.route.autorecord.AutoRecordStyle.shape,
+                                            border = BorderStroke(
+                                                width = 1.dp,
+                                                color = if (nextIsDeparture) MaterialTheme.colorScheme.surfaceContainerLow
+                                                else MaterialTheme.colorScheme.surfaceContainerHigh
+                                            )
+                                        ) {
+                                            AnimatedContent(targetState = nextIsDeparture) {
+                                                val icon =
+                                                    if (it) com.z_company.route.R.drawable.play_arrow_24px
+                                                    else com.z_company.route.R.drawable.pause_24px
+                                                Icon(
+                                                    painter = painterResource(icon),
+                                                    contentDescription = null,
+                                                    tint = if (it) MaterialTheme.colorScheme.surfaceContainerLow
+                                                    else MaterialTheme.colorScheme.surfaceContainerHigh
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                            val autoGnss by autoRecordManager.gnssQuality.collectAsState()
+                            com.z_company.route.autorecord.AutoGnssNotice(
+                                autoEnabled = autoRecordState.enabled,
+                                quality = autoGnss,
+                            )
+
                         }
                     }
 
@@ -1871,40 +2014,88 @@ fun FormTrainScreen(
                                     ),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                                // Показать/скрыть карточки перегонов между станциями.
-                                IconButton(
-                                    modifier = Modifier.size(32.dp),
-                                    onClick = {
-                                        viewModel.toggleSegmentsVisibility()
-                                        val shown = !formUiState.showSegments
-                                        scope.launch {
-                                            snackbarHostState.currentSnackbarData?.dismiss()
-                                            snackbarHostState.showSnackbar(
-                                                message = if (shown) {
-                                                    "Перегоны показаны"
-                                                } else {
-                                                    "Перегоны скрыты"
-                                                },
-                                                duration = SnackbarDuration.Short,
+                                Row(
+                                    // Видимый правый круг (36dp) — вровень с правым краем блока:
+                                    // область нажатия 48dp выступает на 6dp за край
+                                    modifier = Modifier.offset(x = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    // Мягкая заливка круга из токена акцента темы; иконка — onSurface
+                                    val circleColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f)
+                                    val iconColor = MaterialTheme.colorScheme.onSurface
+                                    // Сортировка списка станций (вверх/вниз)
+                                    val isReversed = formUiState.isStationsReversed
+                                    val rotation by animateFloatAsState(
+                                        targetValue = if (isReversed) 180f else 0f,
+                                        animationSpec = tween(durationMillis = 300)
+                                    )
+                                    // Область нажатия 48dp, видимый круг 36dp
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(CircleShape)
+                                            .clickable { viewModel.toggleStationsSortOrder() },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .background(circleColor, CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                modifier = Modifier
+                                                    .size(20.dp)
+                                                    .graphicsLayer { rotationZ = rotation },
+                                                painter = painterResource(com.z_company.route.R.drawable.sort_24px),
+                                                contentDescription = "Порядок станций",
+                                                tint = iconColor
                                             )
                                         }
                                     }
-                                ) {
-                                    Icon(
-                                        modifier = Modifier.size(20.dp),
-                                        painter = painterResource(
-                                            if (formUiState.showSegments)
-                                                com.z_company.route.R.drawable.collapse_rows_24px
-                                            else
-                                                com.z_company.route.R.drawable.expand_rows_24px
-                                        ),
-                                        contentDescription = if (formUiState.showSegments)
-                                            "Скрыть перегоны" else "Показать перегоны",
-                                        tint = if (formUiState.showSegments)
-                                            MaterialTheme.colorScheme.tertiary
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+                                    // Показать/скрыть карточки перегонов между станциями.
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(CircleShape)
+                                            .clickable {
+                                                viewModel.toggleSegmentsVisibility()
+                                                val shown = !formUiState.showSegments
+                                                scope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = if (shown) {
+                                                            "Перегоны показаны"
+                                                        } else {
+                                                            "Перегоны скрыты"
+                                                        },
+                                                        duration = SnackbarDuration.Short,
+                                                    )
+                                                }
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .background(circleColor, CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                modifier = Modifier.size(20.dp),
+                                                painter = painterResource(
+                                                    if (formUiState.showSegments)
+                                                        com.z_company.route.R.drawable.collapse_rows_24px
+                                                    else
+                                                        com.z_company.route.R.drawable.expand_rows_24px
+                                                ),
+                                                contentDescription = if (formUiState.showSegments)
+                                                    "Скрыть перегоны" else "Показать перегоны",
+                                                tint = iconColor,
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -2002,6 +2193,12 @@ fun FormTrainScreen(
                                         }
                                     viewModel.startEditingSegment(originalAfterIndex)
                                 },
+                                onReorder = { from, to ->
+                                    val size = stationList.size
+                                    val fromOrig = if (formUiState.isStationsReversed) size - 1 - from else from
+                                    val toOrig = if (formUiState.isStationsReversed) size - 1 - to else to
+                                    viewModel.moveStation(fromOrig, toOrig)
+                                },
                                 onMoveUp = { displayIndex ->
                                     val originalIndex =
                                         if (formUiState.isStationsReversed) stationList.size - 1 - displayIndex
@@ -2064,17 +2261,11 @@ fun FormTrainScreen(
                 }
             }
 
-            var barHeightPx by remember { mutableStateOf(0) }
-            val barOffsetY by androidx.compose.animation.core.animateIntAsState(
-                targetValue = if (bottomBarVisible) 0 else barHeightPx,
-                animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
-                label = "trainBottomBarOffset",
-            )
+            com.z_company.route.component.ScrollHidingBottomBar(
+                visible = bottomBarScroll.visible,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            ) {
             TrainBottomAppBar(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .onSizeChanged { barHeightPx = it.height }
-                    .offset { IntOffset(0, barOffsetY) },
                 hasInspector = currentTrain?.carInspector?.hasEnteredData() == true,
                 hasAssists = currentTrain?.let {
                     it.pusher?.hasEnteredData() == true ||
@@ -2090,8 +2281,67 @@ fun FormTrainScreen(
                     settingsSheetMode = TrainExtraSheetMode.ASSISTS
                     showSettingsSheet = true
                 },
-                onAddStationClick = viewModel::startAddingNewStation,
+                onAddStationClick = { askLocation { viewModel.startAddingNewStation() } },
+                onBrakeCertificateClick = {
+                    onboardingHints.markShown(com.z_company.domain.onboarding.HintId.TRAIN_VU45)
+                    onBrakeCertificateClick()
+                },
+                vuAnchor = vuAnchor,
+                restrictionsAnchor = restrictionsAnchor,
+                onRestrictionsClick = {
+                    onboardingHints.markShown(com.z_company.domain.onboarding.HintId.TRAIN_RESTRICTIONS)
+                    showRestrictions = true
+                },
+                restrictionsCount = com.z_company.route.component.servicephase.rememberRestrictionCount(currentTrain?.trainId),
+                onMapClick = {
+                    onboardingHints.markShown(com.z_company.domain.onboarding.HintId.TRAIN_MAP)
+                    showTrainMap = true
+                },
+                mapAnchor = mapAnchor,
             )
+            }
+
+            val hintBlocked = showTrainMap || showRestrictions || showSettingsSheet || showSelectServicePhase || showEditPhaseSheet ||
+                showTrainDataHistory || formUiState.editingStationIndex != null ||
+                formUiState.editingSegmentAfterIndex != null || formUiState.showCreateServicePhaseSheet
+            val trainHint = com.z_company.domain.onboarding.OnboardingHints.nextOnTrainScreen(
+                shown = onboardingHints.shown,
+                homeReached = onboardingHints.homeReached,
+                recording = globalAutoState.enabled,
+                blocked = hintBlocked,
+            )
+            val shownHint = trainHint
+            when (shownHint) {
+                com.z_company.domain.onboarding.HintId.TRAIN_MAP -> com.z_company.route.component.CoachMarkPopup(
+                    anchor = mapAnchor.bounds,
+                    title = com.z_company.domain.onboarding.OnboardingHints.TITLE_TRAIN_MAP,
+                    text = com.z_company.domain.onboarding.OnboardingHints.TEXT_TRAIN_MAP,
+                    onDismiss = { onboardingHints.markShown(shownHint) },
+                    tag = "coach_train_map",
+                )
+                com.z_company.domain.onboarding.HintId.AUTO_CHIP -> com.z_company.route.component.CoachMarkPopup(
+                    anchor = autoAnchor.bounds,
+                    title = com.z_company.domain.onboarding.OnboardingHints.TITLE_AUTO_CHIP,
+                    text = com.z_company.domain.onboarding.OnboardingHints.TEXT_AUTO_CHIP,
+                    onDismiss = { onboardingHints.markShown(shownHint) },
+                    tag = "coach_auto_chip",
+                )
+                com.z_company.domain.onboarding.HintId.TRAIN_RESTRICTIONS -> com.z_company.route.component.CoachMarkPopup(
+                    anchor = restrictionsAnchor.bounds,
+                    title = com.z_company.domain.onboarding.OnboardingHints.TITLE_TRAIN_RESTRICTIONS,
+                    text = com.z_company.domain.onboarding.OnboardingHints.TEXT_TRAIN_RESTRICTIONS,
+                    onDismiss = { onboardingHints.markShown(shownHint) },
+                    tag = "coach_train_restrictions",
+                )
+                com.z_company.domain.onboarding.HintId.TRAIN_VU45 -> com.z_company.route.component.CoachMarkPopup(
+                    anchor = vuAnchor.bounds,
+                    title = com.z_company.domain.onboarding.OnboardingHints.TITLE_TRAIN_VU45,
+                    text = com.z_company.domain.onboarding.OnboardingHints.TEXT_TRAIN_VU45,
+                    onDismiss = { onboardingHints.markShown(shownHint) },
+                    tag = "coach_train_vu45",
+                )
+                else -> Unit
+            }
         }
     }
 }
@@ -2116,23 +2366,27 @@ private fun TrainBottomAppBar(
     onInspectorClick: () -> Unit,
     onAssistsClick: () -> Unit,
     onAddStationClick: () -> Unit,
+    onMapClick: () -> Unit,
+    onRestrictionsClick: () -> Unit,
+    restrictionsCount: Int = 0,
+    onBrakeCertificateClick: () -> Unit,
+    mapAnchor: com.z_company.route.component.CoachAnchor? = null,
+    vuAnchor: com.z_company.route.component.CoachAnchor? = null,
+    restrictionsAnchor: com.z_company.route.component.CoachAnchor? = null,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+        // Шесть равных по ширине слотов (weight 1): центры кнопок равноудалены (шаг = ширина/5),
+        // большая «+» (самая правая) не нарушает шаг, т.к. центрируется в своём слоте.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surface)
                 .navigationBarsPadding()
-                .padding(start = 8.dp, top = 10.dp, end = 8.dp, bottom = 6.dp),
+                .padding(start = 8.dp, top = 8.dp, end = 8.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Row(
-                modifier = Modifier.weight(2f),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 TrainBottomIconButton(
                     modifier = Modifier.width(48.dp),
                     iconRes = com.z_company.route.R.drawable.ic_couplers_24,
@@ -2140,6 +2394,8 @@ private fun TrainBottomAppBar(
                     active = hasInspector,
                     onClick = onInspectorClick,
                 )
+            }
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 TrainBottomIconButton(
                     modifier = Modifier.width(48.dp),
                     iconRes = com.z_company.route.R.drawable.baseline_tune_24,
@@ -2148,25 +2404,51 @@ private fun TrainBottomAppBar(
                     onClick = onAssistsClick,
                 )
             }
-            Button(
-                modifier = Modifier
-                    .weight(2f)
-                    .height(48.dp),
-                onClick = onAddStationClick,
-                shape = RoundedCornerShape(14.dp),
-                elevation = ButtonDefaults.buttonElevation(0.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.tertiary,
-                    contentColor = MaterialTheme.colorScheme.surface,
-                ),
-            ) {
-                Icon(
-                    modifier = Modifier.size(18.dp),
-                    painter = painterResource(com.z_company.route.R.drawable.add_circle_24px),
-                    contentDescription = null,
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                TrainBottomIconButton(
+                    modifier = Modifier.width(48.dp).let { m -> if (mapAnchor != null) m.coachAnchor(mapAnchor) else m },
+                    iconRes = com.z_company.route.R.drawable.ic_map_pin_color,
+                    contentDescription = "Карта",
+                    active = false,
+                    onClick = onMapClick,
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Станция", fontWeight = FontWeight.SemiBold)
+            }
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                TrainBottomIconButton(
+                    modifier = Modifier.width(48.dp).let { m -> if (restrictionsAnchor != null) m.coachAnchor(restrictionsAnchor) else m },
+                    iconRes = com.z_company.route.R.drawable.ic_restriction_24,
+                    contentDescription = "ДУ-61",
+                    active = false,
+                    badgeCount = restrictionsCount,
+                    onClick = onRestrictionsClick,
+                )
+            }
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                TrainBottomIconButton(
+                    modifier = Modifier.width(48.dp).let { m -> if (vuAnchor != null) m.coachAnchor(vuAnchor) else m },
+                    iconRes = com.z_company.route.R.drawable.ic_card_brake,
+                    iconContent = { com.z_company.route.component.Vu45Icon(size = 38.dp, tint = MaterialTheme.colorScheme.primary) },
+                    contentDescription = "Справка ВУ-45",
+                    active = false,
+                    onClick = onBrakeCertificateClick,
+                )
+            }
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                FilledIconButton(
+                    modifier = Modifier.size(56.dp),
+                    onClick = onAddStationClick,
+                    shape = CircleShape,
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiary,
+                        contentColor = MaterialTheme.colorScheme.surface,
+                    ),
+                ) {
+                    Icon(
+                        modifier = Modifier.size(28.dp),
+                        painter = painterResource(com.z_company.route.R.drawable.ic_add_plain_24),
+                        contentDescription = "Добавить станцию",
+                    )
+                }
             }
         }
     }
@@ -2178,17 +2460,28 @@ private fun TrainBottomIconButton(
     iconRes: Int,
     contentDescription: String,
     active: Boolean,
+    colored: Boolean = false,
+    iconContent: (@Composable () -> Unit)? = null,
+    badgeCount: Int = 0,
     onClick: () -> Unit,
 ) {
     Box(modifier = modifier.height(48.dp), contentAlignment = Alignment.Center) {
         IconButton(onClick = onClick) {
-            Icon(
+            if (iconContent != null) iconContent() else Icon(
                 painter = painterResource(iconRes),
                 contentDescription = contentDescription,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = if (colored) Color.Unspecified else MaterialTheme.colorScheme.primary,
             )
         }
-        if (active) {
+        if (badgeCount > 0) {
+            Badge(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-2).dp, y = 2.dp),
+                containerColor = Color(0xFFf1642e),
+                contentColor = Color.White,
+            ) { Text(if (badgeCount > 99) "99+" else badgeCount.toString()) }
+        } else if (active) {
             Badge(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -2468,6 +2761,7 @@ private fun TrainAssistSection(
 
                             StationDropdownMenu(
                                 expanded = isSeriesMenuExpanded,
+                                currentText = seriesFieldValue.text,
                                 stations = seriesMenuList,
                                 onSelect = { selectionSeries ->
                                     onSeriesChange(selectionSeries)
@@ -2887,6 +3181,7 @@ private fun DoubledTrainSection(
 
                             StationDropdownMenu(
                                 expanded = isSeriesMenuExpanded,
+                                currentText = seriesFieldValue2.text,
                                 stations = seriesMenuList,
                                 onSelect = { selectionSeries ->
                                     onSeriesChange(selectionSeries)

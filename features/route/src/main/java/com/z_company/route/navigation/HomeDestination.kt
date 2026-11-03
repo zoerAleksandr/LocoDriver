@@ -1,5 +1,7 @@
 package com.z_company.route.navigation
 
+import com.z_company.core.ui.perf.ScreenOpenTrace
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -21,6 +23,7 @@ import com.z_company.domain.util.currencySymbol
 fun HomeDestination(
     router: Router
 ) {
+    ScreenOpenTrace("home")
     val homeViewModel: HomeViewModel = viewModel()
     val pullToSyncViewModel: PullToSyncViewModel = viewModel()
     val pullToSyncState by pullToSyncViewModel.uiState.collectAsState()
@@ -114,7 +117,9 @@ fun HomeDestination(
         saveTimeEvent = homeViewModel.saveTimeEvent,
         isNextDeparture = homeViewModel::isNextDeparture,
         onCalendar = router::showCalendar,
+        onConsentSettings = router::showDataPrivacy,
         onStatistics = router::showStatistics,
+        onBrakeCertificate = router::showBrakeCertificate,
         unsyncedRoutesCount = uiState.unsyncedRoutesCount,
         hasActiveSubscription = uiState.hasActiveSubscription,
         subscriptionEndTime = uiState.subscriptionEndTime,
@@ -137,8 +142,10 @@ fun HomeDestination(
         isNetworkError = uiState.isNetworkError,
         isSessionExpired = uiState.isSessionExpired,
         onResetSyncState = homeViewModel::resetSyncState,
+        onCancelSync = homeViewModel::cancelSync,
         normaHours = uiState.normaHours,
         isBackgroundSyncing = uiState.isBackgroundSyncing,
+        isOffline = uiState.isOffline,
     )
 }
 

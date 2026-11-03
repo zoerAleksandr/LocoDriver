@@ -100,4 +100,49 @@ class PassengerOutsideWorkTimeTest {
             ),
         )
     }
+
+    @Test
+    fun workStartGapOverOneMinuteCountsAsWorkedTime() {
+        val minute = 60_000L
+        val route = Route(
+            basicData = BasicData(
+                timeStartWork = 15 * hour + 5 * minute,
+                timeEndWork = 20 * hour,
+            ),
+            passengers = mutableListOf(
+                Passenger(
+                    timeDeparture = 10 * hour,
+                    timeArrival = 15 * hour,
+                    isWorkStartByArrival = true,
+                    workStartOffsetMinutes = 5,
+                )
+            )
+        )
+
+        assertEquals(5 * hour, route.getPassengerTimeOutsideWork())
+        // Работа 4:55 + проезд 5:00 + ожидание 0:05.
+        assertEquals(10 * hour, route.getWorkTime())
+    }
+
+    @Test
+    fun workStartGapOfOneMinuteIsNotWorkedTime() {
+        val minute = 60_000L
+        val route = Route(
+            basicData = BasicData(
+                timeStartWork = 15 * hour + minute,
+                timeEndWork = 20 * hour,
+            ),
+            passengers = mutableListOf(
+                Passenger(
+                    timeDeparture = 10 * hour,
+                    timeArrival = 15 * hour,
+                    isWorkStartByArrival = true,
+                    workStartOffsetMinutes = 1,
+                )
+            )
+        )
+
+        // Работа 4:59 + проезд 5:00; минута зазора не считается.
+        assertEquals(10 * hour - minute, route.getWorkTime())
+    }
 }

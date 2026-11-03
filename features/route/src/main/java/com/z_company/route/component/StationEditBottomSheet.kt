@@ -35,6 +35,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -89,6 +90,8 @@ fun StationEditBottomSheet(
     onDelete: (() -> Unit)?,
     onDismiss: () -> Unit,
     dateAndTimeConverter: DateAndTimeConverter?,
+    /** Название из плеча по местоположению для новой станции; приходит асинхронно. */
+    suggestedName: String? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val focusManager = LocalFocusManager.current
@@ -104,6 +107,12 @@ fun StationEditBottomSheet(
                 selection = TextRange(stationFormState?.station?.data?.length ?: 0)
             )
         )
+    }
+    // Подсказка из плеча приходит, когда будет координата: подставляем, только если поле ещё пустое.
+    LaunchedEffect(suggestedName) {
+        if (stationFormState == null && !suggestedName.isNullOrBlank() && localName.text.isEmpty()) {
+            localName = TextFieldValue(suggestedName, TextRange(suggestedName.length))
+        }
     }
     var localTrackNumber by remember {
         mutableStateOf(
@@ -168,6 +177,7 @@ fun StationEditBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .separateSheetFromScroll()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 40.dp)
@@ -259,6 +269,7 @@ fun StationEditBottomSheet(
 
                     StationDropdownMenu(
                         expanded = isDropdownExpanded,
+                        currentText = localName.text,
                         stations = menuList,
                         onSelect = { stationName ->
                             localName = localName.copy(
@@ -273,10 +284,10 @@ fun StationEditBottomSheet(
                     )
                 }
 
-                // ── Поле «Путь» (4 символа) ──
+                // ── Поле «Путь» (6 символов: «ЧМО10», «ЧМ33») ──
                 Column(
                     modifier = Modifier
-                        .width(92.dp)
+                        .width(124.dp)
                         .clip(fieldShape)
                         .background(fieldColor)
                         .padding(horizontal = 12.dp, vertical = 9.dp)
@@ -286,7 +297,7 @@ fun StationEditBottomSheet(
                         modifier = Modifier.fillMaxWidth(),
                         value = localTrackNumber,
                         onValueChange = { newValue ->
-                            if (newValue.text.length <= 4) {
+                            if (newValue.text.length <= 6) {
                                 localTrackNumber = newValue
                             }
                         },
@@ -596,6 +607,7 @@ fun SegmentEditBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .separateSheetFromScroll()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 40.dp)
@@ -692,7 +704,7 @@ fun SegmentEditBottomSheet(
                     BasicTextField(
                         modifier = Modifier.fillMaxWidth(),
                         value = localTrack,
-                        onValueChange = { if (it.text.length <= 4) localTrack = it },
+                        onValueChange = { if (it.text.length <= 6) localTrack = it },
                         textStyle = dataTextStyle.copy(
                             fontWeight = FontWeight.Medium,
                             fontFamily = com.z_company.core.ui.theme.MonoFont,
@@ -838,6 +850,7 @@ private fun SegmentStationField(
 
         StationDropdownMenu(
             expanded = expanded,
+            currentText = value.text,
             stations = menuList,
             onSelect = { stationName ->
                 onValueChange(

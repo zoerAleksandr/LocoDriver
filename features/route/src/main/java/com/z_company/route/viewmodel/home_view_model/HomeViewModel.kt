@@ -32,6 +32,7 @@ import com.z_company.domain.entities.route.Station
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.OverRestRoutes.adjacentRoutesOfMonth
 import com.z_company.domain.entities.route.UtilsForEntities.filterByConsiderFutureRoute
+import com.z_company.domain.entities.route.UtilsForEntities.filterWorkedByNow
 import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
 import com.z_company.domain.entities.route.UtilsForEntities.findNextFutureRoute
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
@@ -142,6 +143,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
     private val routesManager: RoutesManager by inject()
     private val shareRouteManager: ShareRouteManager by inject()
     private val syncManager: SyncManager by inject()
+    private val stationDirectory: com.z_company.domain.use_cases.StationDirectoryUseCase by inject()
     private val widgetUpdater: WidgetUpdater by inject()
 
     var timeWithoutHoliday by mutableLongStateOf(0L)
@@ -326,7 +328,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                     is ResultState.Error -> {
                         // также уведомляем об ошибке
                         val message =
-                            result.entity.message ?: result.entity.throwable?.message ?: "Ошибка"
+                            friendlyNetworkErrorMessage(result.entity.message ?: result.entity.throwable?.message, "Ошибка")
                         snackbarManager.show(message = message)
                         _uiState.update { it.copy(removeRouteState = ResultState.Error(result.entity)) }
                     }
@@ -385,13 +387,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
         val currentTimeInMillis = Calendar.getInstance().timeInMillis
 
-        // Пересчитываем время, отработанное за сегодня, с учётом только завершённых маршрутов
+        // Пересчитываем время, отработанное на сегодня: завершённые маршруты и текущий
         if (isConsiderFutureRoute) {
-            val completedRoutes = routeList.filter { route ->
-                val end = route.basicData.timeEndWork ?: return@filter false
-                end <= currentTimeInMillis
-            }
-            todayWorkTime = completedRoutes.getWorkTime(monthOfYear, TimeCalculationContext.from(userSettings))
+            todayWorkTime = routeList.filterWorkedByNow(currentTimeInMillis).getWorkTime(monthOfYear, TimeCalculationContext.from(userSettings))
         }
 
         // Запускаем обратный отсчёт до следующего маршрута.
@@ -954,11 +952,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         isConsiderFutureRoute = userSettings.isConsiderFutureRoute
         if (userSettings.isConsiderFutureRoute) {
             currentMonthOfYear?.let { monthOfYear ->
-                val completedRoutes = fullRouteList.filter { route ->
-                    val end = route.basicData.timeEndWork ?: return@filter false
-                    end <= currentTimeInMillis
-                }
-                todayWorkTime = completedRoutes.getWorkTime(
+                todayWorkTime = fullRouteList.filterWorkedByNow(currentTimeInMillis).getWorkTime(
                     monthOfYear,
                     TimeCalculationContext.from(userSettings)
                 )
@@ -1041,7 +1035,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 is ResultState.Error -> {
                     // также уведомляем об ошибке
                     val message =
-                        result.entity.message ?: result.entity.throwable?.message ?: "Ошибка"
+                        friendlyNetworkErrorMessage(result.entity.message ?: result.entity.throwable?.message, "Ошибка")
                     snackbarManager.show(message = message)
                     _uiState.update { it.copy(removeRouteState = ResultState.Error(result.entity)) }
                 }
@@ -1080,8 +1074,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
 
                     is ResultState.Error -> {
                         val message =
-                            resultState.entity.message ?: resultState.entity.throwable?.message
-                            ?: "Ошибка синхронизации"
+                            friendlyNetworkErrorMessage(resultState.entity.message ?: resultState.entity.throwable?.message, "Ошибка синхронизации")
                         snackbarManager.show(message = message)
                     }
 
@@ -1150,9 +1143,10 @@ class HomeViewModel : ViewModel(), KoinComponent {
             if (!routeHelper.hasActiveSubscription()) return@launch
             val token = secureTokenStorage.getAuthBearerTokenFlow().first()
             if (token.isNullOrBlank()) return@launch
-            _uiState.update { it.copy(isBackgroundSyncing = true) }
+            // Полосу загрузки на главном не показываем: пользователь работает и без сети.
             try {
                 var failureMessage: String? = null
+                var connectivityFailed = false
                 var pendingDeletionCount = 0
                 syncManager.syncBidirectional("Bearer $token").collect { state ->
                     when (state) {
@@ -1161,6 +1155,9 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                 state.entity.message,
                                 state.entity.throwable,
                             )
+                            if (NetworkErrorMapper.isConnectivityError(state.entity.throwable) ||
+                                NetworkErrorMapper.isConnectivityMessage(failureMessage)
+                            ) connectivityFailed = true
                         }
                         is ResultState.Success -> {
                             pendingDeletionCount = state.data.pendingDeletionRouteIds.size
@@ -1168,19 +1165,24 @@ class HomeViewModel : ViewModel(), KoinComponent {
                         else -> {}
                     }
                 }
+                // Нет сети — тихий красный индикатор вместо тоста; успешный проход его гасит.
+                _uiState.update { it.copy(isOffline = connectivityFailed) }
                 // Тихий фоновый sync не удаляет маршруты сам, если это значительный объём —
                 // Подтверждение выполняется непосредственно в корзине.
-                val message = failureMessage ?: if (pendingDeletionCount > 0) {
+                val message = if (connectivityFailed) null
+                else failureMessage ?: if (pendingDeletionCount > 0) {
                     "На сервере пропало маршрутов: $pendingDeletionCount. Проверьте корзину в Настройках."
                 } else null
                 message?.let { snackbarManager.show(it) }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                e.sendToSentry("HomeViewModel", "syncOnScreenOpen")
-                snackbarManager.show(NetworkErrorMapper.syncFailureMessage(e.message, e))
-            } finally {
-                _uiState.update { it.copy(isBackgroundSyncing = false) }
+                if (NetworkErrorMapper.isConnectivityError(e)) {
+                    _uiState.update { it.copy(isOffline = true) }
+                } else {
+                    e.sendToSentry("HomeViewModel", "syncOnScreenOpen")
+                    snackbarManager.show(NetworkErrorMapper.syncFailureMessage(e.message, e))
+                }
             }
         }
     }
@@ -1300,6 +1302,8 @@ class HomeViewModel : ViewModel(), KoinComponent {
                         }
                     }
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val newProgress = _uiState.value.syncUploadProgress.mapValues {
                     if (it.value is com.z_company.route.viewmodel.SyncStepState.Loading)
@@ -1309,6 +1313,12 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 _uiState.update { it.copy(syncUploadProgress = newProgress, isSyncComplete = true) }
             }
         }
+    }
+
+    /** «Отмена» в диалоге синхронизации: прерывает корутину ([resetSyncState] отменяет job) и сообщает об этом; данные не портятся (идемпотентная синхронизация). */
+    fun cancelSync() {
+        resetSyncState()
+        snackbarManager.show(message = "Синхронизация отменена")
     }
 
     fun resetSyncState() {
@@ -1717,6 +1727,38 @@ class HomeViewModel : ViewModel(), KoinComponent {
     }
 
     /**
+     * Разовая чистка списка станций от обрывков ввода («Ж», «Жа»), осевших в 3.0.6 из-за
+     * автосохранения форм. Защищены названия, использованные в маршрутах или заведённые в
+     * справочнике станций. Без маршрутов (свежая установка до синхронизации) не помечаем
+     * выполненной — повторим при следующем запуске.
+     */
+    private suspend fun cleanStationListFragments() {
+        if (sharedPreferenceStorage.isStationFragmentsCleaned()) return
+        try {
+            val routes = routeUseCase.getListRoutes()
+            if (routes.isEmpty()) return
+            val protectedNames = mutableListOf<String>()
+            protectedNames += stationDirectory.stations().map { it.name }
+            routes.forEach { route ->
+                route.trains.forEach { train -> train.stations.forEach { s -> s.stationName?.let(protectedNames::add) } }
+                route.passengers.forEach { p ->
+                    p.stationDeparture?.let(protectedNames::add)
+                    p.stationArrival?.let(protectedNames::add)
+                }
+                route.otherWorks.forEach { w -> w.station?.let(protectedNames::add) }
+            }
+            val current = settingsUseCase.getUserSettingFlow().first().stationList
+            val cleaned = com.z_company.domain.util.StationListCleanup.removeFragments(current, protectedNames)
+            if (cleaned.size != current.size) {
+                settingsUseCase.replaceStations(cleaned)
+            }
+            sharedPreferenceStorage.setStationFragmentsCleaned(true)
+        } catch (e: Exception) {
+            e.sendToSentry("HomeViewModel", "cleanStationListFragments")
+        }
+    }
+
+    /**
      * Реактивно наблюдает за нормой часов через NormaUseCase.
      * Пересчитывается при любом изменении выбранного месяца,
      * региональных праздников или дней отвлечений.
@@ -1750,6 +1792,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch(Dispatchers.IO) {
             loadMonthList()
             initListStationAndLocomotiveSeries()
+            cleanStationListFragments()
             sharedPreferenceStorage.enableShowingUpdatePresentation()
             initUpdateManager()
             initLoading()
@@ -1925,13 +1968,14 @@ class HomeViewModel : ViewModel(), KoinComponent {
                                         ),
                                         isHeavyTrains = isHeavyTrains(
                                             salarySetting,
-                                            route
+                                            route,
+                                            userSettings.servicePhases
                                         ),
                                         isExtendedServicePhaseTrains = isExtendedServicePhaseTrains(
                                             salarySetting,
                                             route
                                         ),
-                                        isLongCompositionTrain = isLongCompositionTrain(salarySetting, route),
+                                        isLongCompositionTrain = isLongCompositionTrain(salarySetting, route, userSettings.servicePhases),
                                         isFuture = route.isFuture(offsetMs),
                                         isTransition = route.isTransition(offsetMs)
                                     )

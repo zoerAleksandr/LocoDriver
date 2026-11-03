@@ -64,6 +64,8 @@ data class HomeUiState(
     val freeRoutesUsedCount: Int = 0,
     /** Фоновая синхронизация при открытии экрана; UI показывает тонкую полосу сверху. */
     val isBackgroundSyncing: Boolean = false,
+    /** Последняя фоновая синхронизация не дошла до сервера (нет сети) — красный индикатор у поиска. */
+    val isOffline: Boolean = false,
     val showSyncDialog: Boolean = false,
     val isSyncComplete: Boolean = false,
     val isSyncSuccess: Boolean = false,

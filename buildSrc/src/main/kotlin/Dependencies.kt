@@ -65,8 +65,8 @@ object Apps {
     const val min_sdk_version = 26
     const val target_sdk_version = 35
 
-    const val version_code = 83
-    const val version_name = "3.0.6"
+    const val version_code = 84
+    const val version_name = "4.0.0"
 
     const val jvm_target_version = "21"
     val java_compatibility_version = JavaVersion.VERSION_21
@@ -91,6 +91,8 @@ object Versions {
     const val lifecycle_runtime_version = "2.6.1"
     const val lifecycle_viewmodel_version = "2.6.1"
     const val material_compose3 = "1.4.0"
+    const val reorderable_version = "3.1.0"
+    const val maplibre_version = "13.6.1"
     const val room_version = "2.7.1"
     const val test_ext_version = "1.1.5"
     const val test_runner_version = "1.6.0-alpha01"
@@ -120,7 +122,7 @@ object Versions {
     const val sentry_android_plugin_ver = "6.22.0"
     const val retrofit_ver = "2.11.0"
     const val lifecycle_runtime_compose_ver = "2.8.7"
-    const val vkIdVer = "2.6.0"
+    const val vkIdVer = "2.7.1"
 
     const val datastore_preferences_ver = "1.2.0"
     const val crypto_tink_ver = "1.7.0"
@@ -180,6 +182,13 @@ object Libs {
         "androidx.compose.ui:ui:$compose_ui_version"
     const val compose_material3 =
         "androidx.compose.material3:material3:$material_compose3"
+    // Перетаскивание строк в LazyColumn (станции плеча)
+    const val reorderable =
+        "sh.calvin.reorderable:reorderable:${Versions.reorderable_version}"
+    // Карта выбора точки станции плеча. ≥ 13.x: нативные библиотеки выровнены под 16 КБ
+    // (11.5.2 из ветки навигатора — нет, Android показывает «not 16 KB compatible»)
+    const val maplibre =
+        "org.maplibre.gl:android-sdk:${Versions.maplibre_version}"
     const val core_ktx =
         "androidx.core:core-ktx:$core_ktx_version"
     const val kotlinx_coroutines_core =

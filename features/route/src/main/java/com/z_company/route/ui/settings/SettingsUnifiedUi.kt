@@ -1,5 +1,6 @@
 package com.z_company.route.ui.settings
 
+import com.z_company.route.component.separateSheetFromScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -163,6 +164,7 @@ internal fun SettingsSwitchRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     sub: String? = null,
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = Modifier
@@ -189,6 +191,7 @@ internal fun SettingsSwitchRow(
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
+            enabled = enabled,
             colors = settingsSwitchColors(),
         )
     }
@@ -200,6 +203,10 @@ internal fun settingsSwitchColors() = SwitchDefaults.colors(
     checkedThumbColor = MaterialTheme.colorScheme.onTertiary,
     checkedTrackColor = MaterialTheme.colorScheme.tertiary,
     checkedBorderColor = MaterialTheme.colorScheme.tertiary,
+    // Выключенный: серый трек (слоты surfaceContainer* в теме окрашены нестандартно).
+    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+    uncheckedBorderColor = MaterialTheme.colorScheme.outline,
 )
 
 // ─── RadioRow — радио-кружок + лейбл (600 при selected) + опц. sub ───
@@ -209,6 +216,7 @@ internal fun SettingsRadioRow(
     selected: Boolean,
     onClick: () -> Unit,
     sub: String? = null,
+    leading: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -219,6 +227,10 @@ internal fun SettingsRadioRow(
     ) {
         SettingsRadioCircle(selected = selected)
         Spacer(Modifier.width(14.dp))
+        if (leading != null) {
+            leading()
+            Spacer(Modifier.width(14.dp))
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = label,
@@ -269,6 +281,7 @@ internal fun SettingsSelectTile(
     value: String,
     onClick: () -> Unit,
     leadingEmoji: String? = null,
+    leading: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -280,7 +293,10 @@ internal fun SettingsSelectTile(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (leadingEmoji != null) {
+        if (leading != null) {
+            leading()
+            Spacer(Modifier.width(12.dp))
+        } else if (leadingEmoji != null) {
             Text(text = leadingEmoji, fontSize = 19.sp)
             Spacer(Modifier.width(10.dp))
         }
@@ -307,6 +323,7 @@ internal data class SettingsPickerOption(
     val sub: String? = null,
     val leadingEmoji: String? = null,
     val selected: Boolean = false,
+    val leading: (@Composable () -> Unit)? = null,
     val onSelect: () -> Unit,
 )
 
@@ -327,6 +344,7 @@ internal fun SettingsPickerSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .separateSheetFromScroll()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 32.dp)
@@ -372,7 +390,9 @@ private fun SettingsPickerRow(option: SettingsPickerOption, onDismiss: () -> Uni
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         SettingsRadioCircle(selected = option.selected)
-        if (option.leadingEmoji != null) {
+        if (option.leading != null) {
+            option.leading.invoke()
+        } else if (option.leadingEmoji != null) {
             Text(text = option.leadingEmoji, fontSize = 20.sp)
         }
         Column(modifier = Modifier.weight(1f)) {

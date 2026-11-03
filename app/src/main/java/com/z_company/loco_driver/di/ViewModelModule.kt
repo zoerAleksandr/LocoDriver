@@ -15,6 +15,7 @@ import com.z_company.route.viewmodel.PullToSyncViewModel
 import com.z_company.route.viewmodel.SalaryCalculationViewModel
 import com.z_company.route.viewmodel.SearchViewModel
 import com.z_company.route.viewmodel.SettingSalaryViewModel
+import com.z_company.route.viewmodel.NormMonthViewModel
 import com.z_company.route.viewmodel.SettingsViewModel
 import com.z_company.route.viewmodel.SeriesListViewModel
 import com.z_company.route.viewmodel.SeriesEditorViewModel
@@ -35,6 +36,7 @@ val viewModelModule = module {
     }
     viewModel { HomeViewModel() }
     viewModel { SettingsViewModel() }
+    viewModel { NormMonthViewModel() }
     viewModel { MainViewModel() }
     viewModel { (locoId: String?, basicId: String) ->
         LocoFormViewModel(locoId = locoId, basicId = basicId)
@@ -52,7 +54,10 @@ val viewModelModule = module {
     viewModel { PurchasesViewModel() }
     viewModel { SubscriptionNoticesViewModel() }
     viewModel { PullToSyncViewModel() }
-    single(createdAtStart = true) { SalaryCalculationViewModel() }
+    // Раньше createdAtStart = true: init (и всё дерево зависимостей: БД, репозитории)
+    // выполнялся прямо в startKoin на главном потоке до первого кадра. Теперь создаётся
+    // в фоне сразу после старта (см. StartApp.warmUpSingletons).
+    single { SalaryCalculationViewModel() }
     viewModel { SettingSalaryViewModel() }
     viewModel { AllRouteViewModel(androidApplication()) }
     viewModel { ProfileViewModel() }
@@ -62,6 +67,7 @@ val viewModelModule = module {
     viewModel { (id: String?, name: String?) -> SeriesEditorViewModel(id, name) }
     viewModel { (id: String?, name: String?) -> StationNormEditorViewModel(id, name) }
     viewModel { PartnerListViewModel() }
+    viewModel { com.z_company.route.viewmodel.TrackHistoryViewModel() }
     viewModel { TrashViewModel() }
     viewModel { (partnerId: String?) -> PartnerEditorViewModel(partnerId) }
     viewModel { (basicId: String) -> PartnerPickerViewModel(basicId) }

@@ -46,6 +46,9 @@ class PassengerFormViewModel(
     private val passengerUseCase: PassengerUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
+    private val stationDirectory: com.z_company.domain.use_cases.StationDirectoryUseCase by inject()
+    private val appContext: android.content.Context by inject()
+    private val stationSorter = com.z_company.route.util.StationSuggestionSorter(appContext, stationDirectory)
 
     private val routeBasicId: String = basicId
 
@@ -80,6 +83,7 @@ class PassengerFormViewModel(
         }
 
     init {
+        stationSorter.start(viewModelScope)
         viewModelScope.launch {
             if (passengerId == NULLABLE_ID) {
                 isNewPassenger = true
@@ -105,7 +109,10 @@ class PassengerFormViewModel(
             ) { settingState, routeState ->
                 if (settingState is ResultState.Success) {
                     settingState.data?.let { settings ->
-                        initStationList = settings.stationList.toMutableStateList()
+                        initStationList = com.z_company.route.util.mergeStationSuggestions(
+                            settings.stationList,
+                            stationDirectory.stations().map { it.name },
+                        ).toMutableList()
                     }
                 }
 
@@ -196,6 +203,10 @@ class PassengerFormViewModel(
                     if (isNewPassenger && isPassengerEmpty(passenger)) return@launch
                     syncWorkStartToRoute(passenger)
                     passengerUseCase.savePassenger(passenger).collect {}
+                    // Названия станций регистрируем в общем списке только финальным значением
+                    // при выходе, а не при автосохранении: иначе промежуточный ввод («Ж», «Жа»)
+                    // оседает в справочнике мусором.
+                    registerStationNames(passenger.stationDeparture, passenger.stationArrival)
                 }
             }
         }
@@ -258,7 +269,6 @@ class PassengerFormViewModel(
                         // попасть в БД как одна логическая операция.
                         syncWorkStartToRoute(passenger)
                         passengerUseCase.savePassenger(passenger).collect { resultState ->
-                            saveStationsName(passenger.stationDeparture, passenger.stationArrival)
                             _uiState.update {
                                 it.copy(
                                     savePassengerState = resultState
@@ -341,13 +351,50 @@ class PassengerFormViewModel(
     }
 
     /**
+     * Запоминает введённое смещение в настройках пользователя: оно подставится при следующем
+     * включении «явки по прибытию» (и синхронизируется с настройками на других устройствах).
+     * Пишем в фоне вне viewModelScope, чтобы выход с экрана не потерял значение.
+     */
+    private fun rememberWorkStartOffset(minutes: Int) {
+        if (_userSetting.value.lastEnteredWorkStartOffsetMinutes == minutes) return
+        _userSetting.value = _userSetting.value.copy(lastEnteredWorkStartOffsetMinutes = minutes)
+        CoroutineScope(NonCancellable + Dispatchers.IO).launch {
+            settingsUseCase.setWorkStartOffsetMinutes(minutes).collect { }
+        }
+    }
+
+    /** Смещение явки от прибытия (мин). Если пассажир — источник явки, переносим в маршрут. */
+    fun setWorkStartOffsetMinutes(minutes: Int) {
+        val clamped = minutes.coerceIn(0, Passenger.MAX_WORK_START_OFFSET_MINUTES)
+        currentPassenger = currentPassenger?.copy(workStartOffsetMinutes = clamped)
+        changesHave()
+        rememberWorkStartOffset(clamped)
+        currentPassenger?.let { p ->
+            if (p.isWorkStartByArrival) {
+                viewModelScope.launch { syncWorkStartToRoute(p) }
+            }
+        }
+    }
+
+    /**
      * «Явка по прибытию пассажиром». Включение делает прибытие этого пассажира
      * началом рабочего времени маршрута (timeStartWork = timeArrival) и снимает
      * флаг с остальных пассажиров (единственная точка отсчёта). Выключение просто
      * снимает флаг — timeStartWork остаётся, пользователь может изменить явку вручную.
      */
     fun setWorkStartByArrival(enabled: Boolean) {
-        val updated = currentPassenger?.copy(isWorkStartByArrival = enabled) ?: return
+        val updated = currentPassenger?.copy(
+            isWorkStartByArrival = enabled,
+            // При включении — смещение по умолчанию (1 мин); при выключении значение
+            // не трогаем, чтобы повторное включение не теряло введённое пользователем.
+            workStartOffsetMinutes = if (enabled && currentPassenger?.isWorkStartByArrival != true) {
+                // Последнее введённое значение из настроек пользователя (по умолчанию 1 мин).
+                _userSetting.value.lastEnteredWorkStartOffsetMinutes
+                    .coerceIn(0, Passenger.MAX_WORK_START_OFFSET_MINUTES)
+            } else {
+                currentPassenger?.workStartOffsetMinutes ?: 0
+            }
+        ) ?: return
         currentPassenger = updated
         changesHave()
         viewModelScope.launch { syncWorkStartToRoute(updated) }
@@ -386,7 +433,7 @@ class PassengerFormViewModel(
             currentBasic.copy(
                 timeStartWorkBeforeArrival = currentBasic.timeStartWorkBeforeArrival
                     ?: currentBasic.timeStartWork,
-                timeStartWork = current.timeArrival
+                timeStartWork = current.workStartTime
             )
         } else if (mergedPassengers.none { it.isWorkStartByArrival }) {
             // Режим выключен для всего маршрута: возвращаем прежнюю явку и чистим резерв.
@@ -477,18 +524,10 @@ class PassengerFormViewModel(
             }
         }
 
-    private fun saveStationsName(departureStation: String?, arrivalStation: String?) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val stations = mutableListOf<String>()
-            departureStation?.let {
-                stations.add(it)
-            }
-            arrivalStation?.let {
-                stations.add(it)
-            }
-            if (stations.isNotEmpty()) {
-                settingsUseCase.setStations(stations)
-            }
+    private suspend fun registerStationNames(departureStation: String?, arrivalStation: String?) {
+        val stations = listOfNotNull(departureStation, arrivalStation).filter { it.isNotBlank() }
+        if (stations.isNotEmpty()) {
+            settingsUseCase.setStations(stations)
         }
     }
 
@@ -521,12 +560,12 @@ class PassengerFormViewModel(
     fun onChangedDropDownContentDepartureStation(value: String) {
         if (value.isEmpty()) {
             changeExpandMenuDepartureStation(false)
-            currentStationList.addAllOrSkip(initStationList)
+            currentStationList.addAllOrSkip(stationSorter.sort(initStationList))
         } else {
             currentStationList.clear()
             val newStationList =
-                initStationList
-                    .filter { it.startsWith(prefix = value, ignoreCase = true) }
+                stationSorter.sort(initStationList)
+                    .filter { com.z_company.route.util.stationNameMatches(it, value) }
                     .filterNot { it == value }
                     .toMutableStateList()
             newStationList.forEach { st ->
@@ -539,12 +578,12 @@ class PassengerFormViewModel(
     fun onChangedDropDownContentArrivalStation(value: String) {
         if (value.isEmpty()) {
             changeExpandMenuArrivalStation(false)
-            currentStationList.addAllOrSkip(initStationList)
+            currentStationList.addAllOrSkip(stationSorter.sort(initStationList))
         } else {
             currentStationList.clear()
             val newStationList =
-                initStationList
-                    .filter { it.startsWith(prefix = value, ignoreCase = true) }
+                stationSorter.sort(initStationList)
+                    .filter { com.z_company.route.util.stationNameMatches(it, value) }
                     .filterNot { it == value }
                     .toMutableStateList()
             newStationList.forEach { st ->

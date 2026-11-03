@@ -39,18 +39,24 @@ fun <T> MutableList<T>.addOrSkip(index: Int, element: T): Boolean {
     }
 }
 
+/**
+ * Добавляет элементы [collection], которых ещё нет в списке (по equals), сохраняя порядок
+ * и пропуская дубликаты внутри самой [collection].
+ *
+ * Раньше для каждого элемента делался линейный `find` по SnapshotStateList: словарь
+ * станций на тысячи записей давал O(n²) на главном потоке при каждом открытии формы.
+ * Теперь O(n) через HashSet и одна запись `addAll`.
+ */
 @Suppress("SENSELESS_COMPARISON")
-fun <T> MutableList<T>.addAllOrSkip(collection: MutableCollection<T>?) {
-    if (collection == null || this == null) return
-    collection.forEach { element ->
-        val searchElement = this.find {
-            it == element
-        }
-
-        if (searchElement == null) {
-            this.add(element)
-        }
+fun <T> MutableList<T>.addAllOrSkip(collection: Collection<T>?) {
+    if (collection == null || this == null || collection.isEmpty()) return
+    val seen = HashSet<T>(size + collection.size)
+    seen.addAll(this)
+    val toAdd = ArrayList<T>()
+    for (element in collection) {
+        if (seen.add(element)) toAdd.add(element)
     }
+    if (toAdd.isNotEmpty()) addAll(toAdd)
 }
 
 fun <T> List<T>.safetySubList(fromIndex: Int, toIndex: Int): List<T>{

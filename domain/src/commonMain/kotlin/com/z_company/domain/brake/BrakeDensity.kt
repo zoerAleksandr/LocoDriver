@@ -1,0 +1,406 @@
+package com.z_company.domain.brake
+
+/**
+ * Плотность тормозной сети (графа «Плотность тормозной сети поезда при II/IV положениях ручки крана машиниста» справки ВУ-45).
+ * Источник: Правила ТО тормозного оборудования (СЖТ, 2014, ред. до 2017), прил. 2: п. 48 (полное опробование грузового поезда, плотность, давление в хвосте),
+ * п. 50 (пассажирский поезд), табл. IV.1; прил. 3, п. 1 (проверка плотности перед отправлением, отличие более чем на 20 %); основной текст п. 133.
+ *
+ * Положения ручки крана машиниста № 394/395: I - зарядка и отпуск; II - поездное; III - перекрыша без питания;
+ * IV - перекрыша с питанием; V - служебное торможение (обозначения положений - по крану машиниста; в Правилах: «положение, обеспечивающее поддержание заданного давления»).
+ */
+
+/**
+ * Пример серии локомотива в группе по объёму главных резервуаров: [series] - серия (для ВЛ80, ВЛ60 - все индексы), [volume] - объём ГР по справочнику,
+ * [note] - как серия попала в группу. [auto] = false - серия в примерах показывается, но группа по ней автоматически НЕ выбирается (объём зависит от номера локомотива).
+ * Источник всех примеров - Приложение 1 прежней Инструкции ЦТ-ЦВ-ЦЛ-ВНИИЖТ/277, таблица «Время наполнения главных резервуаров локомотивов и МВПС»
+ * (rustrain.narod.ru/biblio/tormoza/p1.htm). В действующих Правилах объёмы по сериям не приведены (на локомотиве выписка с объёмом, прим. 4 к табл. IV.1) -
+ * данные ориентировочные, проверяйте по паспорту локомотива.
+ */
+data class SeriesExample(val series: String, val volume: String, val note: String? = null, val auto: Boolean = true, val show: Boolean = true, val assumed: Boolean = false) {
+    val label: String get() = series
+}
+
+/**
+ * Группа локомотивов по таблице IV.1 Правил (строка = общий объём главных резервуаров, л). Имена G1-G7 сохраняются в данных справки.
+ * Объём, которого нет в таблице, принимают по ближайшему наименьшему (прим. 3 к табл. IV.1).
+ */
+enum class DensityLocoGroup(val liters: Int, val examples: List<SeriesExample>, val minTimes: List<Int>) {
+    G1(
+        1000,
+        listOf(
+            SeriesExample("ВЛ23", "1000 л"), SeriesExample("ВЛ22", "1000-1040 л"),
+            SeriesExample("ТЭМ1", "1000 л"), SeriesExample("ТЭМ2", "1000 л"), SeriesExample("ТЭМ2У", "1000 л"), SeriesExample("ЧМЭ3", "1000 л"),
+            SeriesExample("ТЭП60", "1030 л"),
+            SeriesExample("ТЭП70", "1060 л"), SeriesExample("ТЭП75", "1060 л"),
+            SeriesExample("ТЭП80", "1060 л"),
+            SeriesExample("ВЛ65", "1020 л"), SeriesExample("ЭП1", "1020 л"),
+            SeriesExample("ЧС6", "1010 л"), SeriesExample("ЧС7", "1010 л"),
+            SeriesExample("ЧС8", "1010 л"), SeriesExample("ЧС200", "1010 л"),
+            // Приложение № 1 к Правилам эксплуатации тормозов ПС (предоставлено владельцем): серии и объёмы ГР
+            SeriesExample("ЭП10", "1000 л"), SeriesExample("ЭП2К", "1000 л"), SeriesExample("ЭП1М", "1020-1100 л"), SeriesExample("ЧС2К", "1000 л"),
+            SeriesExample("ТЭП70БС", "1000 л"), SeriesExample("ТЭП70У", "1000 л"), SeriesExample("ТЭМ21", "1000 л"), SeriesExample("ТЭМ7", "1020 л"), SeriesExample("ТЭМ7А", "1020 л"),
+            SeriesExample("ТЭП10", "1020-1110 л"), SeriesExample("ТЭ10", "1020-1110 л"), SeriesExample("М62", "1020-1110 л"),
+            // допущение: диапазон включает значения ниже 1000 л (наименьшая строка табл. IV.1) - принята строка 1000 л
+            SeriesExample("ЧС2", "980-1080 л"), SeriesExample("ЧС2Т", "980-1080 л"), SeriesExample("ЧС4", "980-1080 л"), SeriesExample("ЧС4Т", "980-1080 л"),
+            SeriesExample("ЧС1", "930-1010 л"), SeriesExample("ЧС3", "930-1010 л"),
+            // допущение: индексы того же семейства, что серия из таблицы
+            SeriesExample("ЧМЭ3Т", "1000 л", assumed = true), SeriesExample("ЧМЭ3Э", "1000 л", assumed = true), SeriesExample("ТЭМ2А", "1000 л", assumed = true), SeriesExample("ТЭМ2УМ", "1000 л", assumed = true),
+        ),
+        listOf(58, 40, 29, 25, 23, 20, 17, 15, 13, 11),
+    ),
+    G2(1200, listOf(SeriesExample("ВЛ60", "1200-1290 л", "все индексы"), SeriesExample("ВЛ8", "1440 л", "ближайший наименьший 1200"), SeriesExample("ВЛ8М", "1440 л", "ближайший наименьший 1200")), listOf(69, 46, 34, 29, 25, 22, 20, 18, 15, 13)),
+    G3(
+        1500,
+        listOf(
+            SeriesExample("ВЛ10У", "1500 л"), SeriesExample("ВЛ10 (№ 19+)", "1500 л", auto = false),
+            SeriesExample("ВЛ11", "1500 л"),
+        ),
+        listOf(80, 58, 46, 34, 31, 26, 23, 21, 17, 15),
+    ),
+    G4(
+        1800,
+        listOf(
+            SeriesExample("ВЛ80", "1800 л", "все индексы"), SeriesExample("ВЛ82", "1800 л"), SeriesExample("ВЛ82М", "1800 л"),
+            SeriesExample("ВЛ10 (№ 1-18)", "1960 л", auto = false),
+        ),
+        listOf(98, 69, 52, 46, 38, 33, 29, 26, 22, 20),
+    ),
+    G5(
+        2000,
+        listOf(
+            SeriesExample("ВЛ11М", "2000 л"), SeriesExample("2ТЭ116", "2000 л"), SeriesExample("2ТЭ116УП", "2000 л"), SeriesExample("ТГ102", "2000 л"),
+            SeriesExample("ВЛ85", "2100 л"),
+            SeriesExample("2ТЭ10", "2040-2160 л", "индексы Л, В, М"), SeriesExample("2ТЭ121", "2040-2160 л"),
+            SeriesExample("2ТЭ10Л", "2040-2160 л"), SeriesExample("2ТЭ10В", "2040-2160 л"), SeriesExample("2ТЭ10М", "2040-2160 л"),
+            SeriesExample("ВЛ10К", "2400 л", "ближайший наименьший 2000"), SeriesExample("ВЛ10УК", "2400 л", "ближайший наименьший 2000"),
+            SeriesExample("ТЭ3", "2160 л"), SeriesExample("ТЭ7", "2160 л"), SeriesExample("2ТЭ70", "2000 л"),
+            // выведено по примечанию 4 (объём пропорционален числу секций): 2 секции по ~1020-1110 л
+            SeriesExample("2ТЭП60", "~2060 л", "2 секции ТЭП60"), SeriesExample("2М62", "~2040-2220 л", "2 секции М62"), SeriesExample("2М62У", "~2040-2220 л", "2 секции М62"),
+            // по указанию владельца: 2 секции по 1000 л (2ЭС5К в файле 1 - 2100 л); в документах не подтверждено
+            SeriesExample("2ЭС4К", "2000 л"), SeriesExample("2ЭС5К", "2000 л"), SeriesExample("2ЭС6", "2000 л"),
+        ),
+        listOf(104, 75, 58, 52, 40, 36, 32, 29, 24, 22),
+    ),
+    G6(
+        2500,
+        listOf(SeriesExample("ВЛ15", "2500 л"), SeriesExample("2ТЭ10У", "2500 л"), SeriesExample("2ТЭ10УТ", "2500 л"), SeriesExample("2ТЭ70У", "2510 л")),
+        listOf(129, 93, 71, 64, 51, 45, 40, 36, 30, 28),
+    ),
+    G7(
+        3000,
+        listOf(
+            SeriesExample("3ЭС4К", "3000 л"), SeriesExample("3ЭС5К", "3000 л"),
+            // выведено по примечанию 4 (число секций): 3 секции ~3060-3330 л, 4 секции более 3000 л - строка 3000 (прим. 3)
+            SeriesExample("3ТЭ10М", "~3060-3240 л", "3 секции 2ТЭ10"), SeriesExample("4ТЭ10С", "более 4000 л", "строка 3000"), SeriesExample("3М62У", "~3060-3330 л", "3 секции М62"),
+        ),
+         listOf(207, 138, 102, 87, 75, 66, 60, 51, 45, 33));
+
+    /** Название строки: «1000 л». */
+    val title: String get() = "$liters л"
+
+    /** Серии для показа в пикере и шторке: только названия серий с однозначным объёмом (без пометок и источников - они в docs/VU45_SPEC.md). */
+    val examplesText: String get() = examples.filter { it.show }.joinToString(", ") { it.series }
+}
+
+object BrakeDensity {
+    /** Верхние границы длины состава по колонкам таблицы IV.1 (в осях). */
+    val axleBounds: List<Int> = listOf(100, 150, 200, 250, 300, 350, 400, 450, 480, 530)
+
+    /** Колонка таблицы IV.1 для числа осей; null - длиннее 530 осей (в таблице нет). */
+    fun axleColumn(axles: Int): Int? {
+        if (axles <= 0) return null
+        val i = axleBounds.indexOfFirst { axles <= it }
+        return if (i < 0) null else i
+    }
+
+    private fun normalizeSeries(s: String): String = buildString {
+        for (ch in s.trim().uppercase()) {
+            if (ch == ' ' || ch == '-' || ch == '_') continue
+            append(
+                when (ch) { // латиница, похожая на кириллицу, -> кириллица
+                    'A' -> 'А'; 'B' -> 'В'; 'C' -> 'С'; 'E' -> 'Е'; 'H' -> 'Н'; 'K' -> 'К'; 'M' -> 'М'
+                    'O' -> 'О'; 'P' -> 'Р'; 'T' -> 'Т'; 'X' -> 'Х'; 'Y' -> 'У'
+                    else -> ch
+                },
+            )
+        }
+    }
+
+    /**
+     * Группа по серии локомотива из маршрута: только серии из примеров групп (источник - Приложение 1 прежней Инструкции 277, ориентировочно).
+     * Для ВЛ80 и ВЛ60 - по префиксу (все индексы). ВЛ10 без номера - null (объём зависит от номера, см. [groupForLoco]).
+     */
+    fun groupBySeries(series: String?): DensityLocoGroup? {
+        val n = normalizeSeries(series ?: return null)
+        if (n.isEmpty()) return null
+        if (n == "ВЛ10") return null
+        for (g in DensityLocoGroup.values()) {
+            if (g.examples.any { it.auto && normalizeSeries(it.series) == n }) return g
+        }
+        if (n.startsWith("ВЛ80")) return DensityLocoGroup.G4
+        if (n.startsWith("ВЛ60")) return DensityLocoGroup.G2
+        return null
+    }
+
+    private val plainLiters = Regex("""^(\d+) л$""")
+
+    /**
+     * Паспортный объём ГР, л, для предзаполнения справочника серий: только серии с одним точным значением
+     * из примеров групп (файл 1 / Инструкция 277) и пять ЭС по указанию владельца. Выведенное по допущениям
+     * ([SeriesExample.assumed]), диапазоны и ВЛ10 (зависит от номера) - null: вводится вручную.
+     */
+    fun confirmedVolumeLiters(series: String?): Int? {
+        val n = normalizeSeries(series ?: return null)
+        if (n.isEmpty() || n == "ВЛ10") return null
+        for (g in DensityLocoGroup.values()) {
+            val e = g.examples.firstOrNull { it.auto && !it.assumed && normalizeSeries(it.series) == n } ?: continue
+            return plainLiters.matchEntire(e.volume)?.groupValues?.get(1)?.toIntOrNull()
+        }
+        if (n.startsWith("ВЛ80")) return 1800
+        return null
+    }
+
+    /** Номер ВЛ10, с которого объём ГР 1500 л (до него - 1960 л). */
+    const val VL10_FIRST_1500_NUMBER = 19
+
+    /**
+     * Номер локомотива из строки: цифры до буквы секции («1234А» -> 1234), допускается префикс серии («ВЛ10-1234»), ведущие нули («0012» -> 12).
+     * null - номер не разобран или равен нулю.
+     */
+    fun parseLocoNumber(raw: String?): Int? {
+        var t = (raw ?: return null).trim().uppercase()
+        if (t.isEmpty()) return null
+        t = t.replace(Regex("""^(ВЛ|VL)\s*10[УUМM]?[\s\-№#.]*"""), "")
+        t = t.replace(Regex("""^[№#\s\-]+"""), "")
+        val digits = Regex("""^\d+""").find(t)?.value ?: return null
+        val n = digits.toIntOrNull() ?: return null
+        return n.takeIf { it in 1..9999 }
+    }
+
+    /**
+     * Группа по серии И номеру локомотива. ВЛ10: № 1-18 - 1960 л (ближайшая меньшая строка 1800 л), № 19 и выше - 1500 л; номер не разобран - null (без догадок).
+     * ВЛ10У - 1500 л. Остальные серии - по [groupBySeries].
+     */
+    fun groupForLoco(series: String?, number: String?): DensityLocoGroup? {
+        val n = normalizeSeries(series ?: return null)
+        if (n == "ВЛ10") {
+            val num = parseLocoNumber(number) ?: return null
+            return if (num >= VL10_FIRST_1500_NUMBER) DensityLocoGroup.G3 else DensityLocoGroup.G4
+        }
+        return groupBySeries(series)
+    }
+
+    /** Результат определения строки таблицы по своему объёму ГР. */
+    sealed interface VolumeGroup {
+        /** [group] - строка таблицы (ближайший наименьший объём, прим. 3 к табл. IV.1). */
+        data class Found(val liters: Double, val group: DensityLocoGroup) : VolumeGroup
+
+        /** Объём меньше наименьшей строки (1000 л): Правила для него норму не задают (прим. 3 говорит только о «ближайшем наименьшем»). */
+        data class BelowTable(val liters: Double) : VolumeGroup
+
+        data object Invalid : VolumeGroup
+    }
+
+    /** Группа по своему объёму ГР (л, дробные допустимы): ближайший наименьший из 1000, 1200, 1500, 1800, 2000, 2500, 3000; больше 3000 - строка 3000. */
+    fun groupByVolume(text: String?): VolumeGroup {
+        val v = text?.trim()?.replace(',', '.')?.toDoubleOrNull()
+        if (v == null || v.isNaN() || v.isInfinite() || v <= 0.0) return VolumeGroup.Invalid
+        val g = DensityLocoGroup.values().filter { it.liters <= v + 1e-9 }.maxByOrNull { it.liters } ?: return VolumeGroup.BelowTable(v)
+        return VolumeGroup.Found(v, g)
+    }
+
+    /**
+     * Подпись выбранной строки при своём объёме: «1450 л - округляем до 1200 л» (ближайший наименьший объём из строк табл. IV.1);
+     * объём равен строке - «1500 л - группа 1500 л»; меньше 1000 л - норма не задана.
+     */
+    fun volumeCaption(text: String?): String = when (val r = groupByVolume(text)) {
+        is VolumeGroup.Found ->
+            if (r.liters == r.group.liters.toDouble()) "${fmtL(r.liters)} л - группа ${r.group.title}"
+            else "${fmtL(r.liters)} л - округляем до ${r.group.title}"
+        is VolumeGroup.BelowTable -> "${fmtL(r.liters)} л меньше наименьшей строки таблицы (${DensityLocoGroup.G1.title}): норма Правилами не задана, оценка недоступна"
+        VolumeGroup.Invalid -> "Введите объём в литрах"
+    }
+
+    /**
+     * Норма времени в IV положении по норме II: плотность в положении IV (перекрыша с питанием) не должна отличаться от плотности при поездном положении
+     * более чем на 10 % в сторону уменьшения (п. 48 прил. 2 Правил; прил. М 808-2022), т.е. время не менее 0,9 от времени II;
+     * порог «не менее» округляется до ЦЕЛОГО в БОЛЬШУЮ сторону (решение владельца, безопасная сторона): II = 69 -> 62,1 -> 63; II = 70 -> 63;
+     * II = 62,1 -> 55,89 -> 56. Вещественная погрешность (0,9 x 70 = 63,00000000000001) не должна давать 64 - вычитается эпсилон 1e-9.
+     */
+    fun normIvSeconds(normII: Double): Double = kotlin.math.ceil(normII * 0.9 - 1e-9)
+
+    /** Округление нормы «не менее» ВВЕРХ до 0,1 с (безопасная сторона), как при показе норм II и IV. */
+    fun ceilTenth(v: Double): Double = kotlin.math.ceil(v * 10.0 - 1e-9) / 10.0
+
+    /** Норма для показа: «69», «62,1» (вверх до 0,1 с, без лишнего «,0»). */
+    fun formatNormSeconds(v: Double): String {
+        val r = ceilTenth(v)
+        return (if (r % 1.0 == 0.0) r.toLong().toString() else r.toString()).replace('.', ',')
+    }
+
+    /**
+     * Две строки норм для показа: «Норма плотности во II-м: не менее 69 сек» и «Норма плотности в IV-м: не менее 63 сек» (норма II - «наименьшее допустимое время», т.е. «не менее»).
+     * Нет группы или числа осей - подпись «укажите группу» / «укажите число осей» (одна строка). Вне таблицы (больше 530 осей) - «число осей вне таблицы».
+     */
+    fun normLines(group: DensityLocoGroup?, axles: Int, chargePressure: Double?, locoCount: Int = 1): List<String> {
+        if (group == null) return listOf("Норма плотности во II-м: укажите объём ГР")
+        if (axles <= 0) return listOf("Норма плотности во II-м: укажите число осей")
+        val t = minTimeSeconds(group, axles, chargePressure, locoCount) ?: return listOf("Норма плотности во II-м: число осей вне таблицы (1-530)")
+        return listOf(
+            "Норма плотности во II-м: не менее ${formatNormSeconds(t)} сек",
+            "Норма плотности в IV-м: не менее ${formatNormSeconds(normIvSeconds(t))} сек",
+        )
+    }
+
+    /**
+     * Значение поля «Объём ГР»: свой объём - «1450 л → 1200 л» (равен строке - «1500 л»); выбрано вручную - «1800 л»;
+     * определено по серии - «1800 л · авто» (значение, затем «авто»); не выбрано - «Не выбрана».
+     */
+    fun volumeFieldText(customVolume: String, group: DensityLocoGroup?, manuallySelected: Boolean): String {
+        if (customVolume.isNotBlank()) return when (val r = groupByVolume(customVolume)) {
+            is VolumeGroup.Found -> if (r.liters == r.group.liters.toDouble()) r.group.title else "${fmtL(r.liters)} л → ${r.group.title}"
+            is VolumeGroup.BelowTable -> "${fmtL(r.liters)} л · нет нормы"
+            VolumeGroup.Invalid -> "Не выбрана"
+        }
+        return when {
+            group == null -> "Не выбрана"
+            manuallySelected -> group.title
+            else -> "${group.title} · авто"
+        }
+    }
+
+    private fun fmtL(v: Double): String = (if (v % 1.0 == 0.0) v.toLong().toString() else v.toString()).replace('.', ',')
+
+    /** Поправка на зарядное давление ТМ грузового поезда (прим. 1 к табл. IV.1 и М.3: 0,52-0,54 МПа, т.е. 5,3-5,5 кгс/см2 - минус 10 %). Других поправок в Правилах нет. */
+    fun chargeFactor(chargePressure: Double?): Double =
+        if (chargePressure != null && chargePressure >= 5.3 - 1e-9 && chargePressure <= 5.5 + 1e-9) 0.9 else 1.0
+
+    /**
+     * Наименьшее допустимое время снижения давления в ГР на 0,5 кгс/см2 при поездном положении (II), с.
+     * [locoCount] - число локомотивов с объединёнными главными резервуарами (примечание 2: время пропорционально объёму).
+     * null - длина состава вне таблицы.
+     */
+    fun minTimeSeconds(group: DensityLocoGroup, axles: Int, chargePressure: Double?, locoCount: Int = 1): Double? {
+        val col = axleColumn(axles) ?: return null
+        return group.minTimes[col] * chargeFactor(chargePressure) * locoCount.coerceAtLeast(1)
+    }
+
+    /** Решение по значению плотности при «Готово» в шторке бланка. */
+    sealed interface DensityCommit {
+        /** Оставить сохранённое (замер секундомером или прежний ввод) без изменений. */
+        data object Keep : DensityCommit
+        /** Записать введённое вручную значение. */
+        data class Set(val seconds: Double) : DensityCommit
+        /** Пользователь явно очистил значение. */
+        data object Clear : DensityCommit
+    }
+
+    /**
+     * Что делать со значением при «Готово»: явная очистка ([cleared]) - [DensityCommit.Clear]; текст не менялся ([initialText]) или пуст - [DensityCommit.Keep]
+     * (пустое поле не затирает сохранённый замер); корректное число - [DensityCommit.Set]; некорректный ввод - [DensityCommit.Keep].
+     */
+    fun commitDensity(text: String, initialText: String, cleared: Boolean): DensityCommit {
+        if (cleared) return DensityCommit.Clear
+        if (text.trim() == initialText.trim() || text.isBlank()) return DensityCommit.Keep
+        val v = parseManualSeconds(text) ?: return DensityCommit.Keep
+        return DensityCommit.Set(v)
+    }
+
+    /** Результат сверки давления в начале и в конце замера: [diff] - снижение, кгс/см2; [ok] - null, если нормы нет (только показ разницы). */
+    data class PressureCheck(val diff: Double?, val ok: Boolean?, val text: String)
+
+    /**
+     * Давление в ГР (II, IV) в начале и в конце замера. Норматив найден только для II положения грузового поезда: п. 48 прил. 2 Правил ТО тормозного оборудования -
+     * после снижения давления на 0,04-0,05 МПа от предельного замеряется время дальнейшего снижения на 0,05 МПа (0,5 кгс/см2); допуск на эту разность в тексте не приведён,
+     * поэтому сравнение идёт с точностью записи (0,01). Для IV положения и для пассажирских поездов (там норма задана падением в ТМ за время, п. 50) - только показ разницы.
+     */
+    fun checkPressure(kind: String, startText: String, endText: String, passenger: Boolean): PressureCheck? {
+        val st = startText.trim().replace(',', '.').toDoubleOrNull()
+        val en = endText.trim().replace(',', '.').toDoubleOrNull()
+        if (st == null || en == null) return null
+        val diff = kotlin.math.round((st - en) * 100) / 100.0
+        val d = fmtL(kotlin.math.abs(diff))
+        if (diff < 0) return PressureCheck(diff, false, "Давление в конце ($endText) выше, чем в начале ($startText): проверьте ввод")
+        if (kind == "II" && !passenger) {
+            val ok = kotlin.math.abs(diff - 0.5) < 0.005
+            return PressureCheck(diff, ok, if (ok) "Снижение $d кгс/см²: соответствует интервалу замера 0,5 кгс/см² (0,05 МПа, п. 48 прил. 2 Правил ТО тормозного оборудования)"
+            else "Снижение $d кгс/см²: по п. 48 прил. 2 Правил ТО тормозного оборудования время замеряется при снижении на 0,5 кгс/см² (0,05 МПа)")
+        }
+        return PressureCheck(diff, null, "Снижение давления: $d кгс/см²")
+    }
+
+    /** Ручной ввод времени плотности, с: положительное число до 3600, округляется до 0,1 с; иначе null. */
+    fun parseManualSeconds(text: String): Double? {
+        val v = text.trim().replace(',', '.').toDoubleOrNull() ?: return null
+        if (!v.isFinite() || v <= 0.0 || v > 3600.0) return null
+        return kotlin.math.round(v * 10) / 10.0
+    }
+
+    enum class Verdict { OK, FAIL, NO_NORM }
+
+    data class Assessment(val verdict: Verdict, val text: String)
+
+    /**
+     * II положение, грузовой поезд: время (с) не меньше нормы таблицы IV.1.
+     * [groupSelected] = false (группа локомотива не выбрана и не определена по серии) - оценка недоступна, время всё равно записывается.
+     */
+    fun assessFreightII(timeSec: Double, minTime: Double?, groupSelected: Boolean = true): Assessment =
+        if (!groupSelected) Assessment(Verdict.NO_NORM, "Выберите группу локомотива (табл. IV.1)")
+        else if (minTime == null) Assessment(Verdict.NO_NORM, "Длина состава вне таблицы IV.1: нужно 1-530 осей")
+        else if (timeSec + 1e-9 >= minTime) Assessment(Verdict.OK, "Норма: не менее ${fmt(minTime)} с")
+        else Assessment(Verdict.FAIL, "Плотность ниже нормы: время ${fmt(timeSec)} с, нужно не менее ${fmt(minTime)} с")
+
+    /** IV положение (перекрыша с питанием, через >=2 мин после ступени): плотность не должна уменьшиться более чем на 10 % от II. */
+    fun assessFreightIV(timeIVSec: Double, timeIISec: Double?): Assessment {
+        if (timeIISec == null) return Assessment(Verdict.NO_NORM, "Сначала запишите замер II положения")
+        val min = normIvSeconds(timeIISec)
+        return if (timeIVSec + 1e-9 >= min) Assessment(Verdict.OK, "Допуск: не менее ${fmt(min)} с (90 % от II)")
+        else Assessment(Verdict.FAIL, "Плотность упала более чем на 10 %: ${fmt(timeIVSec)} с, нужно не менее ${fmt(min)} с")
+    }
+
+    /** Контроль в пути (прил. 3, п. 1; п. 133 основного текста): отличие от записанного в справке более чем на 20 % в любую сторону - сокращённое опробование. */
+    fun assessRoute(timeSec: Double, timeIISec: Double?): Assessment {
+        if (timeIISec == null) return Assessment(Verdict.NO_NORM, "Сначала запишите замер II положения")
+        val lo = timeIISec * 0.8
+        val hi = timeIISec * 1.2
+        return if (timeSec + 1e-9 >= lo && timeSec <= hi + 1e-9)
+            Assessment(Verdict.OK, "Допуск ±20 %: ${fmt(lo)}-${fmt(hi)} с")
+        else Assessment(Verdict.FAIL, "Отличие более 20 % от справки (${fmt(lo)}-${fmt(hi)} с) - сокращённое опробование")
+    }
+
+    /**
+     * Пассажирский поезд (п. 50 прил. 2): после перекрытия комбинированного крана и 20 с выдержки давление в ТМ
+     * падает не более чем на 0,2 кгс/см2 за 1 мин или 0,5 за 2,5 мин (тот же темп 0,2 кгс/см2 в минуту).
+     * Замер короче 1 мин не принимается.
+     */
+    fun assessPassenger(timeSec: Double, dropKgf: Double?): Assessment {
+        if (dropKgf == null) return Assessment(Verdict.NO_NORM, "Введите падение давления в ТМ, кгс/см2")
+        if (timeSec < 60.0 - 1e-9) return Assessment(Verdict.NO_NORM, "Замер должен длиться не менее 1 мин")
+        val allowed = 0.2 * minOf(timeSec, 150.0) / 60.0
+        return if (dropKgf <= allowed + 1e-9) Assessment(Verdict.OK, "Допуск: не более ${fmt(allowed, 2)} кгс/см2 за ${fmt(timeSec)} с")
+        else Assessment(Verdict.FAIL, "Падение ${fmt(dropKgf, 2)} кгс/см2 больше допуска ${fmt(allowed, 2)} за ${fmt(timeSec)} с")
+    }
+
+    /**
+     * Наименьшее давление в ТМ хвостового вагона грузового поезда: показание не должно отличаться от зарядного давления в голове
+     * более чем на 0,3 кгс/см2 (до 300 осей), 0,5 (более 300 до 400 осей включительно), 0,7 (более 400 осей) - п. 48 а)-в) прил. 2 Правил.
+     * null - зарядное давление вне 4,8-5,8.
+     */
+    fun minTailPressure(chargePressure: Double?, axles: Int): Double? {
+        val p = chargePressure ?: return null
+        if (p < 4.8 || p > 5.8) return null
+        val deviation = when {
+            axles <= 300 -> 0.3
+            axles <= 400 -> 0.5
+            else -> 0.7
+        }
+        return kotlin.math.round((p - deviation) * 100) / 100
+    }
+
+    private fun fmt(v: Double, digits: Int = 2): String {
+        val f = 100.0
+        val r = kotlin.math.round(v * f) / f
+        val s = if (r % 1.0 == 0.0) r.toLong().toString() else r.toString()
+        return s.replace('.', ',')
+    }
+}

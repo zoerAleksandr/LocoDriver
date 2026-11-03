@@ -1,5 +1,6 @@
 package com.z_company.route.ui
 
+import com.z_company.domain.autorecord.TrainOrdering
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -144,6 +145,7 @@ import com.z_company.domain.entities.route.UtilsForEntities.getBreakDuration
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTimeWithinWork
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTimeOutsideWork
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkStartWaitingInterval
 import com.z_company.domain.entities.route.UtilsForEntities.getPureWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.util.minus
@@ -296,6 +298,8 @@ fun FormScreen(
     var pendingDeleteTitle by remember { mutableStateOf("") }
     var pendingDeleteMessage by remember { mutableStateOf("") }
     var pendingDeleteAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    // Поезд, удаляемый текущим подтверждением (только для «Удалить поезд?»): для строки про треки.
+    var pendingDeleteTrainIds by remember { mutableStateOf<List<String>>(emptyList()) }
 
     // Подтверждение удаления единицы маршрута — шторка (как удаление маршрута).
     pendingDeleteAction?.let { action ->
@@ -321,6 +325,7 @@ fun FormScreen(
                     )
                 }
             },
+            contentAfterHeader = com.z_company.route.component.rememberTrackDeleteNote(pendingDeleteTrainIds),
             actions = listOf(
                 BottomSheetAction(text = "Да, удалить") { action() }
             )
@@ -340,6 +345,9 @@ fun FormScreen(
             onDismissRequest = { showDeleteConfirmDialog = false },
             sheetState = sheetState,
             title = deleteTitle,
+            contentAfterHeader = com.z_company.route.component.rememberTrackDeleteNote(
+                currentRoute?.trains?.map { it.trainId }.orEmpty()
+            ),
             actions = listOf(
                 BottomSheetAction(text = "Да, удалить") {
                     viewModel.onDeleteRoute()
@@ -974,7 +982,7 @@ fun FormScreen(
                                             .weight(1f)
                                             .padding(start = 12.dp),
                                         value = number,
-                                        onValueChange = onNumberChanged,
+                                        onValueChange = { onNumberChanged(it.filter(Char::isDigit)) },
                                         singleLine = true,
                                         textStyle = MaterialTheme.typography.titleMedium.copy(
                                             fontFamily = MonoFont,
@@ -1166,6 +1174,37 @@ fun FormScreen(
                                                 )
                                                 Text(
                                                     text = ConverterLongToTime.getTimeInStringFormat(passengerOutsideWork),
+                                                    style = MaterialTheme.typography.titleLarge.copy(
+                                                        fontFamily = MonoFont,
+                                                        fontWeight = FontWeight.Bold
+                                                    ),
+                                                    color = MaterialTheme.colorScheme.tertiary
+                                                )
+                                            }
+                                            HorizontalDivider(
+                                                thickness = 1.dp,
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                            )
+                                        }
+                                        // Зазор между прибытием и явкой (> 1 мин) — ожидание 018M: время
+                                        // идёт в оплату и в «отработано» по месяцу, но не входит в окно
+                                        // явка–сдача, поэтому показываем отдельной строкой.
+                                        val startWaiting = route.getWorkStartWaitingInterval()?.durationMillis ?: 0L
+                                        if (startWaiting > 0L) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(
+                                                    text = "Ожидание до явки",
+                                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                                        fontWeight = FontWeight.SemiBold
+                                                    ),
+                                                    color = MaterialTheme.colorScheme.tertiary
+                                                )
+                                                Text(
+                                                    text = ConverterLongToTime.getTimeInStringFormat(startWaiting),
                                                     style = MaterialTheme.typography.titleLarge.copy(
                                                         fontFamily = MonoFont,
                                                         fontWeight = FontWeight.Bold
@@ -1373,6 +1412,7 @@ fun FormScreen(
                                     basicId = basicId,
                                     onDeleteClick = { loco ->
                                         pendingDeleteTitle = "Удалить локомотив?"
+                                        pendingDeleteTrainIds = emptyList()
                                         pendingDeleteMessage =
                                             "Локомотив будет убран из маршрута. Это действие нельзя отменить."
                                         pendingDeleteAction = { onDeleteLoco(loco) }
@@ -1387,15 +1427,13 @@ fun FormScreen(
                                     iconRes = R.drawable.ic_card_train_ref,
                                     // Сортировка: поезда с временем отправления первой станции — по возрастанию
                                     // (старые сверху, новые снизу), поезда без времени — в порядке добавления.
-                                    contentList = route.trains
-                                        .filter { it.stations.firstOrNull()?.timeDeparture != null }
-                                        .sortedBy { it.stations.firstOrNull()?.timeDeparture } +
-                                        route.trains.filter { it.stations.firstOrNull()?.timeDeparture == null },
+                                    contentList = TrainOrdering.sortForDisplay(route.trains),
                                     onChangeElementClick = onChangeTrainClick,
                                     onNewElementClick = onNewTrainClick,
                                     basicId = basicId,
                                     onDeleteClick = { train ->
                                         pendingDeleteTitle = "Удалить поезд?"
+                                        pendingDeleteTrainIds = listOf(train.trainId)
                                         pendingDeleteMessage =
                                             "Поезд будет убран из маршрута. Это действие нельзя отменить."
                                         pendingDeleteAction = { onDeleteTrain(train) }
@@ -1414,6 +1452,7 @@ fun FormScreen(
                                     basicId = basicId,
                                     onDeleteClick = { otherWork ->
                                         pendingDeleteTitle = "Удалить запись?"
+                                        pendingDeleteTrainIds = emptyList()
                                         pendingDeleteMessage =
                                             "Запись прочей работы будет убрана из маршрута. Это действие нельзя отменить."
                                         pendingDeleteAction = { onDeleteOtherWork(otherWork) }
@@ -1432,6 +1471,7 @@ fun FormScreen(
                                     basicId = basicId,
                                     onDeleteClick = { passenger ->
                                         pendingDeleteTitle = "Удалить поездку пассажиром?"
+                                        pendingDeleteTrainIds = emptyList()
                                         pendingDeleteMessage =
                                             "Запись будет убрана из маршрута. Это действие нельзя отменить."
                                         pendingDeleteAction = { onDeletePassenger(passenger) }
@@ -1614,31 +1654,28 @@ private fun LocomotiveSubItem(locomotive: Locomotive, index: Int) {
 
 @Composable
 private fun TrainSubItem(index: Int, train: Train) {
+    val names = train.stations.mapNotNull { it.stationName?.takeIf { n -> n.isNotBlank() } }
+    val stationStart = names.firstOrNull() ?: ""
+    val stationEnd = if (names.size > 1) " - ${names.last()}" else ""
+
     if (train.number.isNullOrBlank()) {
+        // Без номера: станция (одна) или перегон (первая - последняя); иначе «Поезд № N».
         Text(
-            text = "Поезд № ${index + 1}",
+            text = if (names.isEmpty()) "Поезд № ${index + 1}" else "$stationStart$stationEnd",
+            modifier = Modifier.testTag("form_train_item"),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.primary
         )
     } else {
-        val stationStart = if (train.stations.isNotEmpty()) {
-            train.stations.first().stationName ?: ""
-        } else {
-            ""
-        }
-
-        val stationEnd = if (train.stations.isNotEmpty() && train.stations.size > 1) {
-            " - ${train.stations.last().stationName ?: ""}"
-        } else {
-            ""
-        }
-
         // Номер поезда — Mono (идентификатор), названия станций — Inter (имена собственные).
         Text(
             text = buildAnnotatedString {
                 withStyle(SpanStyle(fontFamily = MonoFont)) { append("№ ${train.number}") }
                 append(" $stationStart$stationEnd")
             },
+            modifier = Modifier.testTag("form_train_item"),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodyLarge,
@@ -2503,6 +2540,9 @@ private fun CalcBottomSheet(
             val passengerOutsideHint = timeRateHint(
                 passengerOutsideTime, "следование пассажиром до явки"
             )
+            val passengerWaitingHint = timeRateHint(
+                salaryForRouteState.passengerWaitingTime, "ожидание следования пассажиром"
+            )
             val holidayHint = holidayTime
                 ?.takeIf { it > 0L }
                 ?.let { "${ConverterLongToTime.getTimeInStringFormat(it)} в праздничные дни" }
@@ -2517,6 +2557,7 @@ private fun CalcBottomSheet(
                 add("Ночные", nightHint, salaryForRouteState.paymentAtNightTime)
                 add("Пассажиром", passengerHint, salaryForRouteState.paymentAtPassengerTime)
                 add("Пассажиром до явки", passengerOutsideHint, salaryForRouteState.paymentAtPassengerOutsideTime)
+                add("Ожидание пассажиром", passengerWaitingHint, salaryForRouteState.paymentAtPassengerWaiting)
                 salaryForRouteState.linearMileageAccruals.forEach { accrual ->
                     val distance = if (accrual.distance % 1.0 == 0.0) {
                         accrual.distance.toLong().toString()

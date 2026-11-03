@@ -5,15 +5,41 @@ CREATE TABLE IF NOT EXISTS StationNorm (
     endToBarrierMin INTEGER,
     barrierToStartMin INTEGER,
     endToWorkEndMin INTEGER,
-    updatedAt INTEGER NOT NULL
+    updatedAt INTEGER NOT NULL,
+    latitude REAL,
+    longitude REAL,
+    esr TEXT,
+    osmId INTEGER,
+    kind TEXT,
+    axisKm INTEGER,
+    axisPicket INTEGER
+);
+
+-- Надгробия удалённых станций (миграция 25): нужны, чтобы удаление дошло до других устройств.
+CREATE TABLE IF NOT EXISTS StationTombstone (
+    stationId TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    deletedAt INTEGER NOT NULL
 );
 
 insertOrReplace:
-INSERT OR REPLACE INTO StationNorm (stationId, name, appearanceToStartMin, endToBarrierMin, barrierToStartMin, endToWorkEndMin, updatedAt)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO StationNorm (stationId, name, appearanceToStartMin, endToBarrierMin, barrierToStartMin, endToWorkEndMin, updatedAt, latitude, longitude, esr, osmId, kind, axisKm, axisPicket)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 getAll:
 SELECT * FROM StationNorm ORDER BY name;
 
 deleteAll:
 DELETE FROM StationNorm;
+
+getTombstones:
+SELECT * FROM StationTombstone;
+
+insertTombstone:
+INSERT OR REPLACE INTO StationTombstone (stationId, name, deletedAt) VALUES (?, ?, ?);
+
+deleteTombstone:
+DELETE FROM StationTombstone WHERE stationId = ?;
+
+deleteAllTombstones:
+DELETE FROM StationTombstone;

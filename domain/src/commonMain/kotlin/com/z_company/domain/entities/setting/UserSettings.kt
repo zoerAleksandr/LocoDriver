@@ -6,6 +6,7 @@ import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.util.generateId
 import kotlin.time.Clock
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 const val SETTINGS_KEY = "User_Settings_Key"
@@ -24,6 +25,8 @@ data class UserSettings(
     val minTimeRestPointOfTurnoverSecond: Long = 14_400_000L,
     var minTimeHomeRest: Long = 57_600_000L,
     var lastEnteredDieselCoefficient: Double = 0.83,
+    /** Последнее введённое смещение «явки по прибытию» (мин) — подставляется при включении режима. */
+    val lastEnteredWorkStartOffsetMinutes: Int = 1,
     var nightTime: NightTime = NightTime(),
     var defaultLocoType: LocoType = LocoType.ELECTRIC,
     var defaultWorkTime: Long = 43_200_000L,
@@ -74,7 +77,148 @@ data class ServicePhase(
     val distance: Int,
     /** Стоимость линейного пробега по этому плечу, рублей за километр. */
     val linearMileageRate: Double = 0.0,
+    /** Станции между крайними, по порядку от отправления к прибытию. */
+    val intermediateStations: List<ServicePhaseStation> = emptyList(),
+    /** Координаты станции отправления; null — неизвестны. */
+    val departurePoint: ServicePhasePoint? = null,
+    /** Координаты станции прибытия; null — неизвестны. */
+    val arrivalPoint: ServicePhasePoint? = null,
+    /**
+     * «Измерено по карте»: строка «расстояние|подпись координат станций» (SCREEN_SPECS §6.6).
+     * Чип «Измерено» показывается, если совпадает с текущими расстоянием и подписью; null — не измерено.
+     */
+    val measuredSignature: String? = null,
+    /**
+     * Ступени доплаты за тяжеловесный поезд для этого плеча. Пусто - берётся список из настроек ЗП
+     * (на разных направлениях одного участка весовые нормы разные).
+     */
+    val surchargeHeavyTrainsList: List<SurchargeHeavyTrains> = emptyList(),
+    /** Ступени доплаты за длинносоставный поезд для этого плеча. Пусто - берётся список из настроек ЗП. */
+    val surchargeLongTrainsList: List<SurchargeLongTrains> = emptyList(),
+) {
+    /**
+     * Координаты станций плеча по порядку (отправление, промежуточные с координатами, прибытие) - «подпись», по которой проверяется
+     * «измерено по карте». Формат тот же, что в редакторе плеча.
+     */
+    fun coordinateSignature(): String {
+        val points = buildList {
+            add(departurePoint?.let { it.latitude to it.longitude })
+            intermediateStations.filter { it.hasCoordinates }.forEach { add(it.latitude!! to it.longitude!!) }
+            add(arrivalPoint?.let { it.latitude to it.longitude })
+        }
+        return points.joinToString(";") { p -> p?.let { "${fixed5(it.first)},${fixed5(it.second)}" } ?: "-" }
+    }
+
+    /**
+     * Плечо «проверено и найдено на карте» (единое условие для всех экранов): есть координаты обеих крайних станций, есть промежуточные
+     * станции и у всех есть координаты, расстояние измерено по карте именно по этим координатам.
+     */
+    val isMapVerified: Boolean
+        get() {
+            if (departurePoint == null || arrivalPoint == null) return false
+            if (intermediateStations.isEmpty() || intermediateStations.any { !it.hasCoordinates }) return false
+            val signature = measuredSignature ?: return false
+            val i = signature.indexOf('|')
+            if (i <= 0) return false
+            return signature.substring(0, i).toIntOrNull() == distance && signature.substring(i + 1) == coordinateSignature()
+        }
+
+    /** Строка `measuredSignature` для расстояния [km], измеренного по текущим координатам плеча. */
+    fun measuredSignatureFor(km: Int): String = "$km|${coordinateSignature()}"
+
+    /**
+     * Копия для рейса (`Train.servicePhase`): станции плеча в рейс не кладём —
+     * они живут в справочнике и берутся оттуда по [id].
+     */
+    fun forTrain(): ServicePhase =
+        copy(
+            intermediateStations = emptyList(),
+            departurePoint = null,
+            arrivalPoint = null,
+            measuredSignature = null,
+            // Доплаты плеча живут в настройках и подбираются по id: в рейс (контракт маршрута) не кладём.
+            surchargeHeavyTrainsList = emptyList(),
+            surchargeLongTrainsList = emptyList(),
+        )
+
+    /**
+     * Обратное плечо: станции в обратном порядке, км пересчитаны от нового начала
+     * (`distance − km`; станции без км остаются без км).
+     */
+    fun reversed(): ServicePhase = ServicePhase(
+        departureStation = arrivalStation,
+        arrivalStation = departureStation,
+        distance = distance,
+        linearMileageRate = linearMileageRate,
+        intermediateStations = intermediateStations.asReversed().map { st ->
+            st.copy(
+                id = generateId(),
+                kmFromStart = st.kmFromStart?.let { km -> (distance - km).coerceAtLeast(0.0) },
+            )
+        },
+        departurePoint = arrivalPoint,
+        arrivalPoint = departurePoint,
+    )
+}
+
+/**
+ * Число с 5 знаками после точки, как `%.5f` в локали US на JVM (редактор плеча хранит подпись в таком виде): округление «половина вверх»
+ * по десятичным цифрам кратчайшей записи числа (59.465865 -> 59.46587), а не по двоичному значению.
+ */
+private fun fixed5(v: Double): String {
+    val text = kotlin.math.abs(v).toString()
+    val dot = text.indexOf('.')
+    var scaled: Long
+    if (dot < 0 || text.contains('E') || text.contains('e')) {
+        scaled = kotlin.math.round(kotlin.math.abs(v) * 100000.0).toLong()
+    } else {
+        val frac = text.substring(dot + 1)
+        scaled = (text.substring(0, dot) + frac.padEnd(5, '0').substring(0, 5)).toLong()
+        if (frac.length > 5 && frac[5] >= '5') scaled += 1
+    }
+    val sign = if (v < 0 && scaled != 0L) "-" else ""
+    return sign + (scaled / 100000).toString() + "." + (scaled % 100000).toString().padStart(5, '0')
+}
+
+@Serializable
+data class ServicePhasePoint(
+    val latitude: Double,
+    val longitude: Double,
+    val osmId: Long? = null,
+    /** Код ЕСР (6 цифр). */
+    val esr: String? = null,
 )
+
+@Serializable
+enum class ServicePhaseStationKind {
+    @SerialName("station") STATION,
+    /** Остановочный пункт (о.п.). */
+    @SerialName("halt") HALT,
+}
+
+@Serializable
+enum class ServicePhaseStationSource {
+    @SerialName("manual") MANUAL,
+    @SerialName("osm") OSM,
+    @SerialName("map") MAP,
+}
+
+@Serializable
+data class ServicePhaseStation(
+    val id: String = generateId(),
+    val name: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    /** Расстояние от станции отправления плеча по пути, км. */
+    val kmFromStart: Double? = null,
+    val kind: ServicePhaseStationKind = ServicePhaseStationKind.STATION,
+    /** Код ЕСР (6 цифр). */
+    val esr: String? = null,
+    val osmId: Long? = null,
+    val source: ServicePhaseStationSource = ServicePhaseStationSource.MANUAL,
+) {
+    val hasCoordinates: Boolean get() = latitude != null && longitude != null
+}
 
 @Serializable
 data class NightTime(

@@ -63,6 +63,9 @@ interface SharedPreferencesRepositories {
     fun setTokenIsFirstAppEntry(value: Boolean)
     fun tokenIsLoadStationAndLocomotiveSeries(): Boolean
     fun setTokenIsLoadStationAndLocomotiveSeries(value: Boolean)
+    /** Разовая чистка обрывков ввода в списке станций уже выполнена. */
+    fun isStationFragmentsCleaned(): Boolean
+    fun setStationFragmentsCleaned(value: Boolean)
     fun toggleStationsSortOrder(value: Boolean)
     fun isReversedSortStationList(): Boolean
     /** Показывать карточки перегонов в списке станций (кнопка над блоком «Маршрут»). */

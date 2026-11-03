@@ -22,7 +22,18 @@ import com.z_company.domain.util.addAllOrSkip
 import com.z_company.domain.util.addOrReplace
 import com.z_company.domain.util.sanitizeNumericInput
 import com.z_company.route.Const.NULLABLE_ID
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.z_company.domain.util.GeoFix
+import com.z_company.domain.util.ServicePhaseOrder
+import com.z_company.domain.util.ServicePhaseStationPicker
+import com.z_company.domain.util.StationDirectory
+import com.z_company.domain.util.ServicePhaseStationsMerge
+import com.z_company.domain.util.StationSuggestionOrder
+import com.z_company.route.util.DeviceLocation
 import kotlinx.coroutines.CoroutineScope
+import com.z_company.domain.util.displayTimeZone
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -32,6 +43,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import com.z_company.core.sendToSentry
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -42,11 +55,16 @@ class TrainFormViewModel(
     trainId: String?,
     basicId: String
 ) : ViewModel(), KoinComponent {
+    private val brakeRouteId: String = basicId
     private val timeManager = TimeManager()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val trainUseCase: TrainUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
+    private val stationDirectory: com.z_company.domain.use_cases.StationDirectoryUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
+    private val autoRecord: com.z_company.route.autorecord.AutoRecordManager by inject()
+    private val trackRepository: com.z_company.domain.track.TrackRepository by inject()
+    private var autoEditorTrainId: String? = null
     private var route: Route = Route()
     private val _uiState = MutableStateFlow(TrainFormUiState())
     val uiState = _uiState.asStateFlow()
@@ -106,9 +124,11 @@ class TrainFormViewModel(
             }
         }
 
-    fun setSelectedServicePhase(servicePhase: ServicePhase?) {
+    fun setSelectedServicePhase(selected: ServicePhase?) {
+        // В рейс кладём копию без станций плеча — они берутся из справочника по id.
+        val servicePhase = selected?.forTrain()
         if (servicePhase != null) {
-            setDistance(servicePhase.distance.toString())
+            setDistance(servicePhase.distance.takeIf { it > 0 }?.toString() ?: "")
             if (servicePhase != uiState.value.selectedServicePhase || uiState.value.selectedServicePhase == null) {
                 if (stationsListState.isEmpty()) {
                     addingStation(stationName = servicePhase.departureStation)
@@ -164,7 +184,34 @@ class TrainFormViewModel(
         sharedPreferenceStorage.toggleStationsSortOrder(newReversed)
     }
 
+    // ─── Станции плеча по местоположению (SCREEN_SPECS §6.6) ───────────────
+    // Объявлены ДО init: init их уже использует (порядок инициализации свойств).
+    private val appContext: android.content.Context by inject()
+    private val stopNamer: com.z_company.domain.util.StopStationNamer by inject()
+    /** Координата прошлого добавления станции — чтобы не подставлять одно и то же стоя на месте. */
+    /** Последняя известная координата — для сортировки подсказок. */
+    // lastFix/phaseUsage/phaseLastUsed - Compose-состояние: порядок плеч читается при композиции и должен
+    // пересортироваться, когда статистика/координата приходят позже открытия экрана.
+    private var lastFix: GeoFix? by mutableStateOf(null)
+    private var stationUsage: Map<String, Int> = emptyMap()
+    /**
+     * Положение для порядка подсказок станций: берётся один раз при открытии (не дольше 1 с) и дальше не меняется, чтобы выпадающие
+     * списки (шторка станции, плечи) не «прыгали» при уточнении GPS. [lastFix] остаётся для остальных нужд (плечи, карта).
+     */
+    private var suggestFix: GeoFix? = null
+    private var phaseUsage: Map<String, Int> by mutableStateOf(emptyMap())
+    private var phaseLastUsed: Map<String, Long> by mutableStateOf(emptyMap())
+
+    /**
+     * Страна пользователя — для автоподбора станций плеча. Объявлена выше `init`: корутина инициализации может выполниться сразу
+     * (Main.immediate) и записать значение раньше, чем отработали бы объявления ниже (иначе NPE при открытии «Поезда»).
+     */
+    var userCountry by mutableStateOf("RU")
+        private set
+
     init {
+        loadUsageStats()
+        refreshFix()
         viewModelScope.launch {
             try {
                 loadStationsSortOrder()
@@ -175,9 +222,15 @@ class TrainFormViewModel(
                     isNewTrain = false
                     loadTrain(trainId!!)
                 }
+                // «АВТО» пишет события в эту форму, пока она открыта (иначе автосохранение затрёт запись).
+                (trainId.takeIf { it != NULLABLE_ID } ?: currentTrain?.trainId)?.let { id ->
+                    autoEditorTrainId = id
+                    autoRecord.registerEditor(id, ::applyAutoEvent)
+                }
                 val initJob = this.launch {
                     val setting = settingsUseCase.getUserSettingFlow().first()
                     timeZoneText = "GMT+3"
+                    userCountry = setting.country
                 }
                 initJob.join()
 
@@ -197,12 +250,22 @@ class TrainFormViewModel(
                                     passengerWagonLengthMeters = settings.passengerWagonLengthMeters,
                                 )
                             }
-                            stationNameList.addAllOrSkip(settings.stationList.toMutableStateList())
-                            mutableStationList.addAllOrSkip(stationNameList)
-                            locomotiveSeriesList.addAllOrSkip(settings.locomotiveSeriesList.toMutableStateList())
-                            mutableFilteredSeriesList.addAllOrSkip(locomotiveSeriesList)
-                            servicePhaseList.clear()
-                            servicePhaseList.addAllOrSkip(settings.servicePhases.toMutableStateList())
+                            com.z_company.core.ui.perf.ScreenPerf.section("train.settingsLists") {
+                                // Подсказки станций: настройки + справочник станций.
+                                stationNameList.addAllOrSkip(
+                                    com.z_company.route.util.mergeStationSuggestions(
+                                        settings.stationList,
+                                        stationDirectory.stations().map { it.name },
+                                    )
+                                )
+                                mutableStationList.addAllOrSkip(sortSuggestions(stationNameList.distinct()))
+                                locomotiveSeriesList.addAllOrSkip(settings.locomotiveSeriesList)
+                                mutableFilteredSeriesList.addAllOrSkip(locomotiveSeriesList)
+                                servicePhaseList.clear()
+                                // Координаты станций плеч — из справочника станций (единый источник).
+                                stationDirectory.backfillOnce(settings.servicePhases)
+                                servicePhaseList.addAllOrSkip(stationDirectory.resolve(settings.servicePhases))
+                            }
                         }
                     }
                 }
@@ -211,6 +274,21 @@ class TrainFormViewModel(
             }
         }
 
+    }
+
+    /** Данные поезда формы и последнего локомотива маршрута для предзаполнения справки ВУ-45. */
+    fun brakePrefill(): com.z_company.domain.brake.BrakePrefill {
+        val train = currentTrain
+        val loco = route.locomotives.lastOrNull()
+        return com.z_company.domain.brake.BrakePrefill(
+            weight = train?.weight,
+            axles = train?.axle,
+            trainNumber = train?.number,
+            locoSeries = loco?.series,
+            locoNumber = loco?.number,
+            routeId = brakeRouteId.takeIf { it.isNotBlank() && it != com.z_company.route.Const.NULLABLE_ID },
+            trainId = train?.trainId,
+        )
     }
 
     private fun changesHave() {
@@ -282,6 +360,7 @@ class TrainFormViewModel(
     }
 
     override fun onCleared() {
+        autoEditorTrainId?.let { autoRecord.unregisterEditor(it) }
         autoSaveJob?.cancel()
         saveTrainJob?.cancel()
         CoroutineScope(NonCancellable + Dispatchers.IO).launch {
@@ -319,20 +398,40 @@ class TrainFormViewModel(
         loadTrainJob = viewModelScope.launch {
             val resultState = trainUseCase.getTrainById(id)
                 .first { it !is ResultState.Loading }
+            // Нули из БД/синхронизации («0», «0.0») — это «не задано»: поля показываем пустыми.
+            val loaded = if (resultState is ResultState.Success) {
+                ResultState.Success(resultState.data?.withoutZeroParams())
+            } else resultState
             _uiState.update {
-                if (resultState is ResultState.Success) {
-                    currentTrain = resultState.data
-                    resultState.data?.let { train ->
+                if (loaded is ResultState.Success) {
+                    currentTrain = loaded.data
+                    loaded.data?.let { train ->
                         setStations(train.stations)
                     }
                 }
                 it.copy(
                     selectedServicePhase = currentTrain?.servicePhase,
-                    trainDetailState = resultState
+                    trainDetailState = loaded
                 )
             }
         }
     }
+
+    private fun String?.zeroToNull(): String? = this?.takeUnless { ZERO.matches(it.trim()) }
+
+    private fun Train.withoutZeroParams(): Train = copy(
+        distance = distance.zeroToNull(),
+        weight = weight.zeroToNull(),
+        axle = axle.zeroToNull(),
+        conditionalLength = conditionalLength.zeroToNull(),
+        dataVersions = dataVersions.map {
+            it.copy(
+                weight = it.weight.zeroToNull(),
+                axle = it.axle.zeroToNull(),
+                conditionalLength = it.conditionalLength.zeroToNull(),
+            )
+        },
+    )
 
     fun saveTrain() {
         if (uiState.value.errorMessage == null) {
@@ -445,35 +544,303 @@ class TrainFormViewModel(
             val state = _uiState.value.trainDetailState
             if (state is ResultState.Success) {
                 state.data?.let { train ->
-                    train.servicePhase = newPhase
+                    train.servicePhase = newPhase.forTrain()
                     performSave(train)
                 }
             }
         }
     }
 
-    /** Добавить новое плечо в настройки (сохраняется в UserSettings.servicePhases). */
+
+    private fun loadUsageStats() {
+        viewModelScope.launch(Dispatchers.Default) {
+            runCatching {
+                val routes = routeUseCase.getListRoutes()
+                val trains = routes.flatMap { r -> r.trains.map { r to it } }
+                stationUsage = StationSuggestionOrder.usage(trains.asSequence().flatMap { (_, t) -> t.stations.asSequence().map { it.stationName } })
+                phaseUsage = trains.mapNotNull { (_, t) -> t.servicePhase?.id }.groupingBy { it }.eachCount()
+                phaseLastUsed = trains.mapNotNull { (r, t) -> t.servicePhase?.id?.let { id -> id to (r.basicData.timeStartWork ?: 0L) } }
+                    .groupBy({ it.first }, { it.second }).mapValues { (_, v) -> v.max() }
+            }.onFailure { it.sendToSentry("TrainFormViewModel", "loadUsageStats") }
+        }
+    }
+
+    private fun refreshFix(onFix: (GeoFix) -> Unit = {}) {
+        viewModelScope.launch {
+            val fix = DeviceLocation.currentFix(appContext) ?: return@launch
+            lastFix = fix
+            onFix(fix)
+        }
+    }
+
+    /** Карта поезда (§6.9, состояние 3): станция без координат, которую можно определить по GPS, либо null. */
+    fun trainMapMissingStation(): String? {
+        val phase = fullSelectedPhase()?.let { stationDirectory.resolve(it) }
+        val phaseNames = phase?.let { p ->
+            buildList {
+                if (p.departurePoint == null) add(p.departureStation)
+                if (p.arrivalPoint == null) add(p.arrivalStation)
+            }
+        }.orEmpty()
+        return StationDirectory.stationWithoutCoordinates(
+            stationsListState.map { it.station.data },
+            phaseNames,
+            stationDirectory.stations(),
+        )
+    }
+
+    /** Станции выбранного плеча с координатами по порядку для будущего маршрута на карте поезда (§6.9, состояние 2). */
+    /**
+     * Поезда маршрута для линии поезда на профиле карты: id, номер и длина в метрах по условной длине (у пассажирского номера -
+     * число вагонов × длина вагона из настроек, у остальных × 14 м). Редактируемый сейчас поезд берётся со своими несохранёнными
+     * значениями; поездов в маршруте нет - только он.
+     */
+    internal fun trainMapTrains(): List<com.z_company.route.component.servicephase.ProfileTrain> {
+        val wagon = uiState.value.passengerWagonLengthMeters
+        val current = currentTrain
+        val all = route.trains.map { if (current != null && it.trainId == current.trainId) current else it }
+            .let { list -> if (current != null && list.none { it.trainId == current.trainId }) list + current else list }
+        return all.map { t ->
+            com.z_company.route.component.servicephase.ProfileTrain(
+                id = t.trainId,
+                number = t.number,
+                lengthM = com.z_company.route.ui.conditionalLengthToMeters(t.conditionalLength, t.number, wagon),
+                routeId = t.basicId,
+            )
+        }
+    }
+
+    fun trainMapStops(): List<com.z_company.domain.util.TrainMapStop> =
+        fullSelectedPhase()?.let { stationDirectory.resolve(it) }?.let(com.z_company.domain.util.TrainMapRoute::stops).orEmpty()
+
+    /** Записанный трек поезда для карты (SCREEN_SPECS §6.9, этап 4а). */
+    class TrainMapTrack(
+        /** Все точки (по времени) — для тапа по пройденному пути. */
+        val points: List<com.z_company.domain.track.TrackPoint>,
+        /** Прореженные точки для отрисовки линии. */
+        val drawPoints: List<com.z_company.domain.track.TrackPoint>,
+        val stops: List<com.z_company.domain.track.TrainStopMark>,
+        /** Пояс отображения времени (displayTimeZone). */
+        val zone: String,
+        /** Поезд пассажирский/пригородный - шкала цвета скорости с пассажирскими порогами (§6.9). */
+        val passenger: Boolean = false,
+    )
+
+    /** Трек поезда из локального хранилища, асинхронно (не на главном потоке); null — трека нет. */
+    suspend fun trainMapTrack(): TrainMapTrack? {
+        val id = currentTrain?.trainId ?: return null
+        val stationTimes = stationsListState.map {
+            com.z_company.domain.track.StationTimes(it.station.data, it.arrival.data, it.departure.data, it.isPassingStation)
+        }
+        val zone = runCatching { settingsUseCase.getUserSettingFlow().first().displayTimeZone() }.getOrDefault("GMT+3")
+        return kotlinx.coroutines.withContext(Dispatchers.Default) {
+            val points = trackRepository.tracksForTrain(id)
+                .sortedBy { it.startedAt }
+                .flatMap { trackRepository.points(it.trackId) }
+                .sortedBy { it.timeMs }
+                // Подменные точки GNSS (старые записи) не должны давать ложные старт/финиш и линию через полстраны (§6.9).
+                .let { com.z_company.domain.util.GnssPlausibility.sanitize(it) }
+            if (points.isEmpty()) return@withContext null
+            val dwells = com.z_company.domain.track.TrackAnalysis.detectDwells(points)
+            TrainMapTrack(
+                points = points,
+                drawPoints = com.z_company.domain.track.TrackAnalysis.decimate(points),
+                stops = nameUnnamedStops(
+                    com.z_company.domain.track.TrackAnalysis.stopMarks(points, dwells, stationTimes),
+                    currentTrain?.servicePhase, stationTimes.map { it.name },
+                ),
+                zone = zone,
+                passenger = com.z_company.domain.track.SpeedScale.isPassengerTrain(currentTrain),
+            )
+        }
+    }
+
+    /**
+     * Остановки по треку без станции поезда получают название той же функцией, что «АВТО» (плечо и порядок станций,
+     * радиус 1 км, иначе справочник); станции поезда остаются как есть (единый источник правды, SCREEN_SPECS §6.9).
+     */
+    private suspend fun nameUnnamedStops(
+        marks: List<com.z_company.domain.track.TrainStopMark>,
+        phase: com.z_company.domain.entities.setting.ServicePhase?,
+        trainStationNames: List<String?>,
+    ): List<com.z_company.domain.track.TrainStopMark> {
+        if (marks.none { it.name == null }) return marks
+        val dir = runCatching { stationDirectory.stations() }.getOrNull() ?: return marks
+        val points = StationDirectory.points(dir)
+        val names = StationDirectory.names(dir)
+        val written = ServicePhaseStationPicker.writtenNames(trainStationNames, phase != null)
+        val full = phase?.let { sp -> servicePhaseList.firstOrNull { it.id == sp.id } ?: sp }?.let { stationDirectory.resolve(it) }
+        return marks.map { mk ->
+            if (mk.name != null) mk
+            else mk.copy(
+                name = stopNamer.name(
+                    full, written, mk.latitude, mk.longitude, points, names,
+                    onDiscovered = { stationDirectory.fillCoordinates(it.name, it.latitude, it.longitude) },
+                ),
+            )
+        }
+    }
+
+    /** Пояс отображения времени (displayTimeZone) для ввода планового времени прибытия на карте (§6.9). */
+    suspend fun trainMapZone(): String =
+        runCatching { settingsUseCase.getUserSettingFlow().first().displayTimeZone() }.getOrDefault("GMT+3")
+
+    /** Ключ хранения плана прибытия на карте - id поезда; null - поезд ещё не создан. */
+    fun trainMapPlanKey(): String? = currentTrain?.trainId?.toString()
+
+    /** Состояние записи трека для пустого графика скорости (§6.9): согласие, «АВТО», цель; null - поезд ещё не определён. */
+    suspend fun trainMapRecordingState(): com.z_company.domain.track.TrackRecordingState? {
+        val thisId = currentTrain?.trainId ?: return null
+        val target = autoRecord.targetTrainId()
+        val otherNumber = if (target != null && target != thisId) {
+            runCatching {
+                kotlinx.coroutines.withContext(Dispatchers.Default) {
+                    trainUseCase.getTrainById(target).first { it !is ResultState.Loading }.let { (it as? ResultState.Success)?.data?.number }
+                }
+            }.getOrNull()
+        } else null
+        return autoRecord.trackRecordingState(thisId, otherNumber)
+    }
+
+    /** Предупреждение «Запись уже идёт», если «АВТО» пишет другой поезд (иначе null) - для «Сделать целью» (§6.9). */
+    suspend fun trainMapConflictText(): String? {
+        val thisId = currentTrain?.trainId?.toString() ?: return null
+        val enabled = autoRecord.state.value.enabled
+        return if (com.z_company.domain.autorecord.AutoTargetRules.conflictsWith(enabled, autoRecord.targetTrainId(), thisId)) {
+            autoRecord.conflictText()
+        } else null
+    }
+
+    /** Сделать этот поезд целью записи «АВТО» (кнопка пустого графика, §6.9). */
+    fun trainMapMakeTarget(): Boolean {
+        val id = currentTrain?.trainId ?: return false
+        return autoRecord.setTarget(id)
+    }
+
+    /** Текущее местоположение для карты поезда; null — нет разрешения/сигнала. */
+    suspend fun trainMapCurrentFix(): GeoFix? = DeviceLocation.currentFix(appContext)
+
+    /** Записать в справочник координаты станции, указанные пользователем на карте (только если их там нет). */
+    suspend fun saveStationCoordinates(stationName: String, latitude: Double, longitude: Double): Boolean {
+        stationDirectory.fillCoordinates(stationName, latitude, longitude)
+        return true
+    }
+
+    /** То же для экранов ДУ-61 и карты. */
+    fun fullSelectedPhaseOrNull(): ServicePhase? = fullSelectedPhase()
+
+    /** Полное плечо (со станциями) для выбранного в поезде — в рейсе хранится копия без станций. */
+    private fun fullSelectedPhase(): ServicePhase? {
+        val id = _uiState.value.selectedServicePhase?.id ?: return null
+        return servicePhaseList.firstOrNull { it.id == id }
+    }
+
+    /** У выбранного плеча есть координаты станций — подстановка по местоположению имеет смысл. */
+    fun selectedPhaseHasCoordinates(): Boolean = fullSelectedPhase()?.let(ServicePhaseStationPicker::hasCoordinates) == true
+
+    /**
+     * Название для новой станции по местоположению - ТА ЖЕ функция, что у «АВТО», карты и просмотра трека
+     * ([StopStationNamer], SCREEN_SPECS §6.2 п.6/6а): радиус 1 км; с плечом - по порядку плеча (не ранее последней
+     * записанной станции, повтор допускается), иначе справочник; без плеча (или без координат у плеча) - станция по
+     * рельсам с сервера, при сбое - справочник по прямой.
+     */
+    private suspend fun suggestStationName(names: List<String?>, fix: GeoFix): String? =
+        kotlinx.coroutines.withContext(Dispatchers.Default) {
+            val phase = fullSelectedPhase()?.let { stationDirectory.resolve(it) }
+            val dir = stationDirectory.stations()
+            stopNamer.name(
+                phase,
+                ServicePhaseStationPicker.writtenNames(names, _uiState.value.selectedServicePhase != null),
+                fix.latitude, fix.longitude,
+                StationDirectory.points(dir), StationDirectory.names(dir),
+                onDiscovered = { stationDirectory.fillCoordinates(it.name, it.latitude, it.longitude) },
+            )
+        }
+
+    /**
+     * Подставить название новой станции [stationId] по местоположению — асинхронно, когда
+     * придёт координата; только если пользователь сам ничего не ввёл.
+     */
+    private fun autoNameNewStation(stationId: String) {
+        refreshFix { fix ->
+            viewModelScope.launch {
+                val names = stationsListState.filter { it.id != stationId }.map { it.station.data }
+                val name = suggestStationName(names, fix)
+                val idx = stationsListState.indexOfFirst { it.id == stationId }
+                if (name != null && idx >= 0 && stationsListState[idx].station.data.isNullOrBlank()) {
+                    stationsListState[idx] = stationsListState[idx].copy(station = StationField(data = name, type = StationDataType.NAME))
+                    changesHave()
+                }
+            }
+        }
+    }
+
+    /** Порядок плеч в шторке выбора: последнее с текущей станции → другие с неё → по частоте. */
+    fun sortedServicePhases(phases: List<ServicePhase>): List<ServicePhase> {
+        val here = ServicePhaseOrder.currentStation(phases, stationsListState.firstOrNull()?.station?.data, lastFix)
+        return ServicePhaseOrder.sort(phases, here, phaseUsage, phaseLastUsed)
+    }
+
+    private fun sortSuggestions(names: List<String>): List<String> =
+        StationSuggestionOrder.sort(
+            names,
+            stationUsage,
+            StationDirectory.points(stationDirectory.stations()) + ServicePhaseStationPicker.knownPoints(servicePhaseList),
+            suggestFix,
+        )
+
+    // Правки плеч и справочника станций — read-modify-write одних настроек: по очереди.
+    private val settingsMutex = Mutex()
+
+    /** Новые названия из автоподбора станций плеча — в справочник станций. */
+    fun addStationNames(names: List<String>) {
+        viewModelScope.launch {
+            settingsMutex.withLock {
+                val settings = settingsUseCase.getUserSettingFlow().first()
+                val existing = settings.stationList.map { it.trim().lowercase() }.toSet()
+                val fresh = names.map(String::trim).filter { it.isNotBlank() && it.lowercase() !in existing }.distinct()
+                if (fresh.isEmpty()) return@withLock
+                settingsUseCase.saveSetting(settings.copy(stationList = fresh + settings.stationList)).first()
+                sharedPreferenceStorage.setSettingsSyncPending(true)
+                fresh.forEach { if (it !in mutableStationList) mutableStationList.add(it) }
+            }
+        }
+    }
+
+    /**
+     * Добавить новое плечо в настройки (сохраняется в UserSettings.servicePhases). Редактор плеча
+     * сохраняет автоматически и повторно — плечо с тем же id заменяется, а не дублируется.
+     */
     fun addServicePhase(phase: ServicePhase) {
         viewModelScope.launch {
+            settingsMutex.withLock {
             val settings = settingsUseCase.getUserSettingFlow().first()
-            val updated = settings.copy(servicePhases = settings.servicePhases + phase)
+            val phases = if (settings.servicePhases.any { it.id == phase.id }) {
+                settings.servicePhases.map { if (it.id == phase.id) phase else it }
+            } else {
+                settings.servicePhases + phase
+            }
+            val updated = settings.copy(servicePhases = phases)
             settingsUseCase.saveSetting(updated).first()
             sharedPreferenceStorage.setSettingsSyncPending(true)
+            }
         }
     }
 
     /** Обновить существующее плечо (по id). Если оно сейчас выбрано — обновляем ссылку. */
     fun updateServicePhase(newPhase: ServicePhase) {
         viewModelScope.launch {
-            val settings = settingsUseCase.getUserSettingFlow().first()
-            val updatedList = settings.servicePhases.map {
-                if (it.id == newPhase.id) newPhase else it
+            settingsMutex.withLock {
+                val settings = settingsUseCase.getUserSettingFlow().first()
+                val updatedList = settings.servicePhases.map {
+                    if (it.id == newPhase.id) newPhase else it
+                }
+                settingsUseCase.saveSetting(settings.copy(servicePhases = updatedList)).first()
             }
-            settingsUseCase.saveSetting(settings.copy(servicePhases = updatedList)).first()
             sharedPreferenceStorage.setSettingsSyncPending(true)
             if (_uiState.value.selectedServicePhase?.id == newPhase.id) {
-                _uiState.update { it.copy(selectedServicePhase = newPhase) }
-                setDistance(newPhase.distance.toString())
+                _uiState.update { it.copy(selectedServicePhase = newPhase.forTrain()) }
+                setDistance(newPhase.distance.takeIf { it > 0 }?.toString() ?: "")
             }
         }
     }
@@ -888,6 +1255,37 @@ class TrainFormViewModel(
         }
     }
 
+    /**
+     * Событие кнопки «АВТО» (SCREEN_SPECS §6.2 п.6а), пока форма открыта: те же правила, что в БД,
+     * но применённые к состоянию формы. false — записывать нечего (форма ещё грузится / событие пропущено).
+     */
+    private suspend fun applyAutoEvent(event: com.z_company.domain.autorecord.StopEvent, name: String?): Boolean {
+        val train = currentTrain ?: return false
+        if (_uiState.value.stationsListState == null) return false
+        val snapshot = train.copy(
+            servicePhase = _uiState.value.selectedServicePhase,
+            stations = stationsListState.map { s ->
+                Station(
+                    stationId = s.id,
+                    trainId = train.trainId,
+                    stationName = s.station.data,
+                    timeArrival = s.arrival.data,
+                    timeDeparture = s.departure.data,
+                    trackNumber = s.trackNumber,
+                    isFinalStation = s.isFinalStation,
+                    isPassingStation = s.isPassingStation,
+                    segmentTrackNumber = s.segmentTrackNumber,
+                    segmentNotes = s.segmentNotes
+                )
+            }.toMutableList()
+        )
+        val updated = com.z_company.domain.autorecord.AutoTrainWriter.apply(snapshot, event, name) ?: return false
+        stationsListState.clear()
+        setStations(updated.stations)
+        changesHave()
+        return true
+    }
+
     private fun setStations(stations: MutableList<Station>) {
         stations.forEach { station ->
             stationsListState.addOrReplace(
@@ -951,6 +1349,8 @@ class TrainFormViewModel(
 
         for (i in endIdx downTo 0) {
             val station = stationsListState[i]
+            // Проходная станция (время проследования) в логике кнопки ▶ не участвует.
+            if (station.isPassingStation) continue
             if (station.departure.data != null) return Pair(i, StationDataType.DEPARTURE)
             if (station.arrival.data != null) return Pair(i, StationDataType.ARRIVAL)
         }
@@ -975,6 +1375,7 @@ class TrainFormViewModel(
         if (stationsListState.isEmpty()) {
             addingStation()
             setDepartureTime(0, now)
+            autoNameNewStation(stationsListState[0].id)
             return
         }
 
@@ -993,7 +1394,9 @@ class TrainFormViewModel(
             setDepartureTime(idx, now)
         } else {
             // Последнее заполненное — departure → arrival на следующей станции
-            val nextIdx = idx + 1
+            var nextIdx = idx + 1
+            // Проходные станции пропускаем: остановку записываем на следующую непроходную.
+            while (nextIdx <= stationsListState.lastIndex && stationsListState[nextIdx].isPassingStation) nextIdx++
             val isServicePhaseArrival = hasServicePhase && nextIdx == stationsListState.lastIndex
             if (nextIdx <= stationsListState.lastIndex && !isServicePhaseArrival) {
                 // Следующая станция уже существует и это не конечная станция плеча
@@ -1001,11 +1404,9 @@ class TrainFormViewModel(
             } else {
                 // Нужно добавить новую станцию (или nextIdx указывает на конечную станцию плеча)
                 addingStation() // с плечом вставит перед последней, без — в конец
-                if (hasServicePhase) {
-                    setArrivalTime(stationsListState.lastIndex - 1, now)
-                } else {
-                    setArrivalTime(stationsListState.lastIndex, now)
-                }
+                val newIdx = if (hasServicePhase) stationsListState.lastIndex - 1 else stationsListState.lastIndex
+                setArrivalTime(newIdx, now)
+                autoNameNewStation(stationsListState[newIdx].id)
             }
         }
     }
@@ -1025,7 +1426,13 @@ class TrainFormViewModel(
     }
 
     fun startAddingNewStation() {
-        _uiState.update { it.copy(editingStationIndex = -1) }
+        _uiState.update { it.copy(editingStationIndex = -1, suggestedNewStationName = null) }
+        refreshFix { fix ->
+            viewModelScope.launch {
+                val name = suggestStationName(stationsListState.map { it.station.data }, fix)
+                if (_uiState.value.editingStationIndex == -1) _uiState.update { it.copy(suggestedNewStationName = name) }
+            }
+        }
     }
 
     fun stopEditingStation() {
@@ -1264,6 +1671,18 @@ class TrainFormViewModel(
 
     private var mutableStationList = mutableStateListOf<String>()
 
+    // После объявления mutableStationList: корутина может выполниться сразу (Main.immediate), см. комментарий у userCountry.
+    init {
+        viewModelScope.launch {
+            suggestFix = DeviceLocation.currentFix(appContext, timeoutMs = 1_000)
+            if (suggestFix != null) {
+                val sorted = sortSuggestions(stationNameList.distinct())
+                mutableStationList.clear()
+                mutableStationList.addAll(sorted)
+            }
+        }
+    }
+
     var stationList: SnapshotStateList<String>
         get() {
             return mutableStationList
@@ -1283,14 +1702,17 @@ class TrainFormViewModel(
     fun onChangedDropDownContent(index: Int, value: String) {
         if (value.isEmpty()) {
             changeExpandedMenu(index, false)
-            mutableStationList.addAllOrSkip(stationNameList)
+            mutableStationList.clear()
+            mutableStationList.addAll(sortSuggestions(stationNameList.distinct()))
         } else {
             mutableStationList.clear()
             val newStationList =
-                stationNameList
-                    .filter { it.startsWith(prefix = value, ignoreCase = true) }
-                    .filterNot { it == value }
-                    .toMutableStateList()
+                sortSuggestions(
+                    stationNameList
+                        .filter { com.z_company.route.util.stationNameMatches(it, value) }
+                        .filterNot { it == value }
+                        .distinct()
+                ).toMutableStateList()
             newStationList.forEach { st ->
                 mutableStationList.add(st)
                 changeExpandedMenu(index, true)
@@ -1298,3 +1720,5 @@ class TrainFormViewModel(
         }
     }
 }
+
+private val ZERO = Regex("^0+([.,]0+)?$")

@@ -260,7 +260,8 @@ fun LocoDriverApp(
             ProfileRoute.route
         )
 
-        val showBottomBar = currentRoute in bottomBarRoutes
+        val showBottomBar = currentRoute in bottomBarRoutes &&
+            !com.z_company.route.navigation.NestedScreenBarState.hideBottomMenu
 
         // Системную нав-полосу оставляем в цвете surface и на FormRoute —
         // под белой контекстной панелью маршрута.

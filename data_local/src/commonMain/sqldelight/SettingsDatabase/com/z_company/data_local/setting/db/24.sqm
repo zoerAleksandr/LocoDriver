@@ -1,0 +1,9 @@
+-- Миграция 24: координаты и паспорт станции в справочнике (StationNorm).
+-- Плечи обслуживания берут координаты станций отсюда (связь по названию).
+ALTER TABLE StationNorm ADD COLUMN latitude REAL;
+ALTER TABLE StationNorm ADD COLUMN longitude REAL;
+ALTER TABLE StationNorm ADD COLUMN esr TEXT;
+ALTER TABLE StationNorm ADD COLUMN osmId INTEGER;
+ALTER TABLE StationNorm ADD COLUMN kind TEXT;
+ALTER TABLE StationNorm ADD COLUMN axisKm INTEGER;
+ALTER TABLE StationNorm ADD COLUMN axisPicket INTEGER;

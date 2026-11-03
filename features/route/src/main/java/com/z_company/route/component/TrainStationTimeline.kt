@@ -1,5 +1,16 @@
 package com.z_company.route.component
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.draw.shadow
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
@@ -172,6 +183,8 @@ fun TrainStationTimeline(
     onSegmentClick: ((Int) -> Unit)? = null,
     onMoveUp: ((Int) -> Unit)? = null,
     onMoveDown: ((Int) -> Unit)? = null,
+    /** Перестановка перетаскиванием (индексы отображаемого списка); null — стрелки ↑/↓. */
+    onReorder: ((from: Int, to: Int) -> Unit)? = null,
     onDismissReorder: (() -> Unit)? = null,
     onStationSwipeDelete: ((Int) -> Unit)? = null,
     closeSwipeSignal: Int = 0,
@@ -263,99 +276,164 @@ fun TrainStationTimeline(
             )
         }
 
-        stations.forEachIndexed { index, station ->
-            val isFirst = index == 0
-            val isLast = index == stations.lastIndex
-            val isReordering = reorderingStationId == station.id
+        // Долгое нажатие в любом месте станции сразу начинает перетаскивание (без отдельного
+        // режима): станция едет вместе с перегоном под ней, после отпускания перегоны
+        // пересчитываются по новому порядку. Тап — шторка станции, свайп влево — удаление.
+        val longPress = if (onReorder != null) null else onStationLongPress
+        // Порядок на время перетаскивания (id станций); вне жеста — порядок из [stations].
+        var dragOrder by remember { mutableStateOf<List<String>?>(null) }
+        var draggingId by remember { mutableStateOf<String?>(null) }
+        var dragOffset by remember { mutableStateOf(0f) }
+        val heights = remember { mutableMapOf<String, Int>() }
+        val byId = stations.associateBy { it.id }
+        val shown = dragOrder?.mapNotNull { byId[it] }?.takeIf { it.size == stations.size } ?: stations
+        val currentStations by rememberUpdatedState(stations)
+        val currentOnReorder by rememberUpdatedState(onReorder)
+        val haptic = LocalHapticFeedback.current
 
+        fun finishDrag() {
+            val id = draggingId
+            val order = dragOrder
+            if (id != null && order != null) {
+                val from = currentStations.indexOfFirst { it.id == id }
+                val to = order.indexOf(id)
+                if (from >= 0 && to >= 0 && from != to) currentOnReorder?.invoke(from, to)
+            }
+            draggingId = null
+            dragOrder = null
+            dragOffset = 0f
+        }
+
+        shown.forEachIndexed { index, station ->
+            val isDragging = draggingId == station.id
             key(station.id) {
-                // ── Строка станции (со свайпом или без) ──
-                // swipeOwnsClicks=true — клик/долгое нажатие обрабатывает SwipeToRevealDelete
-                // (в одном жесте со свайпом), поэтому у самой строки clickable отключён.
-                val stationRowContent = @Composable { swipeOwnsClicks: Boolean, revealed: Boolean ->
-                    AnimatedVisibility(
-                        visible = true,
-                        enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically()
+                Box(
+                    modifier = Modifier
+                        .zIndex(if (isDragging) 1f else 0f)
+                        .onSizeChanged { heights[station.id] = it.height }
+                        .graphicsLayer { if (isDragging) translationY = dragOffset }
+                        .then(
+                            if (isDragging) Modifier
+                                .shadow(8.dp, RoundedCornerShape(12.dp))
+                                .background(rowBg, RoundedCornerShape(12.dp))
+                            else Modifier
+                        )
+                ) {
+                    Column(
+                        modifier = if (onReorder == null) Modifier else Modifier.pointerInput(station.id) {
+                            detectReorderDrag(
+                                onStart = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    draggingId = station.id
+                                    dragOrder = currentStations.map { it.id }
+                                    dragOffset = 0f
+                                },
+                                onDrag = { _, delta ->
+                                    val order = dragOrder?.toMutableList() ?: return@detectReorderDrag
+                                    // Сосед меняется местами, когда строка заходит на половину его высоты.
+                                    dragOffset = reorderStep(order, station.id, dragOffset + delta.y, heights)
+                                    dragOrder = order
+                                },
+                                onEnd = { finishDrag() },
+                            )
+                        },
                     ) {
-                        StationRow(
-                            item = station,
-                            index = index,
-                            isFirst = isFirst,
-                            isLast = isLast,
-                            colors = colors,
-                            trainNumber = trainNumber,
-                            isAnyReordering = isAnyReordering,
-                            isReordering = isReordering,
-                            onStationClick = if (swipeOwnsClicks) null else onStationClick,
-                            onStationLongPress = if (swipeOwnsClicks) null else onStationLongPress,
-                            onMoveUp = if (!isFirst) onMoveUp else null,
-                            onMoveDown = if (!isLast) onMoveDown else null,
-                            rowBackgroundColor = rowBg,
-                            revealed = revealed,
-                        )
-                    }
-                }
+                        val isFirst = index == 0
+                        val isLast = index == stations.lastIndex
+                        val isReordering = reorderingStationId == station.id
 
-                if (onStationSwipeDelete != null && !isAnyReordering) {
-                    val currentIndex by rememberUpdatedState(index)
-                    // Свайп влево раскрывает кнопку «Удалить» (как у секций локомотива) —
-                    // строка не удаляется сразу, подтверждение показывается через UI state.
-                    SwipeToRevealDelete(
-                        modifier = Modifier.fillMaxWidth(),
-                        onDeleteClick = { onStationSwipeDelete.invoke(currentIndex) },
-                        closeSignal = closeSwipeSignal,
-                        compact = true,
-                        onContentClick = { onStationClick?.invoke(currentIndex) },
-                        onContentLongClick = { onStationLongPress?.invoke(currentIndex) },
-                    ) { revealed ->
-                        stationRowContent(true, revealed)
-                    }
-                } else {
-                    stationRowContent(false, false)
-                }
+                        key(station.id) {
+                            // ── Строка станции (со свайпом или без) ──
+                            // swipeOwnsClicks=true — клик/долгое нажатие обрабатывает SwipeToRevealDelete
+                            // (в одном жесте со свайпом), поэтому у самой строки clickable отключён.
+                            val stationRowContent = @Composable { swipeOwnsClicks: Boolean, revealed: Boolean ->
+                                AnimatedVisibility(
+                                    visible = true,
+                                    enter = fadeIn() + expandVertically(),
+                                    exit = fadeOut() + shrinkVertically()
+                                ) {
+                                    StationRow(
+                                        item = station,
+                                        index = index,
+                                        isFirst = isFirst,
+                                        isLast = isLast,
+                                        colors = colors,
+                                        trainNumber = trainNumber,
+                                        isAnyReordering = isAnyReordering,
+                                        isReordering = isReordering,
+                                        onStationClick = if (swipeOwnsClicks) null else onStationClick,
+                                        onStationLongPress = if (swipeOwnsClicks) null else longPress,
+                                        onMoveUp = if (!isFirst) onMoveUp else null,
+                                        onMoveDown = if (!isLast) onMoveDown else null,
+                                        rowBackgroundColor = rowBg,
+                                        revealed = revealed,
+                                    )
+                                }
+                            }
 
-                // ── Перегон между станциями ──
-                // Если промежуток помечен «будущим» — вторая граница неизвестна,
-                // рисуем пунктирный блок вместо обычного. Открывается он так же:
-                // название, введённое в поле «До», и создаёт вторую станцию.
-                if (showSegments) {
-                    val isFuture = index == futureSegmentAfterIndex
-                    if (isFuture) {
-                        val futureData = stations.getOrNull(index + 1)
-                        SegmentCard(
-                            segment = null,
-                            segmentTrackNumber = futureData?.segmentTrackNumber,
-                            segmentNotes = futureData?.segmentNotes,
-                            colors = colors,
-                            isAnyReordering = isAnyReordering,
-                            isFuture = true,
-                            onClick = onSegmentClick?.let { callback -> { callback(index) } },
-                        )
-                    } else if (!isLast) {
-                        val nextStation = stations[index + 1]
-                        SegmentCard(
-                            segment = calculateSegment(station, nextStation),
-                            segmentTrackNumber = nextStation.segmentTrackNumber,
-                            segmentNotes = nextStation.segmentNotes,
-                            colors = colors,
-                            isAnyReordering = isAnyReordering,
-                            onClick = if (onSegmentClick != null) {
-                                { onSegmentClick(index) }
-                            } else null,
-                        )
+                            if (onStationSwipeDelete != null && !isAnyReordering) {
+                                val currentIndex by rememberUpdatedState(index)
+                                // Свайп влево раскрывает кнопку «Удалить» (как у секций локомотива) —
+                                // строка не удаляется сразу, подтверждение показывается через UI state.
+                                SwipeToRevealDelete(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    onDeleteClick = { onStationSwipeDelete.invoke(currentIndex) },
+                                    closeSignal = closeSwipeSignal,
+                                    compact = true,
+                                    onContentClick = { onStationClick?.invoke(currentIndex) },
+                                    onContentLongClick = longPress?.let { lp -> { lp(currentIndex) } },
+                                ) { revealed ->
+                                    stationRowContent(true, revealed)
+                                }
+                            } else {
+                                stationRowContent(false, false)
+                            }
+
+                            // ── Перегон между станциями ──
+                            // Если промежуток помечен «будущим» — вторая граница неизвестна,
+                            // рисуем пунктирный блок вместо обычного. Открывается он так же:
+                            // название, введённое в поле «До», и создаёт вторую станцию.
+                            if (showSegments) {
+                                val isFuture = index == futureSegmentAfterIndex
+                                if (isFuture) {
+                                    val futureData = stations.getOrNull(index + 1)
+                                    SegmentCard(
+                                        segment = null,
+                                        segmentTrackNumber = futureData?.segmentTrackNumber,
+                                        segmentNotes = futureData?.segmentNotes,
+                                        colors = colors,
+                                        isAnyReordering = isAnyReordering,
+                                        isFuture = true,
+                                        onClick = onSegmentClick?.let { callback -> { callback(index) } },
+                                    )
+                                } else if (!isLast) {
+                                    val nextStation = stations[index + 1]
+                                    SegmentCard(
+                                        segment = calculateSegment(station, nextStation),
+                                        segmentTrackNumber = nextStation.segmentTrackNumber,
+                                        segmentNotes = nextStation.segmentNotes,
+                                        colors = colors,
+                                        isAnyReordering = isAnyReordering,
+                                        onClick = if (onSegmentClick != null) {
+                                            { onSegmentClick(index) }
+                                        } else null,
+                                    )
+                                }
+                            } else if (!isLast) {
+                                // Карточки перегонов скрыты, но время в пути между станциями
+                                // остаётся: это не «данные перегона», а сам ход поездки.
+                                SegmentTimeRow(
+                                    segment = calculateSegment(station, stations[index + 1]),
+                                    colors = colors,
+                                    isAnyReordering = isAnyReordering,
+                                    onClick = if (onSegmentClick != null) {
+                                        { onSegmentClick(index) }
+                                    } else null,
+                                )
+                            }
+                        }
+            
                     }
-                } else if (!isLast) {
-                    // Карточки перегонов скрыты, но время в пути между станциями
-                    // остаётся: это не «данные перегона», а сам ход поездки.
-                    SegmentTimeRow(
-                        segment = calculateSegment(station, stations[index + 1]),
-                        colors = colors,
-                        isAnyReordering = isAnyReordering,
-                        onClick = if (onSegmentClick != null) {
-                            { onSegmentClick(index) }
-                        } else null,
-                    )
                 }
             }
         }
@@ -442,6 +520,11 @@ private fun StationRow(
     onMoveDown: ((Int) -> Unit)?,
     rowBackgroundColor: Color = Color.Unspecified,
     revealed: Boolean = false,
+    /** Ручка перетаскивания (режим перестановки) — вместо стрелок. */
+    dragHandle: (@Composable () -> Unit)? = null,
+    /** Строку тянут — приподнять. */
+    lifted: Boolean = false,
+    rowModifier: Modifier = Modifier,
 ) {
     // У конечной станции стоянка не имеет смысла: маршрут закончился.
     val stopInfo = if (item.isFinalStation) null else calculateStop(item)
@@ -461,9 +544,10 @@ private fun StationRow(
     val rowColor by animateColorAsState(targetValue = targetRowColor, label = "rowBg")
 
     Row(
-        modifier = Modifier
+        modifier = rowModifier
             .fillMaxWidth()
-            .background(rowColor),
+            .then(if (lifted) Modifier.shadow(8.dp, RoundedCornerShape(12.dp)) else Modifier)
+            .background(rowColor, if (lifted) RoundedCornerShape(12.dp) else RectangleShape),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // ── Область стрелок (видна когда любая станция в режиме reorder) ──
@@ -476,7 +560,9 @@ private fun StationRow(
                 modifier = Modifier.width(48.dp),
                 contentAlignment = Alignment.Center
             ) {
-                if (isReordering) {
+                if (dragHandle != null) {
+                    dragHandle()
+                } else if (isReordering) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
@@ -556,6 +642,8 @@ private fun StationRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 val subtitle = when {
+                    item.isPassingStation && !item.trackNumber.isNullOrBlank() ->
+                        "проходная · путь ${item.trackNumber}"
                     item.isPassingStation -> "проходная"
                     !item.trackNumber.isNullOrBlank() -> "путь ${item.trackNumber}"
                     else -> null
@@ -1228,3 +1316,4 @@ fun computeRouteSummary(
         technicalSpeed = technicalSpeed,
     )
 }
+

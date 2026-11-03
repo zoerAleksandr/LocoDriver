@@ -5,10 +5,13 @@ package com.z_company.repository.remote_rest
 import com.z_company.core.ErrorEntity
 import com.z_company.core.ResultState
 import com.z_company.core.sendToSentry
+import com.z_company.domain.brake.LocoSeriesDefaults
 import com.z_company.domain.repositories.LocomotiveSeriesRepository
 import com.z_company.domain.repositories.PartnerRepository
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.repositories.StationNormRepository
+import com.z_company.domain.util.LocomotiveSeriesMerge
+import com.z_company.domain.util.StationNormMerge
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.ProductionCalendarUseCase
 import com.z_company.domain.use_cases.ReleaseDayUseCase
@@ -95,9 +98,23 @@ class SyncManager(
     private val remoteRestApi: RemoteRestApi,
     private val clientPlatform: String? = null,
     private val clientVersion: String? = null,
+    /** Справки ВУ-45: слияние (LWW) справок, пришедших вместе с рейсом. */
+    private val brakeCertificates: com.z_company.domain.brake.storage.BrakeCertificateUseCase? = null,
+    /** Профили участков для «Профиля пути» (Android): обновляются в общей синхронизации; null - не используются (iOS). */
+    private val sectionProfiles: com.z_company.repository.remote_rest.tracks.SectionProfileRepository? = null,
 ) {
 
     private val syncMutex = Mutex()
+
+    /**
+     * Принять профиль с сервера. Сервер не хранит [WorkScheduleProfile.customDays] —
+     * локальную норму по датам сохраняем, иначе любая синхронизация стирала бы календарь нормы.
+     */
+    private fun adoptRemoteWorkSchedule(profile: com.z_company.domain.entities.WorkScheduleProfile) {
+        sharedPrefs.setWorkScheduleProfile(
+            profile.copy(customDays = sharedPrefs.getWorkScheduleProfile().customDays)
+        )
+    }
 
     /** LWW-синхронизация отдельного персонального профиля рабочей недели. */
     private suspend fun syncWorkScheduleProfile(bearerToken: String): Boolean {
@@ -107,15 +124,15 @@ class SyncManager(
         val local = sharedPrefs.getWorkScheduleProfile()
 
         if (local.updatedAt > remote.updatedAt ||
-            (local.updatedAt == remote.updatedAt && local != remote && local.mode != com.z_company.domain.entities.WorkScheduleMode.STANDARD)
+            (local.updatedAt == remote.updatedAt && local.withoutCustomDays() != remote && local.mode != com.z_company.domain.entities.WorkScheduleMode.STANDARD)
         ) {
             val saved = (settingManager.saveWorkScheduleProfileInRemote(local, bearerToken)
                 .first { it is ResultState.Success || it is ResultState.Error } as? ResultState.Success)
                 ?.data ?: return false
             // Сервер может сохранить более свежую версию другого устройства.
-            if (saved.updatedAt >= local.updatedAt) sharedPrefs.setWorkScheduleProfile(saved)
+            if (saved.updatedAt >= local.updatedAt) adoptRemoteWorkSchedule(saved)
         } else if (remote.updatedAt >= local.updatedAt) {
-            sharedPrefs.setWorkScheduleProfile(remote)
+            adoptRemoteWorkSchedule(remote)
         }
         return true
     }
@@ -266,21 +283,10 @@ class SyncManager(
         // 3.1. Индивидуальный график — отдельный LWW-ресурс, не часть UserSettings.
         syncWorkScheduleProfile(bearerToken)
 
-        // 3.5. Синхронизация норм времени (серии локомотивов и станции).
-        // Full replace: если есть локальные данные — POST на сервер.
-        // Если локальных нет — пропускаем (данные придут в syncFromRemote).
-        val localLocoSeries = locomotiveSeriesRepository.getAll()
-        if (localLocoSeries.isNotEmpty()) {
-            settingManager.saveNormaTimeLocomotivesInRemote(localLocoSeries, bearerToken)
-                .catch { /* Не прерываем основную синхронизацию */ }
-                .collect {}
-        }
-        val localStationNorms = stationNormRepository.getAll()
-        if (localStationNorms.isNotEmpty()) {
-            settingManager.saveNormaTimeStationsInRemote(localStationNorms, bearerToken)
-                .catch { /* Не прерываем основную синхронизацию */ }
-                .collect {}
-        }
+        // 3.5. Синхронизация норм времени (серии локомотивов и станции): слияние с сервером.
+        syncLocomotiveSeries(bearerToken)
+        // Станции — слияние с сервером (LWW по станции + надгробия удалённых), не full-replace.
+        syncStationNorms(bearerToken)
 
         // 3.6. Синхронизация справочника напарников (full replace).
         val localPartners = partnerRepository.getAll()
@@ -468,29 +474,10 @@ class SyncManager(
                 }
             }
 
-        // 1.5. Загрузка норм времени (только если нет локальных данных).
-        // Full replace: если локально пусто — GET с сервера и сохранить.
-        // Если локальные данные уже есть — они были загружены туда через syncToRemote.
-        val localSeriesForDownload = locomotiveSeriesRepository.getAll()
-        if (localSeriesForDownload.isEmpty()) {
-            settingManager.getNormaTimeLocomotivesFromRemote(bearerToken)
-                .catch { /* Не прерываем основную синхронизацию */ }
-                .collect { loadState ->
-                    if (loadState is ResultState.Success && loadState.data.isNotEmpty()) {
-                        locomotiveSeriesRepository.replaceAll(loadState.data).collect {}
-                    }
-                }
-        }
-        val localStationsForDownload = stationNormRepository.getAll()
-        if (localStationsForDownload.isEmpty()) {
-            settingManager.getNormaTimeStationsFromRemote(bearerToken)
-                .catch { /* Не прерываем основную синхронизацию */ }
-                .collect { loadState ->
-                    if (loadState is ResultState.Success && loadState.data.isNotEmpty()) {
-                        stationNormRepository.replaceAll(loadState.data).collect {}
-                    }
-                }
-        }
+        // 1.5. Нормы времени: слияние с сервером (серии и станции).
+        syncLocomotiveSeries(bearerToken)
+        syncStationNorms(bearerToken)
+        syncSectionProfiles()
         // Справочник напарников: если локально пусто — GET с сервера и сохранить.
         val localPartnersForDownload = partnerRepository.getAll()
         if (localPartnersForDownload.isEmpty()) {
@@ -673,7 +660,11 @@ class SyncManager(
                             routeUseCase.saveRouteAfterLoading(r)
                                 .collect { saveResult ->
                                     when (saveResult) {
-                                        is ResultState.Success -> { savedCount++ }
+                                        is ResultState.Success -> {
+                                            savedCount++
+                                            pruneRemoteDeletedCertificates(route, localRoutesById[route.basicData.id])
+                                            runCatching { brakeCertificates?.mergeRemote(route.basicData.id, route.brakeCertificates) }
+                                        }
                                         is ResultState.Error -> {
                                             emit(ResultState.Error(ErrorEntity(message = "Ошибка сохранения маршрута локально: ${saveResult.entity.message ?: NetworkErrorMapper.humanMessage(saveResult.entity.throwable)}")))
                                             return@collect
@@ -917,30 +908,14 @@ class SyncManager(
                 }
             }
 
-        // 1.5 Нормы времени и напарники (full-replace; merge не поддерживается контрактом).
-        // Напарники: при локальном изменении сервер получает полный список (включая
+        // 1.5 Серии и станции — слияние с сервером при каждой синхронизации (не только при
+        // pending). Напарники: при локальном изменении сервер получает полный список (включая
         // пустой — это удаление всех записей). На остальных устройствах серверный
         // список всегда заменяет локальный, даже если локальный справочник не пуст.
-        val localLocoSeries = locomotiveSeriesRepository.getAll()
-        if (settingsPending && localLocoSeries.isNotEmpty()) {
-            settingManager.saveNormaTimeLocomotivesInRemote(localLocoSeries, bearerToken)
-                .catch { settingsUploadSucceeded = false }
-                .collect { if (it is ResultState.Error) settingsUploadSucceeded = false }
-        } else if (localLocoSeries.isEmpty()) {
-            settingManager.getNormaTimeLocomotivesFromRemote(bearerToken).catch { }.collect { s ->
-                if (s is ResultState.Success && s.data.isNotEmpty()) locomotiveSeriesRepository.replaceAll(s.data).collect {}
-            }
-        }
-        val localStationNorms = stationNormRepository.getAll()
-        if (settingsPending && localStationNorms.isNotEmpty()) {
-            settingManager.saveNormaTimeStationsInRemote(localStationNorms, bearerToken)
-                .catch { settingsUploadSucceeded = false }
-                .collect { if (it is ResultState.Error) settingsUploadSucceeded = false }
-        } else if (localStationNorms.isEmpty()) {
-            settingManager.getNormaTimeStationsFromRemote(bearerToken).catch { }.collect { s ->
-                if (s is ResultState.Success && s.data.isNotEmpty()) stationNormRepository.replaceAll(s.data).collect {}
-            }
-        }
+        if (!syncLocomotiveSeries(bearerToken)) settingsUploadSucceeded = false
+        // Станции сливаются с сервером при каждой синхронизации (не только при pending).
+        if (!syncStationNorms(bearerToken)) settingsUploadSucceeded = false
+        syncSectionProfiles()
         val localPartners = partnerRepository.getAll()
         if (settingsPending) {
             settingManager.savePartnersInRemote(localPartners, bearerToken)
@@ -1205,6 +1180,147 @@ class SyncManager(
      * специально не реагирует на удаление 1 маршрута с другого устройства — это
      * нормальный частый сценарий, спрашивать подтверждение на него было бы шумно.
      */
+    /**
+     * Справочник станций: слияние с сервером. Скачивает станции и надгробия, сливает с
+     * локальными по каждой станции (кто новее — тот и прав, удаление — тоже запись), пишет
+     * результат локально и отправляет, если сервер отстаёт. Пустой список не отправляется
+     * (сервер принял бы его за full-replace старого клиента). Возвращает false, если сеть
+     * не отдала справочник или отправка не удалась; тогда локальное не меняем.
+     */
+    /**
+     * Профили участков советника (общие данные): подтянуть изменения автора по `updatedAt`. Необязательный шаг:
+     * сбой или отсутствие сети синхронизацию не ломают и пользователю не показываются.
+     */
+    private suspend fun syncSectionProfiles() {
+        val repo = sectionProfiles ?: return
+        try {
+            repo.syncAll()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            println("SyncManager: syncSectionProfiles skipped: ${e::class.simpleName}")
+        }
+    }
+
+    private suspend fun syncStationNorms(bearerToken: String): Boolean = try {
+        syncStationNormsUnsafe(bearerToken)
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        // Локальная схема справочника станций может быть повреждена («no such table/column»):
+        // это не должно ломать всю синхронизацию и показываться пользователю. Только тип ошибки.
+        println("SyncManager: syncStationNorms skipped: ${e::class.simpleName}")
+        false
+    }
+
+    private suspend fun syncStationNormsUnsafe(bearerToken: String): Boolean {
+        var remote: StationSnapshot? = null
+        settingManager.getNormaTimeStationsFromRemote(bearerToken)
+            .catch { }
+            .collect { if (it is ResultState.Success) remote = it.data }
+        val server = remote ?: return false
+
+        val localStations = stationNormRepository.getAll()
+        val staleBefore = Clock.System.now().toEpochMilliseconds() - STATION_TOMBSTONE_TTL_MS
+        val localTombstones = stationNormRepository.getTombstones().filter { it.deletedAt >= staleBefore }
+        val merged = StationNormMerge.merge(localStations, localTombstones, server.stations, server.tombstones)
+
+        if (merged.stations.toSet() != localStations.toSet() ||
+            merged.tombstones.toSet() != stationNormRepository.getTombstones().toSet()
+        ) {
+            stationNormRepository.applySync(merged.stations, merged.tombstones).collect {}
+        }
+        redirectStationReferences(StationNormMerge.redirects(merged.stations, merged.tombstones))
+
+        val serverBehind = merged.stations.toSet() != server.stations.toSet() ||
+            merged.tombstones.toSet() != server.tombstones.toSet()
+        if (!serverBehind || (merged.stations.isEmpty() && merged.tombstones.isEmpty())) return true
+
+        var ok = true
+        settingManager.saveNormaTimeStationsInRemote(merged.stations, merged.tombstones, bearerToken)
+            .catch { ok = false }
+            .collect { if (it is ResultState.Error) ok = false }
+        return ok
+    }
+
+    /**
+     * После схлопывания дублей станций (см. [StationNormMerge]) маршруты могут ссылаться на
+     * удалённый дубль — перенаправляем ссылки приёмки/сдачи на оставшуюся станцию с тем же
+     * названием. Сохранение помечает маршрут несинхронизированным, и правка уходит на сервер.
+     */
+    private suspend fun redirectStationReferences(redirects: Map<String, String>) {
+        if (redirects.isEmpty()) return
+        routeUseCase.getListRoutes().forEach { route ->
+            val touched = route.locomotives.any {
+                it.acceptanceStationId in redirects || it.deliveryStationId in redirects
+            }
+            if (!touched) return@forEach
+            val updated = route.copy(
+                locomotives = route.locomotives.map {
+                    it.copy(
+                        acceptanceStationId = it.acceptanceStationId?.let { id -> redirects[id] ?: id },
+                        deliveryStationId = it.deliveryStationId?.let { id -> redirects[id] ?: id },
+                    )
+                }.toMutableList()
+            )
+            routeUseCase.saveRoute(updated).collect {}
+        }
+    }
+
+    /** Справочник серий локомотивов: слияние с сервером, как у станций ([syncStationNorms]). */
+    private suspend fun syncLocomotiveSeries(bearerToken: String): Boolean = try {
+        syncLocomotiveSeriesUnsafe(bearerToken)
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        // Локальная схема справочника серий может быть повреждена («no such table/column»):
+        // это не должно ломать всю синхронизацию и показываться пользователю. Только тип ошибки.
+        println("SyncManager: syncLocomotiveSeries skipped: ${e::class.simpleName}")
+        false
+    }
+
+    private suspend fun syncLocomotiveSeriesUnsafe(bearerToken: String): Boolean {
+        var remote: SeriesSnapshot? = null
+        settingManager.getNormaTimeLocomotivesFromRemote(bearerToken)
+            .catch { }
+            .collect { if (it is ResultState.Success) remote = it.data }
+        val server = remote ?: return false
+
+        // Паспортные поля (объём ГР, оси, нажатие, вес, секции): серии после миграции БД и серии от старых клиентов
+        // заполняются значениями по умолчанию до слияния, чтобы значения ушли на сервер с новым updatedAt.
+        locomotiveSeriesRepository.prefillBrakeDefaults()
+        val localSeries = locomotiveSeriesRepository.getAll()
+        val staleBefore = Clock.System.now().toEpochMilliseconds() - STATION_TOMBSTONE_TTL_MS
+        val allLocalTombstones = locomotiveSeriesRepository.getTombstones()
+        val mergedRaw = LocomotiveSeriesMerge.merge(
+            localSeries,
+            allLocalTombstones.filter { it.deletedAt >= staleBefore },
+            server.series,
+            server.tombstones,
+        )
+        // Серии от старых клиентов, которых у нас ещё не было, тоже получают значения по умолчанию.
+        val nowMs = Clock.System.now().toEpochMilliseconds()
+        val merged = mergedRaw.copy(
+            series = mergedRaw.series.map {
+                if (LocoSeriesDefaults.needsDefaults(it)) with(LocoSeriesDefaults) { it.withDefaults() }.copy(updatedAt = nowMs) else it
+            }
+        )
+
+        if (merged.series.toSet() != localSeries.toSet() || merged.tombstones.toSet() != allLocalTombstones.toSet()) {
+            locomotiveSeriesRepository.applySync(merged.series, merged.tombstones).collect {}
+        }
+
+        val serverBehind = merged.series.toSet() != server.series.toSet() ||
+            merged.tombstones.toSet() != server.tombstones.toSet()
+        if (!serverBehind || (merged.series.isEmpty() && merged.tombstones.isEmpty())) return true
+
+        var ok = true
+        settingManager.saveNormaTimeLocomotivesInRemote(merged.series, merged.tombstones, bearerToken)
+            .catch { ok = false }
+            .collect { if (it is ResultState.Error) ok = false }
+        return ok
+    }
+
     private fun isSignificantRouteDeletion(deletionCount: Int, totalSyncedLocal: Int): Boolean {
         if (deletionCount >= SIGNIFICANT_DELETION_MIN_COUNT) return true
         if (deletionCount < 2) return false
@@ -1235,6 +1351,15 @@ class SyncManager(
     }.flowOn(Dispatchers.Default)
 
     /**
+     * Справки ВУ-45, удалённые на другом устройстве: сервер прислал их список без локальной справки. Применяется только к рейсу,
+     * чистому локально (иначе справка могла быть создана здесь и ещё не отправлена), и только к справкам не новее копии рейса.
+     */
+    private fun pruneRemoteDeletedCertificates(server: Route, local: Route?) {
+        if (!RemoteFeatureFlags.remoteCertificatesEnabled || local == null || !local.basicData.isSynchronized) return
+        runCatching { brakeCertificates?.pruneDeletedRemotely(server.basicData.id, server.brakeCertificates, local.basicData.updatedAt) }
+    }
+
+    /**
      * Сохранить маршрут, пришедший с сервера (пометив синхронизированным).
      * @return true — сохранён. Неудача запрещает двигать курсор дельты: иначе
      *   изменение числилось бы полученным, а на устройстве его нет.
@@ -1252,6 +1377,10 @@ class SyncManager(
         )
         var saved = true
         routeUseCase.saveRouteAfterLoading(r).collect { if (it is ResultState.Error) saved = false }
+        if (saved) {
+            pruneRemoteDeletedCertificates(server, local)
+            runCatching { brakeCertificates?.mergeRemote(server.basicData.id, server.brakeCertificates) }
+        }
         return saved
     }
 
@@ -1378,23 +1507,13 @@ class SyncManager(
             .catch { allOk = false }
             .collect { state ->
                 if (state is ResultState.Success && state.data.updatedAt >= localWorkSchedule.updatedAt) {
-                    sharedPrefs.setWorkScheduleProfile(state.data)
+                    adoptRemoteWorkSchedule(state.data)
                 }
                 if (state is ResultState.Error) allOk = false
             }
 
-        val localLocoSeries = locomotiveSeriesRepository.getAll()
-        if (localLocoSeries.isNotEmpty()) {
-            settingManager.saveNormaTimeLocomotivesInRemote(localLocoSeries, bearerToken)
-                .catch { allOk = false }
-                .collect { if (it is ResultState.Error) allOk = false }
-        }
-        val localStationNorms = stationNormRepository.getAll()
-        if (localStationNorms.isNotEmpty()) {
-            settingManager.saveNormaTimeStationsInRemote(localStationNorms, bearerToken)
-                .catch { allOk = false }
-                .collect { if (it is ResultState.Error) allOk = false }
-        }
+        if (!syncLocomotiveSeries(bearerToken)) allOk = false
+        if (!syncStationNorms(bearerToken)) allOk = false
         val localPartners = partnerRepository.getAll()
         if (localPartners.isNotEmpty()) {
             settingManager.savePartnersInRemote(localPartners, bearerToken)
@@ -1504,18 +1623,8 @@ class SyncManager(
         syncWorkScheduleProfile(bearerToken)
 
         // 3.5. Синхронизация норм времени (серии локомотивов и станции).
-        val localLocoSeriesFirst = locomotiveSeriesRepository.getAll()
-        if (localLocoSeriesFirst.isNotEmpty()) {
-            settingManager.saveNormaTimeLocomotivesInRemote(localLocoSeriesFirst, bearerToken)
-                .catch { /* Не прерываем основную синхронизацию */ }
-                .collect {}
-        }
-        val localStationNormsFirst = stationNormRepository.getAll()
-        if (localStationNormsFirst.isNotEmpty()) {
-            settingManager.saveNormaTimeStationsInRemote(localStationNormsFirst, bearerToken)
-                .catch { /* Не прерываем основную синхронизацию */ }
-                .collect {}
-        }
+        syncLocomotiveSeries(bearerToken)
+        syncStationNorms(bearerToken)
         val localPartnersFirst = partnerRepository.getAll()
         if (localPartnersFirst.isNotEmpty()) {
             settingManager.savePartnersInRemote(localPartnersFirst, bearerToken)
@@ -1574,6 +1683,9 @@ class SyncManager(
     }.flowOn(Dispatchers.Default).abortOnSessionExpired().withSyncDeadline()
 
     companion object {
+        /** Как на сервере: надгробия старше полугода вычищаются. */
+        private const val STATION_TOMBSTONE_TTL_MS = 180L * 24 * 3600 * 1000
+
         /** Даём экрану завершить первый кадр и локальные расчёты до тихой синхронизации. */
         const val SUBSCRIPTION_REQUIRED_MESSAGE = "Синхронизация доступна по подписке"
         const val BACKGROUND_SYNC_START_DELAY_MILLIS: Long = 1_500L

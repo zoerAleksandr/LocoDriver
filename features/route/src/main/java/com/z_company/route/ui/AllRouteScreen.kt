@@ -273,6 +273,22 @@ fun AllRouteScreen(
                     )
                 },
                 actions = {
+                    // Красный индикатор: фоновая синхронизация не достучалась до сервера.
+                    if (state.isOffline) {
+                        IconButton(onClick = {
+                            coroutineScope.launch {
+                                snackbarHostState.currentSnackbarData?.dismiss()
+                                snackbarHostState.showSnackbar("Нет связи с сервером")
+                            }
+                        }) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_offline_24px),
+                                contentDescription = "Нет связи с сервером",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
                     // Вход/выход из режима множественного выбора.
                     TextButton(
                         onClick = {
@@ -288,9 +304,6 @@ fun AllRouteScreen(
                     }
                 },
                 )
-                if (state.isBackgroundSyncing) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
             }
         },
     ) { padding ->
@@ -519,6 +532,9 @@ fun AllRouteScreen(
                         )
                     }
                 },
+                contentAfterHeader = com.z_company.route.component.rememberTrackDeleteNote(
+                    routeForRemove?.trains?.map { it.trainId }.orEmpty()
+                ),
                 actions = listOf(
                     BottomSheetAction(text = "Да, удалить") {
                         routeForRemove?.let {
@@ -557,6 +573,11 @@ fun AllRouteScreen(
                         )
                     }
                 },
+                contentAfterHeader = com.z_company.route.component.rememberTrackDeleteNote(
+                    state.routes
+                        .filter { state.selectedRouteIds.contains(it.route.basicData.id) }
+                        .flatMap { item -> item.route.trains.map { it.trainId } }
+                ),
                 actions = listOf(
                     BottomSheetAction(text = "Да, удалить") {
                         viewModel.deleteSelectedRoutes()
@@ -1130,49 +1151,33 @@ private fun SelectionBottomAppBar(
     modifier: Modifier = Modifier,
 ) {
     val disabledTint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
-    Column(modifier = modifier.fillMaxWidth()) {
-        HorizontalDivider(
-            thickness = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
-                .navigationBarsPadding()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onFavoriteClick, enabled = isEnabled) {
-                Icon(
-                    painter = painterResource(
-                        if (isAllFavorite) R.drawable.favorite_fill_24px
-                        else R.drawable.favorite_24px
-                    ),
-                    contentDescription = if (isAllFavorite) "Убрать из избранного"
-                    else "В избранное",
-                    tint = when {
-                        !isEnabled -> disabledTint
-                        isAllFavorite -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.primary
-                    }
-                )
-            }
-            IconButton(onClick = onShareClick, enabled = isEnabled) {
-                Icon(
-                    painter = painterResource(R.drawable.share_24px),
-                    contentDescription = "Поделиться",
-                    tint = if (isEnabled) MaterialTheme.colorScheme.primary else disabledTint
-                )
-            }
-            Spacer(modifier = Modifier.weight(1f))
-            IconButton(onClick = onDeleteClick, enabled = isEnabled) {
-                Icon(
-                    painter = painterResource(R.drawable.delete_24px),
-                    contentDescription = "Удалить выбранные маршруты",
-                    tint = if (isEnabled) MaterialTheme.colorScheme.error else disabledTint
-                )
-            }
+    com.z_company.route.component.SelectionBottomBar(
+        isEnabled = isEnabled,
+        onDeleteClick = onDeleteClick,
+        deleteContentDescription = "Удалить выбранные маршруты",
+        modifier = modifier,
+    ) {
+        IconButton(onClick = onFavoriteClick, enabled = isEnabled) {
+            Icon(
+                painter = painterResource(
+                    if (isAllFavorite) R.drawable.favorite_fill_24px
+                    else R.drawable.favorite_24px
+                ),
+                contentDescription = if (isAllFavorite) "Убрать из избранного"
+                else "В избранное",
+                tint = when {
+                    !isEnabled -> disabledTint
+                    isAllFavorite -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.primary
+                }
+            )
+        }
+        IconButton(onClick = onShareClick, enabled = isEnabled) {
+            Icon(
+                painter = painterResource(R.drawable.share_24px),
+                contentDescription = "Поделиться",
+                tint = if (isEnabled) MaterialTheme.colorScheme.primary else disabledTint
+            )
         }
     }
 }

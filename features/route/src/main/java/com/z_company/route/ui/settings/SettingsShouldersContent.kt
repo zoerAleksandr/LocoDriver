@@ -7,7 +7,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.font.FontWeight
+import com.z_company.route.component.ScrollHidingBottomBar
+import com.z_company.route.component.rememberBottomBarScrollState
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -31,6 +40,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.domain.entities.setting.ServicePhase
@@ -49,8 +62,13 @@ fun SettingsShouldersContent(
     deleteServicePhase: (ServicePhase) -> Unit,
     updateServicePhase: (ServicePhase, Int) -> Unit,
     onDeleteStationName: (String) -> Unit = {},
+    country: String = "RU",
+    onAddStationNames: (List<String>) -> Unit = {},
 ) {
-    val phases = servicePhases?.toList() ?: emptyList()
+    // Для счётчика «нет координат» — координаты станций из справочника.
+    val stationDirectory: com.z_company.domain.use_cases.StationDirectoryUseCase = org.koin.compose.koinInject()
+    val rawPhases = servicePhases?.toList() ?: emptyList()
+    val phases = remember(rawPhases) { stationDirectory.resolve(rawPhases) }
 
     // Локальное состояние шторки добавления/редактирования — переиспользуем общий
     // ShoulderEditBottomSheet (тот же, что в FormTrainScreen), а не дублирующую шторку.
@@ -68,12 +86,7 @@ fun SettingsShouldersContent(
                 addServicePhase(phase, index)
                 if (createReverse) {
                     addServicePhase(
-                        ServicePhase(
-                            departureStation = phase.arrivalStation,
-                            arrivalStation = phase.departureStation,
-                            distance = phase.distance,
-                            linearMileageRate = phase.linearMileageRate,
-                        ),
+                        phase.reversed(),
                         -1
                     )
                 }
@@ -81,15 +94,20 @@ fun SettingsShouldersContent(
             onDelete = editingPhase?.let { p -> { deleteServicePhase(p) } },
             onDeleteStationName = onDeleteStationName,
             onDismiss = { showEditSheet = false },
+            country = country,
+            onAddStationNames = onAddStationNames,
         )
     }
 
+    val barScroll = rememberBottomBarScrollState()
+    Box(modifier = Modifier.fillMaxSize().nestedScroll(barScroll.nestedScroll)) {
     Column(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 12.dp)
-            .padding(bottom = 24.dp),
+            // Нижний отступ — чтобы последняя строка не пряталась под закреплённой кнопкой.
+            .padding(bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         // Пояснение
@@ -152,34 +170,48 @@ fun SettingsShouldersContent(
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+    }
 
-        // Добавить плечо — карточка-строка в стиле Серий/Станций
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(elevation = 2.dp, shape = Shapes.medium)
-                .background(color = MaterialTheme.colorScheme.tertiary, shape = Shapes.medium)
-                .clickable {
-                    editingPhase = null
-                    showEditSheet = true
+    // Закреплённая внизу кнопка — та же панель и анимация, что у нижней панели формы «Поезд».
+    ScrollHidingBottomBar(
+        visible = barScroll.visible,
+        modifier = Modifier.align(Alignment.BottomCenter),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(start = 8.dp, top = 10.dp, end = 8.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    onClick = {
+                        editingPhase = null
+                        showEditSheet = true
+                    },
+                    shape = RoundedCornerShape(14.dp),
+                    elevation = ButtonDefaults.buttonElevation(0.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiary,
+                        contentColor = MaterialTheme.colorScheme.surface,
+                    ),
+                ) {
+                    Icon(
+                        modifier = Modifier.size(18.dp),
+                        painter = painterResource(com.z_company.core.R.drawable.ic_add),
+                        contentDescription = null,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Добавить плечо", fontWeight = FontWeight.SemiBold)
                 }
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                painter = painterResource(com.z_company.core.R.drawable.ic_add),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(18.dp)
-            )
-            Text(
-                text = "  Добавить плечо",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onPrimary
-            )
+            }
         }
+    }
     }
 }
 
@@ -197,14 +229,21 @@ private fun ShoulderRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            modifier = Modifier.weight(1f),
-            text = "${item.departureStation} — ${item.arrivalStation}",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.primary,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "${item.departureStation} — ${item.arrivalStation}",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                modifier = Modifier.padding(top = 3.dp),
+                text = shoulderStationsSummary(item),
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Column(horizontalAlignment = Alignment.End) {
             Text(
                 text = "${item.distance} км",
@@ -223,5 +262,28 @@ private fun ShoulderRow(
             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
             modifier = Modifier.size(20.dp)
         )
+    }
+}
+
+/** «через N станций · M без координат» / «без промежуточных» (вторичная строка плеча). */
+@Composable
+private fun shoulderStationsSummary(item: ServicePhase) = buildAnnotatedString {
+    val count = item.intermediateStations.size
+    if (count == 0) {
+        append("без промежуточных")
+        return@buildAnnotatedString
+    }
+    val word = when {
+        count % 100 in 11..19 -> "станций"
+        count % 10 == 1 -> "станцию"
+        count % 10 in 2..4 -> "станции"
+        else -> "станций"
+    }
+    append("через\u00A0$count\u00A0$word")
+    val noCoords = item.intermediateStations.count { !it.hasCoordinates }
+    if (noCoords > 0) {
+        withStyle(SpanStyle(color = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+            append(" · $noCoords\u00A0без\u00A0координат")
+        }
     }
 }

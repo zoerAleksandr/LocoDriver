@@ -18,6 +18,7 @@ import com.z_company.domain.util.getTimeZone
 import com.z_company.domain.util.lessThan
 import com.z_company.domain.util.minus
 import com.z_company.domain.util.moreThan
+import com.z_company.domain.util.onePersonOperationTime
 import com.z_company.domain.util.mergeTimeIntervals
 import com.z_company.domain.util.subtractAll
 import com.z_company.domain.util.plus
@@ -49,6 +50,18 @@ object UtilsForEntities {
         701..750,
         751..788,
         801..898
+    )
+
+    /**
+     * Пригородные поезда с пассажирами (распоряжение ОАО «РЖД» № 859р):
+     * пригородные/региональные, скоростные и скорые пригородные. Составы
+     * без пассажиров и служебные (7601–7998) сюда не входят.
+     */
+    val suburbanTrainNumberList = listOf(
+        6001..6998,
+        7001..7098,
+        7101..7498,
+        7501..7598
     )
 
     fun isHolidayTimeInRoute(
@@ -87,21 +100,18 @@ object UtilsForEntities {
         return holidayTime > 0
     }
 
-    fun isHeavyTrains(salarySetting: SalarySetting, route: Route): Boolean {
-        val surchargeListSorted = salarySetting.surchargeHeavyTrainsList.sortedBy {
-            it.weight
-        }
-        val timeList: MutableList<Long> = mutableListOf()
-        surchargeListSorted.forEachIndexed { index, _ ->
-            var totalTimeHeavyTrain = 0L
-            totalTimeHeavyTrain += route.getTimeInHeavyTrain(
-                surchargeListSorted.map { it.weight.toIntOrZero() },
-                index
-            )
-
-            timeList.add(totalTimeHeavyTrain)
-        }
-        return timeList.sum() > 0
+    /**
+     * Есть ли в маршруте тяжеловесный поезд. Если у плеча поезда заданы свои ступени
+     * ([servicePhases] - плечи из настроек), берутся они, иначе - общие из настроек ЗП.
+     */
+    fun isHeavyTrains(
+        salarySetting: SalarySetting,
+        route: Route,
+        servicePhases: List<com.z_company.domain.entities.setting.ServicePhase> = emptyList(),
+    ): Boolean = route.trains.any { train ->
+        val value = train.weight.toIntOrZero()
+        com.z_company.domain.salary.resolveHeavyTiers(train, servicePhases, salarySetting.surchargeHeavyTrainsList)
+            .any { value > it.threshold }
     }
 
     fun isExtendedServicePhaseTrains(salarySetting: SalarySetting, route: Route): Boolean {
@@ -130,20 +140,14 @@ object UtilsForEntities {
      * в один из диапазонов условной длины из salarySetting.surchargeLongTrainsList.
      * Логика повторяет isHeavyTrains для тяжеловесных.
      */
-    fun isLongCompositionTrain(salarySetting: SalarySetting, route: Route): Boolean {
-        val surchargeListSorted = salarySetting.surchargeLongTrainsList.sortedBy {
-            it.conditionalLength.toIntOrZero()
-        }
-        val timeList: MutableList<Long> = mutableListOf()
-        surchargeListSorted.forEachIndexed { index, _ ->
-            var totalTimeLongTrain = 0L
-            totalTimeLongTrain += route.getTimeInLongTrain(
-                surchargeListSorted.map { it.conditionalLength.toIntOrZero() },
-                index
-            )
-            timeList.add(totalTimeLongTrain)
-        }
-        return timeList.sum() > 0
+    fun isLongCompositionTrain(
+        salarySetting: SalarySetting,
+        route: Route,
+        servicePhases: List<com.z_company.domain.entities.setting.ServicePhase> = emptyList(),
+    ): Boolean = route.trains.any { train ->
+        val value = train.conditionalLength.toIntOrZero()
+        com.z_company.domain.salary.resolveLongTiers(train, servicePhases, salarySetting.surchargeLongTrainsList)
+            .any { value > it.threshold }
     }
 
     fun Route.isCurrentRoute(currentTimeInMillis: Long): Boolean {
@@ -186,13 +190,57 @@ object UtilsForEntities {
     }
 
     /**
+     * Промежуток между прибытием пассажиром и явкой при «явке по прибытию» со смещением
+     * ([Passenger.workStartOffsetMinutes]): `[прибытие; явка)`. Это время ожидания
+     * (018M «Ожидание следования пассажиром»), а не проезд. Возвращает null, если режим
+     * выключен, нет прибытия или разница не больше [WORK_START_FREE_GAP_MILLIS] (1 мин —
+     * это технический зазор, в оплату не идёт).
+     */
+    fun Route.getWorkStartWaitingInterval(): TimeInterval? {
+        val workStart = basicData.timeStartWork?.floorToMinute() ?: return null
+        val arrival = passengers.firstOrNull { it.isWorkStartByArrival && it.timeArrival != null }
+            ?.timeArrival?.floorToMinute() ?: return null
+        return if (workStart - arrival > WORK_START_FREE_GAP_MILLIS) {
+            TimeInterval(arrival, workStart)
+        } else null
+    }
+
+    /**
+     * Ночные минуты зазора «прибытие → явка» ([getWorkStartWaitingInterval]). Ожидание 018M идёт
+     * в ночную надбавку (в деньгах) так же, как обычное ожидание внутри смены, поэтому и в часах
+     * ночного времени (строка 023L, карточка «В ночное время») учитываем эту часть.
+     */
+    fun Route.getWorkStartWaitingNightTime(
+        startNightHour: Int,
+        startNightMinute: Int,
+        endNightHour: Int,
+        endNightMinute: Int,
+        offsetInMoscow: Long,
+    ): Long {
+        val gap = getWorkStartWaitingInterval() ?: return 0L
+        return CalculateNightTime.getNightIntervals(
+            startMillis = gap.startMillis,
+            endMillis = gap.endMillis,
+            hourStart = startNightHour,
+            minuteStart = startNightMinute,
+            hourEnd = endNightHour,
+            minuteEnd = endNightMinute,
+            offsetInMoscow = offsetInMoscow,
+        ).sumOf { (from, to) -> to - from }
+    }
+
+    /** Зазор между прибытием и явкой, не превышающий который время не оплачивается. */
+    const val WORK_START_FREE_GAP_MILLIS = 60_000L
+
+    /**
      * Отработанное время маршрута — «чистая» работа ПЛЮС проезд пассажиром до явки
      * («явка по прибытию»), т.к. это время тоже считается отработанным (входит в
      * месячный итог, норму, переработку, карточку и оплату по тарифу).
      */
     fun Route.getWorkTime(): Long? {
         val pure = getPureWorkTime() ?: return null
-        return pure + getPassengerTimeOutsideWork()
+        return pure + getPassengerTimeOutsideWork() +
+                (getWorkStartWaitingInterval()?.durationMillis ?: 0L)
     }
 
     /**
@@ -224,7 +272,8 @@ object UtilsForEntities {
             if (bEnd > bStart) bEnd - bStart else 0L
         } else 0L
         // Проезд пассажиром до явки тоже входит в отработанное время.
-        return clippedEnd - clippedStart - breakDuration + getPassengerTimeOutsideWork()
+        return clippedEnd - clippedStart - breakDuration + getPassengerTimeOutsideWork() +
+                (getWorkStartWaitingInterval()?.durationMillis ?: 0L)
     }
 
     fun Route.getWorkTimeFlow(): Flow<Long?> {
@@ -764,7 +813,8 @@ object UtilsForEntities {
                     context
                 )
                 // Проезд пассажиром до явки тоже входит в отработанное время.
-                totalTime += time + route.getPassengerTimeOutsideWork()
+                totalTime += time + route.getPassengerTimeOutsideWork() +
+                        (route.getWorkStartWaitingInterval()?.durationMillis ?: 0L)
             } else {
                 route.getWorkTime().let { time ->
                     totalTime += time ?: 0
@@ -790,6 +840,18 @@ object UtilsForEntities {
             this
         } else {
             filter { (it.basicData.timeStartWork ?: Long.MAX_VALUE) < currentTimeInMillis }
+        }
+    }
+
+    /**
+     * Маршруты для «Отработано на <дата>»: уже начавшиеся и с заданным концом
+     * работы. Текущий маршрут (явка в прошлом, конец — плановый, в будущем)
+     * входит целиком — как в итог месяца при любой настройке будущих маршрутов.
+     */
+    fun List<Route>.filterWorkedByNow(currentTimeInMillis: Long): List<Route> {
+        return filter {
+            val start = it.basicData.timeStartWork ?: return@filter false
+            it.basicData.timeEndWork != null && start <= currentTimeInMillis
         }
     }
 
@@ -843,6 +905,13 @@ object UtilsForEntities {
                     breakEndMillis = route.basicData.timeEndBreak
                 ).first()
                 nightTime = nightTime.plus(nightTimeInRoute) ?: 0L
+                // Зазор «прибытие → явка» (ожидание 018M) — только если явка маршрута в этом месяце.
+                if (clippedStart == route.basicData.timeStartWork) {
+                    nightTime += route.getWorkStartWaitingNightTime(
+                        startNightHour, startNightMinute, endNightHour, endNightMinute,
+                        userSettings.timeZone,
+                    )
+                }
             } else {
                 val nightTimeInRoute = CalculateNightTime.getNightTime(
                     startMillis = route.basicData.timeStartWork,
@@ -856,6 +925,10 @@ object UtilsForEntities {
                     breakEndMillis = route.basicData.timeEndBreak
                 ).first()
                 nightTime = nightTime.plus(nightTimeInRoute) ?: 0L
+                nightTime += route.getWorkStartWaitingNightTime(
+                    startNightHour, startNightMinute, endNightHour, endNightMinute,
+                    userSettings.timeZone,
+                )
             }
         }
         return nightTime
@@ -1434,42 +1507,8 @@ object UtilsForEntities {
     fun List<Route>.getOnePersonOperationTime(
         monthOfYear: MonthOfYear,
         context: TimeCalculationContext
-    ): Long {
-        var resultTime = 0L
-        this.forEach { route ->
-            if (route.basicData.isOnePersonOperation) {
-                val hasFreight = route.trains.any { train ->
-                    passengerTrainNumberList.none { it.contains(train.number.toIntOrZero()) }
-                }
-                if (hasFreight) resultTime += route.categoryWorkTime(monthOfYear, context) { train ->
-                    passengerTrainNumberList.none { it.contains(train.number.toIntOrZero()) }
-                }
-            }
-        }
-        return resultTime
-    }
-
-    private fun Route.categoryWorkTime(
-        monthOfYear: MonthOfYear,
-        context: TimeCalculationContext,
-        predicate: (Train) -> Boolean,
-    ): Long {
-        val selected = trains.filter(predicate)
-        if (selected.isEmpty()) return 0L
-        val routeStart = basicData.timeStartWork ?: return 0L
-        val routeEnd = basicData.timeEndWork ?: return 0L
-        val intervals = selected.mapNotNull { train ->
-            val start = train.stations.firstOrNull()?.timeDeparture
-            val end = train.stations.lastOrNull()?.timeArrival
-            if (start != null && end != null && end > start) start until end else null
-        }
-        val raw = if (intervals.isEmpty()) {
-            if (isTransition(context)) monthOfYear.getTimeInCurrentMonth(routeStart, routeEnd, context)
-            else getWorkTime() ?: 0L
-        } else coveredTrainTime(intervals)
-        return if (intervals.isEmpty()) {
-            (raw - (getPassengerTime() ?: 0L)).coerceAtLeast(0L)
-        } else raw
+    ): Long = sumOf { route ->
+        route.onePersonOperationTime(monthOfYear, context, passengerTrain = false)
     }
 
     fun List<Route>.getOnePersonOperationTime(
@@ -1486,16 +1525,8 @@ object UtilsForEntities {
     fun List<Route>.getOnePersonOperationTimePassengerTrain(
         monthOfYear: MonthOfYear,
         context: TimeCalculationContext
-    ): Long {
-        var resultTime = 0L
-        this.forEach { route ->
-            if (route.basicData.isOnePersonOperation) {
-                resultTime += route.categoryWorkTime(monthOfYear, context) { train ->
-                    passengerTrainNumberList.any { it.contains(train.number.toIntOrZero()) }
-                }
-            }
-        }
-        return resultTime
+    ): Long = sumOf { route ->
+        route.onePersonOperationTime(monthOfYear, context, passengerTrain = true)
     }
 
     fun List<Route>.getOnePersonOperationTimePassengerTrain(

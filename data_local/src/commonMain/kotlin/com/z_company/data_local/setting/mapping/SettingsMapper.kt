@@ -55,6 +55,7 @@ internal object SettingsMapper {
         key = row.settingsKey,
         minTimeRestPointOfTurnover = row.minTimeRest,
         minTimeRestPointOfTurnoverSecond = row.minTimeRestSecond,
+        lastEnteredWorkStartOffsetMinutes = row.workStartOffsetMinutes.toInt(),
         minTimeHomeRest = row.minTimeHomeRest,
         lastEnteredDieselCoefficient = row.lastEnteredDieselCoefficient,
         nightTime = decodeNightTime(row.nightTime),

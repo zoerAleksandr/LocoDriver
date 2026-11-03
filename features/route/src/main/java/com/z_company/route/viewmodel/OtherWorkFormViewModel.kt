@@ -40,6 +40,9 @@ class OtherWorkFormViewModel(
     basicId: String
 ) : ViewModel(), KoinComponent {
     private val otherWorkUseCase: OtherWorkUseCase by inject()
+    private val stationDirectory: com.z_company.domain.use_cases.StationDirectoryUseCase by inject()
+    private val appContext: android.content.Context by inject()
+    private val stationSorter = com.z_company.route.util.StationSuggestionSorter(appContext, stationDirectory)
     private val settingsUseCase: SettingsUseCase by inject()
     private val routeUseCase: RouteUseCase by inject()
     private val sharedPreferences: SharedPreferencesRepositories by inject()
@@ -77,6 +80,7 @@ class OtherWorkFormViewModel(
         }
 
     init {
+        stationSorter.start(viewModelScope)
         viewModelScope.launch {
             if (otherWorkId == NULLABLE_ID) {
                 isNewOtherWork = true
@@ -98,7 +102,10 @@ class OtherWorkFormViewModel(
             val settings = settingsUseCase.getUserSettingFlow().first()
             _userSetting.value = settings
             timeZoneText = settingsUseCase.getTimeZone(settings.timeZone)
-            initStationList = settings.stationList.toMutableStateList()
+            initStationList = com.z_company.route.util.mergeStationSuggestions(
+                settings.stationList,
+                stationDirectory.stations().map { it.name },
+            ).toMutableList()
             _uiState.update {
                 it.copy(
                     dateAndTimeConverter = DateAndTimeConverter(settings),
@@ -109,7 +116,10 @@ class OtherWorkFormViewModel(
             settingsUseCase.getFlowCurrentSettingsState().onEach { state ->
                 if (state is ResultState.Success) {
                     state.data?.let { s ->
-                        initStationList = s.stationList.toMutableStateList()
+                        initStationList = com.z_company.route.util.mergeStationSuggestions(
+                            s.stationList,
+                            stationDirectory.stations().map { it.name },
+                        ).toMutableList()
                         _uiState.update { it.copy(workTypeList = buildTypeList(s)) }
                     }
                 }
@@ -353,11 +363,11 @@ class OtherWorkFormViewModel(
 
     fun onChangedDropDownContentStation(value: String) {
         if (value.isEmpty()) {
-            currentStationList.addAllOrSkip(initStationList)
+            currentStationList.addAllOrSkip(stationSorter.sort(initStationList))
         } else {
             currentStationList.clear()
-            initStationList
-                .filter { it.startsWith(prefix = value, ignoreCase = true) }
+            stationSorter.sort(initStationList)
+                .filter { com.z_company.route.util.stationNameMatches(it, value) }
                 .filterNot { it == value }
                 .forEach { currentStationList.add(it) }
         }

@@ -45,6 +45,8 @@ fun FormPassengerDestination(
         onNotesChanged = viewModel::setNotes,
         isWorkStartByArrival = currentPassenger?.isWorkStartByArrival ?: false,
         onWorkStartByArrivalChanged = viewModel::setWorkStartByArrival,
+        workStartOffsetMinutes = currentPassenger?.workStartOffsetMinutes ?: 0,
+        onWorkStartOffsetChanged = viewModel::setWorkStartOffsetMinutes,
         resultTime = formUiState.resultTime,
         errorMessage = formUiState.errorMessage,
         dropDownMenuList = formUiState.stationList,

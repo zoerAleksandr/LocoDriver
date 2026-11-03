@@ -85,6 +85,7 @@ fun RouteLegendSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .separateSheetFromScroll()
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 28.dp)
         ) {

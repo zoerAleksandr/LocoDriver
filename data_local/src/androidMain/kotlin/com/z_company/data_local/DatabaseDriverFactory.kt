@@ -10,11 +10,16 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.db.SqlSchema
+import com.z_company.data_local.schema.SchemaSelfCheck
+import com.z_company.data_local.schema.SchemaSpecs
+import com.z_company.data_local.schema.TableSpec
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
+import com.z_company.data_local.brake.db.BrakeCertificateDatabase
 import com.z_company.data_local.route.db.RouteDatabase
 import com.z_company.data_local.route.searchdb.SearchResponseDatabase
 import com.z_company.data_local.setting.db.SettingsDatabase
 import com.z_company.data_local.setting.salarydb.SalarySettingDatabase
+import com.z_company.data_local.track.db.TrackDatabase
 import java.io.File
 import java.io.RandomAccessFile
 import java.nio.channels.OverlappingFileLockException
@@ -220,14 +225,32 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings" to "isShowPassenger",
             "UserSettings" to "passengerWagonLengthMeters",
             "UserSettings" to "minTimeRestSecond",
+            // Миграция 27: последнее смещение «явки по прибытию»
+            "UserSettings" to "workStartOffsetMinutes",
             "MonthOfYear" to "tariffRate",
             "MonthOfYear" to "dateSetTariffRate",
             "ReleaseDay" to "hours",
             "LocomotiveSeries" to "acceptanceHandToHandMin",
             "LocomotiveSeries" to "deliveryHandToHandMin",
             "LocomotiveSeries" to "sectionNumberingType",
+            // Миграция 23: «постоянный напарник»
+            "Partner" to "isPermanent",
+            // Миграция 24: координаты и паспорт станции в справочнике
+            "StationNorm" to "latitude",
+            "StationNorm" to "longitude",
+            "StationNorm" to "esr",
+            "StationNorm" to "osmId",
+            "StationNorm" to "kind",
+            "StationNorm" to "axisKm",
+            "StationNorm" to "axisPicket",
+            // Миграция 26: данные локомотива в справочнике серий
+            "LocomotiveSeries" to "brakeVolumeL",
+            "LocomotiveSeries" to "axleCount",
+            "LocomotiveSeries" to "axleLoadTf",
+            "LocomotiveSeries" to "weightT",
+            "LocomotiveSeries" to "sectionCount",
             primaryTable = "UserSettings")
-        return createDriver(SettingsDatabase.Schema, "Settings.db")
+        return createDriver(SettingsDatabase.Schema, "Settings.db", SchemaSpecs.settings)
     }
 
     /**
@@ -325,7 +348,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
                     fullName TEXT NOT NULL,
                     tabNumber TEXT,
                     notes TEXT,
-                    updatedAt INTEGER NOT NULL
+                    updatedAt INTEGER NOT NULL,
+                    isPermanent INTEGER NOT NULL DEFAULT 0
                 )
             """.trimIndent())
             db.execSQL(
@@ -384,11 +408,15 @@ actual class DatabaseDriverFactory(private val context: Context) {
             // Миграция 6: метка updatedAt для LWW-синхронизации
             "SalarySetting" to "updatedAt",
             primaryTable = "SalarySetting")
-        return createDriver(SalarySettingDatabase.Schema, "SalarySetting.db")
+        return createDriver(SalarySettingDatabase.Schema, "SalarySetting.db", SchemaSpecs.salarySetting)
     }
 
     actual fun createSearchResponseDriver(): SqlDriver =
-        createDriver(SearchResponseDatabase.Schema, "SearchResponse.db")
+        createDriver(SearchResponseDatabase.Schema, "SearchResponse.db", SchemaSpecs.searchResponse)
+
+    actual fun createTrackDriver(): SqlDriver = createDriver(TrackDatabase.Schema, "Track.db", SchemaSpecs.track)
+
+    actual fun createBrakeCertificateDriver(): SqlDriver = createDriver(BrakeCertificateDatabase.Schema, "BrakeCertificate.db")
 
     /**
      * Перед созданием драйвера гарантируем, что все нужные столбцы существуют
@@ -511,6 +539,16 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "UserSettings.isShowPartner" to ColumnSpec("INTEGER", false, "1"),
             "UserSettings.passengerWagonLengthMeters" to ColumnSpec("REAL", false, "24.5"),
             "UserSettings.minTimeRestSecond" to ColumnSpec("INTEGER", false, "14400000"),
+            "UserSettings.workStartOffsetMinutes" to ColumnSpec("INTEGER", false, "1"),
+
+            "Partner.isPermanent" to ColumnSpec("INTEGER", false, "0"),
+            "StationNorm.latitude" to ColumnSpec("REAL", true, "NULL"),
+            "StationNorm.longitude" to ColumnSpec("REAL", true, "NULL"),
+            "StationNorm.esr" to ColumnSpec("TEXT", true, "NULL"),
+            "StationNorm.osmId" to ColumnSpec("INTEGER", true, "NULL"),
+            "StationNorm.kind" to ColumnSpec("TEXT", true, "NULL"),
+            "StationNorm.axisKm" to ColumnSpec("INTEGER", true, "NULL"),
+            "StationNorm.axisPicket" to ColumnSpec("INTEGER", true, "NULL"),
 
             "LocomotiveSeries.acceptanceHandToHandMin" to ColumnSpec("INTEGER", true, "NULL"),
             "LocomotiveSeries.deliveryHandToHandMin" to ColumnSpec("INTEGER", true, "NULL"),
@@ -545,6 +583,7 @@ actual class DatabaseDriverFactory(private val context: Context) {
             "Train.carInspector" to ColumnSpec("TEXT", true, "NULL"),
             // Route — Passenger (миграция 9)
             "Passenger.isWorkStartByArrival" to ColumnSpec("INTEGER", false, "0"),
+            "Passenger.workStartOffsetMinutes" to ColumnSpec("INTEGER", false, "0"),
             // SalarySetting
             "SalarySetting.nightTimePercent" to ColumnSpec("REAL", false, "40.0"),
             "SalarySetting.surchargeLongTrainsList" to ColumnSpec("TEXT", false, "'[]'"),
@@ -595,7 +634,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
      */
     private fun createDriver(
         schema: SqlSchema<QueryResult.Value<Unit>>,
-        name: String
+        name: String,
+        selfCheckSpecs: List<TableSpec>? = null,
     ): SqlDriver = AndroidSqliteDriver(
         schema = schema,
         context = context,
@@ -605,7 +645,10 @@ actual class DatabaseDriverFactory(private val context: Context) {
                 // Все миграции выполнены в fix*IfNeeded — просто пропускаем.
             }
         }
-    )
+    ).also { driver ->
+        // Самопроверка схемы: достраивает таблицы/столбцы, если user_version поднят в обход миграций.
+        if (selfCheckSpecs != null) SchemaSelfCheck.run(driver, schema, selfCheckSpecs)
+    }
 
     private data class RouteBackup(
         val file: File,
@@ -637,6 +680,9 @@ actual class DatabaseDriverFactory(private val context: Context) {
             }
             val requiresStructuralRepair =
                 !hasColumn(sourceDb, "BasicData", "remoteDeletionPending") ||
+                // БД уже на целевой версии, но без смещения явки по прибытию: колонка
+                // добавлена в 13.sqm задним числом, поэтому достраиваем через repair.
+                !hasColumn(sourceDb, "Passenger", "workStartOffsetMinutes") ||
                     !hasTable(sourceDb, "RouteEvent") ||
                     !hasTable(sourceDb, "DiagnosticOutbox")
             if (sourceVersion >= targetVersion && !requiresStructuralRepair) return null
@@ -1106,7 +1152,8 @@ actual class DatabaseDriverFactory(private val context: Context) {
                 "Train" to "doubleTraction",
                 "Train" to "doubledTrain",
                 "Train" to "carInspector",
-                "Passenger" to "isWorkStartByArrival"
+                "Passenger" to "isWorkStartByArrival",
+                "Passenger" to "workStartOffsetMinutes"
             )
             for ((table, column) in routeChecks) {
                 if (!hasTable(db, table)) continue

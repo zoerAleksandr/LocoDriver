@@ -69,7 +69,6 @@ dependencies {
     implementation(project(Libs.project_core_android))
     implementation(project(Libs.project_domain))
     implementation(project(Libs.project_data_remote))
-    implementation(project(Libs.project_robokassa_sdk))
 
 //    implementation(Libs.lifecycle_runtime_compose)
     implementation(Libs.activity_compose)
@@ -78,6 +77,8 @@ dependencies {
 
     implementation(Libs.compose_ui)
     implementation(Libs.compose_material3)
+    implementation(Libs.reorderable)
+    implementation(Libs.maplibre)
     implementation(Libs.ui_tooling_preview)
 
     implementation(Libs.koin_core)

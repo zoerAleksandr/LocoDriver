@@ -196,7 +196,8 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 timeArrival = passenger.timeArrival,
                 timeDeparture = passenger.timeDeparture,
                 notes = passenger.notes,
-                isWorkStartByArrival = if (passenger.isWorkStartByArrival) 1L else 0L
+                isWorkStartByArrival = if (passenger.isWorkStartByArrival) 1L else 0L,
+                workStartOffsetMinutes = passenger.workStartOffsetMinutes.toLong()
             )
         }
         route.otherWorks.forEach { otherWork ->
@@ -528,7 +529,8 @@ class SqlDelightRouteRepository : RouteRepository, KoinComponent {
                 timeArrival = passenger.timeArrival,
                 timeDeparture = passenger.timeDeparture,
                 notes = passenger.notes,
-                isWorkStartByArrival = if (passenger.isWorkStartByArrival) 1L else 0L
+                isWorkStartByArrival = if (passenger.isWorkStartByArrival) 1L else 0L,
+                workStartOffsetMinutes = passenger.workStartOffsetMinutes.toLong()
             )
             markUnsynchronizedAndTouch(passenger.basicId)
         }

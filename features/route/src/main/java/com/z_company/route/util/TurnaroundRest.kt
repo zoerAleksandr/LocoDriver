@@ -45,8 +45,8 @@ fun turnaroundRestBetween(
     if (gap <= 0L) return null
 
     // Пункт оборота — станция прибытия «туда», иначе станция отправления «обратно».
-    val station = outbound.trains.lastOrNull()?.stations
-        ?.lastOrNull()?.stationName?.takeIf { it.isNotBlank() }
+    // Учитываем и поездку пассажиром после поезда (см. routeEndStation).
+    val station = routeEndStation(outbound)
         ?: ret.trains.firstOrNull()?.stations
             ?.firstOrNull()?.stationName?.takeIf { it.isNotBlank() }
         ?: ""

@@ -7,7 +7,6 @@ import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.robokassa.library.params.PaymentParams
 import com.z_company.core.ResultState
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.domain.entities.Day
@@ -32,7 +31,6 @@ import com.z_company.repository.remote_rest.SettingManager
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
-import com.z_company.route.viewmodel.PurchasesViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -55,7 +53,6 @@ import java.util.Calendar.YEAR
 private const val TAG = "MainViewModel_TAG"
 
 class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
-    private val purchasesViewModel: PurchasesViewModel by inject()
     private val salarySettingUseCase: SalarySettingUseCase by inject()
     private val loadCalendarFromStorage: LoadCalendarFromStorage by inject()
     private val calendarUseCase: CalendarUseCase by inject()
@@ -469,16 +466,6 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
         } catch (e: Exception) {
             // Не критично — сервер может не иметь данных за этот год
             e.sendToSentry("MainViewModel", "fetchAndApplyCalendar")
-        }
-    }
-
-    fun handlePaymentReturn(params: PaymentParams?) {
-        viewModelScope.launch {
-            if (params != null) {
-                purchasesViewModel.emitStartPayment(params, onlyCheck = true)
-            } else {
-                Log.d("zzz", "Параметры платежа не найдены при возврате")
-            }
         }
     }
 

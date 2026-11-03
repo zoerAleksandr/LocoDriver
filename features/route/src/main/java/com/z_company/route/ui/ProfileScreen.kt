@@ -55,8 +55,11 @@ import com.z_company.core.ui.component.CustomSnackBar
 import com.z_company.core.ui.component.GenericLoading
 import com.z_company.core.ui.theme.Shapes
 import com.z_company.repository.remote_rest.RegistrationState
+import com.z_company.route.viewmodel.ProfileDataBanner
 import com.z_company.route.viewmodel.ProfileViewModel
+import com.z_company.route.viewmodel.dataBanner
 import com.z_company.route.component.PullToSyncContainer
+import com.z_company.route.component.coachAnchor
 import com.z_company.core.util.isEmailValid
 import com.z_company.core.util.isVpnActive
 import com.z_company.core.util.vpnAwareErrorMessage
@@ -206,17 +209,26 @@ fun ProfileScreen(
     viewModel: ProfileViewModel,
     trashViewModel: TrashViewModel,
     onBillingClick: () -> Unit,
+    onOpenTrackHistory: () -> Unit = {},
+    onOpenMyCertificates: () -> Unit = {},
+    onOpenDataPrivacy: () -> Unit = {},
     isPullRefreshing: Boolean = false,
     onPullRefresh: () -> Unit = {},
     pullSyncMessage: String? = null,
     onPullSyncMessageShown: () -> Unit = {},
 ) {
     var showReferrals by rememberSaveable { mutableStateOf(false) }
+    // Подсказка на строку «Пригласить друга» (ONBOARDING_MATERIALS §2): один раз; строка есть только в авторизованном профиле.
+    val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
+    val tracksAnchor = com.z_company.route.component.rememberCoachAnchor()
+    val referralAnchor = com.z_company.route.component.rememberCoachAnchor()
+    var showTrash by rememberSaveable { mutableStateOf(false) }
+    // Рефералы и Корзина открываются поверх хаба Профиля — глубже основного экрана, меню скрыто (SCREEN_SPECS §3.1).
+    com.z_company.route.navigation.HideBottomMenu(hide = showReferrals || showTrash)
     if (showReferrals) {
         ReferralScreen(onBack = { showReferrals = false })
         return
     }
-    var showTrash by rememberSaveable { mutableStateOf(false) }
     if (showTrash) {
         TrashScreen(viewModel = trashViewModel, onBack = { showTrash = false })
         return
@@ -577,6 +589,7 @@ fun ProfileScreen(
     }
 
     SyncProgressDialog(
+        onCancel = viewModel::cancelSync,
         showDialog = uiState.showSyncDialog,
         isSyncSuccess = uiState.isSyncSuccess,
         isSyncComplete = uiState.isSyncComplete,
@@ -604,8 +617,9 @@ fun ProfileScreen(
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
-            if (uiState.userDetailsState is ResultState.Loading){
-                GenericLoading((uiState.userDetailsState as ResultState.Loading).message)
+            // Локальные данные показываются сразу; сеть (профиль, покупки) догружается с баннером. Заглушка - только пока читается локальная сессия.
+            if (!uiState.sessionChecked) {
+                GenericLoading("Открываем профиль...")
             } else {
                 // Миграция
                 if (isMigrationNeeded) {
@@ -761,6 +775,7 @@ fun ProfileScreen(
                                     },
                                     onFail = { oneTapAuth, vkIdAuthFail ->
                                         Log.d("zzz", "onFail migration $oneTapAuth ${vkIdAuthFail.description}")
+                                        reportVkIdFail("migration", vkIdAuthFail.description)
                                     },
                                     signInAnotherAccountButtonEnabled = true,
                                 )
@@ -902,56 +917,7 @@ fun ProfileScreen(
                 }
                 // Профиль
                 else if (isLoggedIn) {
-                    if (uiState.isProfileNetworkError) {
-                        val vpnActive = remember(uiState.isProfileNetworkError) { isVpnActive(ctx) }
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            Column(
-                                modifier = Modifier
-                                    .align(Alignment.Center)
-                                    .padding(horizontal = 32.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.signal_disconnected_24px),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(64.dp),
-                                    tint = MaterialTheme.colorScheme.outline
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = if (vpnActive) "Возможно, мешает VPN" else "Нет интернета",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.outline
-                                )
-                                if (vpnActive) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = VPN_ERROR_HINT,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.outline,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            }
-                            Button(
-                                onClick = viewModel::refresh,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 24.dp)
-                                    .align(Alignment.BottomCenter),
-                                shape = Shapes.medium,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                                )
-                            ) {
-                                Text(
-                                    text = "Повторить",
-                                    color = MaterialTheme.colorScheme.secondary
-                                )
-                            }
-                        }
-                    } else PullToSyncContainer(
+                    PullToSyncContainer(
                         isRefreshing = isPullRefreshing || uiState.isRefreshing,
                         onRefresh = onPullRefresh,
                         message = pullSyncMessage,
@@ -963,6 +929,25 @@ fun ProfileScreen(
                                 .padding(horizontal = 12.dp)
                                 .testTag("profile_lazy_column")
                         ) {
+                            // Баннер: сеть ещё грузится / нет сети (показаны сохранённые данные)
+                            uiState.dataBanner(isLoggedIn)?.let { banner ->
+                                item(key = "profile_data_banner") {
+                                    val vpn = remember(banner) { banner == ProfileDataBanner.OFFLINE && isVpnActive(ctx) }
+                                    Column(
+                                        Modifier.fillMaxWidth().padding(bottom = 8.dp).background(MaterialTheme.colorScheme.primaryContainer, Shapes.medium).padding(horizontal = 14.dp, vertical = 10.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            if (banner == ProfileDataBanner.LOADING) CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                            Text(banner.text, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                                            if (banner == ProfileDataBanner.OFFLINE) {
+                                                Text("Повторить", Modifier.clickable { viewModel.refresh() }.padding(6.dp), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.tertiary)
+                                            }
+                                        }
+                                        if (vpn) Text(VPN_ERROR_HINT, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
                             // Заголовок «Профиль»
                             item {
                                 Text(
@@ -978,13 +963,18 @@ fun ProfileScreen(
                             }
                             // ===================== ШАПКА ПРОФИЛЯ =====================
                             item {
-                                Box(
+                                // одна карточка профиля: шапка (VK/имя) и почта, один индикатор загрузки
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .shadow(1.dp, Shapes.medium)
-                                        .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
-                                        .padding(vertical = 14.dp, horizontal = 16.dp),
+                                        .background(MaterialTheme.colorScheme.secondary, Shapes.medium),
                                 ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 14.dp, horizontal = 16.dp),
+                                    ) {
                                     Column(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1006,7 +996,10 @@ fun ProfileScreen(
                                                             vkAccessToken = accessToken.token
                                                         )
                                                     },
-                                                    onFail = { _, f -> scope.launch { snackbarHostState.showSnackbar("Ошибка привязки VK: ${f.description}") } },
+                                                    onFail = { _, f ->
+                                                        reportVkIdFail("link", f.description)
+                                                        scope.launch { snackbarHostState.showSnackbar("Ошибка привязки VK: ${f.description}") }
+                                                    },
                                                     signInAnotherAccountButtonEnabled = true,
                                                 )
                                             }
@@ -1090,7 +1083,10 @@ fun ProfileScreen(
                                                             )
                                                         }
                                                     },
-                                                    onFail = { _, f -> scope.launch { snackbarHostState.showSnackbar("Ошибка привязки VK: ${f.description}") } },
+                                                    onFail = { _, f ->
+                                                        reportVkIdFail("link", f.description)
+                                                        scope.launch { snackbarHostState.showSnackbar("Ошибка привязки VK: ${f.description}") }
+                                                    },
                                                     signInAnotherAccountButtonEnabled = true,
                                                 )
                                             }
@@ -1116,21 +1112,11 @@ fun ProfileScreen(
                                         }
                                     }
                                 }
-                            }
-
-                            // ===================== EMAIL =====================
-                            item {
-                                ProfileGroupLabel("EMAIL")
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .shadow(1.dp, Shapes.medium)
-                                        .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
-                                        .padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
-                                ) {
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                                    Box(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp)) {
                                     AsyncData(
                                         resultState = uiState.userDetailsState,
-                                        loadingContent = { CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp) },
+                                        loadingContent = { if (uiState.vkUserState !is ResultState.Loading) CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp) },
                                         errorContent = { Text("Ошибка загрузки", style = styleData, color = primaryColor) }
                                     ) { user ->
                                         user?.let {
@@ -1190,6 +1176,7 @@ fun ProfileScreen(
                                                 }
                                             }
                                         }
+                                    }
                                     }
                                 }
                             }
@@ -1270,12 +1257,36 @@ fun ProfileScreen(
                                     )
                                 }
                                 Spacer(Modifier.height(10.dp))
+                                DisposableEffect(Unit) { onDispose { referralAnchor.bounds = null } }
+                                val autoManager: com.z_company.route.autorecord.AutoRecordManager = org.koin.compose.koinInject()
+                                val autoOn by autoManager.state.collectAsState()
+                                if (com.z_company.domain.onboarding.OnboardingHints.canShow(
+                                        id = com.z_company.domain.onboarding.HintId.PROFILE_REFERRAL,
+                                        shown = onboardingHints.shown,
+                                        homeReached = onboardingHints.homeReached,
+                                        recording = autoOn.enabled,
+                                        blocked = showReferrals || showTrash,
+                                        authorized = true,
+                                    )
+                                ) {
+                                    com.z_company.route.component.CoachMarkPopup(
+                                        anchor = referralAnchor.bounds,
+                                        title = com.z_company.domain.onboarding.OnboardingHints.TITLE_PROFILE_REFERRAL,
+                                        text = com.z_company.domain.onboarding.OnboardingHints.TEXT_PROFILE_REFERRAL,
+                                        onDismiss = { onboardingHints.markShown(com.z_company.domain.onboarding.HintId.PROFILE_REFERRAL) },
+                                        tag = "coach_profile_referral",
+                                    )
+                                }
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .coachAnchor(referralAnchor)
                                         .shadow(1.dp, Shapes.medium)
                                         .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
-                                        .clickable { showReferrals = true }
+                                        .clickable {
+                                            onboardingHints.markShown(com.z_company.domain.onboarding.HintId.PROFILE_REFERRAL)
+                                            showReferrals = true
+                                        }
                                         .padding(horizontal = 16.dp, vertical = 14.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -1365,37 +1376,65 @@ fun ProfileScreen(
                             item {
                                 val trashState by trashViewModel.uiState.collectAsState()
                                 ProfileGroupLabel("ДАННЫЕ")
-                                Row(
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .shadow(1.dp, Shapes.medium)
-                                        .background(MaterialTheme.colorScheme.secondary, Shapes.medium)
-                                        .clickable { showTrash = true }
-                                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                        .background(MaterialTheme.colorScheme.secondary, Shapes.medium),
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(MaterialTheme.colorScheme.surfaceBright),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Icon(painterResource(R.drawable.delete_24px), null, modifier = Modifier.size(21.dp), tint = MaterialTheme.colorScheme.tertiary)
+                                    // Сначала «Пригласить друга» (если ещё не показана), затем эта подсказка.
+                                    val referralPending = com.z_company.domain.onboarding.HintId.PROFILE_REFERRAL.key !in onboardingHints.shown
+                                    Box(Modifier.coachAnchor(tracksAnchor)) {
+                                    ProfileDataRow(
+                                        iconRes = R.drawable.outline_history_24,
+                                        title = "Мои треки",
+                                        subtitle = "История записанных поездок",
+                                        titleStyle = styleData,
+                                        subtitleStyle = styleHint,
+                                        titleColor = primaryColor,
+                                        onClick = {
+                                            onboardingHints.markShown(com.z_company.domain.onboarding.HintId.PROFILE_TRACKS)
+                                            onOpenTrackHistory()
+                                        },
+                                    )
                                     }
-                                    Column(Modifier.weight(1f)) {
-                                        Text("Корзина маршрутов", style = styleData, color = primaryColor)
-                                        Text(
-                                            "${trashState.routes.size} ${trashPluralRu(trashState.routes.size, "маршрут", "маршрута", "маршрутов")}",
-                                            style = styleHint,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                    Icon(
-                                        painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    com.z_company.route.component.OnceCoachMark(
+                                        id = com.z_company.domain.onboarding.HintId.PROFILE_TRACKS,
+                                        anchor = tracksAnchor,
+                                        title = com.z_company.domain.onboarding.OnboardingHints.TITLE_PROFILE_TRACKS,
+                                        text = com.z_company.domain.onboarding.OnboardingHints.TEXT_PROFILE_TRACKS,
+                                        store = onboardingHints,
+                                        blocked = referralPending || showReferrals || showTrash,
+                                    )
+                                    ProfileDataDivider()
+                                    ProfileDataRow(
+                                        iconRes = R.drawable.ic_card_pdf,
+                                        title = "Мои справки ВУ-45",
+                                        subtitle = "Сохранённые справки о тормозах",
+                                        titleStyle = styleData,
+                                        subtitleStyle = styleHint,
+                                        titleColor = primaryColor,
+                                        onClick = onOpenMyCertificates,
+                                    )
+                                    ProfileDataDivider()
+                                    ProfileDataRow(
+                                        iconRes = R.drawable.outline_visibility_24,
+                                        title = "Данные и конфиденциальность",
+                                        subtitle = "Треки и история поездок",
+                                        titleStyle = styleData,
+                                        subtitleStyle = styleHint,
+                                        titleColor = primaryColor,
+                                        onClick = onOpenDataPrivacy,
+                                    )
+                                    ProfileDataDivider()
+                                    ProfileDataRow(
+                                        iconRes = R.drawable.delete_24px,
+                                        title = "Корзина маршрутов",
+                                        subtitle = "${trashState.routes.size} ${trashPluralRu(trashState.routes.size, "маршрут", "маршрута", "маршрутов")}",
+                                        titleStyle = styleData,
+                                        subtitleStyle = styleHint,
+                                        titleColor = primaryColor,
+                                        onClick = { showTrash = true },
                                     )
                                 }
                             }
@@ -1776,6 +1815,7 @@ fun ProfileScreen(
                                 },
                                 onFail = { oneTapAuth, vkIdAuthFail ->
                                     Log.d("zzz", "onFail login $oneTapAuth ${vkIdAuthFail.description}")
+                                    reportVkIdFail("login", vkIdAuthFail.description)
                                 },
                                 signInAnotherAccountButtonEnabled = true,
                             )
@@ -1844,4 +1884,51 @@ fun ProfileScreen(
             }
         }
     }
+}
+
+@Composable
+private fun ProfileDataRow(
+    iconRes: Int,
+    title: String,
+    subtitle: String,
+    titleStyle: androidx.compose.ui.text.TextStyle,
+    subtitleStyle: androidx.compose.ui.text.TextStyle,
+    titleColor: androidx.compose.ui.graphics.Color,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceBright),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(painterResource(iconRes), null, modifier = Modifier.size(21.dp), tint = MaterialTheme.colorScheme.tertiary)
+        }
+        Column(Modifier.weight(1f)) {
+            Text(title, style = titleStyle, color = titleColor)
+            Text(subtitle, style = subtitleStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(
+            painterResource(com.z_company.core.R.drawable.keyboard_arrow_right_24px),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun ProfileDataDivider() {
+    androidx.compose.material3.HorizontalDivider(
+        modifier = Modifier.padding(start = 70.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+    )
 }

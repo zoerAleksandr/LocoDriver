@@ -95,6 +95,7 @@ fun SettingSalaryDestination(
         },
         setOtherSurcharge = viewModel::setOtherSurcharge,
         currentMonthOfYear = uiState.currentMonthOfYear,
-        setDateNewTariffRate = viewModel::setDateSetTariffRate
+        setDateNewTariffRate = viewModel::setDateSetTariffRate,
+        setPhaseSurcharges = viewModel::setPhaseSurcharges,
     )
 }

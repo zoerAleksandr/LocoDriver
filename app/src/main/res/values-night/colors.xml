@@ -19,4 +19,10 @@
     <color name="widget_ink">#FF060708</color>          <!-- brand chip bg dark -->
     <color name="widget_ink_on">#FFFFFFFF</color>
     <color name="widget_border_strong">#29FFFFFF</color> <!-- rgba(255,255,255,.16) -->
+    <!-- «АВТО»: включено — зелёный, выключено — серый -->
+    <color name="widget_auto_on_bg">#FF4ADE80</color>
+    <color name="widget_auto_on_fg">#FF0A0E14</color>
+    <color name="widget_auto_off_bg">#FF3A3C40</color>
+    <color name="widget_auto_off_fg">#FFC9CDD2</color>
+    <color name="widget_auto_off_border">#FF8A929B</color>
 </resources>

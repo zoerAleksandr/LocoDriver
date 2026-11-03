@@ -21,6 +21,7 @@ import com.z_company.core.util.ConverterLongToTime
 import com.z_company.domain.entities.route.LocoType
 import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.route.util.HomeUnitPrefs
 import com.z_company.route.viewmodel.Passenger12hOption
 import com.z_company.route.viewmodel.SettingsViewModel
 import org.koin.compose.koinInject
@@ -82,6 +83,31 @@ fun SettingsRouteContent(
                 onClick = { themeManager.setTheme(ThemeMode.MODE_DARK) },
             )
         }
+
+        val context = androidx.compose.ui.platform.LocalContext.current
+
+        // ── Главный экран: «Всегда открывать последний» ──
+        val openLast = remember {
+            androidx.compose.runtime.mutableStateMapOf<String, Boolean>().apply {
+                HomeUnitPrefs.types.forEach { put(it, HomeUnitPrefs.get(context, it)) }
+            }
+        }
+        SettingsGroupHeader("ГЛАВНЫЙ ЭКРАН", top = 20.dp, startPad = 4.dp)
+        SettingsCard {
+            listOf("loco" to "Локомотив", "train" to "Поезд", "passenger" to "Пассажиром").forEachIndexed { index, (type, label) ->
+                if (index > 0) SettingsCardSep()
+                SettingsSwitchRow(
+                    label = label,
+                    sub = "Всегда открывать последний",
+                    checked = openLast[type] == true,
+                    onCheckedChange = {
+                        openLast[type] = it
+                        HomeUnitPrefs.set(context, type, it)
+                    },
+                )
+            }
+        }
+        SettingsSectionNote("В разделе «Текущий маршрут», если есть несколько объектов")
 
         // ── Вид тяги (по умолчанию) ──
         SettingsGroupHeader("ВИД ТЯГИ", top = 20.dp, startPad = 4.dp)

@@ -64,6 +64,15 @@ import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
+/** Участки советника отдаются только вошедшему: токен берётся из защищённого хранилища на каждый запрос (смена аккаунта подхватывается). */
+private fun bindAdvisorToken(tokens: com.z_company.repository.SecureTokenStorage, appContext: android.content.Context) {
+    RemoteRestClient.advisorBearerToken = { tokens.getAuthBearerTokenFlow().first() }
+    RemoteRestClient.advisorAccountId = { tokens.getUserIdFlow().first() }
+    if (RemoteRestClient.advisorDeviceKeys == null) {
+        RemoteRestClient.advisorDeviceKeys = com.z_company.repository.remote_rest.tracks.AndroidDeviceKeys(appContext)
+    }
+}
+
 val repositoryModule = module {
     single<ISnackbarManager> { SnackbarManagerImpl() }
 
@@ -132,6 +141,196 @@ val repositoryModule = module {
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
         )
     }
+    // «Рядом с путями ли я»: для профиля пути (сообщение «Вы находитесь вне путей»); тот же запрос ближайшей станции по рельсам.
+    single<com.z_company.domain.util.RailStationLookup> {
+        val tokens: SecureTokenStorage = get()
+        com.z_company.repository.remote_rest.RemoteRailStationLookup(
+            api = get(),
+            bearerToken = { tokens.getAuthBearerTokenFlow().first() },
+        )
+    }
+    // Единое определение названия станции по месту (GO, «Добавить станцию», АВТО, карта, трек; SCREEN_SPECS §6.2 п.6а).
+    single {
+        val tokens: SecureTokenStorage = get()
+        com.z_company.domain.util.StopStationNamer(
+            lookup = com.z_company.repository.remote_rest.RemoteRailStationLookup(
+                api = get(),
+                bearerToken = { tokens.getAuthBearerTokenFlow().first() },
+            ),
+            nowMs = { System.currentTimeMillis() },
+            phaseLine = com.z_company.route.component.servicephase.RailLineCache(androidContext()),
+        )
+    }
+    // Кнопка «АВТО»: запись стоянок/отправлений по GPS (SCREEN_SPECS §6.2 п.6а).
+    single {
+        com.z_company.route.autorecord.AutoRecordManager(
+            context = androidContext(),
+            routeUseCase = get(),
+            trainUseCase = get(),
+            stationDirectory = get(),
+            settingsUseCase = get(),
+            stopNamer = get(),
+            onWatchdog = { on ->
+                val wm = androidx.work.WorkManager.getInstance(androidContext())
+                if (on) {
+                    wm.enqueueUniquePeriodicWork(
+                        "auto_record_watchdog",
+                        androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+                        androidx.work.PeriodicWorkRequestBuilder<com.z_company.loco_driver.widget.AutoRecordWatchdogWorker>(
+                            15, java.util.concurrent.TimeUnit.MINUTES,
+                        ).build(),
+                    )
+                } else {
+                    wm.cancelUniqueWork("auto_record_watchdog")
+                }
+            },
+            prefs = androidContext().getSharedPreferences(
+                com.z_company.route.autorecord.AutoRecordManager.PREFS_NAME,
+                android.content.Context.MODE_PRIVATE,
+            ),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            onChanged = {
+                runCatching {
+                    com.z_company.loco_driver.widget.WidgetDataLoader.loadAndPush(androidContext())
+                }
+            },
+            trackRepository = get(),
+            trackConsent = get(),
+            onTrackUpload = { com.z_company.loco_driver.track.TrackUploadScheduler.enqueue(androidContext()) },
+            altitudeStore = get(),
+            onAltitudeContrib = { com.z_company.loco_driver.track.AltitudeContribScheduler.enqueue(androidContext()) },
+            gnssStore = get(),
+            onGnssContrib = { com.z_company.loco_driver.track.GnssZoneContribScheduler.enqueue(androidContext()) },
+            restrictionRecorder = get(),
+        )
+    }
+    // Фоновая запись журнала проследования ограничений: участок только из кэша (без сети), поправка оси - как на профиле.
+    single {
+        com.z_company.route.autorecord.createRestrictionRecorder(
+            context = androidContext(), store = get(), sections = get(),
+        )
+    }
+    // Согласие №1 «Сохранять мои треки и историю поездок» (SCREEN_SPECS §6.9, §17.7).
+    single {
+        com.z_company.route.autorecord.TrackConsentStore(
+            prefs = androidContext().getSharedPreferences(
+                com.z_company.route.autorecord.TrackConsentStore.PREFS_NAME,
+                android.content.Context.MODE_PRIVATE,
+            ),
+            trackRepository = get(),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            onConsentChanged = { com.z_company.loco_driver.track.TrackUploadScheduler.enqueue(androidContext()) },
+            onAltitudeConsentChanged = { on ->
+                if (on) {
+                    com.z_company.loco_driver.track.AltitudeContribScheduler.enqueue(androidContext())
+                    com.z_company.loco_driver.track.GnssZoneContribScheduler.enqueue(androidContext())
+                } else {
+                    // Места без GPS: то же согласие. Накопленное удаляем, отправку отменяем, tag забываем.
+                    com.z_company.loco_driver.track.GnssZoneContribScheduler.cancel(androidContext())
+                    get<com.z_company.domain.gnss.GnssContribStore>().clear()
+                    get<com.z_company.domain.gnss.GnssContribTag>().reset()
+                    // Отзыв №2: накопленные, но не отправленные точки удаляем, отправку отменяем.
+                    com.z_company.loco_driver.track.AltitudeContribScheduler.cancel(androidContext())
+                    get<com.z_company.domain.track.AltitudeContribStore>().clear()
+                }
+            },
+        )
+    }
+    // Вклад высот (согласие №2): временные точки сеанса (не Track.db), кэш осей участков, отправка.
+    single<com.z_company.domain.track.AltitudeContribStore> {
+        com.z_company.route.autorecord.FileAltitudeContribStore(java.io.File(androidContext().filesDir, "altitude_contrib"))
+    }
+    single<com.z_company.domain.track.AxisCache> {
+        com.z_company.route.autorecord.FileAxisCache(java.io.File(androidContext().cacheDir, "advisor_axes"))
+    }
+    // Профили участков для экрана «Профиль пути» (общие данные, без входа): список и участки с кэшем на диске.
+    single<com.z_company.repository.remote_rest.tracks.SectionProfileCache> {
+        com.z_company.route.autorecord.FileSectionProfileCache(java.io.File(androidContext().filesDir, "advisor_profiles"))
+    }
+    single {
+        // Участки отдаются только вошедшему пользователю: токен берём из защищённого хранилища на каждый запрос.
+        bindAdvisorToken(get(), androidContext())
+        com.z_company.repository.remote_rest.tracks.SectionProfileRepository(
+            api = RemoteRestClient.advisorApi,
+            cache = get(),
+        )
+    }
+    single {
+        bindAdvisorToken(get(), androidContext())
+        com.z_company.repository.remote_rest.tracks.AltitudeContributor(
+            api = RemoteRestClient.advisorApi,
+            store = get(),
+            axes = get(),
+            settings = get<com.z_company.route.autorecord.TrackConsentStore>(),
+            tools = get(),
+        )
+    }
+    // Вклад «места без GPS» (согласие №2 в редакции с GPS): временные ячейки сеанса, случайный tag, отправка.
+    single<com.z_company.domain.gnss.GnssContribStore> {
+        com.z_company.route.autorecord.FileGnssContribStore(java.io.File(androidContext().filesDir, "gnss_contrib"))
+    }
+    single {
+        com.z_company.domain.gnss.GnssContribTag(
+            com.z_company.route.autorecord.PrefsGnssTagStorage(
+                androidContext().getSharedPreferences(
+                    com.z_company.route.autorecord.PrefsGnssTagStorage.PREFS_NAME,
+                    android.content.Context.MODE_PRIVATE,
+                ),
+            ),
+        )
+    }
+    single {
+        com.z_company.repository.remote_rest.tracks.GnssZoneContributor(
+            api = RemoteRestClient.gnssZonesApi,
+            store = get(),
+            settings = get<com.z_company.route.autorecord.TrackConsentStore>().gnssContribSettings,
+            tag = get(),
+        )
+    }
+    // Общая карта зон без GPS: кэш плиток в cacheDir; серверные ячейки видят только вошедшие.
+    single {
+        com.z_company.repository.remote_rest.tracks.GnssZonesRepository(
+            api = RemoteRestClient.gnssZonesApi,
+            store = com.z_company.route.autorecord.FileGnssTileStore(java.io.File(androidContext().cacheDir, "gnss_zones")),
+            token = {
+                get<com.z_company.repository.SecureTokenStorage>().getAuthBearerTokenFlow().first()
+                    ?.takeIf { it.isNotBlank() }?.let { "Bearer $it" }
+            },
+        )
+    }
+    // История треков на сервере (этап 3б): кодек, связь поезд -> рейс, отправка, чтение.
+    single<com.z_company.domain.track.TrackBlobTools> {
+        com.z_company.repository.remote_rest.tracks.AndroidTrackBlobTools()
+    }
+    single<com.z_company.route.autorecord.TrackUploadTrigger> {
+        com.z_company.route.autorecord.TrackUploadTrigger {
+            com.z_company.loco_driver.track.TrackUploadScheduler.enqueue(androidContext())
+        }
+    }
+    single { com.z_company.route.autorecord.TrackRouteResolver(routeUseCase = get(), trackRepository = get()) }
+    single {
+        com.z_company.repository.remote_rest.tracks.TrackUploader(
+            api = RemoteRestClient.tracksApi,
+            repository = get(),
+            tools = get(),
+            resolver = get<com.z_company.route.autorecord.TrackRouteResolver>(),
+            settings = get<com.z_company.route.autorecord.TrackConsentStore>(),
+            isSubscribed = { get<com.z_company.route.viewmodel.RouteActionsHelper>().hasActiveSubscription() },
+        )
+    }
+    // Журнал проследования ограничений: отправка/догрузка вместе с треками (тот же воркер, согласие №1 и подписка).
+    single<com.z_company.repository.remote_rest.tracks.RestrictionSyncCursor> {
+        com.z_company.route.autorecord.RestrictionSyncPrefs(androidContext())
+    }
+    single {
+        com.z_company.repository.remote_rest.tracks.RestrictionPassSyncer(
+            api = RemoteRestClient.restrictionPassApi,
+            store = get(),
+            cursor = get(),
+            isSubscribed = { get<com.z_company.route.viewmodel.RouteActionsHelper>().hasActiveSubscription() },
+        )
+    }
+    single { com.z_company.repository.remote_rest.tracks.TrackHistoryLoader(api = RemoteRestClient.tracksApi, tools = get()) }
     // Продление токена при старте приложения (POST /v1/auth/refresh); зовёт StartApp.
     single { SessionRefresher(remoteRestApi = get(), secureTokenStorage = get()) }
 
@@ -151,11 +350,12 @@ val repositoryModule = module {
             vkClientId = BuildConfig.VKID_CLIENT_ID.takeIf { it.isNotBlank() }
         )
     }
-    single { RoutesManager(remoteRestApi = get()) }
+    single { RoutesManager(remoteRestApi = get(), brakeCertificates = get()) }
     single { SettingManager(remoteRestApi = get()) }
     single { ShareRouteManager(remoteRestApi = get()) }
 
     single { RouteActionsHelper() }
+    single { com.z_company.route.viewmodel.ReviewPromptHelper(androidApplication()) }
     single { SubscriptionHelper() }
 
     // Widget updater (Glance)
@@ -176,6 +376,8 @@ val repositoryModule = module {
             stationNormRepository = get(),
             partnerRepository = get(),
             remoteRestApi = get(),
+            brakeCertificates = get(),
+            sectionProfiles = get(),
             clientPlatform = "android",
             clientVersion = BuildConfig.VERSION_NAME,
         )

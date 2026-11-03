@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "pwa",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd /Users/zoer/Documents/loco-driver-pwa && node_modules/.bin/vite --port 5199 --strictPort"],
+      "port": 5199
+    }
+  ]
+}

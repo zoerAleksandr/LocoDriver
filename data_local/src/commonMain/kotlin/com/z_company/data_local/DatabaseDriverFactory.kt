@@ -15,4 +15,8 @@ expect class DatabaseDriverFactory {
     fun createSettingsDriver(): SqlDriver
     fun createSalarySettingDriver(): SqlDriver
     fun createSearchResponseDriver(): SqlDriver
+    /** Отдельный файл Track.db для локальных GPS-треков (миграций существующих БД не требует). */
+    fun createTrackDriver(): SqlDriver
+    /** Отдельный файл BrakeCertificate.db для справок ВУ-45 (миграций существующих БД не требует). */
+    fun createBrakeCertificateDriver(): SqlDriver
 }

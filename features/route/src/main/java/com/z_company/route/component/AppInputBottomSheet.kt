@@ -66,6 +66,8 @@ fun AppInputBottomSheet(
     transform: (String) -> String = { it },
     isValid: (String) -> Boolean = { it.isNotBlank() },
     errorText: String? = null,
+    /** true — курсор в конце значения (без выделения): ввод дописывает, а не заменяет. */
+    cursorAtEnd: Boolean = false,
     isLoading: Boolean = false,
     onValueChange: ((String) -> Unit)? = null,
 ) {
@@ -74,7 +76,7 @@ fun AppInputBottomSheet(
         mutableStateOf(
             TextFieldValue(
                 text = initialValue,
-                selection = TextRange(0, initialValue.length),
+                selection = if (cursorAtEnd) TextRange(initialValue.length) else TextRange(0, initialValue.length),
             )
         )
     }

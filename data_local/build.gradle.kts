@@ -96,6 +96,16 @@ sqldelight {
             version = 2
             verifyMigrations.set(false)
         }
+        create("TrackDatabase") {
+            packageName.set("com.z_company.data_local.track.db")
+            srcDirs.setFrom("src/commonMain/sqldelight/TrackDatabase")
+            verifyMigrations.set(false)
+        }
+        create("BrakeCertificateDatabase") {
+            packageName.set("com.z_company.data_local.brake.db")
+            srcDirs.setFrom("src/commonMain/sqldelight/BrakeCertificateDatabase")
+            verifyMigrations.set(false)
+        }
         create("SearchResponseDatabase") {
             packageName.set("com.z_company.data_local.route.searchdb")
             srcDirs.setFrom("src/commonMain/sqldelight/SearchResponseDatabase")

@@ -28,8 +28,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import com.robokassa.library.helper.toParams
-import com.robokassa.library.pay.RobokassaPayLauncher
 import androidx.compose.foundation.isSystemInDarkTheme
 import com.z_company.core.theme.ThemeManager
 import com.z_company.core.theme.ThemeMode
@@ -50,6 +48,17 @@ class MainActivity : ComponentActivity(), KoinComponent {
 
     private val mainViewModel: MainViewModel by viewModels()
     private val themeManager: ThemeManager by inject()
+    private val autoRecordManager: com.z_company.route.autorecord.AutoRecordManager by inject()
+
+    override fun onStart() {
+        super.onStart()
+        // АВТО могло «прерваться», потому что процесс поднялся в фоне (службу из фона стартовать нельзя) — возобновляем.
+        runCatching { autoRecordManager.onAppForeground() }
+    }
+    // Включение «АВТО» из виджета: службу геолокации можно стартовать только с экрана приложения.
+    private val autoPermissionLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { autoRecordManager.enable() }
 //    private val payClient: RuStorePayClient by inject()
 
     // API 31+: системный сплэш — единственный, держим его до готовности приложения.
@@ -194,7 +203,7 @@ class MainActivity : ComponentActivity(), KoinComponent {
             }
             } // Box
         }
-        VKID.logsEnabled = true
+        VKID.logsEnabled = BuildConfig.HEAVY_DEBUG_TOOLS
     }
 
     private fun showMigrationRecovery(startApp: StartApp) {
@@ -266,16 +275,9 @@ class MainActivity : ComponentActivity(), KoinComponent {
 
     private fun checkIntent(i: Intent?) {
         val data = i?.data
-        if (data?.scheme == "robokassa") {
-            val prefs = getSharedPreferences("robokassa.pay.prefs", Context.MODE_PRIVATE)
-            val paramStr = prefs.getString("pay", "")
-            try {
-                val params = paramStr?.toParams()
-                mainViewModel.handlePaymentReturn(params)
-            } catch (e: Exception) {
-                // Показать ошибку
-            }
-        }
+        // Возврат из оплаты не обрабатывается здесь: оплата идёт через серверный
+        // checkout, а подтверждение ловит PaymentReturnChecker при возврате в
+        // приложение (прежний возврат встроенного SDK по схеме robokassa:// убран).
 
         // Deep link: переход на экран Профиль с сайта — locodriver://profile
         if (i?.action == Intent.ACTION_VIEW && data != null &&
@@ -309,6 +311,13 @@ class MainActivity : ComponentActivity(), KoinComponent {
         // Навигация из виджета → добавить маршрут
         if (i?.getBooleanExtra("widget_add_route", false) == true) {
             mainViewModel.requestOpenForm()
+        }
+
+        // Включение «АВТО» из виджета
+        if (i?.getBooleanExtra("widget_auto_enable", false) == true) {
+            i.removeExtra("widget_auto_enable")
+            val missing = autoRecordManager.missingPermissions()
+            if (missing.isEmpty()) autoRecordManager.enable() else autoPermissionLauncher.launch(missing)
         }
 
         // Навигация из виджета → HomeScreen

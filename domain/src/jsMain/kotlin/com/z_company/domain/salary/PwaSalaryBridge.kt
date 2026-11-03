@@ -9,8 +9,7 @@ import com.z_company.domain.entities.route.OverRestRoutes.previousRouteFor
 import com.z_company.domain.entities.route.UtilsForEntities.getPureWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.util.TimeCalculationContext
-import com.z_company.domain.entities.route.UtilsForEntities.passengerTrainNumberList
-import com.z_company.domain.util.toIntOrZero
+import com.z_company.domain.util.usesOnePersonPassengerRate
 import com.z_company.domain.entities.salary.PayrollPaymentCatalog
 import com.z_company.domain.entities.salary.PayrollCodeReferenceCatalog
 import com.z_company.domain.entities.salary.PayrollPaymentType
@@ -266,9 +265,7 @@ object PwaSalaryBridge {
         val moneyAtHarmfulness = helper.getMoneyHarmfulnessFlow().first()
         val otherSurchargeMoney = helper.getMoneyOtherSurchargeFlow().first()
 
-        val isPassengerTrain = route.trains.any { train ->
-            passengerTrainNumberList.any { it.contains(train.number.toIntOrZero()) }
-        }
+        val isPassengerTrain = route.usesOnePersonPassengerRate()
         val moneyAtOnePerson = if (isPassengerTrain) {
             helper.getMoneyOnePersonOperationPassengerTrainFlow().first()
         } else {

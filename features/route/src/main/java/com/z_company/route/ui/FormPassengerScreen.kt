@@ -65,6 +65,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
@@ -72,6 +73,9 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -84,6 +88,7 @@ import com.z_company.core.ui.theme.Shapes
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.domain.entities.route.Passenger
 import com.z_company.route.component.AppBottomSheet
+import com.z_company.route.component.coachAnchor
 import com.z_company.route.component.AppDateTimePicker
 import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.BottomShadow
@@ -114,6 +119,8 @@ fun FormPassengerScreen(
     onNotesChanged: (String) -> Unit,
     isWorkStartByArrival: Boolean,
     onWorkStartByArrivalChanged: (Boolean) -> Unit,
+    workStartOffsetMinutes: Int,
+    onWorkStartOffsetChanged: (Int) -> Unit,
     resultTime: Long?,
     errorMessage: String?,
     dropDownMenuList: List<String>,
@@ -416,6 +423,8 @@ fun FormPassengerScreen(
                             onCheckedChange = onWorkStartByArrivalChanged,
                             station = passenger.stationArrival,
                             time = passenger.timeArrival,
+                            offsetMinutes = workStartOffsetMinutes,
+                            onOffsetChanged = onWorkStartOffsetChanged,
                             dateAndTimeConverter = dateAndTimeConverter
                         )
                     }
@@ -747,6 +756,7 @@ private fun StationLegCard(
 
                         StationDropdownMenu(
                             expanded = isDropdownExpanded,
+                            currentText = stationName.text,
                             stations = dropDownMenuList,
                             onSelect = { selectionStation ->
                                 onStationChanged(selectionStation)
@@ -844,6 +854,8 @@ private fun WorkStartCard(
     onCheckedChange: (Boolean) -> Unit,
     station: String?,
     time: Long?,
+    offsetMinutes: Int,
+    onOffsetChanged: (Int) -> Unit,
     dateAndTimeConverter: DateAndTimeConverter?
 ) {
     val canEnable = time != null
@@ -925,7 +937,10 @@ private fun WorkStartCard(
                                     ),
                                     color = MaterialTheme.colorScheme.tertiary
                                 )
-                                val timeText = time?.let { dateAndTimeConverter?.getDateAndTime(it) }
+                                // Явка = прибытие + смещение.
+                                val timeText = time?.let {
+                                    dateAndTimeConverter?.getDateAndTime(it + offsetMinutes * 60_000L)
+                                }
                                 // Название станции — Inter (имя собственное), дата/время — Mono.
                                 val content = buildAnnotatedString {
                                     when {
@@ -954,9 +969,99 @@ private fun WorkStartCard(
                                 )
                             }
                         }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 16.dp)
+                                .height(1.dp)
+                                .background(MaterialTheme.colorScheme.outlineVariant)
+                        )
+                        WorkStartOffsetRow(
+                            offsetMinutes = offsetMinutes,
+                            onOffsetChanged = onOffsetChanged
+                        )
                     }
                 }
             }
         }
+    }
+}
+
+
+/** Формат «ЧЧ:ММ» для смещения в минутах (цифры вводятся справа, как на калькуляторе). */
+private fun offsetDigits(minutes: Int): String {
+    val value = (minutes / 60) * 100 + minutes % 60
+    return if (value == 0) "" else value.toString()
+}
+
+private fun digitsToOffset(digits: String): Int {
+    val value = digits.toIntOrNull() ?: 0
+    val minutes = (value / 100) * 60 + minOf(value % 100, 59)
+    return minutes.coerceIn(0, Passenger.MAX_WORK_START_OFFSET_MINUTES)
+}
+
+private val OffsetTimeTransformation = VisualTransformation { text ->
+    val padded = text.text.padStart(4, '0')
+    val formatted = padded.substring(0, 2) + ":" + padded.substring(2)
+    TransformedText(
+        AnnotatedString(formatted),
+        object : OffsetMapping {
+            override fun originalToTransformed(offset: Int) = formatted.length
+            override fun transformedToOriginal(offset: Int) = text.text.length
+        }
+    )
+}
+
+/** Поле «время между прибытием и явкой» в формате ЧЧ:ММ. */
+@Composable
+private fun WorkStartOffsetRow(
+    offsetMinutes: Int,
+    onOffsetChanged: (Int) -> Unit
+) {
+    val offsetAnchor = com.z_company.route.component.rememberCoachAnchor()
+    com.z_company.route.component.OnceCoachMark(
+        id = com.z_company.domain.onboarding.HintId.PASSENGER_OFFSET,
+        anchor = offsetAnchor,
+        title = com.z_company.domain.onboarding.OnboardingHints.TITLE_PASSENGER_OFFSET,
+        text = com.z_company.domain.onboarding.OnboardingHints.TEXT_PASSENGER_OFFSET,
+    )
+    Row(
+        modifier = Modifier.coachAnchor(offsetAnchor).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Явка через",
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                modifier = Modifier.padding(top = 3.dp),
+                text = "Время между прибытием и явкой.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        OutlinedTextFieldApp(
+            modifier = Modifier.width(112.dp),
+            value = offsetDigits(offsetMinutes),
+            onValueChange = { input ->
+                onOffsetChanged(digitsToOffset(input.filter { it.isDigit() }.takeLast(4)))
+            },
+            textStyle = LocalTextStyle.current.copy(
+                fontFamily = MonoFont,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            ),
+            visualTransformation = OffsetTimeTransformation,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
+            // Карточка белая (surface) — поле заливаем фоном страницы и обводим, иначе оно сливается.
+            colorBackgroundEmptyField = MaterialTheme.colorScheme.background,
+            colorBackgroundNotEmptyField = MaterialTheme.colorScheme.background,
+            borderColor = MaterialTheme.colorScheme.outlineVariant,
+            fieldElevation = 0.dp
+        )
     }
 }

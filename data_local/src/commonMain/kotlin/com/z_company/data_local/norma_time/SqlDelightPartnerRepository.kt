@@ -35,27 +35,53 @@ class SqlDelightPartnerRepository : PartnerRepository, KoinComponent {
     override fun getById(partnerId: String): Partner? =
         db.partnerQueries.getById(partnerId).executeAsOneOrNull()?.toDomain()
 
+    override fun getPermanent(): Partner? =
+        db.partnerQueries.getPermanent().executeAsOneOrNull()?.toDomain()
+
+    override fun setPermanent(partnerId: String?): Flow<ResultState<Unit>> = flowRequest {
+        val now = Clock.System.now().toEpochMilliseconds()
+        db.transaction {
+            db.partnerQueries.clearPermanentExcept(updatedAt = now, keepId = partnerId.orEmpty())
+            if (partnerId != null) {
+                db.partnerQueries.setPermanent(updatedAt = now, partnerId = partnerId)
+            }
+        }
+    }
+
     override fun replaceAll(partners: List<Partner>): Flow<ResultState<Unit>> = flowRequest {
-        db.partnerQueries.deleteAll()
-        partners.forEach { p ->
-            db.partnerQueries.insertOrReplace(
-                partnerId = p.partnerId,
-                fullName = p.fullName,
-                tabNumber = p.tabNumber,
-                notes = p.notes,
-                updatedAt = p.updatedAt
-            )
+        // Инвариант «не больше одного постоянного» — даже если с сервера пришло
+        // несколько отмеченных (например, после синхронизации с разных устройств).
+        val permanentId = partners.firstOrNull { it.isPermanent }?.partnerId
+        db.transaction {
+            db.partnerQueries.deleteAll()
+            partners.forEach { p ->
+                db.partnerQueries.insertOrReplace(
+                    partnerId = p.partnerId,
+                    fullName = p.fullName,
+                    tabNumber = p.tabNumber,
+                    notes = p.notes,
+                    updatedAt = p.updatedAt,
+                    isPermanent = if (p.partnerId == permanentId) 1L else 0L
+                )
+            }
         }
     }
 
     override fun upsert(partner: Partner): Flow<ResultState<Unit>> = flowRequest {
-        db.partnerQueries.insertOrReplace(
-            partnerId = partner.partnerId,
-            fullName = partner.fullName,
-            tabNumber = partner.tabNumber,
-            notes = partner.notes,
-            updatedAt = Clock.System.now().toEpochMilliseconds()
-        )
+        val now = Clock.System.now().toEpochMilliseconds()
+        db.transaction {
+            if (partner.isPermanent) {
+                db.partnerQueries.clearPermanentExcept(updatedAt = now, keepId = partner.partnerId)
+            }
+            db.partnerQueries.insertOrReplace(
+                partnerId = partner.partnerId,
+                fullName = partner.fullName,
+                tabNumber = partner.tabNumber,
+                notes = partner.notes,
+                updatedAt = now,
+                isPermanent = if (partner.isPermanent) 1L else 0L
+            )
+        }
     }
 
     override fun delete(partnerId: String): Flow<ResultState<Unit>> = flowRequest {
@@ -68,6 +94,7 @@ class SqlDelightPartnerRepository : PartnerRepository, KoinComponent {
             fullName = fullName,
             tabNumber = tabNumber,
             notes = notes,
+            isPermanent = isPermanent == 1L,
             updatedAt = updatedAt
         )
 }

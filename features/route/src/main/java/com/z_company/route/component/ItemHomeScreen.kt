@@ -701,7 +701,7 @@ fun ItemHomeScreen(
  * пустой контур — не выбрана, залитый акцентом с галочкой — выбрана.
  */
 @Composable
-private fun SelectionMarker(
+internal fun SelectionMarker(
     isSelected: Boolean,
     modifier: Modifier = Modifier,
 ) {

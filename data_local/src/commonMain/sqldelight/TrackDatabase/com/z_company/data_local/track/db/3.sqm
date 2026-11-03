@@ -1,0 +1,32 @@
+-- Миграция 3 -> 4: журнал проследования ограничений (локальная Track.db; Route.db не затрагивается). Только новая таблица.
+CREATE TABLE IF NOT EXISTS RestrictionPass (
+    trainId TEXT NOT NULL,
+    warningId TEXT NOT NULL,
+    routeId TEXT NOT NULL,
+    sectionId TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    title TEXT NOT NULL,
+    place TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
+    limitKmh INTEGER,
+    startAbsKm REAL,
+    endAbsKm REAL,
+    startRelKm REAL NOT NULL DEFAULT 0,
+    endRelKm REAL NOT NULL DEFAULT 0,
+    enterAt INTEGER,
+    enterSpeedKmh REAL,
+    enterApprox INTEGER NOT NULL DEFAULT 0,
+    exitAt INTEGER,
+    exitSpeedKmh REAL,
+    exitByHead INTEGER NOT NULL DEFAULT 0,
+    trainLengthM INTEGER,
+    dir INTEGER NOT NULL DEFAULT 0,
+    maxSpeedKmh REAL,
+    exceeded INTEGER NOT NULL DEFAULT 0,
+    updatedAt INTEGER NOT NULL,
+    isDeleted INTEGER NOT NULL DEFAULT 0,
+    dirty INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (trainId, warningId)
+);
+
+CREATE INDEX IF NOT EXISTS index_RestrictionPass_dirty ON RestrictionPass(dirty);

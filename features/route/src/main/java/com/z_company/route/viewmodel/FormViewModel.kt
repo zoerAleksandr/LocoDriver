@@ -21,16 +21,18 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.reidentifyForImport
 import com.z_company.domain.entities.route.Train
 import com.z_company.domain.entities.route.OverRestRoutes.overRestPayment
+import com.z_company.domain.entities.route.UtilsForEntities.getWorkStartWaitingNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPureWorkTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
-import com.z_company.domain.entities.route.UtilsForEntities.passengerTrainNumberList
+import com.z_company.domain.util.usesOnePersonPassengerRate
 import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.use_cases.LocomotiveUseCase
 import com.z_company.domain.use_cases.OtherWorkUseCase
 import com.z_company.domain.use_cases.RoutePartnerUseCase
 import com.z_company.domain.use_cases.PassengerUseCase
+import com.z_company.domain.use_cases.PartnerUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
@@ -39,7 +41,6 @@ import com.z_company.domain.util.CalculateNightTime
 import com.z_company.domain.util.SharedRouteHolder
 import com.z_company.domain.util.TimeCalculationContext
 import com.z_company.domain.util.sum
-import com.z_company.domain.util.toIntOrZero
 import com.z_company.repository.SecureDataStore
 import com.z_company.repository.remote_rest.SyncManager
 import com.z_company.route.Const.NULLABLE_ID
@@ -71,8 +72,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import ru.rustore.sdk.review.RuStoreReviewManagerFactory
-import ru.rustore.sdk.review.model.ReviewInfo
 import java.util.UUID
 
 class FormViewModel(
@@ -86,6 +85,7 @@ class FormViewModel(
     private val passengerUseCase: PassengerUseCase by inject()
     private val otherWorkUseCase: OtherWorkUseCase by inject()
     private val routePartnerUseCase: RoutePartnerUseCase by inject()
+    private val partnerUseCase: PartnerUseCase by inject()
     private val settingsUseCase: SettingsUseCase by inject()
     private val sharedPreferenceStorage: SharedPreferencesRepositories by inject()
     private val routeHelper: RouteActionsHelper by inject()
@@ -96,7 +96,7 @@ class FormViewModel(
     private val secureTokenStorage: com.z_company.repository.SecureTokenStorage by inject()
     private val syncManager: SyncManager by inject()
 
-    val reviewManager = RuStoreReviewManagerFactory.create(application.applicationContext)
+    private val reviewPromptHelper: ReviewPromptHelper by inject()
 
     // Основные состояния
     private val _uiState = MutableStateFlow(RouteFormUiState())
@@ -291,7 +291,10 @@ class FormViewModel(
             }
 
             if (isNewRoute) {
-                val newRoute = Route(basicData = BasicData(id = UUID.randomUUID().toString()))
+                // Постоянный напарник (если задан) сразу в новом маршруте.
+                val newRoute = partnerUseCase.withPermanentPartner(
+                    Route(basicData = BasicData(id = UUID.randomUUID().toString()))
+                )
                 _currentRoute.value = newRoute
                 // НЕ сохраняем сразу — пустой маршрут не должен попадать в БД,
                 // если пользователь передумал и закрыл форму без изменений.
@@ -307,8 +310,10 @@ class FormViewModel(
                             // записи сохраняются с прежним basicId (foreign key) и
                             // остаются привязанными к оригиналу — в копию не попадают
                             // (симптом: «прочая работа» не переносится в копию).
-                            val loadedRoute = if (isCopy) result.data?.reidentifyForImport()
-                            else result.data
+                            // Копия — тоже новый маршрут: добавляем постоянного напарника.
+                            val loadedRoute = if (isCopy) {
+                                result.data?.reidentifyForImport()?.let(partnerUseCase::withPermanentPartner)
+                            } else result.data
                             _uiState.update { it.copy(routeDetailState = result) }
                             countLoadRoute += 1
                             // Копию НЕ сохраняем сразу — ждём первого изменения от пользователя
@@ -471,6 +476,9 @@ class FormViewModel(
             val deferredMoneyAtPassengerWaiting = async {
                 salaryCalculationHelper.getMoneyAtPassengerWaitingFlow().first()
             }
+            val deferredPassengerWaitingTime = async {
+                salaryCalculationHelper.getPassengerWaitingTimeFlow().first()
+            }
             // Оплата проезда пассажиром до явки — по тарифу, отдельно от работы.
             val deferredMoneyAtPassengerOutside = async {
                 salaryCalculationHelper.getMoneyAtPassengerOutsideWorkFlow().first()
@@ -548,15 +556,8 @@ class FormViewModel(
             }
 
             // Синхронная логика (не требует async)
-            var isPassengerTrain = false
-            passengerTrainNumberList.forEach { interval ->
-                route.trains.forEach { train ->
-                    if (interval.contains(train.number.toIntOrZero())) {
-                        isPassengerTrain = true
-                        return@forEach
-                    }
-                }
-            }
+            // Пассажирская ставка одного лица — при пассажирском или пригородном поезде.
+            val isPassengerTrain = route.usesOnePersonPassengerRate()
 
             // Deferred для moneyAtOnePerson (зависит от isPassengerTrain, но .first() асинхронный)
             val deferredMoneyAtOnePerson = async {
@@ -585,6 +586,7 @@ class FormViewModel(
             val zonalSurchargeMoney = deferredZonalSurchargeMoney.await()
             val moneyAtPassengerTime = deferredMoneyAtPassengerTime.await()
             val moneyAtPassengerWaiting = deferredMoneyAtPassengerWaiting.await()
+            val passengerWaitingTime = deferredPassengerWaitingTime.await()
             val moneyAtPassengerOutside = deferredMoneyAtPassengerOutside.await()
             val moneyAtHoliday = deferredMoneyAtHoliday.await()
             val linearMileageDistance = deferredLinearMileageDistance.await()
@@ -670,6 +672,8 @@ class FormViewModel(
                     zonalSurchargeMoney = zonalSurchargeMoney,
                     paymentAtPassengerTime = moneyAtPassengerTime,
                     paymentAtPassengerOutsideTime = moneyAtPassengerOutside,
+                    paymentAtPassengerWaiting = moneyAtPassengerWaiting,
+                    passengerWaitingTime = passengerWaitingTime,
                     paymentHolidayMoney = moneyAtHoliday,
                     linearMileageDistance = linearMileageDistance,
                     linearMileageMoney = linearMileageMoney,
@@ -708,7 +712,12 @@ class FormViewModel(
                 breakStartMillis = route.basicData.timeStartBreak,
                 breakEndMillis = route.basicData.timeEndBreak
             ).first()
-            _uiState.update { it.copy(nightTime = nightMillis) }
+            // Ночная часть зазора «прибытие → явка» (ожидание 018M) — как в расчёте денег.
+            val waitingNight = route.getWorkStartWaitingNightTime(
+                time.startNightHour, time.startNightMinute, time.endNightHour, time.endNightMinute,
+                currentTimeZoneOffset ?: 0L,
+            )
+            _uiState.update { it.copy(nightTime = nightMillis?.plus(waitingNight)) }
         }
     }
 
@@ -860,13 +869,13 @@ class FormViewModel(
 
     /**
      * Инвариант «явки по прибытию»: если есть пассажир с флагом isWorkStartByArrival и
-     * заданным прибытием, явка маршрута = его прибытию. Применяем при загрузке/слиянии
+     * заданным прибытием, явка маршрута = его прибытию + смещение. Применяем при загрузке/слиянии
      * маршрута, чтобы экран не зависел от тайминга записи timeStartWork в БД.
      */
     private fun Route.withWorkStartFromPassenger(): Route {
         val arrival = passengers.firstOrNull {
             it.isWorkStartByArrival && it.timeArrival != null
-        }?.timeArrival ?: return this
+        }?.workStartTime ?: return this
         return if (basicData.timeStartWork == arrival) this
         else copy(basicData = basicData.copy(timeStartWork = arrival))
     }
@@ -1446,41 +1455,8 @@ class FormViewModel(
         checkDuplicateAndSave(exitAfterSave = true)
     }
 
-    // предложение пользователю оценить приложение
-    private var reviewInfo: ReviewInfo? = null
-
-    suspend fun prepareReviewDialog() = coroutineScope {
-        val count = async { getRoutesCount() }.await()
-        val isShow = isShowReviewDialog(count)
-        if (isShow) {
-            reviewManager.requestReviewFlow()
-                .addOnSuccessListener { info ->
-                    reviewInfo = info
-                }
-                .addOnFailureListener { throwable ->
-                    Log.w("ZZZ", "prepareReviewDialog throwable = ${throwable.message}")
-                }
-        }
-    }
-
-    private fun isShowReviewDialog(count: Int): Boolean {
-        return (count > 10 && count % 5 == 0)
-    }
-
-    private suspend fun getRoutesCount(): Int {
-        delay(10L)
-        return routeUseCase.listRouteWithDeleting().size
-    }
-
-    private fun showReviewDialog(reviewInfo: ReviewInfo) {
-        reviewManager.launchReviewFlow(reviewInfo)
-            .addOnSuccessListener {
-                Log.i("ZZZ", "showReviewDialog Success")
-            }
-            .addOnFailureListener { throwable ->
-                Log.w("ZZZ", "showReviewDialog Failure = $throwable")
-            }
-    }
+    /** Вызывается после сохранения маршрута: возможно, предложить оценить приложение. */
+    fun onRouteSaved() = reviewPromptHelper.onRouteSaved()
 
     private fun getLocoList(basicId: String): MutableList<Locomotive> {
         return locoUseCase.getLocomotiveList(basicId).toMutableList()
@@ -1570,5 +1546,4 @@ class FormViewModel(
 //            }
 //        }
 //    }
-
 }

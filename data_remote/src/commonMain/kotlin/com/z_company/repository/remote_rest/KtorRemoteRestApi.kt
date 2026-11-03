@@ -5,7 +5,9 @@ import com.z_company.domain.entities.ProductionCalendarDay
 import com.z_company.domain.entities.ReleaseDay
 import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
+import com.z_company.domain.entities.norma_time.LocomotiveSeriesTombstone
 import com.z_company.domain.entities.norma_time.StationNorm
+import com.z_company.domain.entities.norma_time.StationTombstone
 import com.z_company.domain.entities.partner.Partner
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
@@ -228,31 +230,53 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             header("Authorization", token)
         }.body()
 
-    override suspend fun saveNormaTimeLocomotives(token: String, body: List<LocomotiveSeries>) {
+    override suspend fun saveNormaTimeLocomotives(
+        token: String,
+        series: List<LocomotiveSeries>,
+        tombstones: List<LocomotiveSeriesTombstone>,
+    ) {
         client.post("v1/norma_time/locomotives/") {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
-            setBody(body.map { NormaTimeLocomotiveResponse.fromDomain(it) })
+            setBody(
+                series.map { NormaTimeLocomotiveResponse.fromDomain(it) } +
+                    tombstones.map { NormaTimeLocomotiveResponse.fromTombstone(it) }
+            )
         }.bodyAsText()
     }
 
-    override suspend fun getNormaTimeLocomotives(token: String): List<LocomotiveSeries> =
-        client.get("v1/norma_time/locomotives/") {
+    override suspend fun getNormaTimeLocomotives(token: String): SeriesSnapshot {
+        val items = client.get("v1/norma_time/locomotives/") {
             header("Authorization", token)
-        }.body<List<NormaTimeLocomotiveResponse>>().map { it.toDomain() }
+            parameter("includeDeleted", "true")
+        }.body<List<NormaTimeLocomotiveResponse>>()
+        val (dead, alive) = items.partition { it.isDeleted == true }
+        return SeriesSnapshot(alive.map { it.toDomain() }, dead.map { it.toTombstone() })
+    }
 
-    override suspend fun saveNormaTimeStations(token: String, body: List<StationNorm>) {
+    override suspend fun saveNormaTimeStations(
+        token: String,
+        stations: List<StationNorm>,
+        tombstones: List<StationTombstone>,
+    ) {
         client.post("v1/norma_time/stations/") {
             contentType(ContentType.Application.Json)
             header("Authorization", token)
-            setBody(body.map { NormaTimeStationResponse.fromDomain(it) })
+            setBody(
+                stations.map { NormaTimeStationResponse.fromDomain(it) } +
+                    tombstones.map { NormaTimeStationResponse.fromTombstone(it) }
+            )
         }.bodyAsText()
     }
 
-    override suspend fun getNormaTimeStations(token: String): List<StationNorm> =
-        client.get("v1/norma_time/stations/") {
+    override suspend fun getNormaTimeStations(token: String): StationSnapshot {
+        val items = client.get("v1/norma_time/stations/") {
             header("Authorization", token)
-        }.body<List<NormaTimeStationResponse>>().map { it.toDomain() }
+            parameter("includeDeleted", "true")
+        }.body<List<NormaTimeStationResponse>>()
+        val (dead, alive) = items.partition { it.isDeleted == true }
+        return StationSnapshot(alive.map { it.toDomain() }, dead.map { it.toTombstone() })
+    }
 
     override suspend fun savePartners(token: String, body: List<Partner>) {
         client.post("v1/partners/") {
@@ -334,10 +358,94 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             setBody(request)
         }.body()
 
+    override suspend fun createRobokassaCheckout(
+        token: String,
+        request: com.z_company.repository.remote_rest.request.RobokassaCheckoutRequest,
+    ): com.z_company.repository.remote_rest.response.RobokassaCheckoutResponse =
+        try {
+            client.post("v1/payment/checkout") {
+                contentType(ContentType.Application.Json)
+                header("Authorization", token)
+                setBody(request)
+            }.body()
+        } catch (e: io.ktor.client.plugins.ClientRequestException) {
+            if (e.response.status == io.ktor.http.HttpStatusCode.Conflict) {
+                throw RecurringConditionsChangedException(e.message)
+            }
+            throw e
+        }
+
+    override suspend fun getRecurringTerms(tariffCode: String): com.z_company.repository.remote_rest.response.RecurringTermsResponse =
+        client.get("v1/payment/recurring/terms") {
+            parameter("tariff_code", tariffCode)
+        }.body()
+
+    override suspend fun getRecurringStatus(token: String): com.z_company.repository.remote_rest.response.RecurringStatusResponse =
+        client.get("v1/payment/recurring") {
+            header("Authorization", token)
+        }.body()
+
+    override suspend fun disableRecurring(token: String): com.z_company.repository.remote_rest.response.RecurringStatusResponse =
+        client.post("v1/payment/recurring/disable") {
+            header("Authorization", token)
+        }.body()
+
     override suspend fun getReferralStatus(token: String): com.z_company.repository.remote_rest.response.ReferralStatusResponse =
         client.get("v1/referrals/me") {
             header("Authorization", token)
         }.body()
+
+    override suspend fun suggestServicePhaseStations(
+        token: String?,
+        body: com.z_company.repository.remote_rest.response.ServicePhaseSuggestRequest,
+    ): com.z_company.repository.remote_rest.response.ServicePhaseSuggestResponse =
+        withAnonymousFallback(token) { auth ->
+            client.post("v1/service_phase/stations/suggest") {
+                attributes.put(GeoRequestKey, true)
+                contentType(ContentType.Application.Json)
+                if (auth != null) header("Authorization", auth)
+                setBody(body)
+            }.body()
+        }
+
+    override suspend fun measureRouteLength(
+        token: String?,
+        body: com.z_company.repository.remote_rest.response.RouteLengthRequest,
+    ): com.z_company.repository.remote_rest.response.RouteLengthResponse =
+        withAnonymousFallback(token) { auth ->
+            client.post("v1/service_phase/route/length") {
+                attributes.put(GeoRequestKey, true)
+                contentType(ContentType.Application.Json)
+                if (auth != null) header("Authorization", auth)
+                setBody(body)
+            }.body()
+        }
+
+    override suspend fun nearestStation(
+        token: String?,
+        body: com.z_company.repository.remote_rest.response.NearestStationRequest,
+    ): com.z_company.repository.remote_rest.response.NearestStationResponse =
+        withAnonymousFallback(token) { auth ->
+            client.post("v1/service_phase/stations/nearest") {
+                attributes.put(GeoRequestKey, true)
+                contentType(ContentType.Application.Json)
+                if (auth != null) header("Authorization", auth)
+                setBody(body)
+            }.body()
+        }
+
+    override suspend fun lookupServicePhaseStation(
+        token: String?,
+        body: com.z_company.repository.remote_rest.response.ServicePhaseLookupRequest,
+    ): com.z_company.repository.remote_rest.response.ServicePhaseLookupResponse =
+        withAnonymousFallback(token) { auth ->
+            client.post("v1/service_phase/stations/lookup") {
+                attributes.put(GeoRequestKey, true)
+                contentType(ContentType.Application.Json)
+                if (auth != null) header("Authorization", auth)
+                setBody(body)
+            }.body()
+        }
 
     override suspend fun applyReferralCode(
         token: String,
@@ -349,3 +457,14 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
             setBody(request)
         }.body()
 }
+
+/**
+ * Гео-запросы доступны анонимно (SCREEN_SPECS §6.9). Токен есть, но сервер ответил 401 (просрочен/невалиден) -
+ * повторяем ровно один раз без Authorization: пользователь остаётся «анонимом» и получает ответ по лимиту IP.
+ */
+internal suspend fun <T> withAnonymousFallback(token: String?, call: suspend (authorization: String?) -> T): T =
+    try {
+        call(token)
+    } catch (e: io.ktor.client.plugins.ClientRequestException) {
+        if (token != null && e.response.status == HttpStatusCode.Unauthorized) call(null) else throw e
+    }

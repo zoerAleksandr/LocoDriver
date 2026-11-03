@@ -1,5 +1,7 @@
 package com.z_company.route.navigation
 
+import com.z_company.core.ui.perf.ScreenOpenTrace
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -28,6 +30,7 @@ fun FormDestination(
     router: Router,
     backStackEntry: NavBackStackEntry
 ) {
+    ScreenOpenTrace("form")
     val routeId = FormRoute.getRouteId(backStackEntry) ?: NULLABLE_ID
     val isMakeCopy = FormRoute.isMakeCopy(backStackEntry)
     val viewModel = koinViewModel<FormViewModel>(
@@ -71,7 +74,7 @@ fun FormDestination(
                         // SnackbarHost поглотит событие из Channel до того как экран-источник
                         // станет активным коллектором. Тост «Маршрут сохранен» показывается
                         // из FormViewModel после завершения навигации (delay + sync).
-                        launch { viewModel.prepareReviewDialog() }
+                        viewModel.onRouteSaved()
                         // Возврат на экран, откуда открыли форму (Главный / Все маршруты /
                         // Поиск), а не всегда на Главный.
                         router.back()

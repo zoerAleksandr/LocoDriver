@@ -44,6 +44,7 @@ import com.z_company.route.component.BottomSheetAction
 import com.z_company.route.component.SwipeToRevealDelete
 import com.z_company.route.ui.partner.PartnerAvatar
 import com.z_company.route.ui.partner.PartnerSearchField
+import com.z_company.route.ui.partner.PermanentPartnerChip
 import com.z_company.route.ui.partner.filterPartners
 import com.z_company.route.viewmodel.PartnerListViewModel
 
@@ -239,6 +240,9 @@ private fun PartnerRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 1.dp),
                 )
+            }
+            if (partner.isPermanent) {
+                PermanentPartnerChip(modifier = Modifier.padding(top = 4.dp))
             }
         }
         // Карандаш → редактирование карточки этого напарника.

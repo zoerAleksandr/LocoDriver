@@ -101,6 +101,8 @@ data class ProfileUiState(
     // «Сессия истекла», а разлогин делает SessionExpiredHandler.
     val isSessionExpired: Boolean = false,
     val isProfileNetworkError: Boolean = false,
+    /** Локальная сессия определена (токен прочитан из хранилища): до этого момента показывается короткая заглушка, дальше - весь экран без ожидания сети. */
+    val sessionChecked: Boolean = false,
     // Маршруты, пропавшие с сервера в объёме, который SyncManager счёл значительным
     // (см. SyncManager.isSignificantRouteDeletion) — ждут явного подтверждения
     // пользователя перед тем, как их удалят локально.
@@ -261,8 +263,23 @@ class ProfileViewModel : ViewModel(), KoinComponent {
      * маршрутов по updatedAt с распространением удалений в обе стороны — всё в
      * [SyncManager.syncBidirectional].
      */
+    private var syncJob: Job? = null
+
+    /**
+     * Отмена идущей синхронизации (кнопка «Отмена» в диалоге): прерывает корутину и закрывает диалог. Безопасно для данных: синхронизация
+     * идемпотентна (merge по updatedAt / full-replace), прерывание на середине оставляет уже записанное, рейсы, не дошедшие до сервера,
+     * остаются помеченными несинхронизированными и уйдут при следующей синхронизации.
+     */
+    fun cancelSync() {
+        syncJob?.cancel()
+        syncJob = null
+        resetSyncState()
+        snackbarManager.show("Синхронизация отменена")
+    }
+
     fun startSync() {
-        viewModelScope.launch(Dispatchers.IO) {
+        syncJob?.cancel()
+        syncJob = viewModelScope.launch(Dispatchers.IO) {
             val setting = settingsUseCase.getUserSettingFlow().first()
             if (setting.subscriptionPeriod <= Calendar.getInstance().timeInMillis) {
                 snackbarManager.show("Синхронизация доступна по подписке")
@@ -362,6 +379,8 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                         }
                     }
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val p = _uiState.value.syncProgress.mapValues {
                     if (it.value is SyncStepState.Loading) SyncStepState.Error(e.message ?: "Ошибка синхронизации") else it.value
@@ -1088,6 +1107,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
                 // Токен есть — сразу показываем профиль (не ждём сетевого ответа).
                 // На 401 откатываемся обратно.
                 _isLoggedIn.value = true
+                _uiState.update { it.copy(sessionChecked = true) }
                 val fullToken = "Bearer $token"
                 authManager.getUserProfile(fullToken).collect { state ->
                     if (state is GetUserProfileState.Loading) {
@@ -1136,7 +1156,7 @@ class ProfileViewModel : ViewModel(), KoinComponent {
             } else {
                 _isLoggedIn.value = false
                 _uiState.update {
-                    it.copy(userDetailsState = ResultState.Success(null))
+                    it.copy(userDetailsState = ResultState.Success(null), sessionChecked = true)
                 }
             }
         }
@@ -1593,5 +1613,22 @@ class ProfileViewModel : ViewModel(), KoinComponent {
 
     companion object {
         private const val FORGOT_COOLDOWN_SECONDS = 60
+    }
+}
+
+
+/** Баннер вверху «Профиля»: данные из сети ещё грузятся либо загрузка не удалась (показаны сохранённые данные). */
+enum class ProfileDataBanner(val text: String) {
+    LOADING("Загружаем данные. Текущая информация могла устареть"),
+    OFFLINE("Нет сети. Показаны сохранённые данные, они могли устареть"),
+}
+
+/** Какой баннер показывать: null - данные загружены (или пользователь не вошёл и сети не требуется). */
+fun ProfileUiState.dataBanner(loggedIn: Boolean): ProfileDataBanner? {
+    if (!loggedIn) return null
+    return when {
+        userDetailsState is ResultState.Loading -> ProfileDataBanner.LOADING
+        userDetailsState is ResultState.Error -> ProfileDataBanner.OFFLINE
+        else -> null
     }
 }

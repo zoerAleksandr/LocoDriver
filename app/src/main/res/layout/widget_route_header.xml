@@ -38,6 +38,39 @@
             android:maxLines="1" />
     </LinearLayout>
 
+    <!-- «На работе»: прошедшее время «Ч:ММ» от явки (скрыто, если явки нет). TextClock с подобранным
+         часовым поясом (WidgetRender.populateRouteHeader) обновляется сам раз в минуту. -->
+    <LinearLayout
+        android:id="@+id/work_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="0dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="НА РАБОТЕ"
+            android:fontFamily="@font/jetbrains_mono_semibold"
+            android:textColor="@color/widget_text_muted"
+            android:textSize="10sp"
+            android:letterSpacing="0.13"
+            android:maxLines="1" />
+
+        <TextClock
+            android:id="@+id/work_chrono"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:format12Hour="H:mm"
+            android:format24Hour="H:mm"
+            android:fontFamily="@font/jetbrains_mono_bold"
+            android:textColor="@color/widget_text"
+            android:textSize="12sp" />
+    </LinearLayout>
+
     <!-- Направление -->
     <LinearLayout
         android:id="@+id/route_direction"
@@ -45,7 +78,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginTop="9dp">
+        android:layout_marginTop="5dp">
 
         <TextView
             android:id="@+id/station_from"
@@ -80,9 +113,10 @@
 
     <!-- Разделитель (FrameLayout — RemoteViews-safe) -->
     <FrameLayout
+        android:id="@+id/header_divider"
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:layout_marginVertical="14dp"
+        android:layout_marginVertical="8dp"
         android:background="@color/widget_card_stroke" />
 
     <!-- Подпись поезда / следующей станции -->

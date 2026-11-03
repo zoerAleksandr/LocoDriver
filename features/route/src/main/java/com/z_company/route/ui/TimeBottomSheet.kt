@@ -2,6 +2,7 @@
 
 package com.z_company.route.ui
 
+import com.z_company.route.component.separateSheetFromScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -165,6 +166,13 @@ fun TimeBottomSheet(
     LaunchedEffect(allStations) {
         if (selectedStation == null && initialStationId != null) {
             selectedStation = allStations.find { it.stationId == initialStationId }
+        }
+        // Нормы станции могли поменяться в справочнике (редактор в пикере станций) —
+        // подтягиваем свежую запись, иначе шторка до переоткрытия держит старые нормы.
+        val current = selectedStation
+        if (current != null) {
+            val fresh = allStations.find { it.stationId == current.stationId }
+            if (fresh != null && fresh != current) selectedStation = fresh
         }
     }
     var selectedSeriesName by remember { mutableStateOf(seriesName?.takeIf { it.isNotBlank() }) }
@@ -702,6 +710,7 @@ fun TimeBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .separateSheetFromScroll()
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 32.dp)
         ) {
