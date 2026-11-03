@@ -393,6 +393,7 @@ class LocoTimeSheetIosViewModel(
                 workEnd = ms
                 workEndAccepted = true
                 // Сразу синхронизируем окончание работы в маршрут (не ждём «Готово»).
+                routeEndWork = ms
                 onTimeEndWork(ms)
             }
         }
@@ -409,6 +410,7 @@ class LocoTimeSheetIosViewModel(
             "workEnd" -> {
                 workEnd = null
                 pendingEndWorkUpdate = null
+                routeEndWork = null
                 onTimeEndWork(null)
             }
             else -> return
@@ -422,6 +424,7 @@ class LocoTimeSheetIosViewModel(
         workEnd = v
         workEndAccepted = true
         pendingEndWorkUpdate = null
+        routeEndWork = v
         onTimeEndWork(v)
         changed()
     }
@@ -460,7 +463,10 @@ class LocoTimeSheetIosViewModel(
     /** «Готово»: для сдачи с заданным workEnd — синхронизация в маршрут; false при ошибке последовательности. */
     fun finish(): Boolean {
         if (hasSequenceError()) return false
-        if (!isAcceptance && workEnd != null) onTimeEndWork(workEnd)
+        if (!isAcceptance && workEnd != null) {
+            routeEndWork = workEnd
+            onTimeEndWork(workEnd)
+        }
         emitSave()
         return true
     }
