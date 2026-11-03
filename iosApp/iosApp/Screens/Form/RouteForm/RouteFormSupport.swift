@@ -67,6 +67,8 @@ struct RouteTimeFormat {
 
     /// `dd.MM.yy` — дата в плашке строки времени.
     func date(_ ms: Int64) -> String { make("dd.MM.yy").string(from: TimeFormatter.msToDate(ms)) }
+    /// `dd.MM.yyyy HH:mm` — как в PWA.
+    func dateTimeFull(_ ms: Int64) -> String { make("dd.MM.yyyy HH:mm").string(from: TimeFormatter.msToDate(ms)) }
     /// `HH:mm`.
     func time(_ ms: Int64) -> String { make("HH:mm").string(from: TimeFormatter.msToDate(ms)) }
     /// `dd.MM.yy HH:mm` (`getDateAndTime`).

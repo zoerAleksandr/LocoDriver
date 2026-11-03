@@ -481,22 +481,40 @@ struct FormView: View {
         }
     }
 
+    /// Строка времени как в PWA: подпись слева, значение справа (пусто — «Выбрать», заполнено — акцентный mono).
     private func timeRow(_ field: RouteTimeField, _ value: Int64?, _ f: RouteTimeFormat, tag: String?, state: RouteFormState) -> some View {
-        DSTimeRow(
-            label: field.rowTitle,
-            date: value.map { f.date($0) },
-            time: value.map { f.time($0) },
-            tag: tag,
-            collapsesWhenEmpty: true,
-            onTap: {
-                if field == .start && state.startWorkByArrival {
-                    showArrivalConfirm = true
-                } else {
-                    sheet = .picker(field)
-                }
-            },
-            onLongPress: value == nil ? nil : { showClearSheet(field) }
-        )
+        HStack(alignment: .center, spacing: DSSpacing.sm) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(field.rowTitle).font(DSFont.sans(16)).foregroundColor(DSColor.text)
+                if let tag = tag { DSTag(text: tag) }
+            }
+            Spacer(minLength: 8)
+            if let value = value {
+                Text(f.dateTimeFull(value))
+                    .font(DSFont.mono(16, .medium))
+                    .foregroundColor(DSColor.accent)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            } else {
+                Text("Выбрать")
+                    .font(DSFont.sans(16))
+                    .foregroundColor(DSColor.textFaint)
+            }
+        }
+        .padding(.horizontal, DSMetrics.rowPadX)
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if field == .start && state.startWorkByArrival {
+                showArrivalConfirm = true
+            } else {
+                sheet = .picker(field)
+            }
+        }
+        .onLongPressGesture {
+            if value != nil { showClearSheet(field) }
+        }
     }
 
     private func setTime(_ field: RouteTimeField, _ ms: Int64?) {
