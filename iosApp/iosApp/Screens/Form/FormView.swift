@@ -487,6 +487,7 @@ struct FormView: View {
             date: value.map { f.date($0) },
             time: value.map { f.time($0) },
             tag: tag,
+            collapsesWhenEmpty: true,
             onTap: {
                 if field == .start && state.startWorkByArrival {
                     showArrivalConfirm = true
