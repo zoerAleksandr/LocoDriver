@@ -36,14 +36,16 @@ struct LocoField: View {
         .background(DSColor.bgSubtle)
         .clipShape(RoundedRectangle(cornerRadius: DSRadius.input, style: .continuous))
         .onAppear { text = external }
+        // Не гейтим по `focused`: при первом тапе вставка/ввод может прийти раньше, чем обновится
+        // фокус, и значение терялось (в модель не уходило).
         .onChange(of: text) { value in
-            if focused && value != external { onChange(value) }
+            if value != external { onChange(value) }
         }
         .onChange(of: external) { value in
             if !focused { text = value }
         }
         .onChange(of: focused) { isFocused in
-            if !isFocused { text = external }
+            if !isFocused && text != external { onChange(text) }
         }
     }
 }

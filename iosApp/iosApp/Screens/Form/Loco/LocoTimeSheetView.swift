@@ -40,15 +40,16 @@ struct LocoTimeSheetView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
                     contextFields(s)
-                    if s.showNormMode { normMode(s) }
-                    ForEach(Array(sheet.warnings.enumerated()), id: \.offset) { _, w in warning(w) }
-                    if s.isAsking { askingBanner }
+                    if s.showNormMode { normMode(s).transition(blockTransition) }
+                    ForEach(sheet.warnings, id: \.text) { w in warning(w).transition(blockTransition) }
+                    if s.isAsking { askingBanner.transition(blockTransition) }
                     rowsCard(s)
                     saveButtons(s)
                     calculateButton(s)
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 32)
+                .animation(.easeInOut(duration: 0.25), value: animationKey(s))
             }
         }
         .background(DSColor.bg.ignoresSafeArea())
@@ -89,6 +90,10 @@ struct LocoTimeSheetView: View {
         }
     }
 
+    private var blockTransition: AnyTransition {
+        .opacity.combined(with: .move(edge: .top))
+    }
+
     private func startIfNeeded() {
         guard !started else { return }
         started = true
@@ -112,6 +117,14 @@ struct LocoTimeSheetView: View {
             initialStationId: isAcceptance ? state.acceptanceStationId : state.deliveryStationId,
             offsetSeconds: Int(state.displayOffsetSeconds)
         )
+    }
+
+    /// Любое появление/исчезновение блоков (предупреждения, баннер, кнопки норм, дельты) — плавно.
+    private func animationKey(_ s: TimeSheetState) -> String {
+        let deltas = sheet.rows.map { $0.deltaText.isEmpty ? "0" : "1" }.joined()
+        let pending = sheet.rows.map { $0.pendingText == nil ? "0" : "1" }.joined()
+        let errors = sheet.rows.map { $0.hasError ? "1" : "0" }.joined()
+        return "\(sheet.warnings.map { $0.text }.joined(separator: "|"))-\(s.isAsking)-\(s.showNormMode)-\(s.saveSeries?.title ?? "")-\(s.saveStation?.title ?? "")-\(deltas)-\(pending)-\(errors)"
     }
 
     // MARK: Шапка
@@ -262,6 +275,7 @@ struct LocoTimeSheetView: View {
                     }
                     if row.hasError {
                         Text("⛔ Время должно быть позже предыдущего").font(DSFont.sans(11)).foregroundColor(DSColor.danger)
+                            .transition(.opacity)
                     }
                     if !row.deltaText.isEmpty {
                         let tone: Color = row.deltaTone == 1 ? DSColor.danger : (row.deltaTone == 2 ? DSColor.success : DSColor.textMuted)
@@ -278,11 +292,11 @@ struct LocoTimeSheetView: View {
             }
             .padding(.horizontal, DSMetrics.rowPadX)
             .padding(.vertical, DSMetrics.rowPadYTouch)
-            .background(row.isHighlighted ? DSColor.accentSoft.opacity(blink ? 1 : 0.2) : Color.clear)
             .contentShape(Rectangle())
             .onTapGesture { tap(row) }
             .onLongPressGesture { if row.canLongPress { deleteRow = row } }
         }
+        .background(row.isHighlighted ? DSColor.accentSoft.opacity(blink ? 1 : 0.2) : Color.clear)
     }
 
     @ViewBuilder
@@ -317,13 +331,11 @@ struct LocoTimeSheetView: View {
 
     @ViewBuilder
     private func saveButtons(_ s: TimeSheetState) -> some View {
-        if s.saveSeries != nil || s.saveStation != nil {
-            VStack(spacing: 8) {
-                if let b = s.saveSeries { saveButton(b) { sheet.saveSeriesNorm() } }
-                if let b = s.saveStation { saveButton(b) { sheet.saveStationNorm() } }
-            }
-            .padding(.top, 6)
+        VStack(spacing: 8) {
+            if let b = s.saveSeries { saveButton(b) { sheet.saveSeriesNorm() }.transition(blockTransition) }
+            if let b = s.saveStation { saveButton(b) { sheet.saveStationNorm() }.transition(blockTransition) }
         }
+        .padding(.top, (s.saveSeries != nil || s.saveStation != nil) ? 6 : 0)
     }
 
     private func saveButton(_ b: SaveNormUi, action: @escaping () -> Void) -> some View {

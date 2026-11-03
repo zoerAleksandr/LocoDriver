@@ -114,6 +114,9 @@ struct FormLocoView: View {
             .padding(.horizontal, DSMetrics.screenPadX)
         }
         .scrollDismissesKeyboardIfAvailable()
+        .animation(.easeInOut(duration: 0.25), value: s.isElectric)
+        .animation(.easeInOut(duration: 0.25), value: s.showOtherCurrent)
+        .animation(.easeInOut(duration: 0.25), value: s.electricTotals.count)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
@@ -162,7 +165,7 @@ struct FormLocoView: View {
                             .submitLabel(.done)
                             .autocorrectionDisabled()
                             .onChange(of: seriesText) { value in
-                                guard seriesFocused else { return }
+                                guard value != (vm.state?.series ?? "") else { return }
                                 vm.setSeries(value)
                                 showSuggestions = true
                             }
@@ -316,6 +319,7 @@ struct FormLocoView: View {
                     LocoElectricSectionCard(section: section, index: i, showOtherCurrent: s.showOtherCurrent, vm: vm) {
                         requestDelete(section.id)
                     }
+                    .transition(sectionTransition)
                 }
             } else {
                 let list = (s.dieselSections as? [LocoDieselSectionUi]) ?? []
@@ -326,9 +330,18 @@ struct FormLocoView: View {
                         onSupplyCoeff: { vm.openCoefficient(i); applySupplyToSection = true; coeff = CoeffTarget(index: i, isSupply: true) },
                         onDelete: { requestDelete(section.id) }
                     )
+                    .transition(sectionTransition)
                 }
             }
         }
+        .animation(.easeInOut(duration: 0.28), value: Int(s.sectionCount))
+    }
+
+    private var sectionTransition: AnyTransition {
+        .asymmetric(
+            insertion: .opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.96, anchor: .top)),
+            removal: .opacity.combined(with: .scale(scale: 0.96, anchor: .top))
+        )
     }
 
     private var deleteSheet: some View {
@@ -372,8 +385,7 @@ struct FormLocoView: View {
                     coeff = nil
                 }
             )
-            .presentationDetents([.medium])
-            .interactiveDismissDisabled(false)
+            .presentationDetents([.height(target.isSupply ? 340 : 280)])
         }
     }
 
@@ -403,7 +415,7 @@ private struct LocoNumberField: View {
             .foregroundColor(DSColor.text)
             .submitLabel(.done)
             .onAppear { text = external }
-            .onChange(of: text) { v in if focused { onChange(v) } }
+            .onChange(of: text) { v in if v != external { onChange(v) } }
             .onChange(of: external) { v in if !focused { text = v } }
     }
 }

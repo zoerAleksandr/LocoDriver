@@ -134,7 +134,7 @@ struct LocoDieselSectionCard: View {
     private var supplyBlock: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Button { supplyExpanded = !expanded } label: {
+                Button { withAnimation(.easeInOut(duration: 0.25)) { supplyExpanded = !expanded } } label: {
                     HStack(spacing: 6) {
                         Text("ЭКИПИРОВКА").dsTextStyle(.group)
                         (expanded ? DSIcon.chevronDown : DSIcon.chevronRight).image
@@ -162,6 +162,7 @@ struct LocoDieselSectionCard: View {
             }
         }
         .padding(.top, 4)
+        .animation(.easeInOut(duration: 0.25), value: expanded)
     }
 }
 
@@ -199,7 +200,7 @@ struct LocoElectricSectionCard: View {
                             onSecond: { vm.setEnergy(index, "delivery2", $0) }
                         )
                     }
-                    Button { recoveryExpanded = !expanded } label: {
+                    Button { withAnimation(.easeInOut(duration: 0.25)) { recoveryExpanded = !expanded } } label: {
                         HStack(spacing: 6) {
                             Text("РЕКУПЕРАЦИЯ").dsTextStyle(.group)
                             (expanded ? DSIcon.chevronDown : DSIcon.chevronRight).image
@@ -234,6 +235,9 @@ struct LocoElectricSectionCard: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
+                .animation(.easeInOut(duration: 0.25), value: expanded)
+                .animation(.easeInOut(duration: 0.25), value: showOtherCurrent)
+                .animation(.easeInOut(duration: 0.25), value: section.recovery != nil)
             }
         }
         .contextMenu {

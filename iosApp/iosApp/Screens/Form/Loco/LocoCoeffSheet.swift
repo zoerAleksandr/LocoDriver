@@ -23,18 +23,18 @@ struct LocoCoeffSheet: View {
                     .font(DSTextStyle.navActionAccent.font)
                     .foregroundColor(DSColor.accent)
             }
-            HStack(spacing: 24) {
+            HStack(spacing: 0) {
                 stepButton("−") { onChange(step(value, -1)) }
                 TextField("1.0", text: Binding(get: { value }, set: { onChange($0) }))
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.center)
                     .font(DSFont.mono(28, .bold))
                     .foregroundColor(DSColor.text)
-                    .frame(minWidth: 100)
+                    .frame(maxWidth: .infinity)
                 stepButton("+") { onChange(step(value, 1)) }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 18)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
             .background(DSColor.bgSubtle)
             .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
 
@@ -64,22 +64,23 @@ struct LocoCoeffSheet: View {
                     }
                 }
             }
-            Spacer(minLength: 0)
         }
         .padding(.horizontal, 20)
         .padding(.top, 20)
+        .padding(.bottom, 20)
+        .frame(maxHeight: .infinity, alignment: .top)
         .background(DSColor.bg.ignoresSafeArea())
     }
 
     private func stepButton(_ symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(symbol)
-                .font(DSFont.sans(26, .semibold))
-                .foregroundColor(DSColor.text)
-                .frame(width: 48, height: 48)
+                .font(DSFont.sans(24, .semibold))
+                .foregroundColor(DSColor.accent)
+                .frame(width: 52, height: 52)
                 .background(DSColor.surface)
                 .clipShape(Circle())
-                .dsShadow(.sm)
+                .overlay(Circle().stroke(DSColor.border, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
