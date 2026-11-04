@@ -18,6 +18,7 @@ import com.z_company.iosapp.viewmodel.SeriesListIosViewModel
 import com.z_company.iosapp.viewmodel.StationEditorIosViewModel
 import com.z_company.iosapp.viewmodel.StationListIosViewModel
 import com.z_company.iosapp.viewmodel.RouteFormIosViewModel
+import com.z_company.iosapp.viewmodel.StatisticsIosViewModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import org.koin.core.component.inject
@@ -68,6 +69,9 @@ object IosViewModelHelper : KoinComponent {
     /** Справочники норм §17.4: по экземпляру на экран/шторку; Swift вызывает `dispose()`. */
     fun createSeriesListViewModel(): SeriesListIosViewModel = get()
     fun createStationListViewModel(): StationListIosViewModel = get()
+
+    /** Экран «Статистика» §13: новый экземпляр на экран; Swift вызывает `dispose()`. */
+    fun createStatisticsViewModel(): StatisticsIosViewModel = get()
     fun createSeriesEditorViewModel(id: String?, initialName: String?): SeriesEditorIosViewModel =
         SeriesEditorIosViewModel(get(), get(), id, initialName)
     fun createStationEditorViewModel(id: String?, initialName: String?): StationEditorIosViewModel =
