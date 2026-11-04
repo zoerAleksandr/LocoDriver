@@ -57,13 +57,13 @@ struct SeriesEditorContent: View {
 
                 DSGroupHeader("ПОСЛЕ ОТСТОЯ")
                 DSCard {
-                    stepper(.n1, icon: .calendar, label: "Приёмка", field: 0)
-                    stepper(.n2, icon: .clock, label: "Сдача", field: 1, last: true)
+                    stepper(.n1, icon: .logIn, label: "Приёмка", field: 0)
+                    stepper(.n2, icon: .logOut, label: "Сдача", field: 1, last: true)
                 }
                 DSGroupHeader("ИЗ РУК В РУКИ")
                 DSCard {
-                    stepper(.n3, icon: .calendar, label: "Приёмка", field: 2)
-                    stepper(.n4, icon: .clock, label: "Сдача", field: 3, last: true)
+                    stepper(.n3, icon: .logIn, label: "Приёмка", field: 2)
+                    stepper(.n4, icon: .logOut, label: "Сдача", field: 3, last: true)
                 }
 
                 DSGroupHeader("ДАННЫЕ ЛОКОМОТИВА")

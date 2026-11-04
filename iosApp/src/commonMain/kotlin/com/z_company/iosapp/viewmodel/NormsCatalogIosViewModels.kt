@@ -353,7 +353,8 @@ class SeriesEditorIosViewModel(
 
     private suspend fun persistRecord() {
         val s = _state.value
-        if (s.name.isBlank() || s.deleted) return
+        // Пока запись не загружена, писать нельзя: иначе значения по умолчанию затрут сохранённые.
+        if (s.name.isBlank() || s.deleted || !s.loaded) return
         val hasNorm = s.accP != null || s.delP != null || s.accH != null || s.delH != null ||
             s.numbering != SectionNumberingType.NUMERIC || s.brakeEdited
         val all = repository.getAll().toMutableList()
@@ -590,7 +591,8 @@ class StationEditorIosViewModel(
 
     private suspend fun persistRecord() {
         val s = _state.value
-        if (s.name.isBlank() || s.deleted) return
+        // Пока запись не загружена, писать нельзя: иначе значения по умолчанию затрут сохранённые.
+        if (s.name.isBlank() || s.deleted || !s.loaded) return
         val all = repository.getAll().toMutableList()
         val idx = all.indexOfFirst { it.stationId == persistentId }
         // Новая запись без данных не создаётся.

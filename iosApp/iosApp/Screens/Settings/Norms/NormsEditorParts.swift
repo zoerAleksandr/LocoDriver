@@ -39,6 +39,7 @@ struct NormsInputRow: View {
                     .foregroundColor(plate ? DSColor.text : DSColor.textMuted)
                 Spacer(minLength: 8)
                 if plate {
+                    // Одинаковая ширина у всех плашек; фон — как у полей ввода в приложении (bgSubtle).
                     HStack(spacing: 6) {
                         TextField(placeholder, text: $text)
                             .keyboardType(keyboard)
@@ -46,15 +47,13 @@ struct NormsInputRow: View {
                             .font(DSFont.mono(18, .semibold))
                             .foregroundColor(DSColor.text)
                             .disabled(!isEnabled)
-                            .frame(width: 64)
-                        if let suffix = suffix {
-                            Text(suffix).font(DSFont.mono(13)).foregroundColor(DSColor.textMuted)
-                        }
+                            .frame(maxWidth: .infinity)
+                        Text(suffix ?? "").font(DSFont.mono(13)).foregroundColor(DSColor.textMuted)
+                            .frame(width: 20, alignment: .leading)
                     }
                     .padding(.horizontal, 14).padding(.vertical, 8)
-                    .background(text.isEmpty ? DSColor.bgSubtle : DSColor.bg)
-                    .overlay(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
-                        .stroke(text.isEmpty ? Color.clear : DSColor.border, lineWidth: 1))
+                    .frame(width: 132)
+                    .background(DSColor.bgSubtle)
                     .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
                 } else {
                     TextField(placeholder, text: $text)
