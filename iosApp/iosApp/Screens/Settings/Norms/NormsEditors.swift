@@ -57,20 +57,20 @@ struct SeriesEditorContent: View {
 
                 DSGroupHeader("ПОСЛЕ ОТСТОЯ")
                 DSCard {
-                    stepper(.n1, icon: .logIn, label: "Приёмка", field: 0)
-                    stepper(.n2, icon: .logOut, label: "Сдача", field: 1, last: true)
+                    stepper(.n1, label: "Приёмка", field: 0)
+                    stepper(.n2, label: "Сдача", field: 1, last: true)
                 }
                 DSGroupHeader("ИЗ РУК В РУКИ")
                 DSCard {
-                    stepper(.n3, icon: .logIn, label: "Приёмка", field: 2)
-                    stepper(.n4, icon: .logOut, label: "Сдача", field: 3, last: true)
+                    stepper(.n3, label: "Приёмка", field: 2)
+                    stepper(.n4, label: "Сдача", field: 3, last: true)
                 }
 
                 DSGroupHeader("ДАННЫЕ ЛОКОМОТИВА")
                 DSCard {
-                    passport(.sections, "Количество секций", 0, .numberPad, nil)
+                    passport(.sections, "Количество секций", 0, .numberPad, "")
                     passport(.weight, "Вес", 1, .decimalPad, "т")
-                    passport(.axles, "Число осей", 2, .numberPad, nil)
+                    passport(.axles, "Число осей", 2, .numberPad, "")
                     passport(.axleLoad, "Нажатие на ось", 3, .decimalPad, "тс")
                     passport(.volume, "Объём ГР", 4, .numberPad, "л", last: true)
                 }
@@ -129,13 +129,13 @@ struct SeriesEditorContent: View {
         )
     }
 
-    private func stepper(_ f: NormsField, icon: DSIcon, label: String, field: Int, last: Bool = false) -> some View {
-        NormsStepperRow(icon: icon, label: label, text: bind(f), showsDivider: !last)
+    private func stepper(_ f: NormsField, label: String, field: Int, last: Bool = false) -> some View {
+        NormsStepperRow(label: label, text: bind(f), showsDivider: !last)
             .focused($focus, equals: f)
     }
 
     private func passport(_ f: NormsField, _ label: String, _ field: Int, _ kb: UIKeyboardType, _ suffix: String?, last: Bool = false) -> some View {
-        NormsInputRow(label: label, placeholder: "—", text: bind(f), keyboard: kb, mono: true, suffix: suffix, showsDivider: !last, plate: true)
+        NormsInputRow(label: label, placeholder: "—", text: bind(f), keyboard: kb, mono: true, suffix: suffix, showsDivider: !last)
             .focused($focus, equals: f)
     }
 
@@ -193,13 +193,13 @@ struct StationEditorContent: View {
 
                 DSGroupHeader("ПРИЁМКА")
                 DSCard {
-                    stepper(.n1, .calendar, "Явка → Начало", 0)
-                    stepper(.n2, .mapPin, "Конец → КП", 1, last: true)
+                    stepper(.n1, "Явка → Начало", 0)
+                    stepper(.n2, "Конец → КП", 1, last: true)
                 }
                 DSGroupHeader("СДАЧА")
                 DSCard {
-                    stepper(.n3, .mapPin, "КП → Начало", 2)
-                    stepper(.n4, .clock, "Конец → Окончание работы", 3, last: true)
+                    stepper(.n3, "КП → Начало", 2)
+                    stepper(.n4, "Конец → Окончание работы", 3, last: true)
                 }
                 Text("Нормы выше используются автоматически при заполнении времени приёмки и сдачи локомотива на этой станции.")
                     .dsTextStyle(.captionMuted).padding(.top, 8).padding(.horizontal, 4)
@@ -272,8 +272,8 @@ struct StationEditorContent: View {
         )
     }
 
-    private func stepper(_ f: NormsField, _ icon: DSIcon, _ label: String, _ field: Int, last: Bool = false) -> some View {
-        NormsStepperRow(icon: icon, label: label, text: bind(f), maxValue: 120, showsDivider: !last)
+    private func stepper(_ f: NormsField, _ label: String, _ field: Int, last: Bool = false) -> some View {
+        NormsStepperRow(label: label, text: bind(f), maxValue: 120, showsDivider: !last)
             .focused($focus, equals: f)
     }
 

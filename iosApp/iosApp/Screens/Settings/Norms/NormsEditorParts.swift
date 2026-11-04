@@ -29,44 +29,24 @@ struct NormsInputRow: View {
     var suffix: String? = nil
     var showsDivider: Bool = true
     var isEnabled: Bool = true
-    /// Значение в плашке «как время» в шторке (mono 18/600, рамка) — для числовых полей.
-    var plate: Bool = false
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Text(label).font(plate ? DSFont.sans(14, .medium) : DSFont.sans(14))
-                    .foregroundColor(plate ? DSColor.text : DSColor.textMuted)
+                Text(label).font(DSFont.sans(14)).foregroundColor(DSColor.textMuted)
+                    .lineLimit(1).fixedSize(horizontal: true, vertical: false)
                 Spacer(minLength: 8)
-                if plate {
-                    // Одинаковая ширина у всех плашек; фон — как у полей ввода в приложении (bgSubtle).
-                    HStack(spacing: 6) {
-                        TextField(placeholder, text: $text)
-                            .keyboardType(keyboard)
-                            .multilineTextAlignment(.trailing)
-                            .font(DSFont.mono(18, .semibold))
-                            .foregroundColor(DSColor.text)
-                            .disabled(!isEnabled)
-                            .frame(maxWidth: .infinity)
-                        Text(suffix ?? "").font(DSFont.mono(13)).foregroundColor(DSColor.textMuted)
-                            .frame(width: 20, alignment: .leading)
-                    }
-                    .padding(.horizontal, 14).padding(.vertical, 8)
-                    .frame(width: 132)
-                    .background(DSColor.bgSubtle)
-                    .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
-                } else {
                     TextField(placeholder, text: $text)
                         .keyboardType(keyboard)
                         .multilineTextAlignment(alignRight ? .trailing : .leading)
                         .font(mono ? DSFont.mono(15, .medium) : DSFont.sans(15, .medium))
                         .foregroundColor(DSColor.text)
                         .disabled(!isEnabled)
-                        .frame(maxWidth: 220)
+                        .frame(maxWidth: 180)
                     if let suffix = suffix {
                         Text(suffix).font(DSFont.sans(14)).foregroundColor(DSColor.textMuted)
+                        .frame(width: 24, alignment: .leading)
                     }
-                }
             }
             .padding(.horizontal, DSMetrics.rowPadX)
             .padding(.vertical, 12)
@@ -76,10 +56,9 @@ struct NormsInputRow: View {
     }
 }
 
-/// Строка нормы в минутах: [иконка] подпись … [−] [N мин] [+] (`DurationRow`).
+/// Строка нормы в минутах: подпись … [−] [N мин] [+] (`DurationRow`).
 /// Пустое поле или 0 = «не задано».
 struct NormsStepperRow: View {
-    let icon: DSIcon
     let label: String
     @Binding var text: String
     var maxValue: Int = 240
@@ -90,7 +69,6 @@ struct NormsStepperRow: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                DSIconAvatar(icon: icon, size: .sm, tone: .neutral)
                 Text(label).font(DSFont.sans(14)).foregroundColor(DSColor.text)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
@@ -111,7 +89,7 @@ struct NormsStepperRow: View {
             }
             .padding(.horizontal, DSMetrics.rowPadX)
             .padding(.vertical, 10)
-            if showsDivider { DSDivider(inset: 56) }
+            if showsDivider { DSDivider() }
         }
     }
 
