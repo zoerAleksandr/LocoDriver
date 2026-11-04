@@ -46,6 +46,10 @@ private struct SettingsHubView: View {
             NavigationLink(destination: SettingsLocoView(settings: settings, vm: vm)) {
                 Text("Локомотив")
             }
+            Button("Серии локомотивов") { AppRouter.shared.showSettingsSection(.seriesList) }
+                .foregroundColor(.primary)
+            Button("Станции") { AppRouter.shared.showSettingsSection(.stationList) }
+                .foregroundColor(.primary)
         }
     }
 }

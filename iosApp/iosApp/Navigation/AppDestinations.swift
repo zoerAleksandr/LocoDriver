@@ -26,6 +26,16 @@ struct AppDestinationView: View {
             WorkScheduleView()
         case .purchases:
             PurchasesView()
+        case .settingsSection(.seriesList):
+            SeriesListView()
+        case .settingsSection(.stationList):
+            StationListView()
+        case .settingsSection(.seriesEditor(let id)):
+            SeriesEditorScreen(id: id, name: nil)
+        case .settingsSection(.seriesNew(let name)):
+            SeriesEditorScreen(id: nil, name: name.isEmpty ? nil : name)
+        case .settingsSection(.stationEditor(let id)):
+            StationEditorScreen(id: id.isEmpty ? nil : id)
         case .routeFormCopy(let basicId):
             FormView(routeId: basicId, isCopy: true)
         case .sharedRoutePreview(let routeId):

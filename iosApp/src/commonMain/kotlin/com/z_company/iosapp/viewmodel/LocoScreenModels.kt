@@ -148,25 +148,3 @@ data class StationRowUi(
     val hasNorms: Boolean,
     val isSelected: Boolean,
 )
-
-/** Данные редактора серии в пикере (§2.10, поля §17.4). */
-data class SeriesEditorUi(
-    val id: String?,
-    val name: String,
-    val isElectric: Boolean,
-    val acceptanceDuration: String,
-    val deliveryDuration: String,
-    val acceptanceHandToHand: String,
-    val deliveryHandToHand: String,
-    val numberingLetters: Boolean,
-)
-
-/** Данные редактора станции в пикере (§2.10, поля §17.4). */
-data class StationEditorUi(
-    val id: String?,
-    val name: String,
-    val appearanceToStart: String,
-    val endToBarrier: String,
-    val barrierToStart: String,
-    val endToWorkEnd: String,
-)

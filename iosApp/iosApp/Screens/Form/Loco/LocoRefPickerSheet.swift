@@ -53,7 +53,7 @@ struct LocoRefPickerSheet: View {
                 }
             }
             .padding(.horizontal, DSMetrics.screenPadX)
-            .padding(.top, 18)
+            .padding(.top, 30)
             .padding(.bottom, 10)
 
             TextField(isSeries ? "Поиск серии..." : "Поиск станции...", text: $query)
@@ -155,7 +155,7 @@ struct LocoRefPickerSheet: View {
     }
 }
 
-// MARK: Редакторы
+// MARK: Редакторы (общие с Настройками, §17.4)
 
 private struct EditorHeader: View {
     let title: String
@@ -169,177 +169,52 @@ private struct EditorHeader: View {
             }
         }
         .padding(.horizontal, DSMetrics.screenPadX)
-        .padding(.top, 18).padding(.bottom, 10)
+        .padding(.top, 30).padding(.bottom, 10)
     }
 }
 
-private struct EditorField: View {
-    let label: String
-    @Binding var text: String
-    var keyboard: UIKeyboardType = .default
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label).dsTextStyle(.group)
-            TextField("", text: $text)
-                .keyboardType(keyboard)
-                .padding(.horizontal, 14).frame(minHeight: DSMetrics.inputMinH)
-                .background(DSColor.bgSubtle)
-                .clipShape(RoundedRectangle(cornerRadius: DSRadius.input, style: .continuous))
-        }
-    }
-}
-
+/// Редактор серии в пикере: `SeriesEditorContent` из Настроек; «Готово» — commit и возврат к списку.
 struct LocoSeriesEditor: View {
     @ObservedObject var sheet: LocoTimeSheetViewModelWrapper
-    @State var id: String?
+    @StateObject private var vm: SeriesEditorViewModelWrapper
     let onDone: () -> Void
-
-    @State private var name = ""
-    @State private var isElectric = true
-    @State private var acc = ""
-    @State private var del = ""
-    @State private var accH = ""
-    @State private var delH = ""
-    @State private var letters = false
-    @State private var loaded = false
-    @State private var saveTask: Task<Void, Never>?
-    @Environment(\.scenePhase) private var scenePhase
 
     init(sheet: LocoTimeSheetViewModelWrapper, id: String?, onDone: @escaping () -> Void) {
         self.sheet = sheet
-        self._id = State(initialValue: id)
         self.onDone = onDone
+        // Переименование выбранной серии и её удаление — обратно в форму локомотива (§2.12).
+        _vm = StateObject(wrappedValue: SeriesEditorViewModelWrapper(
+            id: id, initialName: nil,
+            onRenamed: { old, new in sheet.seriesRenamed(old: old, new: new) },
+            onDeleted: { name in sheet.seriesRemoved(name) }
+        ))
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            EditorHeader(title: id == nil ? "Новая серия" : "Серия") { commit(); onDone() }
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    EditorField(label: "НАЗВАНИЕ", text: $name)
-                    Picker("", selection: $isElectric) {
-                        Text("Электровоз").tag(true)
-                        Text("Тепловоз").tag(false)
-                    }.pickerStyle(.segmented)
-                    Text("ПОСЛЕ ОТСТОЯ, МИН").dsTextStyle(.group)
-                    HStack(spacing: 10) {
-                        EditorField(label: "ПРИЁМКА", text: $acc, keyboard: .numberPad)
-                        EditorField(label: "СДАЧА", text: $del, keyboard: .numberPad)
-                    }
-                    Text("ИЗ РУК В РУКИ, МИН").dsTextStyle(.group)
-                    HStack(spacing: 10) {
-                        EditorField(label: "ПРИЁМКА", text: $accH, keyboard: .numberPad)
-                        EditorField(label: "СДАЧА", text: $delH, keyboard: .numberPad)
-                    }
-                    Toggle("Секции буквами (А, Б, В…)", isOn: $letters)
-                }
-                .padding(DSMetrics.screenPadX)
+            EditorHeader(title: (vm.state?.isNewRecord ?? true) && (vm.state?.name ?? "").isEmpty ? "Новая серия" : "Серия") {
+                vm.commit(); onDone()
             }
+            SeriesEditorContent(vm: vm, onDeleted: onDone, showsHint: false)
         }
-        .onAppear {
-            guard !loaded else { return }
-            loaded = true
-            let e = sheet.seriesEditor(id)
-            name = e.name; isElectric = e.isElectric
-            acc = e.acceptanceDuration; del = e.deliveryDuration
-            accH = e.acceptanceHandToHand; delH = e.deliveryHandToHand
-            letters = e.numberingLetters
-        }
-        .onChange(of: name) { _ in schedule() }
-        .onChange(of: isElectric) { _ in schedule() }
-        .onChange(of: acc) { _ in schedule() }
-        .onChange(of: del) { _ in schedule() }
-        .onChange(of: accH) { _ in schedule() }
-        .onChange(of: delH) { _ in schedule() }
-        .onChange(of: letters) { _ in schedule() }
-        .onDisappear { if loaded { commit() } }
-        .onChange(of: scenePhase) { phase in if phase != .active && loaded { commit() } }
-    }
-
-    /// Автосохранение через 500 мс после изменения (§2.10).
-    private func schedule() {
-        guard loaded else { return }
-        saveTask?.cancel()
-        saveTask = Task {
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            if !Task.isCancelled { commit() }
-        }
-    }
-
-    private func commit() {
-        saveTask?.cancel()
-        let newId = sheet.saveSeries(id: id, name: name, isElectric: isElectric, acc: acc, del: del, accH: accH, delH: delH, letters: letters)
-        if !newId.isEmpty { id = newId }
     }
 }
 
 struct LocoStationEditor: View {
-    @ObservedObject var sheet: LocoTimeSheetViewModelWrapper
-    @State var id: String?
+    @StateObject private var vm: StationEditorViewModelWrapper
     let onDone: () -> Void
 
-    @State private var name = ""
-    @State private var a = ""
-    @State private var b = ""
-    @State private var c = ""
-    @State private var d = ""
-    @State private var loaded = false
-    @State private var saveTask: Task<Void, Never>?
-    @Environment(\.scenePhase) private var scenePhase
-
     init(sheet: LocoTimeSheetViewModelWrapper, id: String?, onDone: @escaping () -> Void) {
-        self.sheet = sheet
-        self._id = State(initialValue: id)
         self.onDone = onDone
+        _vm = StateObject(wrappedValue: StationEditorViewModelWrapper(id: id, initialName: nil))
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            EditorHeader(title: id == nil ? "Новая станция" : "Станция") { commit(); onDone() }
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    EditorField(label: "НАЗВАНИЕ", text: $name)
-                    Text("ПРИЁМКА, МИН").dsTextStyle(.group)
-                    HStack(spacing: 10) {
-                        EditorField(label: "ЯВКА → НАЧАЛО", text: $a, keyboard: .numberPad)
-                        EditorField(label: "КОНЕЦ → КП", text: $b, keyboard: .numberPad)
-                    }
-                    Text("СДАЧА, МИН").dsTextStyle(.group)
-                    HStack(spacing: 10) {
-                        EditorField(label: "КП → НАЧАЛО", text: $c, keyboard: .numberPad)
-                        EditorField(label: "КОНЕЦ → РАБОТА", text: $d, keyboard: .numberPad)
-                    }
-                }
-                .padding(DSMetrics.screenPadX)
+            EditorHeader(title: (vm.state?.name ?? "").isEmpty ? "Новая станция" : "Станция") {
+                vm.commit(); onDone()
             }
+            StationEditorContent(vm: vm, onDeleted: onDone, showsHint: false)
         }
-        .onAppear {
-            guard !loaded else { return }
-            loaded = true
-            let e = sheet.stationEditor(id)
-            name = e.name; a = e.appearanceToStart; b = e.endToBarrier; c = e.barrierToStart; d = e.endToWorkEnd
-        }
-        .onChange(of: name) { _ in schedule() }
-        .onChange(of: a) { _ in schedule() }
-        .onChange(of: b) { _ in schedule() }
-        .onChange(of: c) { _ in schedule() }
-        .onChange(of: d) { _ in schedule() }
-        .onDisappear { if loaded { commit() } }
-        .onChange(of: scenePhase) { phase in if phase != .active && loaded { commit() } }
-    }
-
-    private func schedule() {
-        guard loaded else { return }
-        saveTask?.cancel()
-        saveTask = Task {
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            if !Task.isCancelled { commit() }
-        }
-    }
-
-    private func commit() {
-        saveTask?.cancel()
-        let newId = sheet.saveStation(id: id, name: name, a: a, b: b, c: c, d: d)
-        if !newId.isEmpty { id = newId }
     }
 }

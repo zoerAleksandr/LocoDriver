@@ -12,6 +12,10 @@ import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsIosViewModel
 import com.z_company.iosapp.viewmodel.PassengerFormIosViewModel
 import com.z_company.iosapp.viewmodel.TrainFormIosViewModel
+import com.z_company.iosapp.viewmodel.SeriesEditorIosViewModel
+import com.z_company.iosapp.viewmodel.SeriesListIosViewModel
+import com.z_company.iosapp.viewmodel.StationEditorIosViewModel
+import com.z_company.iosapp.viewmodel.StationListIosViewModel
 import com.z_company.iosapp.viewmodel.RouteFormIosViewModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
@@ -58,4 +62,12 @@ object IosViewModelHelper : KoinComponent {
 
     /** Шторка времени §2: новый экземпляр на открытие; Swift вызывает `dispose()`. */
     fun createLocoTimeSheetViewModel(): LocoTimeSheetIosViewModel = get()
+
+    /** Справочники норм §17.4: по экземпляру на экран/шторку; Swift вызывает `dispose()`. */
+    fun createSeriesListViewModel(): SeriesListIosViewModel = get()
+    fun createStationListViewModel(): StationListIosViewModel = get()
+    fun createSeriesEditorViewModel(id: String?, initialName: String?): SeriesEditorIosViewModel =
+        SeriesEditorIosViewModel(get(), get(), id, initialName)
+    fun createStationEditorViewModel(id: String?, initialName: String?): StationEditorIosViewModel =
+        StationEditorIosViewModel(get(), get(), get(), id, initialName)
 }

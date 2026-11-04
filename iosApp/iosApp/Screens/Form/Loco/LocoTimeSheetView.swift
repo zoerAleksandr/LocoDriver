@@ -86,7 +86,7 @@ struct LocoTimeSheetView: View {
         }
         .sheet(item: $refPicker) { req in
             LocoRefPickerSheet(request: req, sheet: sheet, onClose: { refPicker = nil })
-                .presentationDetents([.fraction(0.85)])
+                .presentationDetents([.large])
         }
     }
 
