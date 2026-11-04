@@ -881,8 +881,8 @@ selectedSeriesName (= seriesName, пустая строка → null)`. Сери
 
 ### 2.10. Пикеры серии/станции (внутри шторки)
 
-`SeriesPickerSheet` / `StationPickerSheet` — вложенные нижние шторки высотой
-85% экрана, открываются сразу полностью, без видимой ручки:
+`SeriesPickerSheet` / `StationPickerSheet` — вложенные нижние шторки;
+на iOS — на всю высоту (`.large`), открываются сразу полностью, без видимой ручки:
 - **Шапка списка**: заголовок «Серия»/«Станция» по центру и справа
   увеличенная кнопка **«Готово»** (17sp, закрывает пикер без изменения выбора).
   Левой кнопки нет.
@@ -952,7 +952,7 @@ selectedSeriesName (= seriesName, пустая строка → null)`. Сери
 время». 🚫 Мёртвый код Android — в iOS не реализуется: неиспользуемый `AnchorSelectionBanner` («От
 какого момента рассчитать время?» с чипами).
 
-**iOS (реализация, ios/loco).** Шторка — `LocoTimeSheetView`, пикеры и редакторы серии/станции — `LocoRefPickerSheet`; расчёты якорей, валидация, предупреждения и сохранение норм — Kotlin `LocoTimeSheetIosViewModel`. Редакторы серии/станции в пикере — **те же вью, что в Настройках** (`SeriesEditorContent` / `StationEditorContent`, `Screens/Settings/Norms/`), логика — Kotlin `SeriesEditorIosViewModel` / `StationEditorIosViewModel`; переименование выбранной серии и её удаление возвращаются в форму локомотива (`seriesRenamed` / `seriesRemoved`, §2.12). «Настроить серию/станцию» без записи в справочнике ведёт на экран списка «Серии»/«Станции» в Настройках.
+**iOS (реализация, ios/loco).** Пикер — на всю высоту; в редакторах серии и станции (и в Настройках, и в пикере) верхней плашки-подсказки нет, поля «Данные локомотива» — как «Километраж» у станции: подпись слева, значение справа (моно 15/500, без плашки и фона), единица измерения сразу после значения, правый край значений на общем отступе строки; иконок в строках норм серии и станции нет; курсор при входе в поле — в конец значения. Шторка — `LocoTimeSheetView`, пикеры и редакторы серии/станции — `LocoRefPickerSheet`; расчёты якорей, валидация, предупреждения и сохранение норм — Kotlin `LocoTimeSheetIosViewModel`. Редакторы серии/станции в пикере — **те же вью, что в Настройках** (`SeriesEditorContent` / `StationEditorContent`, `Screens/Settings/Norms/`), логика — Kotlin `SeriesEditorIosViewModel` / `StationEditorIosViewModel`; переименование выбранной серии и её удаление возвращаются в форму локомотива (`seriesRenamed` / `seriesRemoved`, §2.12). «Настроить серию/станцию» без записи в справочнике ведёт на экран списка «Серии»/«Станции» в Настройках.
 
 Источник: `features/route/.../ui/{TimeBottomSheet,SeriesPickerSheet,StationPickerSheet,NormaTimeComponents}.kt`,
 `.../viewmodel/SeriesEditorViewModel.kt`, `.../ui/settings/{SettingsSeriesEditorContent,SettingsStationEditorContent}.kt`,

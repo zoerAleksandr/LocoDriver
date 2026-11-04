@@ -10,6 +10,8 @@ struct SeriesEditorContent: View {
     @ObservedObject var vm: SeriesEditorViewModelWrapper
     /// Вызывается, когда серия удалена (экран/шторка закрываются).
     let onDeleted: () -> Void
+    /// Верхняя плашка-подсказка (в шторке пикера скрыта).
+    var showsHint: Bool = false
 
     @State private var texts: [NormsField: String] = [:]
     @State private var saveTask: Task<Void, Never>?
@@ -21,9 +23,11 @@ struct SeriesEditorContent: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                NormsHint(text: "Длительности применяются между «Начало приёмки» → «Окончание приёмки» (и так же для сдачи) в шторке локомотива.")
+                if showsHint {
+                    NormsHint(text: "Длительности применяются между «Начало приёмки» → «Окончание приёмки» (и так же для сдачи) в шторке локомотива.")
+                }
 
-                DSGroupHeader("ОСНОВНОЕ")
+                DSGroupHeader("ОСНОВНОЕ", topSpacing: showsHint ? DSMetrics.groupHeadMt : 4)
                 DSCard {
                     NormsInputRow(label: "Серия", placeholder: "Название", text: bind(.name), mono: true)
                         .focused($focus, equals: .name)
@@ -53,13 +57,13 @@ struct SeriesEditorContent: View {
 
                 DSGroupHeader("ПОСЛЕ ОТСТОЯ")
                 DSCard {
-                    stepper(.n1, icon: .calendar, label: "Приёмка", field: 0)
-                    stepper(.n2, icon: .clock, label: "Сдача", field: 1, last: true)
+                    stepper(.n1, label: "Приёмка", field: 0)
+                    stepper(.n2, label: "Сдача", field: 1, last: true)
                 }
                 DSGroupHeader("ИЗ РУК В РУКИ")
                 DSCard {
-                    stepper(.n3, icon: .calendar, label: "Приёмка", field: 2)
-                    stepper(.n4, icon: .clock, label: "Сдача", field: 3, last: true)
+                    stepper(.n3, label: "Приёмка", field: 2)
+                    stepper(.n4, label: "Сдача", field: 3, last: true)
                 }
 
                 DSGroupHeader("ДАННЫЕ ЛОКОМОТИВА")
@@ -85,6 +89,7 @@ struct SeriesEditorContent: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .normsKeyboardDone($focus)
+        .normsCaretAtEnd()
         .dsDeleteAlert($deleteRequest)
         .onReceive(vm.$state) { st in
             guard let st = st else { return }
@@ -124,8 +129,8 @@ struct SeriesEditorContent: View {
         )
     }
 
-    private func stepper(_ f: NormsField, icon: DSIcon, label: String, field: Int, last: Bool = false) -> some View {
-        NormsStepperRow(icon: icon, label: label, text: bind(f), showsDivider: !last)
+    private func stepper(_ f: NormsField, label: String, field: Int, last: Bool = false) -> some View {
+        NormsStepperRow(label: label, text: bind(f), showsDivider: !last)
             .focused($focus, equals: f)
     }
 
@@ -151,6 +156,7 @@ struct SeriesEditorContent: View {
 struct StationEditorContent: View {
     @ObservedObject var vm: StationEditorViewModelWrapper
     let onDeleted: () -> Void
+    var showsHint: Bool = false
 
     @State private var texts: [NormsField: String] = [:]
     @State private var saveTask: Task<Void, Never>?
@@ -161,9 +167,11 @@ struct StationEditorContent: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                NormsHint(text: "4 интервала, привязанных к этой станции. Используются автоматически при заполнении времени приёмки и сдачи локомотива.")
+                if showsHint {
+                    NormsHint(text: "4 интервала, привязанных к этой станции. Используются автоматически при заполнении времени приёмки и сдачи локомотива.")
+                }
 
-                DSGroupHeader("ОСНОВНОЕ")
+                DSGroupHeader("ОСНОВНОЕ", topSpacing: showsHint ? DSMetrics.groupHeadMt : 4)
                 DSCard {
                     NormsInputRow(label: "Название", placeholder: "Станция", text: bind(.name), alignRight: false, showsDivider: false)
                         .focused($focus, equals: .name)
@@ -185,13 +193,13 @@ struct StationEditorContent: View {
 
                 DSGroupHeader("ПРИЁМКА")
                 DSCard {
-                    stepper(.n1, .calendar, "Явка → Начало", 0)
-                    stepper(.n2, .mapPin, "Конец → КП", 1, last: true)
+                    stepper(.n1, "Явка → Начало", 0)
+                    stepper(.n2, "Конец → КП", 1, last: true)
                 }
                 DSGroupHeader("СДАЧА")
                 DSCard {
-                    stepper(.n3, .mapPin, "КП → Начало", 2)
-                    stepper(.n4, .clock, "Конец → Окончание работы", 3, last: true)
+                    stepper(.n3, "КП → Начало", 2)
+                    stepper(.n4, "Конец → Окончание работы", 3, last: true)
                 }
                 Text("Нормы выше используются автоматически при заполнении времени приёмки и сдачи локомотива на этой станции.")
                     .dsTextStyle(.captionMuted).padding(.top, 8).padding(.horizontal, 4)
@@ -208,6 +216,7 @@ struct StationEditorContent: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .normsKeyboardDone($focus)
+        .normsCaretAtEnd()
         .dsDeleteAlert($deleteRequest)
         .onReceive(vm.$state) { st in
             guard let st = st else { return }
@@ -263,8 +272,8 @@ struct StationEditorContent: View {
         )
     }
 
-    private func stepper(_ f: NormsField, _ icon: DSIcon, _ label: String, _ field: Int, last: Bool = false) -> some View {
-        NormsStepperRow(icon: icon, label: label, text: bind(f), maxValue: 120, showsDivider: !last)
+    private func stepper(_ f: NormsField, _ label: String, _ field: Int, last: Bool = false) -> some View {
+        NormsStepperRow(label: label, text: bind(f), maxValue: 120, showsDivider: !last)
             .focused($focus, equals: f)
     }
 

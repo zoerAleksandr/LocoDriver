@@ -34,16 +34,19 @@ struct NormsInputRow: View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
                 Text(label).font(DSFont.sans(14)).foregroundColor(DSColor.textMuted)
+                    .lineLimit(1).fixedSize(horizontal: true, vertical: false)
                 Spacer(minLength: 8)
-                TextField(placeholder, text: $text)
-                    .keyboardType(keyboard)
-                    .multilineTextAlignment(alignRight ? .trailing : .leading)
-                    .font(mono ? DSFont.mono(15, .medium) : DSFont.sans(15, .medium))
-                    .foregroundColor(DSColor.text)
-                    .disabled(!isEnabled)
-                    .frame(maxWidth: 220)
-                if let suffix = suffix {
-                    Text(suffix).font(DSFont.sans(14)).foregroundColor(DSColor.textMuted)
+                HStack(spacing: 4) {
+                    TextField(placeholder, text: $text)
+                        .keyboardType(keyboard)
+                        .multilineTextAlignment(alignRight ? .trailing : .leading)
+                        .font(mono ? DSFont.mono(15, .medium) : DSFont.sans(15, .medium))
+                        .foregroundColor(DSColor.text)
+                        .disabled(!isEnabled)
+                        .frame(maxWidth: 180)
+                    if let suffix = suffix {
+                        Text(suffix).font(DSFont.sans(14)).foregroundColor(DSColor.textMuted)
+                    }
                 }
             }
             .padding(.horizontal, DSMetrics.rowPadX)
@@ -54,10 +57,9 @@ struct NormsInputRow: View {
     }
 }
 
-/// Строка нормы в минутах: [иконка] подпись … [−] [N мин] [+] (`DurationRow`).
+/// Строка нормы в минутах: подпись … [−] [N мин] [+] (`DurationRow`).
 /// Пустое поле или 0 = «не задано».
 struct NormsStepperRow: View {
-    let icon: DSIcon
     let label: String
     @Binding var text: String
     var maxValue: Int = 240
@@ -68,7 +70,6 @@ struct NormsStepperRow: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                DSIconAvatar(icon: icon, size: .sm, tone: .neutral)
                 Text(label).font(DSFont.sans(14)).foregroundColor(DSColor.text)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
@@ -89,7 +90,7 @@ struct NormsStepperRow: View {
             }
             .padding(.horizontal, DSMetrics.rowPadX)
             .padding(.vertical, 10)
-            if showsDivider { DSDivider(inset: 56) }
+            if showsDivider { DSDivider() }
         }
     }
 
@@ -127,6 +128,18 @@ extension View {
                 Spacer()
                 Button("Готово") { focus.wrappedValue = nil }
             }
+        }
+    }
+}
+
+extension View {
+    /// Курсор при входе в поле ставится в КОНЕЦ значения (ввод дописывает), а не в точку касания.
+    func normsCaretAtEnd() -> some View {
+        onReceive(NotificationCenter.default.publisher(for: UITextField.textDidBeginEditingNotification)) { n in
+            guard let tf = n.object as? UITextField else { return }
+            let move = { tf.selectedTextRange = tf.textRange(from: tf.endOfDocument, to: tf.endOfDocument) }
+            DispatchQueue.main.async(execute: move)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: move)
         }
     }
 }
