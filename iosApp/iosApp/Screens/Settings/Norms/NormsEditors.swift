@@ -11,7 +11,7 @@ struct SeriesEditorContent: View {
     /// Вызывается, когда серия удалена (экран/шторка закрываются).
     let onDeleted: () -> Void
     /// Верхняя плашка-подсказка (в шторке пикера скрыта).
-    var showsHint: Bool = true
+    var showsHint: Bool = false
 
     @State private var texts: [NormsField: String] = [:]
     @State private var saveTask: Task<Void, Never>?
@@ -27,7 +27,7 @@ struct SeriesEditorContent: View {
                     NormsHint(text: "Длительности применяются между «Начало приёмки» → «Окончание приёмки» (и так же для сдачи) в шторке локомотива.")
                 }
 
-                DSGroupHeader("ОСНОВНОЕ", topSpacing: showsHint ? DSMetrics.groupHeadMt : 0)
+                DSGroupHeader("ОСНОВНОЕ", topSpacing: showsHint ? DSMetrics.groupHeadMt : 4)
                 DSCard {
                     NormsInputRow(label: "Серия", placeholder: "Название", text: bind(.name), mono: true)
                         .focused($focus, equals: .name)
@@ -68,9 +68,9 @@ struct SeriesEditorContent: View {
 
                 DSGroupHeader("ДАННЫЕ ЛОКОМОТИВА")
                 DSCard {
-                    passport(.sections, "Количество секций", 0, .numberPad, "")
+                    passport(.sections, "Количество секций", 0, .numberPad, nil)
                     passport(.weight, "Вес", 1, .decimalPad, "т")
-                    passport(.axles, "Число осей", 2, .numberPad, "")
+                    passport(.axles, "Число осей", 2, .numberPad, nil)
                     passport(.axleLoad, "Нажатие на ось", 3, .decimalPad, "тс")
                     passport(.volume, "Объём ГР", 4, .numberPad, "л", last: true)
                 }
@@ -156,7 +156,7 @@ struct SeriesEditorContent: View {
 struct StationEditorContent: View {
     @ObservedObject var vm: StationEditorViewModelWrapper
     let onDeleted: () -> Void
-    var showsHint: Bool = true
+    var showsHint: Bool = false
 
     @State private var texts: [NormsField: String] = [:]
     @State private var saveTask: Task<Void, Never>?
@@ -171,7 +171,7 @@ struct StationEditorContent: View {
                     NormsHint(text: "4 интервала, привязанных к этой станции. Используются автоматически при заполнении времени приёмки и сдачи локомотива.")
                 }
 
-                DSGroupHeader("ОСНОВНОЕ", topSpacing: showsHint ? DSMetrics.groupHeadMt : 0)
+                DSGroupHeader("ОСНОВНОЕ", topSpacing: showsHint ? DSMetrics.groupHeadMt : 4)
                 DSCard {
                     NormsInputRow(label: "Название", placeholder: "Станция", text: bind(.name), alignRight: false, showsDivider: false)
                         .focused($focus, equals: .name)

@@ -36,6 +36,7 @@ struct NormsInputRow: View {
                 Text(label).font(DSFont.sans(14)).foregroundColor(DSColor.textMuted)
                     .lineLimit(1).fixedSize(horizontal: true, vertical: false)
                 Spacer(minLength: 8)
+                HStack(spacing: 4) {
                     TextField(placeholder, text: $text)
                         .keyboardType(keyboard)
                         .multilineTextAlignment(alignRight ? .trailing : .leading)
@@ -45,8 +46,8 @@ struct NormsInputRow: View {
                         .frame(maxWidth: 180)
                     if let suffix = suffix {
                         Text(suffix).font(DSFont.sans(14)).foregroundColor(DSColor.textMuted)
-                        .frame(width: 24, alignment: .leading)
                     }
+                }
             }
             .padding(.horizontal, DSMetrics.rowPadX)
             .padding(.vertical, 12)
