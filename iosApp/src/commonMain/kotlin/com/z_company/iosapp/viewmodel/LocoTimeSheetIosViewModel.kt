@@ -611,116 +611,23 @@ class LocoTimeSheetIosViewModel(
             }
     }
 
-    fun seriesEditor(id: String?): SeriesEditorUi {
-        val s = id?.let { sid -> allSeries.find { it.seriesId == sid } }
-        return SeriesEditorUi(
-            id = s?.seriesId,
-            name = s?.name ?: "",
-            isElectric = (s?.type ?: locoType) == LocoType.ELECTRIC,
-            acceptanceDuration = s?.acceptanceDurationMin?.toString() ?: "",
-            deliveryDuration = s?.deliveryDurationMin?.toString() ?: "",
-            acceptanceHandToHand = s?.acceptanceHandToHandMin?.toString() ?: "",
-            deliveryHandToHand = s?.deliveryHandToHandMin?.toString() ?: "",
-            numberingLetters = s?.sectionNumberingType == SectionNumberingType.LETTERS,
-        )
-    }
-
     /**
-     * Автосохранение редактора серии (§2.10). Новая серия без единой нормы не создаётся.
-     * Возвращает id сохранённой серии или пустую строку.
+     * Редактор серии (общий с Настройками, §17.4) переименовал запись: если это выбранная серия —
+     * новое имя уходит в форму локомотива (§2.12).
      */
-    fun saveSeries(
-        id: String?,
-        name: String,
-        isElectric: Boolean,
-        acceptanceDuration: String,
-        deliveryDuration: String,
-        acceptanceHandToHand: String,
-        deliveryHandToHand: String,
-        numberingLetters: Boolean,
-    ): String {
-        val trimmed = name.trim()
-        if (trimmed.isEmpty()) return ""
-        val acc = acceptanceDuration.trim().toIntOrNull()
-        val del = deliveryDuration.trim().toIntOrNull()
-        val accH = acceptanceHandToHand.trim().toIntOrNull()
-        val delH = deliveryHandToHand.trim().toIntOrNull()
-        val existing = id?.let { sid -> allSeries.find { it.seriesId == sid } }
-        if (existing == null && acc == null && del == null && accH == null && delH == null) return ""
-        val numbering = if (numberingLetters) SectionNumberingType.LETTERS else SectionNumberingType.NUMERIC
-        val type = if (isElectric) LocoType.ELECTRIC else LocoType.DIESEL
-        val saved = existing?.copy(
-            name = trimmed, type = type,
-            acceptanceDurationMin = acc, deliveryDurationMin = del,
-            acceptanceHandToHandMin = accH, deliveryHandToHandMin = delH,
-            sectionNumberingType = numbering,
-            updatedAt = Clock.System.now().toEpochMilliseconds(),
-        ) ?: LocomotiveSeries(
-            name = trimmed, type = type,
-            acceptanceDurationMin = acc, deliveryDurationMin = del,
-            acceptanceHandToHandMin = accH, deliveryHandToHandMin = delH,
-            sectionNumberingType = numbering,
-        )
-        if (existing != null && existing.name == selectedSeriesName && existing.name != trimmed) {
-            selectedSeriesName = trimmed
-            onSeriesChanged(trimmed)
-        }
-        val all = allSeries.toMutableList()
-        val idx = all.indexOfFirst { it.seriesId == saved.seriesId }
-        if (idx >= 0) all[idx] = saved else all.add(saved)
-        allSeries = all
-        scope.launch {
-            seriesRepository.replaceAll(all).collect {}
-            // Имя регистрируется в общем справочнике автодополнения.
-            settingsUseCase.setLocomotiveSeries(trimmed)
-        }
-        return saved.seriesId
-    }
-
-    fun stationEditor(id: String?): StationEditorUi {
-        val s = id?.let { sid -> allStations.find { it.stationId == sid } }
-        return StationEditorUi(
-            id = s?.stationId,
-            name = s?.name ?: "",
-            appearanceToStart = s?.appearanceToStartMin?.toString() ?: "",
-            endToBarrier = s?.endToBarrierMin?.toString() ?: "",
-            barrierToStart = s?.barrierToStartMin?.toString() ?: "",
-            endToWorkEnd = s?.endToWorkEndMin?.toString() ?: "",
-        )
-    }
-
-    /** Автосохранение редактора станции; пустое имя не сохраняется. Возвращает id или пустую строку. */
-    fun saveStation(
-        id: String?,
-        name: String,
-        appearanceToStart: String,
-        endToBarrier: String,
-        barrierToStart: String,
-        endToWorkEnd: String,
-    ): String {
-        val trimmed = name.trim()
-        if (trimmed.isEmpty()) return ""
-        // Редактор трактует 0 как «не задано» (§2.8).
-        fun norm(t: String): Int? = t.trim().toIntOrNull()?.takeIf { it > 0 }
-        val existing = id?.let { sid -> allStations.find { it.stationId == sid } }
-        val saved = existing?.copy(
-            name = trimmed,
-            appearanceToStartMin = norm(appearanceToStart), endToBarrierMin = norm(endToBarrier),
-            barrierToStartMin = norm(barrierToStart), endToWorkEndMin = norm(endToWorkEnd),
-            updatedAt = Clock.System.now().toEpochMilliseconds(),
-        ) ?: StationNorm(
-            name = trimmed,
-            appearanceToStartMin = norm(appearanceToStart), endToBarrierMin = norm(endToBarrier),
-            barrierToStartMin = norm(barrierToStart), endToWorkEndMin = norm(endToWorkEnd),
-        )
-        val all = allStations.toMutableList()
-        val idx = all.indexOfFirst { it.stationId == saved.stationId }
-        if (idx >= 0) all[idx] = saved else all.add(saved)
-        allStations = all
-        if (selectedStation?.stationId == saved.stationId) selectedStation = saved
-        scope.launch { stationRepository.replaceAll(all).collect {} }
+    fun seriesRenamed(oldName: String, newName: String) {
+        if (selectedSeriesName != oldName || oldName == newName) return
+        selectedSeriesName = newName
+        onSeriesChanged(newName)
         publish()
-        return saved.stationId
+    }
+
+    /** Выбранную серию удалили в редакторе — выбор снимается. */
+    fun seriesRemoved(name: String) {
+        if (selectedSeriesName != name) return
+        selectedSeriesName = null
+        onSeriesChanged("")
+        publish()
     }
 
     // ═══ Сборка состояния ══════════════════════════════════════════════════════

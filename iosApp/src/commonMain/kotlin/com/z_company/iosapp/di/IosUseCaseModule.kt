@@ -42,6 +42,8 @@ import com.z_company.iosapp.viewmodel.NewRouteIosViewModel
 import com.z_company.iosapp.viewmodel.LocoFormIosViewModel
 import com.z_company.iosapp.viewmodel.LocoScreenIosViewModel
 import com.z_company.iosapp.viewmodel.LocoTimeSheetIosViewModel
+import com.z_company.iosapp.viewmodel.SeriesListIosViewModel
+import com.z_company.iosapp.viewmodel.StationListIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsIosViewModel
@@ -145,6 +147,9 @@ val iosUseCaseModule = module {
             settingsUseCase = get(),
         )
     }
+    // Справочники норм §17.4: списки — factory на экран (редакторы создаёт IosViewModelHelper).
+    factory { SeriesListIosViewModel(repository = get(), settingsUseCase = get()) }
+    factory { StationListIosViewModel(repository = get(), settingsUseCase = get()) }
     single { TrainFormIosViewModel(get()) }
     single { PassengerFormIosViewModel(get()) }
     // Форма маршрута §5: factory — по экземпляру на открытую форму (копия поверх оригинала).

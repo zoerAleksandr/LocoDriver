@@ -67,19 +67,6 @@ final class LocoTimeSheetViewModelWrapper: ObservableObject {
     func clearStation() { viewModel.clearStation() }
     func seriesRows(_ q: String) -> [SeriesRowUi] { (viewModel.seriesRows(query: q) as? [SeriesRowUi]) ?? [] }
     func stationRows(_ q: String) -> [StationRowUi] { (viewModel.stationRows(query: q) as? [StationRowUi]) ?? [] }
-    func seriesEditor(_ id: String?) -> SeriesEditorUi { viewModel.seriesEditor(id: id) }
-    func stationEditor(_ id: String?) -> StationEditorUi { viewModel.stationEditor(id: id) }
-
-    func saveSeries(id: String?, name: String, isElectric: Bool, acc: String, del: String, accH: String, delH: String, letters: Bool) -> String {
-        viewModel.saveSeries(
-            id: id, name: name, isElectric: isElectric,
-            acceptanceDuration: acc, deliveryDuration: del,
-            acceptanceHandToHand: accH, deliveryHandToHand: delH,
-            numberingLetters: letters
-        )
-    }
-
-    func saveStation(id: String?, name: String, a: String, b: String, c: String, d: String) -> String {
-        viewModel.saveStation(id: id, name: name, appearanceToStart: a, endToBarrier: b, barrierToStart: c, endToWorkEnd: d)
-    }
+    func seriesRenamed(old: String, new: String) { viewModel.seriesRenamed(oldName: old, newName: new) }
+    func seriesRemoved(_ name: String) { viewModel.seriesRemoved(name: name) }
 }
