@@ -72,7 +72,7 @@ final class SettingsScreenViewModelWrapper: ObservableObject {
         if let base = base {
             phase = viewModel.editedPhase(base: base, from: from, to: to, distance: Int32(distance), rate: rate)
         } else {
-            phase = viewModel.newPhase(from: from, to: to, distance: Int32(distance), rate: rate)
+            phase = viewModel.createPhase(from: from, to: to, distance: Int32(distance), rate: rate)
         }
         viewModel.savePhase(phase: phase, alsoReverse: alsoReverse)
     }

@@ -233,7 +233,7 @@ class SettingsScreenIosViewModel(
 
     fun deletePhase(id: String) = edit { s -> s.copy(servicePhases = s.servicePhases.filter { it.id != id }) }
 
-    fun newPhase(from: String, to: String, distance: Int, rate: Double): ServicePhase =
+    fun createPhase(from: String, to: String, distance: Int, rate: Double): ServicePhase =
         ServicePhase(departureStation = from, arrivalStation = to, distance = distance, linearMileageRate = rate)
 
     fun editedPhase(base: ServicePhase, from: String, to: String, distance: Int, rate: Double): ServicePhase =
