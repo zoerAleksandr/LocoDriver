@@ -49,6 +49,8 @@ enum SettingsSection: Hashable {
     case rest
     /// `NORMA` (Норма и регион, §17.2)
     case norma
+    /// `NORMA_MONTH` (Норма по месяцам / «Своя настройка», §16.3.1)
+    case normaMonth
     /// `ACCOUNTING` (Учёт, §17.3)
     case accounting
     /// `SHOULDERS` (Плечи, §17.4)
@@ -69,6 +71,7 @@ enum SettingsSection: Hashable {
         case .route: return "Основные"
         case .routeForm: return "Маршрут"
         case .norma: return "Норма и регион"
+        case .normaMonth: return "Норма по месяцам"
         case .accounting: return "Учёт"
         case .shoulders: return "Плечи"
         case .locomotive: return "Локомотив"
@@ -85,6 +88,7 @@ enum SettingsSection: Hashable {
         switch self {
         case .route, .routeForm, .locomotive, .train, .rest: return "§17.5"
         case .norma: return "§17.2"
+        case .normaMonth: return "§16.3.1"
         case .accounting: return "§17.3"
         case .shoulders: return "§17.4"
         case .seriesList, .seriesEditor, .seriesNew, .stationList, .stationEditor: return "§17.4, §2.10"

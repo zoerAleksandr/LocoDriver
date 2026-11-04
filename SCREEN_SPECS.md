@@ -5851,6 +5851,17 @@ PASSENGER) × p/100`, часы — сумма длительностей.
 `data_local/src/commonMain/kotlin/com/z_company/data_local/calendar/SqlDelightCalendarRepository.kt`,
 `core_android/src/main/java/com/z_company/core/util/DateAndTimeConverter.kt`.
 
+iOS: логика — `iosApp/src/commonMain/.../viewmodel/CalendarIosViewModel.kt` + `CalendarIosModels.kt`
+(порт `CalendarViewModel`; гейт лимита — `IosRouteGate`, форматирование времени —
+`CalendarIosSupport.kt`), экран — `iosApp/iosApp/Screens/Calendar/CalendarView.swift`,
+шторки «Что добавить?» / «Технические занятия» / продолжительность — `CalendarSheets.swift`.
+Маршрут по `AppRoute.calendar`; `AddEventSheet` доступен и как `AppSheet.addEvent(dayMillis:)`.
+BUG-45/BUG-46 перенесены как есть (`// BUG-45 (паритет с Android)`, `// BUG-46 (паритет с Android)`).
+Отличия платформы: быстрый просмотр LongClick открывает общий `AppSheet.routeQuickView`
+(заглушка §9.1, как на Главной); «Расчёт за смену» для шторки быстрого просмотра не считается
+(`RouteSalaryCalculator` живёт в Android-модуле `features/`); блокирующая операция —
+оверлей `BlockingProgressView` вместо Material-диалога.
+
 ---
 
 ## 15. Мастер «Заполнить месяц» (ScheduleWizardScreen)
@@ -5981,6 +5992,15 @@ PASSENGER) × p/100`, часы — сумма длительностей.
 `features/route/src/main/java/com/z_company/route/navigation/ScheduleWizardDestination.kt`,
 `domain/src/commonMain/kotlin/com/z_company/domain/entities/SchedulePattern.kt`,
 `features/route/src/main/java/com/z_company/route/ui/SubscriptionLimitDialog.kt`.
+
+iOS: логика — `iosApp/src/commonMain/.../viewmodel/ScheduleWizardIosViewModel.kt` +
+`ScheduleWizardIosModels.kt` (порт `ScheduleWizardViewModel`; `last_schedule_month` —
+в том же формате, `CUSTOM_PATTERN_ID` → `WIZARD_CUSTOM_PATTERN_ID`), экран —
+`iosApp/iosApp/Screens/Calendar/ScheduleWizardView.swift`. Маршрут по
+`AppRoute.scheduleWizard`. Шторка «Продолжить график прошлого месяца?» — системный
+alert (§15.1: «Продолжить» / «Выбрать заново»); удаление паттерна — `DSDeleteRequest`
+(«Да, удалить»). Отличия платформы: пикер типа дня цикла — всплывающая карточка у чипа;
+прогресс создания — `BlockingProgressView`.
 
 ---
 
@@ -6216,6 +6236,19 @@ PASSENGER) × p/100`, часы — сумма длительностей.
 `domain/src/commonMain/kotlin/com/z_company/domain/entities/ReleaseDay.kt`,
 `domain/src/commonMain/kotlin/com/z_company/domain/entities/WorkScheduleProfile.kt`,
 `data_local/src/commonMain/kotlin/com/z_company/data_local/calendar/SqlDelightCalendarRepository.kt`.
+
+iOS: «Новое отвлечение» — `iosApp/src/commonMain/.../viewmodel/AbsenceIosViewModel.kt` +
+`AbsenceIosModels.kt` (порт `AbsenceViewModel`; BUG-46/47/48 перенесены как есть,
+`// BUG-NN (паритет с Android)`), экран — `iosApp/iosApp/Screens/Calendar/AbsenceView.swift`,
+маршрут `AppRoute.absence`. §16.3/16.3.1 — `NormMonthIosViewModel.kt` + `NormMonthIosModels.kt`
+(профиль недели `WorkScheduleProfile` и `customDays` — в Kotlin; норма по дням —
+`buildMonthNorm`), экран — `NormMonthView.swift`, под-раздел настроек
+`SettingsSection.normaMonth` («Изменить норму» на «Норма и регион», §17.2).
+ВЫХ — тот же `ReleaseDay(DayOff)`, что в Календаре. §16.2 (SelectReleaseDaysScreen)
+на iOS не реализуется (🚫 мёртвый код Android). Отличия платформы: экскурсия
+(`NormMonthTourStep`) — упрощённый оверлей с шагами «Месяц/День/Норма за месяц/
+По неделям/Подсказки», кнопка «?» открывает его повторно; мигание рамки изменённых
+ячеек (3×220 мс) не реализовано.
 
 ---
 
