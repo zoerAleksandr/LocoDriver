@@ -1,6 +1,7 @@
 package com.z_company.iosapp.di
 
 import com.z_company.data_local.DatabaseDriverFactory
+import com.z_company.data_local.calendar.CalendarStorageLocalImpl
 import com.z_company.data_local.calendar.SqlDelightCalendarRepository
 import com.z_company.data_local.calendar.SqlDelightProductionCalendarRepository
 import com.z_company.data_local.calendar.SqlDelightReleaseDayRepository
@@ -15,6 +16,7 @@ import com.z_company.data_local.setting.SqlDelightSettingRepository
 import com.z_company.data_local.setting.db.SettingsDatabase
 import com.z_company.data_local.setting.salarydb.SalarySettingDatabase
 import com.z_company.domain.repositories.CalendarRepositories
+import com.z_company.domain.repositories.CalendarStorage
 import com.z_company.domain.repositories.LocomotiveSeriesRepository
 import com.z_company.domain.repositories.ProductionCalendarRepository
 import com.z_company.domain.repositories.ReleaseDayRepository
@@ -25,6 +27,7 @@ import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.repositories.PartnerRepository
 import com.z_company.domain.repositories.StationNormRepository
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.LoadCalendarFromStorage
 import com.z_company.domain.use_cases.PartnerUseCase
 import com.z_company.domain.use_cases.LocomotiveUseCase
 import com.z_company.domain.use_cases.NormaUseCase
@@ -35,6 +38,7 @@ import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.iosapp.repository.IosSharedPreferencesRepository
+import com.z_company.iosapp.viewmodel.AppInitIosViewModel
 import com.z_company.iosapp.viewmodel.FormIosViewModel
 import com.z_company.iosapp.viewmodel.HomeIosViewModel
 import com.z_company.iosapp.viewmodel.HomeScreenIosViewModel
@@ -95,6 +99,10 @@ val iosUseCaseModule = module {
     single { SettingsUseCase(get()) }
     single { com.z_company.domain.use_cases.StationDirectoryUseCase(get()) }
     single { CalendarUseCase(get()) }
+    // С1: базовый производственный календарь (жёстко заданные теги дней) для
+    // склейки в AppInitIosViewModel.loadCalendar — как CalendarStorageLocalImpl на Android.
+    single<CalendarStorage> { CalendarStorageLocalImpl() }
+    single { LoadCalendarFromStorage(get()) }
     single { SalarySettingUseCase(get(), get()) }
     single { ReleaseDayUseCase(get()) }
     single { ProductionCalendarUseCase(get()) }
@@ -181,4 +189,20 @@ val iosUseCaseModule = module {
         )
     }
     single { NewRouteIosViewModel(routeUseCase = get(), settingsUseCase = get(), secureTokenStorage = get()) }
+    // С1 «Производственный календарь»: инициализация при старте (первый запуск,
+    // миграции, загрузка календаря). factory — один экземпляр на запуск процесса;
+    // SettingManager уже зарегистрирован в iosRepositoryModule (data_remote).
+    factory {
+        AppInitIosViewModel(
+            sharedPrefs = get(),
+            settingsUseCase = get(),
+            routeUseCase = get(),
+            calendarUseCase = get(),
+            loadCalendarFromStorage = get(),
+            salarySettingUseCase = get(),
+            productionCalendarUseCase = get(),
+            releaseDayUseCase = get(),
+            settingManager = get(),
+        )
+    }
 }

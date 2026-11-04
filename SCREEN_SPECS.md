@@ -8128,6 +8128,8 @@ bearer-токена или `userId`, т.е. и при выходе/входе п
 `core_android/.../ui/component/OnBoardingItems.kt`, `core_android/.../ui/component/PresentationBlock.kt`,
 `data_local/src/androidMain/.../SharedPreferenceStorage.kt`.
 
+**iOS (реализация, ios/prod-calendar).** Логика старта — Kotlin `AppInitIosViewModel` (порт init-блока Android `MainViewModel`), запускается один раз за процесс из `ContentView` через `AppInitViewModelWrapper` (`.task` + guard). Первый запуск: страна — `NSLocale.countryCode` в {RU, KZ, BY}, иначе RU; смещение от Москвы — KZ +2 ч, BY 0, RU смещение устройства −3 ч (усечение до целых часов, кламп [−1 ч..+9 ч], иначе 0), пишется в `UserSettings.country/timeZone`; флаги `ld.tokenIsFirstAppEntry` (default true) и `ld.isMigrated` (default false) хранятся в `NSUserDefaults`. Далее на каждом запуске: миграции тегов (ReleaseDay / ProductionCalendarDay, флаги по умолчанию «сделано» — свежая iOS-БД нечего мигрировать), загрузка производственного календаря через `SettingManager.getProductionCalendarFromRemote` (если нет данных за год; с 1 декабря — и следующий год; региональные праздники восстанавливаются после загрузки), склейка календаря `LoadCalendarFromStorage` (базовый) + локальный `MonthOfYear` с сохранением дней отвлечений и тарифа → `CalendarUseCase.saveCalendar`. Отличия от Android: миграция временных меток (`runTimezoneMigration`) сохранена, но для чистой iOS-БД всегда пропускается; объявления при запуске (`loadAnnouncement`) не переносятся (§22, волна 4).
+
 ---
 
 ## 21. Экспорт PDF (маршрутный лист / расчёт / график)
