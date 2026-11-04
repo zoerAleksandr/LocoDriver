@@ -62,6 +62,13 @@ object IosViewModelHelper : KoinComponent {
     fun createLocoScreenViewModel(): LocoScreenIosViewModel = get()
     fun createSettingsScreenViewModel(): SettingsScreenIosViewModel = get()
 
+    /** «Пассажиром» §7, «Прочая работа» §8, напарники §8.5: новый экземпляр на экран; Swift вызывает `dispose()`. */
+    fun createPassengerScreenViewModel(): com.z_company.iosapp.viewmodel.PassengerScreenIosViewModel = get()
+    fun createOtherWorkScreenViewModel(): com.z_company.iosapp.viewmodel.OtherWorkScreenIosViewModel = get()
+    fun createPartnersScreenViewModel(): com.z_company.iosapp.viewmodel.PartnersScreenIosViewModel = get()
+    fun createPartnerEditorViewModel(partnerId: String?): com.z_company.iosapp.viewmodel.PartnerEditorIosViewModel =
+        com.z_company.iosapp.viewmodel.PartnerEditorIosViewModel(get(), get(), partnerId)
+
     /** Шторка времени §2: новый экземпляр на открытие; Swift вызывает `dispose()`. */
     fun createLocoTimeSheetViewModel(): LocoTimeSheetIosViewModel = get()
 

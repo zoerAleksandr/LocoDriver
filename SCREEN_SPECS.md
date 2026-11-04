@@ -3670,6 +3670,8 @@ truthiness: непустая строка `"False"` считается исти�
 `domain/.../entities/route/UtilsForEntities.kt` (`getPassengerTimeWithinWork`,
 `getPassengerTimeOutsideWork`).
 
+**iOS (реализация, ios/passenger-other).** Логика — Kotlin `PassengerScreenIosViewModel` (автосейв 500 мс, `syncWorkStartToRoute`, валидация через `RouteUseCase.isValidPassenger`), Swift (`FormPassengerView`) только показывает. Отличия от Android: (1) подсказки станций — настройки + справочник станций, без сортировки по геопозиции; (2) пикер даты/времени — общая шторка `DSDateTimeSheet` без списка «последних значений»; (3) «Явка через» — поле `ЧЧ:ММ` с вводом цифр справа налево; (4) BUG-29 перенесён: при выходе пассажир сохраняется даже при ошибке валидации; (5) крупный системный шрифт: строка метка/значение переходит в столбец (`ViewThatFits`).
+
 ---
 
 ## 8. Экран «Прочая работа» (FormOtherWorkScreen)
@@ -3761,6 +3763,8 @@ PREDEFINED_TYPES = ["Маневровая", "Вывозная", "При депо
 `navigation/FormOtherWorkDestination.kt`, `viewmodel/OtherWorkFormViewModel.kt`,
 `viewmodel/OtherWorkFormUiState.kt`, `domain/.../entities/route/OtherWork.kt`,
 `component/AppInputBottomSheet.kt`, `component/AppAlertDialog.kt`.
+
+**iOS (реализация, ios/passenger-other).** Логика — Kotlin `OtherWorkScreenIosViewModel`; Swift — `FormOtherWorkView`. Макета нет: собрано из компонентов кита в стиле «Пассажиром». Сообщения автоподстановки времени — тост (`ToastCenter`). Удаление пользовательского типа — стандартный alert §24.3 («Удалить» / «Отмена»). Подсказки станций и пикер времени — как в «Пассажиром» (см. iOS-примечание §7).
 
 ---
 
@@ -3886,6 +3890,8 @@ Full-replace `GET/POST /v1/partners/`: POST если локально есть �
 `viewmodel/PartnerPickerViewModel.kt`, `viewmodel/PartnerEditorViewModel.kt`,
 `data_local/.../sqldelight/SettingsDatabase/.../Partner.sq`,
 `ui/FormScreen.kt` (`RoutePartnersBlock`).
+
+**iOS (реализация, ios/passenger-other).** Логика — Kotlin `PartnersScreenIosViewModel` (MANAGE/SELECT, поиск, постоянный напарник) и `PartnerEditorIosViewModel` (автосейв 500 мс, немедленное сохранение при выходе); Swift — `PartnersListView`, `PartnerEditorView`. Отличия от Android: (1) свайп-удаление строки и «Удалить напарника» в редакторе подтверждаются стандартным alert §24.3 — **отклонение от BUG-30** (в Android редактор удаляет без подтверждения); (2) в режиме SELECT нет системной стрелки «назад» — выход без применения выбора только свайпом от края экрана; (3) `таб.`-подпись и инициалы считаются в Kotlin (`partnerInitialsOf`, `partnerShortNameOf`).
 
 ---
 
