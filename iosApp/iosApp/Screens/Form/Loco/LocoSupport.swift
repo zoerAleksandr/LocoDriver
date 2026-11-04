@@ -107,19 +107,13 @@ struct LocoSwipeDelete<Content: View>: View {
                             .onTapGesture { withAnimation(animation) { openId = nil } }
                     }
                 }
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 8, coordinateSpace: .local)
-                        .onChanged { value in
-                            let w = value.translation.width
-                            let h = value.translation.height
-                            // Горизонтальный жест: блокируем вертикальную прокрутку.
-                            guard lockScroll || abs(w) > abs(h) * 1.5 else { return }
-                            if !lockScroll { lockScroll = true }
-                            drag = w
-                        }
-                        .onEnded { value in
-                            let final = (isOpen ? -revealWidth : 0) + value.translation.width
-                            lockScroll = false
+                // Горизонтальный pan на UIKit: вертикальные жесты (прокрутка экрана) не трогает,
+                // горизонтальные — забирает и на время жеста отключает прокрутку.
+                .background(
+                    LocoHorizontalPan(
+                        onChanged: { drag = $0 },
+                        onEnded: { translation in
+                            let final = (isOpen ? -revealWidth : 0) + translation
                             withAnimation(animation) {
                                 drag = 0
                                 if final < -revealWidth / 2 {
@@ -129,6 +123,7 @@ struct LocoSwipeDelete<Content: View>: View {
                                 }
                             }
                         }
+                    )
                 )
         }
         // Контейнер фиксированной ширины: смещённая карточка не расширяет область прокрутки
@@ -136,6 +131,98 @@ struct LocoSwipeDelete<Content: View>: View {
         .padding(.vertical, 12)
         .clipped()
         .padding(.vertical, -12)
+    }
+}
+
+/// Горизонтальный pan-жест поверх `UIPanGestureRecognizer`, который начинается только для
+/// преимущественно горизонтального движения внутри собственных границ. Распознаватель вешается на
+/// окно и работает одновременно с прокруткой; пока жест идёт, pan прокрутки отключается.
+struct LocoHorizontalPan: UIViewRepresentable {
+    let onChanged: (CGFloat) -> Void
+    let onEnded: (CGFloat) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIView(context: Context) -> UIView {
+        let view = HostView()
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        view.coordinator = context.coordinator
+        context.coordinator.view = view
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        context.coordinator.parent = self
+    }
+
+    final class HostView: UIView {
+        weak var coordinator: Coordinator?
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            coordinator?.windowChanged(window)
+        }
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var parent: LocoHorizontalPan
+        weak var view: UIView?
+        private var pan: UIPanGestureRecognizer?
+        private weak var scroll: UIScrollView?
+
+        init(_ parent: LocoHorizontalPan) { self.parent = parent }
+
+        deinit { if let pan = pan { pan.view?.removeGestureRecognizer(pan) } }
+
+        func windowChanged(_ window: UIWindow?) {
+            if let pan = pan { pan.view?.removeGestureRecognizer(pan); self.pan = nil }
+            guard let window = window else { return }
+            let recognizer = UIPanGestureRecognizer(target: self, action: #selector(handle(_:)))
+            recognizer.delegate = self
+            recognizer.cancelsTouchesInView = false
+            window.addGestureRecognizer(recognizer)
+            pan = recognizer
+        }
+
+        private func enclosingScroll() -> UIScrollView? {
+            var v: UIView? = view
+            while let current = v {
+                if let s = current as? UIScrollView { return s }
+                v = current.superview
+            }
+            return nil
+        }
+
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard let pan = gestureRecognizer as? UIPanGestureRecognizer, let view = view, let window = view.window else { return false }
+            guard view.bounds.contains(pan.location(in: view)) else { return false }
+            // Касание должно приходиться на содержимое той же прокрутки (не на шторку/алерт поверх).
+            if let scroll = enclosingScroll() {
+                let hit = window.hitTest(pan.location(in: window), with: nil)
+                guard let hit = hit, hit.isDescendant(of: scroll) else { return false }
+            }
+            let velocity = pan.velocity(in: view)
+            return abs(velocity.x) > abs(velocity.y) * 1.2
+        }
+
+        func gestureRecognizer(_ g: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
+
+        @objc private func handle(_ pan: UIPanGestureRecognizer) {
+            guard let view = view else { return }
+            switch pan.state {
+            case .began:
+                scroll = enclosingScroll()
+                scroll?.panGestureRecognizer.isEnabled = false
+            case .changed:
+                parent.onChanged(pan.translation(in: view).x)
+            case .ended, .cancelled, .failed:
+                scroll?.panGestureRecognizer.isEnabled = true
+                scroll = nil
+                parent.onEnded(pan.translation(in: view).x)
+            default:
+                break
+            }
+        }
     }
 }
 
