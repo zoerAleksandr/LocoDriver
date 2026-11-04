@@ -619,6 +619,8 @@ SalarySetting — ставки/проценты для расчёта зарпл
   шторки колбэком `onTimeEndWorkChanged` (мгновенная синхронизация).
 - Выбор/сброс серии в шторке → `setSeries(name)` (сброс — пустая строка).
 
+**iOS (реализация, ios/loco).** Логика — Kotlin `LocoScreenIosViewModel` (экран) и `LocoTimeSheetIosViewModel` (шторка §2), Swift только показывает. Отличия от Android: (1) перестановка секций — пункты «Выше/Ниже» в контекстном меню карточки (долгое нажатие), а не перетаскивание; (2) автоподбор числа секций по серии (`sectionCount`) не реализован — поля нет в master (есть в ветке `feature/loco-brake-data`), выбор серии гарантирует минимум одну секцию; (3) настройки iOS пока хранятся в памяти (`IosSharedPreferencesRepository`): блок «ДРУГОЕ» по умолчанию скрыт, как в коде Android; (4) валидация секций (BUG-05) сообщений не показывает; (5) нормы и счётчики отопления/собственных нужд автосохраняются так же, как остальные поля (отклонение от BUG-03), плюс немедленное сохранение при сворачивании приложения и по «Готово»; (6) подтверждение удаления секции — центральный alert «Удалить секцию?», как в форме маршрута; открытая свайпом карточка закрывается тапом в любом месте; (7) Dynamic Type не поддерживается дизайн-китом (шрифты фиксированного размера) — раскладка «столбиком» при крупном шрифте не реализована.
+
 Источник: `features/route/.../ui/FormLocoScreen.kt`, `.../navigation/FormLocoDestination.kt`,
 `.../viewmodel/{LocoFormViewModel,LocoFormUiState}.kt`, `.../component/{DieselSectionItem,ElectricSectionItem,StatisticsSection,SwipeToRevealDelete,EnteredCoefficientDialog,EnteredRefuelDialog}.kt`,
 `.../ui/settings/SettingsLocoContent.kt`, `.../ui/UIHelper.kt`, `domain/.../util/{CalculationEnergy,DoubleUtil,StringUtil}.kt`.
@@ -949,6 +951,8 @@ selectedSeriesName (= seriesName, пустая строка → null)`. Сери
 сейчас: «Готово» — синий текст в шапке, а расчёт — нижняя кнопка «Рассчитать
 время». 🚫 Мёртвый код Android — в iOS не реализуется: неиспользуемый `AnchorSelectionBanner` («От
 какого момента рассчитать время?» с чипами).
+
+**iOS (реализация, ios/loco).** Шторка — `LocoTimeSheetView`, пикеры и редакторы серии/станции — `LocoRefPickerSheet`; расчёты якорей, валидация, предупреждения и сохранение норм — Kotlin `LocoTimeSheetIosViewModel`. Редакторы серии/станции упрощены (название, тип, четыре нормы, нумерация буквами) с автосохранением через 500 мс; регистрация имени станции в общем справочнике автодополнения не делается. «Настроить серию/станцию» без записи в справочнике ведёт в раздел Настроек (на iOS он пока заглушка).
 
 Источник: `features/route/.../ui/{TimeBottomSheet,SeriesPickerSheet,StationPickerSheet,NormaTimeComponents}.kt`,
 `.../viewmodel/SeriesEditorViewModel.kt`, `.../ui/settings/{SettingsSeriesEditorContent,SettingsStationEditorContent}.kt`,
