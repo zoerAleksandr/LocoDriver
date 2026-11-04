@@ -45,6 +45,7 @@ import com.z_company.iosapp.viewmodel.LocoTimeSheetIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsIosViewModel
+import com.z_company.iosapp.viewmodel.SettingsScreenIosViewModel
 import com.z_company.iosapp.viewmodel.PassengerFormIosViewModel
 import com.z_company.iosapp.viewmodel.RouteFormIosViewModel
 import com.z_company.iosapp.viewmodel.TrainFormIosViewModel
@@ -121,6 +122,8 @@ val iosUseCaseModule = module {
     // ── ViewModels (single — живут на протяжении жизни приложения) ────────
     single { HomeIosViewModel(get(), get()) }
     single { SettingsIosViewModel(get()) }
+    // Экран «Настройки» §17: factory — по экземпляру на открытый экран.
+    factory { SettingsScreenIosViewModel(get(), get(), get(), get(), get(), get()) }
     single { FormIosViewModel(get(), get()) }
     single { SalaryCalculationIosViewModel(get(), get(), get(), get()) }
     single { LocoFormIosViewModel(get()) }
