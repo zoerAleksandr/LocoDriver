@@ -16,6 +16,7 @@ struct SettingsSectionDestination: View {
         case .train: SettingsTrainView()
         case .rest: SettingsRestView()
         case .norma: SettingsNormaView()
+        case .normaMonth: NormMonthView()
         case .accounting: SettingsAccountingView()
         case .shoulders: SettingsShouldersView()
         // Справочники серий/станций — отдельная задача (§17.4, сессия «стандартные редакторы»).
@@ -436,10 +437,10 @@ private struct SettingsNormaView: View {
                     SettingsValueRow(title: month,
                                      value: st.normaMinutes.map { SettingsFormat.hhmm(Int64($0.intValue) * 60_000) } ?? "—",
                                      mono: true, showsChevron: false)
-                    // «Норма по месяцам» (§16.3.1) — волна «Календарь»; пока открываем Календарь.
+                    // «Норма по месяцам» (§16.3.1).
                     DSListRow(title: "Изменить норму", showsChevron: false,
                               showsDivider: false, titleColor: DSColor.accent) {
-                        router.show(.calendar)
+                        router.show(.settingsSection(.normaMonth))
                     }
                 }
                 SettingsHint("Месячная норма рабочего времени. По ней считается переработка и недоработка.")
