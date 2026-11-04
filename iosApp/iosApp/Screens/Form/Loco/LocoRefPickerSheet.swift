@@ -53,7 +53,7 @@ struct LocoRefPickerSheet: View {
                 }
             }
             .padding(.horizontal, DSMetrics.screenPadX)
-            .padding(.top, 18)
+            .padding(.top, 30)
             .padding(.bottom, 10)
 
             TextField(isSeries ? "Поиск серии..." : "Поиск станции...", text: $query)
@@ -169,7 +169,7 @@ private struct EditorHeader: View {
             }
         }
         .padding(.horizontal, DSMetrics.screenPadX)
-        .padding(.top, 18).padding(.bottom, 10)
+        .padding(.top, 30).padding(.bottom, 10)
     }
 }
 
@@ -195,7 +195,7 @@ struct LocoSeriesEditor: View {
             EditorHeader(title: (vm.state?.isNewRecord ?? true) && (vm.state?.name ?? "").isEmpty ? "Новая серия" : "Серия") {
                 vm.commit(); onDone()
             }
-            SeriesEditorContent(vm: vm, onDeleted: onDone)
+            SeriesEditorContent(vm: vm, onDeleted: onDone, showsHint: false)
         }
     }
 }
@@ -214,7 +214,7 @@ struct LocoStationEditor: View {
             EditorHeader(title: (vm.state?.name ?? "").isEmpty ? "Новая станция" : "Станция") {
                 vm.commit(); onDone()
             }
-            StationEditorContent(vm: vm, onDeleted: onDone)
+            StationEditorContent(vm: vm, onDeleted: onDone, showsHint: false)
         }
     }
 }

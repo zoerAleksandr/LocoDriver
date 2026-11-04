@@ -29,21 +29,44 @@ struct NormsInputRow: View {
     var suffix: String? = nil
     var showsDivider: Bool = true
     var isEnabled: Bool = true
+    /// Значение в плашке «как время» в шторке (mono 18/600, рамка) — для числовых полей.
+    var plate: Bool = false
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Text(label).font(DSFont.sans(14)).foregroundColor(DSColor.textMuted)
+                Text(label).font(plate ? DSFont.sans(14, .medium) : DSFont.sans(14))
+                    .foregroundColor(plate ? DSColor.text : DSColor.textMuted)
                 Spacer(minLength: 8)
-                TextField(placeholder, text: $text)
-                    .keyboardType(keyboard)
-                    .multilineTextAlignment(alignRight ? .trailing : .leading)
-                    .font(mono ? DSFont.mono(15, .medium) : DSFont.sans(15, .medium))
-                    .foregroundColor(DSColor.text)
-                    .disabled(!isEnabled)
-                    .frame(maxWidth: 220)
-                if let suffix = suffix {
-                    Text(suffix).font(DSFont.sans(14)).foregroundColor(DSColor.textMuted)
+                if plate {
+                    HStack(spacing: 6) {
+                        TextField(placeholder, text: $text)
+                            .keyboardType(keyboard)
+                            .multilineTextAlignment(.trailing)
+                            .font(DSFont.mono(18, .semibold))
+                            .foregroundColor(DSColor.text)
+                            .disabled(!isEnabled)
+                            .frame(width: 64)
+                        if let suffix = suffix {
+                            Text(suffix).font(DSFont.mono(13)).foregroundColor(DSColor.textMuted)
+                        }
+                    }
+                    .padding(.horizontal, 14).padding(.vertical, 8)
+                    .background(text.isEmpty ? DSColor.bgSubtle : DSColor.bg)
+                    .overlay(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
+                        .stroke(text.isEmpty ? Color.clear : DSColor.border, lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
+                } else {
+                    TextField(placeholder, text: $text)
+                        .keyboardType(keyboard)
+                        .multilineTextAlignment(alignRight ? .trailing : .leading)
+                        .font(mono ? DSFont.mono(15, .medium) : DSFont.sans(15, .medium))
+                        .foregroundColor(DSColor.text)
+                        .disabled(!isEnabled)
+                        .frame(maxWidth: 220)
+                    if let suffix = suffix {
+                        Text(suffix).font(DSFont.sans(14)).foregroundColor(DSColor.textMuted)
+                    }
                 }
             }
             .padding(.horizontal, DSMetrics.rowPadX)
@@ -127,6 +150,18 @@ extension View {
                 Spacer()
                 Button("Готово") { focus.wrappedValue = nil }
             }
+        }
+    }
+}
+
+extension View {
+    /// Курсор при входе в поле ставится в КОНЕЦ значения (ввод дописывает), а не в точку касания.
+    func normsCaretAtEnd() -> some View {
+        onReceive(NotificationCenter.default.publisher(for: UITextField.textDidBeginEditingNotification)) { n in
+            guard let tf = n.object as? UITextField else { return }
+            let move = { tf.selectedTextRange = tf.textRange(from: tf.endOfDocument, to: tf.endOfDocument) }
+            DispatchQueue.main.async(execute: move)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: move)
         }
     }
 }
