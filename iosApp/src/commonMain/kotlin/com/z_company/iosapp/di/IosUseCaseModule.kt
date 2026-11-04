@@ -7,6 +7,7 @@ import com.z_company.data_local.calendar.SqlDelightReleaseDayRepository
 import com.z_company.data_local.norma_time.SqlDelightLocomotiveSeriesRepository
 import com.z_company.data_local.norma_time.SqlDelightPartnerRepository
 import com.z_company.data_local.norma_time.SqlDelightStationNormRepository
+import com.z_company.data_local.route.SqlDelightHistoryResponseRepository
 import com.z_company.data_local.route.SqlDelightRouteRepository
 import com.z_company.data_local.route.db.RouteDatabase
 import com.z_company.data_local.route.searchdb.SearchResponseDatabase
@@ -14,6 +15,7 @@ import com.z_company.data_local.setting.SqlDelightSalarySettingRepository
 import com.z_company.data_local.setting.SqlDelightSettingRepository
 import com.z_company.data_local.setting.db.SettingsDatabase
 import com.z_company.data_local.setting.salarydb.SalarySettingDatabase
+import com.z_company.domain.repositories.HistoryResponseRepository
 import com.z_company.domain.repositories.CalendarRepositories
 import com.z_company.domain.repositories.LocomotiveSeriesRepository
 import com.z_company.domain.repositories.ProductionCalendarRepository
@@ -39,6 +41,7 @@ import com.z_company.iosapp.viewmodel.FormIosViewModel
 import com.z_company.iosapp.viewmodel.HomeIosViewModel
 import com.z_company.iosapp.viewmodel.HomeScreenIosViewModel
 import com.z_company.iosapp.viewmodel.NewRouteIosViewModel
+import com.z_company.iosapp.viewmodel.AllRoutesScreenIosViewModel
 import com.z_company.iosapp.viewmodel.LocoFormIosViewModel
 import com.z_company.iosapp.viewmodel.LocoScreenIosViewModel
 import com.z_company.iosapp.viewmodel.LocoTimeSheetIosViewModel
@@ -50,7 +53,10 @@ import com.z_company.iosapp.viewmodel.SettingsIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsScreenIosViewModel
 import com.z_company.iosapp.viewmodel.PassengerFormIosViewModel
 import com.z_company.iosapp.viewmodel.RouteFormIosViewModel
+import com.z_company.iosapp.viewmodel.RouteQuickViewIosViewModel
+import com.z_company.iosapp.viewmodel.SearchIosViewModel
 import com.z_company.iosapp.viewmodel.TrainFormIosViewModel
+import com.z_company.iosapp.viewmodel.TrashIosViewModel
 import com.z_company.repository.remote_rest.SyncManager
 import org.koin.dsl.module
 
@@ -181,4 +187,47 @@ val iosUseCaseModule = module {
         )
     }
     single { NewRouteIosViewModel(routeUseCase = get(), settingsUseCase = get(), secureTokenStorage = get()) }
+
+    // ── Экран «Все маршруты» §9: factory — по экземпляру на открытый экран. ──
+    factory {
+        AllRoutesScreenIosViewModel(
+            routeUseCase = get(),
+            settingsUseCase = get(),
+            salarySettingUseCase = get(),
+            calendarUseCase = get(),
+            sharedPrefs = get(),
+            syncManager = get(),
+            secureTokenStorage = get(),
+            routesManager = get(),
+            shareRouteManager = get(),
+            trackRepository = getOrNull(),
+        )
+    }
+    // Быстрый просмотр маршрута §9.1: factory — по экземпляру на открытую шторку.
+    factory {
+        RouteQuickViewIosViewModel(
+            routeUseCase = get(),
+            settingsUseCase = get(),
+            salarySettingUseCase = get(),
+        )
+    }
+    // Корзина маршрутов §9.4: factory — по экземпляру на открытый экран.
+    factory {
+        TrashIosViewModel(
+            routeUseCase = get(),
+            settingsUseCase = get(),
+            syncManager = get(),
+            secureTokenStorage = get(),
+            trackRepository = getOrNull(),
+        )
+    }
+    // Поиск §10: factory — по экземпляру на открытый экран.
+    single<HistoryResponseRepository> { SqlDelightHistoryResponseRepository() }
+    factory {
+        SearchIosViewModel(
+            routeUseCase = get(),
+            settingsUseCase = get(),
+            historyRepository = get(),
+        )
+    }
 }
