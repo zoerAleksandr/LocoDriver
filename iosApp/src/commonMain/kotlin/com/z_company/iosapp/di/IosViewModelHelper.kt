@@ -13,6 +13,7 @@ import com.z_company.iosapp.viewmodel.SettingsIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsScreenIosViewModel
 import com.z_company.iosapp.viewmodel.PassengerFormIosViewModel
 import com.z_company.iosapp.viewmodel.TrainFormIosViewModel
+import com.z_company.iosapp.viewmodel.TrainScreenIosViewModel
 import com.z_company.iosapp.viewmodel.SeriesEditorIosViewModel
 import com.z_company.iosapp.viewmodel.SeriesListIosViewModel
 import com.z_company.iosapp.viewmodel.StationEditorIosViewModel
@@ -60,6 +61,8 @@ object IosViewModelHelper : KoinComponent {
 
     /** Экран «Локомотив» §1: новый экземпляр на экран; Swift вызывает `dispose()`. */
     fun createLocoScreenViewModel(): LocoScreenIosViewModel = get()
+    /** Экран «Поезд» §6: новый экземпляр на экран; Swift вызывает `dispose()`. */
+    fun createTrainScreenViewModel(): TrainScreenIosViewModel = get()
     fun createSettingsScreenViewModel(): SettingsScreenIosViewModel = get()
 
     /** Шторка времени §2: новый экземпляр на открытие; Swift вызывает `dispose()`. */
