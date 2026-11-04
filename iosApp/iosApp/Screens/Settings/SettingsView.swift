@@ -1,357 +1,116 @@
 import SwiftUI
 import ComposeApp
 
-// MARK: - Root
+// SCREEN_SPECS §17 / §17.1: hub настроек. Макет: IOSScreenSettings (design/src/ios-screens.jsx).
 
 struct SettingsView: View {
-    @StateObject private var vm = SettingsViewModelWrapper()
+    @StateObject private var vm = SettingsScreenViewModelWrapper()
+    @ObservedObject private var router = AppRouter.shared
+    @State private var confirmExport = false
+    @State private var shareItems: ShareItems? = nil
+
+    private struct ShareItems: Identifiable {
+        let id = UUID()
+        let items: [Any]
+    }
+
+    private var versionText: String {
+        let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+        return "версия \(v)"
+    }
+
+    private var countryName: String {
+        switch vm.settings?.country {
+        case "KZ": return "Казахстан"
+        case "BY": return "Беларусь"
+        default: return "Россия"
+        }
+    }
 
     var body: some View {
-        Group {
-            if vm.isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if let s = vm.settings {
-                SettingsHubView(settings: s, vm: vm)
-            } else {
-                Text("Настройки не загружены")
-                    .foregroundColor(.secondary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                if let s = vm.state {
+                    DSList(header: "СПРАВОЧНИКИ", headerTopSpacing: DSMetrics.groupHeadFirst) {
+                        DSListRow(title: "Серии локомотивов",
+                                  subtitle: SettingsFormat.plural(Int(s.seriesCount), "серия", "серии", "серий"),
+                                  icon: .locomotive) { router.show(.settingsSection(.seriesList)) }
+                        DSListRow(title: "Станции",
+                                  subtitle: SettingsFormat.plural(Int(s.stationCount), "станция", "станции", "станций"),
+                                  icon: .mapPin) { router.show(.settingsSection(.stationList)) }
+                        DSListRow(title: "Плечи",
+                                  subtitle: SettingsFormat.plural(Int(s.phasesCount), "плечо", "плечи", "плеч"),
+                                  icon: .train) { router.show(.settingsSection(.shoulders)) }
+                        DSListRow(title: "Напарники",
+                                  subtitle: SettingsFormat.plural(Int(s.partnersCount), "напарник", "напарника", "напарников"),
+                                  icon: .passenger, showsDivider: false) { router.show(.partnersManage) }
+                    }
+                    DSList(header: "РАСЧЁТ") {
+                        DSListRow(title: "Зарплата", subtitle: "Тарифная ставка и доплаты", icon: .ruble) {
+                            router.showSettingSalary()
+                        }
+                        DSListRow(title: "Норма и регион", value: countryName, icon: .calendar) {
+                            router.show(.settingsSection(.norma))
+                        }
+                        DSListRow(title: "Учёт", subtitle: "Ночные часы и будущие маршруты", icon: .moon) {
+                            router.show(.settingsSection(.accounting))
+                        }
+                        DSListRow(title: "Отдых", subtitle: "Нормы домашнего отдыха и в ПО", icon: .bed,
+                                  showsDivider: false) { router.show(.settingsSection(.rest)) }
+                    }
+                    DSList(header: "ПОЕЗДКИ") {
+                        DSListRow(title: "Основные", subtitle: "Значения по умолчанию для новых маршрутов", icon: .gear) {
+                            router.show(.settingsSection(.route))
+                        }
+                        DSListRow(title: "Маршрут", subtitle: "Поля формы маршрута", icon: .document) {
+                            router.show(.settingsSection(.routeForm))
+                        }
+                        DSListRow(title: "Локомотив", subtitle: "Поля ввода показаний и вид тяги", icon: .locomotive) {
+                            router.show(.settingsSection(.locomotive(series: nil)))
+                        }
+                        DSListRow(title: "Поезд", subtitle: "Расчёт длины состава", icon: .train,
+                                  showsDivider: false) { router.show(.settingsSection(.train)) }
+                    }
+                    DSList(header: "О ПРИЛОЖЕНИИ") {
+                        DSListRow(title: "Машинист", subtitle: nil, value: versionText, valueIsMono: true,
+                                  icon: .info, showsChevron: false)
+                        DSListRow(title: "Поддержка", value: "locodriver.app@yandex.ru", icon: .share) {
+                            if let url = URL(string: "mailto:locodriver.app@yandex.ru") { UIApplication.shared.open(url) }
+                        }
+                        DSListRow(title: "Экспорт диагностики", subtitle: "Для поддержки", icon: .pdf,
+                                  showsDivider: false) { confirmExport = true }
+                    }
+                } else {
+                    ProgressView().frame(maxWidth: .infinity).padding(.top, 80)
+                }
             }
+            .padding(.horizontal, DSSpacing.lg)
+            .padding(.bottom, DSSpacing.xxxl)
         }
+        .background(DSColor.bg.ignoresSafeArea())
         .navigationTitle("Настройки")
         .navigationBarTitleDisplayMode(.large)
-    }
-}
-
-// MARK: - Hub (main list)
-
-private struct SettingsHubView: View {
-    let settings: DomainUserSettings
-    @ObservedObject var vm: SettingsViewModelWrapper
-
-    var body: some View {
-        List {
-            NavigationLink(destination: SettingsNormaView(settings: settings, vm: vm)) {
-                Text("Норма")
-            }
-            NavigationLink(destination: SettingsAccountingView(settings: settings, vm: vm)) {
-                Text("Учёт")
-            }
-            NavigationLink(destination: SettingsRestView(settings: settings, vm: vm)) {
-                Text("Отдых")
-            }
-            NavigationLink(destination: SettingsRouteView(settings: settings, vm: vm)) {
-                Text("Маршрут")
-            }
-            NavigationLink(destination: SettingsLocoView(settings: settings, vm: vm)) {
-                Text("Локомотив")
-            }
-            Button("Серии локомотивов") { AppRouter.shared.showSettingsSection(.seriesList) }
-                .foregroundColor(.primary)
-            Button("Станции") { AppRouter.shared.showSettingsSection(.stationList) }
-                .foregroundColor(.primary)
+        .alert("Экспорт диагностики", isPresented: $confirmExport) {
+            Button("Отправить") { shareItems = ShareItems(items: [makeDiagnosticFile()]) }
+            Button("Отмена", role: .cancel) {}
+        } message: {
+            Text("В поддержку будут отправлены обезличенные диагностические данные без личной информации.")
         }
-    }
-}
-
-// MARK: - Норма
-
-private struct SettingsNormaView: View {
-    let settings: DomainUserSettings
-    @ObservedObject var vm: SettingsViewModelWrapper
-
-    @State private var normaHours: Int
-
-    init(settings: DomainUserSettings, vm: SettingsViewModelWrapper) {
-        self.settings = settings
-        self.vm = vm
-        _normaHours = State(initialValue: Int(settings.defaultWorkTime / 3_600_000))
+        .sheet(item: $shareItems) { item in SettingsShareSheet(items: item.items) }
     }
 
-    var body: some View {
-        Form {
-            Section(
-                header: Text(""),
-                footer: Text("Установите плановую норму рабочих часов в месяц.")
-            ) {
-                Stepper(value: $normaHours, in: 1...300, step: 1) {
-                    HStack {
-                        Text("Норма часов в месяц")
-                        Spacer()
-                        Text("\(normaHours) ч")
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .onChange(of: normaHours) { newValue in
-                    vm.setNormaHours(Int64(newValue))
-                }
-            }
-        }
-        .navigationTitle("Норма")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-// MARK: - Учёт (Accounting)
-
-private struct SettingsAccountingView: View {
-    let settings: DomainUserSettings
-    @ObservedObject var vm: SettingsViewModelWrapper
-
-    @State private var nightStart: Date
-    @State private var nightEnd: Date
-    @State private var considerFuture: Bool
-
-    init(settings: DomainUserSettings, vm: SettingsViewModelWrapper) {
-        self.settings = settings
-        self.vm = vm
-        _nightStart = State(initialValue: Self.timeDate(
-            hour: Int(settings.nightTime.startNightHour),
-            minute: Int(settings.nightTime.startNightMinute)
-        ))
-        _nightEnd = State(initialValue: Self.timeDate(
-            hour: Int(settings.nightTime.endNightHour),
-            minute: Int(settings.nightTime.endNightMinute)
-        ))
-        _considerFuture = State(initialValue: settings.isConsiderFutureRoute)
-    }
-
-    var body: some View {
-        Form {
-            Section(
-                header: Text("Ночные часы"),
-                footer: Text("Ночные часы используются при расчёте ночных надбавок.")
-            ) {
-                DatePicker("Начало ночи", selection: $nightStart, displayedComponents: .hourAndMinute)
-                    .onChange(of: nightStart) { newValue in
-                        let cal = Calendar.current
-                        vm.setNightStartTime(
-                            hour: Int32(cal.component(.hour, from: newValue)),
-                            minute: Int32(cal.component(.minute, from: newValue))
-                        )
-                    }
-
-                DatePicker("Конец ночи", selection: $nightEnd, displayedComponents: .hourAndMinute)
-                    .onChange(of: nightEnd) { newValue in
-                        let cal = Calendar.current
-                        vm.setNightEndTime(
-                            hour: Int32(cal.component(.hour, from: newValue)),
-                            minute: Int32(cal.component(.minute, from: newValue))
-                        )
-                    }
-            }
-
-            Section(
-                header: Text(""),
-                footer: Text("Маршруты, время явки которых ещё не наступило, будут учитываться при подсчёте отработанного времени.")
-            ) {
-                Toggle("Учитывать будущие маршруты", isOn: $considerFuture)
-                    .onChange(of: considerFuture) { vm.setConsiderFutureRoute($0) }
-            }
-        }
-        .navigationTitle("Учёт")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private static func timeDate(hour: Int, minute: Int) -> Date {
-        var comps = Calendar.current.dateComponents([.year, .month, .day], from: Date())
-        comps.hour = hour
-        comps.minute = minute
-        comps.second = 0
-        return Calendar.current.date(from: comps) ?? Date()
-    }
-}
-
-// MARK: - Отдых (Rest)
-
-private struct SettingsRestView: View {
-    let settings: DomainUserSettings
-    @ObservedObject var vm: SettingsViewModelWrapper
-
-    @State private var restMinutes: Int
-    @State private var secondRestMinutes: Int
-    @State private var homeRestMinutes: Int
-
-    init(settings: DomainUserSettings, vm: SettingsViewModelWrapper) {
-        self.settings = settings
-        self.vm = vm
-        _restMinutes     = State(initialValue: Int(settings.minTimeRestPointOfTurnover / 60_000))
-        _secondRestMinutes = State(initialValue: Int(settings.minTimeRestPointOfTurnoverSecond / 60_000))
-        _homeRestMinutes = State(initialValue: Int(settings.minTimeHomeRest / 60_000))
-    }
-
-    var body: some View {
-        Form {
-            Section(
-                header: Text(""),
-                footer: Text("Минимальное время отдыха используется при расчёте отдыха после поездки.")
-            ) {
-                Stepper(value: $restMinutes, in: 0...1440, step: 15) {
-                    HStack {
-                        Text("Отдых в ПО")
-                        Spacer()
-                        Text(Self.formatDuration(minutes: restMinutes))
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .onChange(of: restMinutes) { vm.setMinTimeRest(Int64($0) * 60_000) }
-
-                Stepper(value: $secondRestMinutes, in: 0...1440, step: 15) {
-                    HStack {
-                        Text("Отдых в ПО (второй отдых)")
-                        Spacer()
-                        Text(Self.formatDuration(minutes: secondRestMinutes))
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .onChange(of: secondRestMinutes) { vm.setMinTimeRestSecond(Int64($0) * 60_000) }
-
-                Stepper(value: $homeRestMinutes, in: 0...2880, step: 15) {
-                    HStack {
-                        Text("Домашний отдых")
-                        Spacer()
-                        Text(Self.formatDuration(minutes: homeRestMinutes))
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .onChange(of: homeRestMinutes) { vm.setMinTimeHomeRest(Int64($0) * 60_000) }
-            }
-        }
-        .navigationTitle("Отдых")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private static func formatDuration(minutes: Int) -> String {
-        let h = minutes / 60
-        let m = minutes % 60
-        if h == 0 { return "\(m) мин" }
-        if m == 0 { return "\(h) ч" }
-        return "\(h) ч \(m) мин"
-    }
-}
-
-// MARK: - Маршрут (Route)
-
-private struct SettingsRouteView: View {
-    let settings: DomainUserSettings
-    @ObservedObject var vm: SettingsViewModelWrapper
-
-    @State private var usingDefault: Bool
-    @State private var showBreak: Bool
-    @State private var defaultWorkMinutes: Int
-
-    init(settings: DomainUserSettings, vm: SettingsViewModelWrapper) {
-        self.settings = settings
-        self.vm = vm
-        _usingDefault       = State(initialValue: settings.usingDefaultWorkTime)
-        _showBreak          = State(initialValue: settings.isShowBreak)
-        _defaultWorkMinutes = State(initialValue: Int(settings.defaultWorkTime / 60_000))
-    }
-
-    var body: some View {
-        Form {
-            Section(
-                header: Text("Данные по умолчанию"),
-                footer: Text("Эти значения будут установлены при создании нового маршрута.")
-            ) {
-                Toggle("Использовать стандартное время работы", isOn: $usingDefault)
-                    .onChange(of: usingDefault) { vm.setUsingDefaultWorkTime($0) }
-
-                if usingDefault {
-                    Stepper(value: $defaultWorkMinutes, in: 0...1440, step: 15) {
-                        HStack {
-                            Text("Время работы")
-                            Spacer()
-                            Text(Self.formatDuration(minutes: defaultWorkMinutes))
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .onChange(of: defaultWorkMinutes) {
-                        vm.setDefaultWorkTime(Int64($0) * 60_000)
-                    }
-                }
-            }
-
-            Section(
-                header: Text(""),
-                footer: Text("Показывать поля перерыва в форме маршрута.")
-            ) {
-                Toggle("Показывать перерыв", isOn: $showBreak)
-                    .onChange(of: showBreak) { vm.setShowBreak($0) }
-            }
-        }
-        .navigationTitle("Маршрут")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private static func formatDuration(minutes: Int) -> String {
-        let h = minutes / 60
-        let m = minutes % 60
-        if h == 0 { return "\(m) мин" }
-        if m == 0 { return "\(h) ч" }
-        return "\(h) ч \(m) мин"
-    }
-}
-
-// MARK: - Локомотив (Loco)
-
-private struct SettingsLocoView: View {
-    let settings: DomainUserSettings
-    @ObservedObject var vm: SettingsViewModelWrapper
-
-    @State private var showHeating: Bool
-    @State private var showAuxiliary: Bool
-    @State private var considerHeatingInTotal: Bool
-    @State private var considerAuxiliaryInTotal: Bool
-    @State private var showStatistics: Bool
-    @State private var showNorma: Bool
-    @State private var showOtherCurrent: Bool
-
-    init(settings: DomainUserSettings, vm: SettingsViewModelWrapper) {
-        self.settings = settings
-        self.vm = vm
-        _showHeating      = State(initialValue: settings.isShowLocoHeating)
-        _showAuxiliary    = State(initialValue: settings.isShowLocoAuxiliary)
-        _considerHeatingInTotal = State(initialValue: settings.isConsiderLocoHeatingInTotal)
-        _considerAuxiliaryInTotal = State(initialValue: settings.isConsiderLocoAuxiliaryInTotal)
-        _showStatistics   = State(initialValue: settings.isShowLocoStatistics)
-        _showNorma        = State(initialValue: settings.isShowLocoNorma)
-        _showOtherCurrent = State(initialValue: settings.isShowOtherCurrent)
-    }
-
-    var body: some View {
-        Form {
-            Section(
-                header: Text("Показывать поля"),
-                footer: Text("Эти поля будут отображаться при вводе показаний локомотива.")
-            ) {
-                Toggle("Отопление", isOn: $showHeating)
-                    .onChange(of: showHeating)      { vm.setShowLocoHeating($0) }
-                if showHeating {
-                    Toggle("Учитывать в общем расходе", isOn: $considerHeatingInTotal)
-                        .onChange(of: considerHeatingInTotal) { vm.setConsiderLocoHeatingInTotal($0) }
-                }
-                Toggle("Собственные нужды", isOn: $showAuxiliary)
-                    .onChange(of: showAuxiliary)    { vm.setShowLocoAuxiliary($0) }
-                if showAuxiliary {
-                    Toggle("Учитывать в общем расходе", isOn: $considerAuxiliaryInTotal)
-                        .onChange(of: considerAuxiliaryInTotal) { vm.setConsiderLocoAuxiliaryInTotal($0) }
-                }
-                Toggle("Статистика", isOn: $showStatistics)
-                    .onChange(of: showStatistics)   { vm.setShowLocoStatistics($0) }
-                Toggle("Норма", isOn: $showNorma)
-                    .onChange(of: showNorma)        { vm.setShowLocoNorma($0) }
-            }
-
-            Section(
-                header: Text(""),
-                footer: Text("Для переменно-постоянных электровозов.")
-            ) {
-                Toggle("Смена рода тока", isOn: $showOtherCurrent)
-                    .onChange(of: showOtherCurrent) { vm.setShowOtherCurrent($0) }
-            }
-        }
-        .navigationTitle("Локомотив")
-        .navigationBarTitleDisplayMode(.inline)
+    /// Обезличенный файл: версия приложения и системы. Маршруты, заметки, email и токены не включаются (§17.6).
+    private func makeDiagnosticFile() -> URL {
+        let info = Bundle.main.infoDictionary
+        let text = """
+        LocoDriver iOS diagnostics
+        version: \(info?["CFBundleShortVersionString"] as? String ?? "?")
+        build: \(info?["CFBundleVersion"] as? String ?? "?")
+        system: iOS \(UIDevice.current.systemVersion)
+        device: \(UIDevice.current.model)
+        """
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("locodriver-diagnostics.txt")
+        try? text.write(to: url, atomically: true, encoding: .utf8)
+        return url
     }
 }

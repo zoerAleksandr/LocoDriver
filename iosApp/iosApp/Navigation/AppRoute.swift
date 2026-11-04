@@ -47,6 +47,12 @@ enum SettingsSection: Hashable {
     case train
     /// `REST`
     case rest
+    /// `NORMA` (Норма и регион, §17.2)
+    case norma
+    /// `ACCOUNTING` (Учёт, §17.3)
+    case accounting
+    /// `SHOULDERS` (Плечи, §17.4)
+    case shoulders
     /// `SERIES_LIST`
     case seriesList
     /// `SERIES_EDITOR_<id>`
@@ -60,8 +66,11 @@ enum SettingsSection: Hashable {
 
     var title: String {
         switch self {
-        case .route: return "Маршрут"
-        case .routeForm: return "Форма маршрута"
+        case .route: return "Основные"
+        case .routeForm: return "Маршрут"
+        case .norma: return "Норма и регион"
+        case .accounting: return "Учёт"
+        case .shoulders: return "Плечи"
         case .locomotive: return "Локомотив"
         case .train: return "Поезд"
         case .rest: return "Отдых"
@@ -75,6 +84,9 @@ enum SettingsSection: Hashable {
     var specSection: String {
         switch self {
         case .route, .routeForm, .locomotive, .train, .rest: return "§17.5"
+        case .norma: return "§17.2"
+        case .accounting: return "§17.3"
+        case .shoulders: return "§17.4"
         case .seriesList, .seriesEditor, .seriesNew, .stationList, .stationEditor: return "§17.4, §2.10"
         }
     }

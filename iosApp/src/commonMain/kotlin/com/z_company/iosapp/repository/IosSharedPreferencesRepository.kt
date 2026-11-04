@@ -5,6 +5,7 @@ import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.norma_time.SectionNumberingType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import platform.Foundation.NSUserDefaults
 
 /**
  * iOS stub-реализация SharedPreferencesRepositories.
@@ -17,6 +18,14 @@ import kotlinx.coroutines.flow.StateFlow
  * TODO: заменить хранение на NSUserDefaults через expect/actual, если потребуется.
  */
 class IosSharedPreferencesRepository : SharedPreferencesRepositories {
+    // Локальные (не синхронизируемые) настройки устройства живут в NSUserDefaults (§17).
+    private fun udBool(key: String, default: Boolean): Boolean {
+        val d = NSUserDefaults.standardUserDefaults
+        return if (d.objectForKey("ld.$key") == null) default else d.boolForKey("ld.$key")
+    }
+    private fun udSetBool(key: String, value: Boolean) {
+        NSUserDefaults.standardUserDefaults.setBool(value, forKey = "ld.$key")
+    }
     private var lastScheduleMonth: String? = null
     override fun getLastScheduleMonth(): String? = lastScheduleMonth
     override fun setLastScheduleMonth(value: String) { lastScheduleMonth = value }
@@ -51,21 +60,37 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private var locoSectionHeatingExpanded: Boolean = false
     private var locoSectionAuxiliaryExpanded: Boolean = false
     private var locoSectionStatisticsExpanded: Boolean = false
-    private var showLocoHeating: Boolean = false
-    private var showLocoAuxiliary: Boolean = false
-    private var showLocoStatistics: Boolean = false
-    private var showLocoNorma: Boolean = false
-    private var showOtherCurrent: Boolean = false
+    private var showLocoHeating: Boolean
+        get() = udBool("showLocoHeating", false)
+        set(v) = udSetBool("showLocoHeating", v)
+    private var showLocoAuxiliary: Boolean
+        get() = udBool("showLocoAuxiliary", false)
+        set(v) = udSetBool("showLocoAuxiliary", v)
+    private var showLocoStatistics: Boolean
+        get() = udBool("showLocoStatistics", false)
+        set(v) = udSetBool("showLocoStatistics", v)
+    private var showLocoNorma: Boolean
+        get() = udBool("showLocoNorma", false)
+        set(v) = udSetBool("showLocoNorma", v)
+    private var showOtherCurrent: Boolean
+        get() = udBool("showOtherCurrent", false)
+        set(v) = udSetBool("showOtherCurrent", v)
     private var locoSectionNormaExpanded: Boolean = false
     private var defaultLocoSectionNumberingType = SectionNumberingType.NUMERIC
-    private var passenger12hDontAskAgain: Boolean = false
-    private var passenger12hAutoAccepted: Boolean = false
+    private var passenger12hDontAskAgain: Boolean
+        get() = udBool("passenger12hDontAsk", false)
+        set(v) = udSetBool("passenger12hDontAsk", v)
+    private var passenger12hAutoAccepted: Boolean
+        get() = udBool("passenger12hAutoAccepted", false)
+        set(v) = udSetBool("passenger12hAutoAccepted", v)
     private var timePickerKeyboardInput: Boolean = false
     private val recentTimesMap = mutableMapOf<String, MutableList<Long>>()
     private val lastSeenAnnouncementNumbers = mutableMapOf<String, Int>()
     private val lastSeenSubscriptionPeriods = mutableMapOf<String, Long>()
     private var underworkInfoDismissed: Boolean = false
-    private var themeMode: String? = null
+    private var themeMode: String?
+        get() = NSUserDefaults.standardUserDefaults.stringForKey("ld.themeMode")
+        set(v) = NSUserDefaults.standardUserDefaults.setObject(v, forKey = "ld.themeMode")
     private var currentRouteBlockOrder: List<String>? = null
 
     override fun setLastSyncTimestamp(time: Long) { lastSyncTimestamp = time }

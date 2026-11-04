@@ -10,6 +10,7 @@ import com.z_company.iosapp.viewmodel.LocoTimeSheetIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsIosViewModel
+import com.z_company.iosapp.viewmodel.SettingsScreenIosViewModel
 import com.z_company.iosapp.viewmodel.PassengerFormIosViewModel
 import com.z_company.iosapp.viewmodel.TrainFormIosViewModel
 import com.z_company.iosapp.viewmodel.SeriesEditorIosViewModel
@@ -59,6 +60,7 @@ object IosViewModelHelper : KoinComponent {
 
     /** Экран «Локомотив» §1: новый экземпляр на экран; Swift вызывает `dispose()`. */
     fun createLocoScreenViewModel(): LocoScreenIosViewModel = get()
+    fun createSettingsScreenViewModel(): SettingsScreenIosViewModel = get()
 
     /** Шторка времени §2: новый экземпляр на открытие; Swift вызывает `dispose()`. */
     fun createLocoTimeSheetViewModel(): LocoTimeSheetIosViewModel = get()
