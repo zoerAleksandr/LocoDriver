@@ -14,6 +14,7 @@ import com.z_company.iosapp.viewmodel.NormMonthIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
 import com.z_company.iosapp.viewmodel.ScheduleWizardIosViewModel
 import com.z_company.iosapp.viewmodel.ReferralIosViewModel
+import com.z_company.iosapp.viewmodel.PurchasesIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
 import com.z_company.iosapp.viewmodel.PayrollCodeSearchIosViewModel
 import com.z_company.iosapp.viewmodel.SettingSalaryIosViewModel
@@ -57,6 +58,7 @@ object IosViewModelHelper : KoinComponent {
     private val passengerFormViewModel: PassengerFormIosViewModel by inject()
     private val homeScreenViewModel: HomeScreenIosViewModel by inject()
     private val newRouteViewModel: NewRouteIosViewModel by inject()
+    private val purchasesViewModel: PurchasesIosViewModel by inject()
 
     fun getHomeViewModel(): HomeIosViewModel = homeViewModel
     fun getFormViewModel(): FormIosViewModel = formViewModel
@@ -67,6 +69,7 @@ object IosViewModelHelper : KoinComponent {
     fun getPassengerFormViewModel(): PassengerFormIosViewModel = passengerFormViewModel
     fun getHomeScreenViewModel(): HomeScreenIosViewModel = homeScreenViewModel
     fun getNewRouteViewModel(): NewRouteIosViewModel = newRouteViewModel
+    fun getPurchasesViewModel(): PurchasesIosViewModel = purchasesViewModel
 
     /** Профиль §18: новый экземпляр на открытый экран; Swift вызывает `dispose()`. */
     fun createProfileViewModel(): ProfileIosViewModel = get()

@@ -13,6 +13,8 @@ import SwiftUI
 /// автоматически пропадает на вложенных экранах.
 struct AppCoordinator: View {
     @ObservedObject private var router = AppRouter.shared
+    /// Покупки §19: глобальные диалоги «Платёж принят!»/«Бонус начислен!»/«Подписка продлена».
+    @ObservedObject private var purchases = PurchasesViewModelWrapper.shared
     /// Вкладка создаётся при первом открытии (не грузим VM всех вкладок на старте).
     @State private var loadedTabs: Set<AppTab> = []
 
@@ -45,6 +47,44 @@ struct AppCoordinator: View {
         .dsToastHost()
         // Гейт «+» (§3.4). Отдельный фоновый носитель — чтобы не делить view с алертом выше.
         .background(newRouteGateAlertHost)
+        // §19.5–19.6: глобальные диалоги на любом экране; §19.1a — лимит пачки.
+        .overlay(globalPurchasesOverlay)
+        // Возврат в приложение → проверка ожидаемой оплаты (§19.6).
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            purchases.onAppResumed()
+        }
+        .onAppear { purchases.onAppResumed() }
+    }
+
+    @ViewBuilder
+    private var globalPurchasesOverlay: some View {
+        ZStack {
+            if let notice = purchases.globalNotice {
+                PurchasesGlobalNoticeDialog(notice: notice) {
+                    purchases.dismissGlobalNotice()
+                }
+            }
+            if let limit = router.subscriptionLimit {
+                SubscriptionLimitDialog(
+                    requested: limit.requested,
+                    remaining: limit.remaining,
+                    isAuthorized: limit.isAuthorized
+                ) {
+                    router.subscriptionLimit = nil
+                    router.showPurchasesFromNewRouteGate(isAuthorized: limit.isAuthorized)
+                } onCancel: {
+                    router.subscriptionLimit = nil
+                }
+            }
+            if let text = router.snackbarMessage {
+                VStack {
+                    Spacer()
+                    DSSnackbar(text: text)
+                        .padding(.horizontal, DSMetrics.screenPadX)
+                        .padding(.bottom, 96)
+                }
+            }
+        }
     }
 
     private var newRouteGateAlertHost: some View {

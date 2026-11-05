@@ -26,6 +26,12 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private fun udSetBool(key: String, value: Boolean) {
         NSUserDefaults.standardUserDefaults.setBool(value, forKey = "ld.$key")
     }
+    private fun udString(key: String): String? =
+        NSUserDefaults.standardUserDefaults.stringForKey("ld.$key")
+    private fun udSetString(key: String, value: String?) {
+        val d = NSUserDefaults.standardUserDefaults
+        if (value == null) d.removeObjectForKey("ld.$key") else d.setObject(value, forKey = "ld.$key")
+    }
     private var lastScheduleMonth: String? = null
     override fun getLastScheduleMonth(): String? = lastScheduleMonth
     override fun setLastScheduleMonth(value: String) { lastScheduleMonth = value }
@@ -95,7 +101,6 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private var timePickerKeyboardInput: Boolean = false
     private val recentTimesMap = mutableMapOf<String, MutableList<Long>>()
     private val lastSeenAnnouncementNumbers = mutableMapOf<String, Int>()
-    private val lastSeenSubscriptionPeriods = mutableMapOf<String, Long>()
     private var underworkInfoDismissed: Boolean = false
     private var themeMode: String?
         get() = NSUserDefaults.standardUserDefaults.stringForKey("ld.themeMode")
@@ -150,17 +155,25 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     override fun setLastOtherWorkType(value: String?) { lastOtherWorkType = value }
     override fun getLastSeenAnnouncementNumber(type: String): Int = lastSeenAnnouncementNumbers[type] ?: -1
     override fun setLastSeenAnnouncementNumber(type: String, value: Int) { lastSeenAnnouncementNumbers[type] = value }
-    override fun getLastSeenSubscriptionPeriod(userId: String): Long = lastSeenSubscriptionPeriods[userId] ?: -1L
-    override fun setLastSeenSubscriptionPeriod(userId: String, value: Long) { lastSeenSubscriptionPeriods[userId] = value }
-    private val subscriptionPeriodReferralDays = mutableMapOf<String, Int>()
-    override fun getSubscriptionPeriodReferralDays(userId: String): Int = subscriptionPeriodReferralDays[userId] ?: -1
-    override fun setSubscriptionPeriodReferralDays(userId: String, value: Int) { subscriptionPeriodReferralDays[userId] = value }
-    private var pendingPayment: String? = null
-    override fun getPendingPayment(): String? = pendingPayment
-    override fun setPendingPayment(value: String?) { pendingPayment = value }
-    private val lastSeenReferralAwardedDays = mutableMapOf<String, Int>()
-    override fun getLastSeenReferralAwardedDays(userId: String): Int = lastSeenReferralAwardedDays[userId] ?: -1
-    override fun setLastSeenReferralAwardedDays(userId: String, value: Int) { lastSeenReferralAwardedDays[userId] = value }
+    // §19.5–19.6: «увиденное» по аккаунтам и запись ожидаемой оплаты переживают
+    // выгрузку процесса (как SharedPreferences на Android).
+    override fun getLastSeenSubscriptionPeriod(userId: String): Long =
+        udString("seenPeriod.$userId")?.toLongOrNull() ?: -1L
+    override fun setLastSeenSubscriptionPeriod(userId: String, value: Long) {
+        udSetString("seenPeriod.$userId", value.toString())
+    }
+    override fun getSubscriptionPeriodReferralDays(userId: String): Int =
+        udString("seenRefDays.$userId")?.toIntOrNull() ?: -1
+    override fun setSubscriptionPeriodReferralDays(userId: String, value: Int) {
+        udSetString("seenRefDays.$userId", value.toString())
+    }
+    override fun getPendingPayment(): String? = udString("pendingPayment")
+    override fun setPendingPayment(value: String?) { udSetString("pendingPayment", value) }
+    override fun getLastSeenReferralAwardedDays(userId: String): Int =
+        udString("seenAwarded.$userId")?.toIntOrNull() ?: -1
+    override fun setLastSeenReferralAwardedDays(userId: String, value: Int) {
+        udSetString("seenAwarded.$userId", value.toString())
+    }
     override fun isUnderworkInfoDismissed(): Boolean = underworkInfoDismissed
     override fun setUnderworkInfoDismissed() { underworkInfoDismissed = true }
     override fun getThemeMode(): String? = themeMode
