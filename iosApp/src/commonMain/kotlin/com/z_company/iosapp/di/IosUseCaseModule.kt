@@ -55,6 +55,8 @@ import com.z_company.iosapp.viewmodel.SettingsScreenIosViewModel
 import com.z_company.iosapp.viewmodel.PassengerFormIosViewModel
 import com.z_company.iosapp.viewmodel.RouteFormIosViewModel
 import com.z_company.iosapp.viewmodel.TrainFormIosViewModel
+import com.z_company.iosapp.viewmodel.TrainScreenIosViewModel
+import com.z_company.domain.use_cases.TrainUseCase
 import com.z_company.repository.remote_rest.SyncManager
 import org.koin.dsl.module
 
@@ -161,6 +163,16 @@ val iosUseCaseModule = module {
     factory { SeriesListIosViewModel(repository = get(), settingsUseCase = get()) }
     factory { StationListIosViewModel(repository = get(), settingsUseCase = get()) }
     single { TrainFormIosViewModel(get()) }
+    // Экран «Поезд» §6: factory — по экземпляру на открытый экран.
+    single { TrainUseCase(get()) }
+    factory {
+        TrainScreenIosViewModel(
+            trainUseCase = get(),
+            routeUseCase = get(),
+            settingsUseCase = get(),
+            sharedPrefs = get(),
+        )
+    }
     single { PassengerFormIosViewModel(get()) }
     // «Пассажиром» §7, «Прочая работа» §8, «Напарники» §8.5: factory — по экземпляру на открытый экран.
     factory {
