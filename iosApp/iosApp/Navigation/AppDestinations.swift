@@ -101,6 +101,11 @@ struct AppSheetView: View {
             TariffChangedSheet(onClose: onClose)
         case .addEvent(let dayMillis):
             AddEventSheetHost(dayMillis: dayMillis, onClose: onClose)
+        // §21 PDF: шторки «Содержание PDF» и «PDF сформирован».
+        case .pdfContent:
+            PdfContentSheetView(onClose: onClose)
+        case .pdfActions:
+            PdfActionSheetView(onClose: onClose)
         default:
             StubSheetView(title: sheet.title, specSection: sheet.specSection, onClose: onClose)
         }

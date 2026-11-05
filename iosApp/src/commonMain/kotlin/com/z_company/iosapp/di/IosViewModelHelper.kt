@@ -11,6 +11,7 @@ import com.z_company.iosapp.viewmodel.LocoFormIosViewModel
 import com.z_company.iosapp.viewmodel.LocoScreenIosViewModel
 import com.z_company.iosapp.viewmodel.LocoTimeSheetIosViewModel
 import com.z_company.iosapp.viewmodel.NormMonthIosViewModel
+import com.z_company.iosapp.viewmodel.PdfExportIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
 import com.z_company.iosapp.viewmodel.ScheduleWizardIosViewModel
 import com.z_company.iosapp.viewmodel.ReferralIosViewModel
@@ -59,6 +60,7 @@ object IosViewModelHelper : KoinComponent {
     private val homeScreenViewModel: HomeScreenIosViewModel by inject()
     private val newRouteViewModel: NewRouteIosViewModel by inject()
     private val purchasesViewModel: PurchasesIosViewModel by inject()
+    private val pdfExportViewModel: PdfExportIosViewModel by inject()
 
     fun getHomeViewModel(): HomeIosViewModel = homeViewModel
     fun getFormViewModel(): FormIosViewModel = formViewModel
@@ -79,6 +81,9 @@ object IosViewModelHelper : KoinComponent {
 
     /** Единый источник истины авторизации (IOS_PLAN С4). */
     fun getAuthSessionHolder(): com.z_company.iosapp.session.AuthSessionHolder = get()
+
+    /** Экспорт PDF §21: single-экземпляр (выбор разделов переживает пересоздание шторки). */
+    fun getPdfExportViewModel(): PdfExportIosViewModel = pdfExportViewModel
 
     /** Форма маршрута §5: новый экземпляр на каждую открытую форму; Swift вызывает `dispose()`. */
     fun createRouteFormViewModel(): RouteFormIosViewModel = get()

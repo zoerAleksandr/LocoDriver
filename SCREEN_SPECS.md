@@ -8480,6 +8480,25 @@ N ч.», «Личная норма N ч.» (если отличается), «М
 `component/AppBottomSheet.kt`, `ui/HomeScreen.kt` (карточка «PDF», обработка
 `pdfReady`/`errorMessage`), `navigation/StatisticsDestination.kt`.
 
+iOS: рендер **нативным UIKit** (`UIGraphicsPDFRenderer`, A4 595×842), вёрстка — по
+Kotlin-модели §21: содержимое и правила (блоки, тексты, числа, порядок разделов,
+оценки высот маршрутов, разметка графика и листка) собирает
+`iosApp/src/commonMain/.../pdf/PdfLayoutBuilder.kt` (порт `PdfGenerator.kt`),
+строки листка — `pdf/PdfSalaryData.kt` (напрямую из `SalaryCalculationHelper`,
+`SalaryCalculationUIState` на iOS нет; ожидание расчёта до 8 с → текст
+«Данные расчёта недоступны…», §21 п.3); VM — `viewmodel/PdfExportIosViewModel.kt`
+(`PdfSections` переживает пересоздание шторки). Рендер и шторки —
+`iosApp/iosApp/Screens/Shared/PdfExport/` (`PdfRenderer.swift`, `PdfSheets.swift`,
+`PdfExportViewModelWrapper.swift`): «Содержание PDF» → «PDF сформирован»
+(«Открыть PDF» — QuickLook, «Поделиться» — `UIActivityViewController`); файл —
+в кэше `Машинист_{Месяц}_{Год}.pdf`, старые удаляются. Даты — `dd.MM.yyyy`
+по спецификации (Android печатает `dd.MM.yy` через `TimeManager.formatDate`);
+времена — фиксированный GMT+3 (⚠️ BUG-59, паритет), «Расход» = принял − сдал
+(⚠️ BUG-60, паритет). Документ без разделов (все чекбоксы выключены) — snackbar
+«Ошибка формирования PDF…» (на Android это поведение ❓ не проверено). Отчёт о
+проследовании ограничений (§6.9) и `StatisticsPdfGenerator` (§13.5) в этой
+реализации не входят.
+
 ---
 
 ## 22. Служебные и легаси-экраны

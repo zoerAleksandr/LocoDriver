@@ -53,6 +53,7 @@ import com.z_company.iosapp.viewmodel.LocoScreenIosViewModel
 import com.z_company.iosapp.viewmodel.LocoTimeSheetIosViewModel
 import com.z_company.iosapp.viewmodel.NormMonthIosViewModel
 import com.z_company.iosapp.viewmodel.ScheduleWizardIosViewModel
+import com.z_company.iosapp.viewmodel.PdfExportIosViewModel
 import com.z_company.iosapp.viewmodel.SeriesListIosViewModel
 import com.z_company.iosapp.viewmodel.StationListIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
@@ -179,6 +180,8 @@ val iosUseCaseModule = module {
             secureTokenStorage = get(),
         )
     }
+    // Экспорт PDF §21: single — выбор разделов переживает пересоздание шторки.
+    single { PdfExportIosViewModel(get(), get(), get(), get(), get(), get()) }
     single { LocoFormIosViewModel(get()) }
     // Экран «Локомотив» §1 и шторка времени §2: factory — по экземпляру на открытый экран/шторку.
     factory {
