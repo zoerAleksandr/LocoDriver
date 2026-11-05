@@ -13,6 +13,7 @@ import com.z_company.iosapp.viewmodel.LocoTimeSheetIosViewModel
 import com.z_company.iosapp.viewmodel.NormMonthIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
 import com.z_company.iosapp.viewmodel.ScheduleWizardIosViewModel
+import com.z_company.iosapp.viewmodel.ReferralIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
 import com.z_company.iosapp.viewmodel.PayrollCodeSearchIosViewModel
 import com.z_company.iosapp.viewmodel.SettingSalaryIosViewModel
@@ -54,7 +55,6 @@ object IosViewModelHelper : KoinComponent {
     private val locoFormViewModel: LocoFormIosViewModel by inject()
     private val trainFormViewModel: TrainFormIosViewModel by inject()
     private val passengerFormViewModel: PassengerFormIosViewModel by inject()
-    private val profileViewModel: ProfileIosViewModel by inject()
     private val homeScreenViewModel: HomeScreenIosViewModel by inject()
     private val newRouteViewModel: NewRouteIosViewModel by inject()
 
@@ -65,9 +65,17 @@ object IosViewModelHelper : KoinComponent {
     fun getLocoFormViewModel(): LocoFormIosViewModel = locoFormViewModel
     fun getTrainFormViewModel(): TrainFormIosViewModel = trainFormViewModel
     fun getPassengerFormViewModel(): PassengerFormIosViewModel = passengerFormViewModel
-    fun getProfileViewModel(): ProfileIosViewModel = profileViewModel
     fun getHomeScreenViewModel(): HomeScreenIosViewModel = homeScreenViewModel
     fun getNewRouteViewModel(): NewRouteIosViewModel = newRouteViewModel
+
+    /** Профиль §18: новый экземпляр на открытый экран; Swift вызывает `dispose()`. */
+    fun createProfileViewModel(): ProfileIosViewModel = get()
+
+    /** «Пригласить друга» §18.R: по экземпляру на экран; Swift вызывает `dispose()`. */
+    fun createReferralViewModel(): ReferralIosViewModel = get()
+
+    /** Единый источник истины авторизации (IOS_PLAN С4). */
+    fun getAuthSessionHolder(): com.z_company.iosapp.session.AuthSessionHolder = get()
 
     /** Форма маршрута §5: новый экземпляр на каждую открытую форму; Swift вызывает `dispose()`. */
     fun createRouteFormViewModel(): RouteFormIosViewModel = get()
