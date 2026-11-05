@@ -45,6 +45,7 @@ import com.z_company.iosapp.viewmodel.LocoTimeSheetIosViewModel
 import com.z_company.iosapp.viewmodel.SeriesListIosViewModel
 import com.z_company.iosapp.viewmodel.StationListIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
+import com.z_company.iosapp.viewmodel.ReferralIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsScreenIosViewModel
@@ -101,6 +102,9 @@ val iosUseCaseModule = module {
     single { NormaUseCase(get(), get(), get()) }
     single { RoutePartnerUseCase(get()) }
     single { PartnerUseCase(get()) }
+
+    // ── Авторизация (IOS_PLAN С4): единый источник истины «авторизован/нет» ─
+    single { com.z_company.iosapp.session.AuthSessionHolder(get(), get()) }
 
     // ── Remote managers (SyncManager нужны все UseCases + remote managers) ─
     single {
@@ -167,7 +171,22 @@ val iosUseCaseModule = module {
             syncManager = get(),
         )
     }
-    single { ProfileIosViewModel(authManager = get(), syncManager = get(), secureTokenStorage = get(), sharedPrefs = get(), remoteRestApi = get()) }
+    // Профиль §18: factory — по экземпляру на открытый экран (С4: состояние
+    // авторизации — из AuthSessionHolder, а не из своей копии флага).
+    factory {
+        ProfileIosViewModel(
+            authManager = get(),
+            syncManager = get(),
+            authSession = get(),
+            secureTokenStorage = get(),
+            sharedPrefs = get(),
+            settingsUseCase = get(),
+            settingManager = get(),
+            routeUseCase = get(),
+        )
+    }
+    // «Пригласить друга» §18.R: factory — по экземпляру на открытый экран.
+    factory { ReferralIosViewModel(remoteRestApi = get(), authSession = get()) }
     single {
         HomeScreenIosViewModel(
             routeUseCase = get(),

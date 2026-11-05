@@ -127,6 +127,9 @@ enum AppRoute: Hashable {
     case settingsSection(SettingsSection)
     // §18.R Пригласить друга
     case referral
+    // §17.7 Данные и конфиденциальность, §17.8 Мои треки (открываются из Профиля, §18.1)
+    case dataPrivacy
+    case trackHistory
     // §19 Покупки (только через гейт — AppRouter.showPurchases)
     case purchases
 
@@ -153,6 +156,8 @@ enum AppRoute: Hashable {
         case .absence: return "Новое отвлечение"
         case .settingsSection(let section): return section.title
         case .referral: return "Пригласить друга"
+        case .dataPrivacy: return "Данные и конфиденциальность"
+        case .trackHistory: return "Мои треки"
         case .purchases: return "Машинист Pro"
         }
     }
@@ -179,6 +184,8 @@ enum AppRoute: Hashable {
         case .absence: return "§16.4"
         case .settingsSection(let section): return section.specSection
         case .referral: return "§18.R"
+        case .dataPrivacy: return "§17.7"
+        case .trackHistory: return "§17.8"
         case .purchases: return "§19"
         }
     }
