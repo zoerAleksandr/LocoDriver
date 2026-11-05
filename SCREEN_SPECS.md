@@ -5709,6 +5709,18 @@ PASSENGER) × p/100`, часы — сумма длительностей.
 `features/route/src/main/java/com/z_company/route/util/StatisticsPdfGenerator.kt`,
 `domain/src/commonMain/kotlin/com/z_company/domain/entities/route/UtilsForEntities.kt`.
 
+**iOS (реализация, ios/stats).** Логика — Kotlin `StatisticsIosViewModel` +
+`StatisticsIosUiState` (`iosApp/src/commonMain/.../viewmodel/StatisticsIosViewModel.kt`,
+`StatisticsIosModels.kt`, Koin `factory` на экран, `dispose()` в `deinit` обёртки);
+SwiftUI только рендерит: `Screens/Statistics/StatisticsView.swift`,
+`StatisticsSheets.swift`. Вкладки, периоды, сравнение (ComparePicker + сетка
+месяцев/список годов), детализация-оверлей (12 столбцов, donut по направлениям),
+история и «Грузооборот»-подсказка — по спеке. Расчёты идентичны Android
+(BUG-43/BUG-44 перенесены как есть). PDF (§13.5) на iOS не реализован (волна 4,
+§21) — кнопка в топбаре скрыта. iOS-макет: `design/src/stats-screens.jsx`
+(`IOSStatsB` — ближайший к Android по составу блоков: сетка плашек, первая
+крупная; `IOSStatsYear`/`IOSStatsDetail`/`IOSStatsHistory`).
+
 ---
 
 ## 14. Экран «Календарь» (CalendarScreen)

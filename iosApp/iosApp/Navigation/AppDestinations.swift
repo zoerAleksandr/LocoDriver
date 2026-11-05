@@ -56,7 +56,9 @@ struct AppDestinationView: View {
             PartnersListView(basicId: basicId)
         case .partnerEditor(let partnerId):
             PartnerEditorView(partnerId: partnerId)
-        case .statistics,
+        case .statistics:
+            StatisticsView()
+        case
              .scheduleWizard, .absence, .referral:
             StubView(title: route.title, specSection: route.specSection)
         }

@@ -53,6 +53,7 @@ import com.z_company.iosapp.viewmodel.SeriesListIosViewModel
 import com.z_company.iosapp.viewmodel.StationListIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
+import com.z_company.iosapp.viewmodel.StatisticsIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsScreenIosViewModel
 import com.z_company.iosapp.viewmodel.PassengerFormIosViewModel
@@ -307,6 +308,17 @@ val iosUseCaseModule = module {
             routeUseCase = get(),
             settingsUseCase = get(),
             historyRepository = get(),
+        )
+    }
+    // Экран «Статистика» §13: factory — по экземпляру на открытый экран.
+    factory {
+        StatisticsIosViewModel(
+            routeUseCase = get(),
+            settingsUseCase = get(),
+            salarySettingUseCase = get(),
+            calendarUseCase = get(),
+            normaUseCase = get(),
+            sharedPreferences = get(),
         )
     }
 }
