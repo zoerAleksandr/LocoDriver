@@ -26,6 +26,19 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private fun udSetBool(key: String, value: Boolean) {
         NSUserDefaults.standardUserDefaults.setBool(value, forKey = "ld.$key")
     }
+    private fun udString(key: String): String? =
+        NSUserDefaults.standardUserDefaults.stringForKey("ld.$key")
+    private fun udSetString(key: String, value: String?) {
+        val d = NSUserDefaults.standardUserDefaults
+        if (value == null) d.removeObjectForKey("ld.$key") else d.setObject(value, forKey = "ld.$key")
+    }
+    private fun udInt(key: String, default: Int): Int {
+        val d = NSUserDefaults.standardUserDefaults
+        return if (d.objectForKey("ld.$key") == null) default else d.integerForKey("ld.$key").toInt()
+    }
+    private fun udSetInt(key: String, value: Int) {
+        NSUserDefaults.standardUserDefaults.setInteger(value.toLong(), forKey = "ld.$key")
+    }
     private var lastScheduleMonth: String? = null
     override fun getLastScheduleMonth(): String? = lastScheduleMonth
     override fun setLastScheduleMonth(value: String) { lastScheduleMonth = value }
@@ -39,14 +52,28 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     // Для продакшена следует использовать NSUserDefaults.
     private var lastSyncTimestamp: Long = 0L
     private var subscriptionExpiration: Long = 0L
-    private var isMigrated: Boolean = false
+    // Сквозная задача С1: флаги первого запуска живут в NSUserDefaults (как в
+    // Android SharedPreferences). Иначе каждый запуск iOS выглядит как первая
+    // установка и applyInitialCountryAndTimezone затирает выбор пользователя.
+    private var isMigrated: Boolean
+        get() = udBool("isMigrated", false)
+        set(v) = udSetBool("isMigrated", v)
     private var timezoneMigrationDone: Boolean = true // iOS не нуждается в миграции временных меток
     private var releaseDayMigrationDone: Boolean = true // iOS не нуждается в миграции отвлечений
     private var productionCalendarMigrationDone: Boolean = true // iOS — нет старых данных для миграции
     private var opKeyRobokassa: String? = null
-    private var showUpdatePresentation: Boolean = true
+    // Флаг «Что нового» (§22): ключ и семантика как на Android
+    // (TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16, по умолчанию true).
+    private var showUpdatePresentation: Boolean
+        get() = udBool("TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16", true)
+        set(v) = udSetBool("TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16", v)
     private var tokenIsChangesHave: Boolean = false
-    private var tokenIsFirstAppEntry: Boolean = true
+    // default true — только самая первая установка; после setTokenIsFirstAppEntry(false)
+    // значение остаётся в NSUserDefaults и между запусками.
+    // Ключ — TOKEN_IS_FIRST_APP_ENTRY_TAG (как в Android SharedPreferences).
+    private var tokenIsFirstAppEntry: Boolean
+        get() = udBool("TOKEN_IS_FIRST_APP_ENTRY_TAG", true)
+        set(v) = udSetBool("TOKEN_IS_FIRST_APP_ENTRY_TAG", v)
     private var tokenIsLoadStationAndLocomotiveSeries: Boolean = false
     private var stationsReversed: Boolean = false
     private var showSegments: Boolean = true
@@ -85,8 +112,13 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
         set(v) = udSetBool("passenger12hAutoAccepted", v)
     private var timePickerKeyboardInput: Boolean = false
     private val recentTimesMap = mutableMapOf<String, MutableList<Long>>()
-    private val lastSeenAnnouncementNumbers = mutableMapOf<String, Int>()
-    private val lastSeenSubscriptionPeriods = mutableMapOf<String, Long>()
+    // «Видел/не видел» новость при запуске (§23.3) — хранение на устройстве,
+    // по ключу типа сообщения (news/update), дефолт -1 = ничего не видел.
+    override fun getLastSeenAnnouncementNumber(type: String): Int =
+        udInt("lastSeenAnnouncement.$type", -1)
+    override fun setLastSeenAnnouncementNumber(type: String, value: Int) {
+        udSetInt("lastSeenAnnouncement.$type", value)
+    }
     private var underworkInfoDismissed: Boolean = false
     private var themeMode: String?
         get() = NSUserDefaults.standardUserDefaults.stringForKey("ld.themeMode")
@@ -115,7 +147,8 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     override fun isProductionCalendarMigrationDone(): Boolean = productionCalendarMigrationDone
     override fun setProductionCalendarMigrationDone() { productionCalendarMigrationDone = true }
     override fun isShowUpdatePresentation(): Boolean = showUpdatePresentation
-    override fun enableShowingUpdatePresentation() { showUpdatePresentation = true }
+    // Название обманчиво (как на Android): метод пишет false — «больше не показывать».
+    override fun enableShowingUpdatePresentation() { showUpdatePresentation = false }
     override fun getSubscriptionExpiration(): Long = subscriptionExpiration
     override fun tokenIsChangesHave(): Boolean = tokenIsChangesHave
     override fun tokenIsFirstAppEntry(): Boolean = tokenIsFirstAppEntry
@@ -139,19 +172,25 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private var lastOtherWorkType: String? = null
     override fun getLastOtherWorkType(): String? = lastOtherWorkType
     override fun setLastOtherWorkType(value: String?) { lastOtherWorkType = value }
-    override fun getLastSeenAnnouncementNumber(type: String): Int = lastSeenAnnouncementNumbers[type] ?: -1
-    override fun setLastSeenAnnouncementNumber(type: String, value: Int) { lastSeenAnnouncementNumbers[type] = value }
-    override fun getLastSeenSubscriptionPeriod(userId: String): Long = lastSeenSubscriptionPeriods[userId] ?: -1L
-    override fun setLastSeenSubscriptionPeriod(userId: String, value: Long) { lastSeenSubscriptionPeriods[userId] = value }
-    private val subscriptionPeriodReferralDays = mutableMapOf<String, Int>()
-    override fun getSubscriptionPeriodReferralDays(userId: String): Int = subscriptionPeriodReferralDays[userId] ?: -1
-    override fun setSubscriptionPeriodReferralDays(userId: String, value: Int) { subscriptionPeriodReferralDays[userId] = value }
-    private var pendingPayment: String? = null
-    override fun getPendingPayment(): String? = pendingPayment
-    override fun setPendingPayment(value: String?) { pendingPayment = value }
-    private val lastSeenReferralAwardedDays = mutableMapOf<String, Int>()
-    override fun getLastSeenReferralAwardedDays(userId: String): Int = lastSeenReferralAwardedDays[userId] ?: -1
-    override fun setLastSeenReferralAwardedDays(userId: String, value: Int) { lastSeenReferralAwardedDays[userId] = value }
+    // §19.5–19.6: «увиденное» по аккаунтам и запись ожидаемой оплаты переживают
+    // выгрузку процесса (как SharedPreferences на Android).
+    override fun getLastSeenSubscriptionPeriod(userId: String): Long =
+        udString("seenPeriod.$userId")?.toLongOrNull() ?: -1L
+    override fun setLastSeenSubscriptionPeriod(userId: String, value: Long) {
+        udSetString("seenPeriod.$userId", value.toString())
+    }
+    override fun getSubscriptionPeriodReferralDays(userId: String): Int =
+        udString("seenRefDays.$userId")?.toIntOrNull() ?: -1
+    override fun setSubscriptionPeriodReferralDays(userId: String, value: Int) {
+        udSetString("seenRefDays.$userId", value.toString())
+    }
+    override fun getPendingPayment(): String? = udString("pendingPayment")
+    override fun setPendingPayment(value: String?) { udSetString("pendingPayment", value) }
+    override fun getLastSeenReferralAwardedDays(userId: String): Int =
+        udString("seenAwarded.$userId")?.toIntOrNull() ?: -1
+    override fun setLastSeenReferralAwardedDays(userId: String, value: Int) {
+        udSetString("seenAwarded.$userId", value.toString())
+    }
     override fun isUnderworkInfoDismissed(): Boolean = underworkInfoDismissed
     override fun setUnderworkInfoDismissed() { underworkInfoDismissed = true }
     override fun getThemeMode(): String? = themeMode
