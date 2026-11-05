@@ -77,14 +77,15 @@ struct AppSheetView: View {
     var body: some View {
         switch sheet {
         case .announcement:
-            NavigationStack {
-                StubView(title: sheet.title, specSection: sheet.specSection)
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Закрыть", action: onClose)
-                        }
-                    }
-            }
+            // §23 Новость при запуске: очередь ведёт LaunchOverlays (closeCurrent
+            // помечает «видел» и показывает следующее сообщение/«Что нового»).
+            AnnouncementView(
+                store: LaunchOverlays.shared.announcement,
+                onClose: { LaunchOverlays.shared.closeCurrent() }
+            )
+        case .whatsNew:
+            // §22 «Что нового»: «Пропустить»/«Начать» → закрыть.
+            WhatsNewView(onClose: { LaunchOverlays.shared.closeCurrent() })
         case let .routeQuickView(basicId):
             RouteQuickViewStandaloneView(basicId: basicId, onClose: onClose)
         case .routeLegend:
