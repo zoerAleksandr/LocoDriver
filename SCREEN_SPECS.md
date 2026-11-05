@@ -7544,6 +7544,8 @@ Email визуально отделён от парольной группы у�
 `viewmodel/PurchasesViewModel.kt`, `navigation/PurchasesDestination.kt`,
 `navigation/PurchasesEntry.kt`.
 
+**iOS (реализация, ios/purchases).** Логика — Kotlin `PurchasesIosViewModel`/`PurchasesIosModels` (`iosApp/src/commonMain`), Swift `PurchasesView` + `PurchasesViewModelWrapper` только показывает. Макет — `design/src/purchase-screens.jsx` → `IOSPaywallA` (вариант, ближайший к Android: hero + преимущества + список тарифов + закреплённая CTA). Статус подписки, шапка с крестиком/«Восстановить», hero, баннеры `Paywall`/`Active`/`Expired`, «Из них N дн.», «ПЕРИОД ПРОДЛЕНИЯ» с карточкой перехода дат и pull-to-refresh — как в спеке; даты `dd.MM.yy` в поясе отображения. Спиннер тарифов 160dp. BUG-57 (превью прибавляет календарные месяцы, сервер — `periodDays`) перенесён как есть (комментарий в коде).
+
 ### 19.A. Автопродление (рекуррентные платежи Robokassa)
 
 Подключается галочкой при оплате; дальше сервер сам списывает стоимость за сутки до
@@ -7591,6 +7593,8 @@ Email визуально отделён от парольной группы у�
 `AutoRenewStatusCard`), `viewmodel/PurchasesViewModel.kt`,
 `data_remote/.../response/RecurringResponses.kt`.
 
+**iOS (реализация, ios/purchases).** Те же эндпоинты (`getRecurringTerms` / `getRecurringStatus` / `disableRecurring`): карточка «Автопродление включено» с «Отключить» и красной строкой неудачного списания; иначе карточка с чекбоксом (по умолчанию снят, снимается при смене тарифа и изменении статуса) и текстом согласия сервера без изменений — адрес оферты `(https://…)` убирается, ссылкой становится слово перед ним. Отключение — диалог «Отключить автопродление?» (`PurchasesAutoRenewConfirm`), snackbar-сообщения как в Android. Ошибка загрузки условий — блок не показывается.
+
 ### 19.R. Реферальный код перед первой оплатой
 
 - Статус берётся из `GET /v1/referrals/me` при открытии экрана (§18.R). Ошибка
@@ -7620,6 +7624,8 @@ Email визуально отделён от парольной группы у�
   первой оплаты (Robokassa/CKassa); платёж без кода — прежнее поведение.
 - iOS: системная секция, моноширинное поле, `borderedProminent`-кнопка; после
   применения — статусная секция. PWA: `/payment`, те же правила ввода.
+
+**iOS (реализация, ios/purchases).** Блок внизу экрана Покупок (`PurchasesView`): карточка ввода с иконкой звезды при `canApplyCode` (моноширинное поле, ввод → верхний регистр + буквы/цифры, максимум 16; кнопка «Применить код» со спиннером «Проверяем код…», зелёный/красный текст результата), статусная карточка «Код {code} применён» при `appliedStatus == "pending"`; для `rewarded`/`reversed` карточки нет. Ошибка запроса статуса молча скрывает блок.
 
 ### 19.3. Оплата: пользовательский сценарий, серверный контракт, платформенная механика
 
@@ -7712,6 +7718,25 @@ Robokassa; статус в `docs/PAYMENT_PROVIDERS.md`).
 `data_remote/.../request/CkassaCheckoutRequest.kt`,
 `data_remote/.../response/CkassaCheckoutResponse.kt`.
 
+**iOS (реализация, ios/purchases; сквозная С5).** Оплата — серверный checkout
+Robokassa: `POST /v1/payment/checkout` с `platform: "ios"` (`RobokassaCheckoutRequest`:
+`tariff_code`, `auto_renew`, `consent_version`), `payment_url` открывается в
+`SFSafariViewController` (`PurchasesSafariView`; пароли мерчанта в клиенте не
+используются). Возврат — `safariViewControllerDidFinish` («Done») → поллинг
+5×3 с (§19.4/§19.6); плюс `UIApplication.didBecomeActive` и deep-link
+`locodriver://` (не `share`/`profile`) → проверка ожидаемой оплаты; холодный
+старт — запись `userId|startedAt|periodBefore|periodDays` в `NSUserDefaults`
+(`IosSharedPreferencesRepository.getPendingPayment`, переживает выгрузку).
+Восстановление — «Восстановить» → `GET /v1/user_settings/` (`getAccountSubscriptionPeriod`)
+со snackbar-сообщениями как в Android. userId берётся из `SecureTokenStorage`,
+пустой — дочитывается `GET /v1/users/me`. 409 checkout (условия автопродления) —
+перечитывание согласия + snackbar. Пользовательский сценарий шагов 1–6 — как в
+спеке. **Серверный контракт (`POST /v1/payment/checkout`, `POST /v1/payment/ckassa/checkout`,
+вебхук начисления срока по `shp_tariff_code`) реализован по DTO репозитория;
+фактическая сверка с бэкендом `Ziltriz/Database_for_locodriver` — ❓ не проверено**
+(бэкенд-репозиторий недоступен). CKassa — резервный путь только Android (§19.3),
+на iOS не показывается; IAP/Apple Pay не используются.
+
 ### 19.0. Цены и скидки (единый источник — сервер)
 
 Цены и скидки задаются в **кабинете администратора** (`/admin/tariffs`) и хранятся
@@ -7754,6 +7779,13 @@ Robokassa; статус в `docs/PAYMENT_PROVIDERS.md`).
 Источник: `viewmodel/PurchasesViewModel.kt` (`fetchTariffsOrDefault`,
 `defaultProducts`), `ui/PurchasesScreen.kt` (`PlanCard`, `PlanList`),
 `data_remote/.../response/TariffResponse.kt`.
+
+**iOS (реализация, ios/purchases).** `GET /v1/tariffs` → `PurchasesPlanUi`
+(маппинг и дефолты 69/179/599 ₽ — как в Android, ошибка/офлайн молча).
+`PlanCard` в `PurchasesView`: радио 22pt, «{sum/месяцев} ₽/мес», справа цена;
+акция — зачёркнутая `basePrice`, бейдж «Акция −N%», «Действует до dd.MM.yyyy»;
+«Выгода тарифа» −N% — только когда ни у одного тарифа нет активной акции.
+Сортировка по цене к оплате по убыванию, по умолчанию выбран первый (самый дорогой).
 
 ### 19.05. Оплата: срок начисляется по тарифу, не по сумме
 
@@ -7910,6 +7942,16 @@ snackbar, которого у этих экранов не было видно, 
 `ui/ScheduleWizardScreen.kt`, `app/.../ui/LocoDriverApp.kt` (диалоги «+»),
 `data_remote/src/androidMain/.../work_manager/SyncWorker.kt`, `ui/HomeScreen.kt` (карточки).
 
+**iOS (реализация, ios/purchases).** `SubscriptionLimitDialog` (`PurchasesDialogs.swift`)
+и гейт пакетного создания — `PurchasesIosViewModel.checkBatchRoutes(count:)`
+(подписка с грейсом 1 сутки, лимит 20 с учётом удалённых маршрутов) +
+`AppRouter.checkBatchRoutes(count:)` для будущих экранов Календаря/мастера
+(сами экраны не тронуты). Кнопка «Оформить подписку» ведёт через гейт покупок
+(§3.2); ошибка проверки — «Не удалось проверить подписку». Гейт кнопки «+» и
+карточки Главной уже были (`NewRouteIosViewModel`, `HomeScreenIosViewModel`); гейт
+синхронизации — `hasActiveSubscription()` (без грейса) + «Синхронизация доступна
+по подписке».
+
 ### 19.4. Покупки и `PaymentDialog` (бывш. §32.1)
 
 - Состояния экрана, тарифы и CTA — §19.2, §19.0 (без выбранного тарифа CTA не
@@ -7942,6 +7984,14 @@ snackbar, которого у этих экранов не было видно, 
 
 Источник: `features/route/.../ui/PurchasesScreen.kt` (`PaymentDialog`),
 `viewmodel/PurchasesViewModel.kt` (`checkPaymentOnServer`).
+
+**iOS (реализация, ios/purchases).** `PaymentDialog` (`PurchasesDialogs.swift`) —
+общий вид (карточка 22pt, круг-иконка 56pt, кнопки 50/48pt). После возврата со
+страницы оплаты: «Получаем данные…» (недисмиссируемый со спиннером) на время
+поллинга → «Оплата не завершена» («Написать в поддержку» / «Закрыть»), если срок
+не вырос. «Платёж обрабатывается» — состояние реализовано, но при оплате в
+браузере (текущая схема) не показывается. Успех — глобальный «Платёж принят!»
+(§19.6). Второй запуск проверки игнорируется.
 
 ### 19.5. Глобальные диалоги «Бонус начислен!» и «Подписка продлена» (бывш. §32.1a)
 
@@ -8020,7 +8070,7 @@ bearer-токена или `userId`, т.е. и при выходе/входе п
   `awardedDays` — бонус приглашённого за эту оплату уже внутри срока). Бонус
   при этом показывается как обычно. Если оплата так и не подтвердилась и
   запись истекла (24 ч), а срок сменился — всплывёт «Подписка продлена».
-- iOS: диалоги не реализованы. При переносе учесть: в
+- iOS: реализованы в `ios/purchases` (см. примечание после «Источник:»). Учесть: в
   `ProfileIosViewModel` (старый CMP-код) `userId` = email входа, вход по VK —
   заглушка, а при протухшем токене (`GET /v1/users/me` с ошибкой) `userId` не
   очищается. Ключом делать серверный `user.id` и чистить его вместе с токеном
@@ -8039,6 +8089,19 @@ bearer-токена или `userId`, т.е. и при выходе/входе п
 `subscription/SubscriptionNoticesPolicy.kt`, `subscription/SubscriptionPeriodTracker.kt`,
 `ui/SubscriptionPeriodChangedDialog.kt`, `app/.../ui/LocoDriverApp.kt`,
 `session/AccountSwitcher.kt`.
+
+**iOS (реализация, ios/purchases).** Полный перенос политики в
+`PurchasesIosViewModel` (`evaluateNotices`): ключ — серверный `user.id`
+(`SecureTokenStorage.getUserIdFlow`; пустой — дочитывается `GET /v1/users/me`),
+«увиденное» (`getLastSeenReferralAwardedDays` / `getLastSeenSubscriptionPeriod` /
+`getSubscriptionPeriodReferralDays`) хранится в `NSUserDefaults` (переживает
+выгрузку). Проверка при старте, изменении срока/токена/userId и при
+`didBecomeActive`; сначала бонус, затем срок; при `pending`-оплате или идущем
+поллинге срок не оценивается (`periodUpdatesInProgress` — счётчик). Порядок
+показа «Платёж принят!» → «Бонус начислен!» → «Подписка продлена» (очередь,
+один диалог на экране; несколько бонусов до закрытия суммируются). Вид —
+`PaymentDialog` (`PurchasesGlobalNoticeDialog`), показ на уровне `AppCoordinator`
+на любом экране. Бонус «дн.» — суммарно за не показанные ещё начисления.
 
 ### 19.6. «Платёж принят!» при любом возврате из оплаты (бывш. §32.1b)
 
@@ -8079,6 +8142,19 @@ bearer-токена или `userId`, т.е. и при выходе/входе п
 Источник: `features/route/.../subscription/PaymentReturnChecker.kt`,
 `ui/SubscriptionPeriodChangedDialog.kt` (`PaymentAcceptedDialog`),
 `app/.../ui/LocoDriverApp.kt`, `app/.../di/RepositoryModule.kt`.
+
+**iOS (реализация, ios/purchases).** `PaymentReturnChecker` перенесён в
+`PurchasesIosViewModel` (`runPaymentCheck`, `markPaymentStarted`): запись
+`userId|startedAt|periodBefore|periodDays` в `NSUserDefaults` (TTL 24 ч,
+«свежая оплата» 10 мин → 10 попыток × 3 с, дальше 1 запрос; throttle возврата
+30 с). Подтверждение — `новый срок > срок до оплаты`, в будущем, и вырос минимум
+на `periodDays − 1 сутки` от `max(срок до оплаты, момент перехода)` (бонус
+рефералки оплатой не считается). Триггеры: закрытие `SFSafariViewController`,
+`UIApplication.didBecomeActive`, deep-link `locodriver://` (не `share`/`profile`),
+холодный старт (`onAppResumed` в `AppCoordinator`). Успех — глобальный
+«Платёж принят!» (`PurchasesGlobalNoticeDialog`, дата `dd.MM.yyyy` в системном
+поясе), срок помечается увиденным. Не подтвердилось — глобально ничего; запись
+живёт 24 ч. Выход/чужой аккаунт — запись снимается без диалога.
 ---
 
 ## 20. Онбординг и вход
