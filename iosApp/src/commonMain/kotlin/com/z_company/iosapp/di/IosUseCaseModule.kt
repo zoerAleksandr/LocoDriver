@@ -80,6 +80,11 @@ import com.z_company.iosapp.viewmodel.WhatsNewIosViewModel
 import com.z_company.repository.remote_rest.RemoteAnnouncementRepository
 import com.z_company.repository.remote_rest.SyncManager
 import org.koin.dsl.module
+import platform.Foundation.NSBundle
+
+/** Маркетинговая версия клиента (CFBundleShortVersionString) — аналог BuildConfig.VERSION_NAME. */
+private fun iosAppVersion(): String? =
+    NSBundle.mainBundle.infoDictionary?.get("CFBundleShortVersionString") as? String
 
 /**
  * Единый Koin-модуль iOS: SQLDelight-драйверы, репозитории, UseCases, ViewModels.
@@ -158,6 +163,10 @@ val iosUseCaseModule = module {
             stationNormRepository = get(),
             partnerRepository = get(),
             remoteRestApi = get(),
+            // Метаданные клиента (ClientInfoRequest) — как clientPlatform/clientVersion
+            // на Android (BuildConfig.VERSION_NAME); версия — из Info.plist.
+            clientPlatform = "ios",
+            clientVersion = iosAppVersion(),
         )
     }
 

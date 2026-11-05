@@ -5,17 +5,18 @@ import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.norma_time.SectionNumberingType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.serialization.json.Json
 import platform.Foundation.NSUserDefaults
 
 /**
- * iOS stub-реализация SharedPreferencesRepositories.
+ * iOS-реализация SharedPreferencesRepositories на NSUserDefaults (аналог
+ * Android SharedPreferences, см. SharedPreferenceStorage).
  *
- * На iOS нет SharedPreferences. Данные, которые Android хранит в SharedPreferences,
- * на iOS можно хранить в NSUserDefaults (платформенный аналог) или UserDefaults.
- * Для текущего использования (SyncManager) нужен только timestamp последней синхронизации
- * и подписка — остальное возвращает значения по умолчанию.
- *
- * TODO: заменить хранение на NSUserDefaults через expect/actual, если потребуется.
+ * Ключи, участвующие в синхронизации с сервером (С8), переживают выгрузку
+ * процесса: `lastSyncTimestamp`, `routeSyncCursor`, `settingsSyncPending`,
+ * `subscriptionExpiration`, `workScheduleProfile` (LWW-поле SyncManager).
+ * Иначе каждый перезапуск сбрасывал курсор дельта-синхронизации и cooldown
+ * фоновой синхронизации.
  */
 class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     // Локальные (не синхронизируемые) настройки устройства живут в NSUserDefaults (§17).
@@ -39,19 +40,39 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private fun udSetInt(key: String, value: Int) {
         NSUserDefaults.standardUserDefaults.setInteger(value.toLong(), forKey = "ld.$key")
     }
+    private fun udLong(key: String, default: Long): Long {
+        val d = NSUserDefaults.standardUserDefaults
+        return if (d.objectForKey("ld.$key") == null) default else d.integerForKey("ld.$key")
+    }
+    private fun udSetLong(key: String, value: Long) {
+        NSUserDefaults.standardUserDefaults.setInteger(value, forKey = "ld.$key")
+    }
     private var lastScheduleMonth: String? = null
     override fun getLastScheduleMonth(): String? = lastScheduleMonth
     override fun setLastScheduleMonth(value: String) { lastScheduleMonth = value }
-    private val workScheduleProfileState = MutableStateFlow(WorkScheduleProfile.standard())
+    // Профиль рабочей недели — LWW-поле синхронизации (updatedAt); хранится JSON-ом,
+    // как в Android SharedPreferenceStorage (см. adoptRemoteWorkSchedule в SyncManager).
+    private val workScheduleJson = Json { ignoreUnknownKeys = true }
+    private val workScheduleProfileState = MutableStateFlow(readWorkScheduleProfile())
+    private fun readWorkScheduleProfile(): WorkScheduleProfile {
+        val raw = udString("workScheduleProfile") ?: return WorkScheduleProfile.standard()
+        return runCatching {
+            workScheduleJson.decodeFromString(WorkScheduleProfile.serializer(), raw)
+        }.getOrElse { WorkScheduleProfile.standard() }
+    }
     override fun getWorkScheduleProfile(): WorkScheduleProfile = workScheduleProfileState.value
     override fun getWorkScheduleProfileFlow(): StateFlow<WorkScheduleProfile> = workScheduleProfileState
     override fun setWorkScheduleProfile(profile: WorkScheduleProfile) {
+        udSetString("workScheduleProfile", workScheduleJson.encodeToString(WorkScheduleProfile.serializer(), profile))
         workScheduleProfileState.value = profile
     }
-    // Хранится в памяти; при перезапуске приложения будет сброшено.
-    // Для продакшена следует использовать NSUserDefaults.
-    private var lastSyncTimestamp: Long = 0L
-    private var subscriptionExpiration: Long = 0L
+    // Ключи синхронизации (С8) — в NSUserDefaults, как в Android (TOKEN_LAST_SYNC_TIME и т.п.).
+    private var lastSyncTimestamp: Long
+        get() = udLong("lastSyncTimestamp", 0L)
+        set(v) = udSetLong("lastSyncTimestamp", v)
+    private var subscriptionExpiration: Long
+        get() = udLong("subscriptionExpiration", 0L)
+        set(v) = udSetLong("subscriptionExpiration", v)
     // Сквозная задача С1: флаги первого запуска живут в NSUserDefaults (как в
     // Android SharedPreferences). Иначе каждый запуск iOS выглядит как первая
     // установка и applyInitialCountryAndTimezone затирает выбор пользователя.
@@ -67,7 +88,9 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private var showUpdatePresentation: Boolean
         get() = udBool("TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16", true)
         set(v) = udSetBool("TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16", v)
-    private var tokenIsChangesHave: Boolean = false
+    private var tokenIsChangesHave: Boolean
+        get() = udBool("tokenIsChangesHave", false)
+        set(v) = udSetBool("tokenIsChangesHave", v)
     // default true — только самая первая установка; после setTokenIsFirstAppEntry(false)
     // значение остаётся в NSUserDefaults и между запусками.
     // Ключ — TOKEN_IS_FIRST_APP_ENTRY_TAG (как в Android SharedPreferences).
@@ -128,13 +151,14 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     override fun setLastSyncTimestamp(time: Long) { lastSyncTimestamp = time }
     override fun getLastSyncTimestamp(): Long = lastSyncTimestamp
 
-    private var routeSyncCursor: String? = null
-    override fun getRouteSyncCursor(): String? = routeSyncCursor
-    override fun setRouteSyncCursor(value: String?) { routeSyncCursor = value }
+    // Курсор дельта-синхронизации маршрутов: переживает перезапуск (С8),
+    // иначе каждая синхронизация — полная вместо дельты.
+    override fun getRouteSyncCursor(): String? = udString("routeSyncCursor")
+    override fun setRouteSyncCursor(value: String?) { udSetString("routeSyncCursor", value) }
 
-    private var settingsSyncPending: Boolean = true
-    override fun getSettingsSyncPending(): Boolean = settingsSyncPending
-    override fun setSettingsSyncPending(value: Boolean) { settingsSyncPending = value }
+    // Флаг «настройки ждут выгрузки» (дефолт true — как в Android).
+    override fun getSettingsSyncPending(): Boolean = udBool("settingsSyncPending", true)
+    override fun setSettingsSyncPending(value: Boolean) { udSetBool("settingsSyncPending", value) }
 
     override fun getOPKeyRobokassa(): String? = opKeyRobokassa
     override fun setOPKeyRobokassa(opKey: String?) { opKeyRobokassa = opKey }
