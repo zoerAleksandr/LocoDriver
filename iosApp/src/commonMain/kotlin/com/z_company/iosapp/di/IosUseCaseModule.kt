@@ -42,6 +42,7 @@ import com.z_company.iosapp.viewmodel.NewRouteIosViewModel
 import com.z_company.iosapp.viewmodel.LocoFormIosViewModel
 import com.z_company.iosapp.viewmodel.LocoScreenIosViewModel
 import com.z_company.iosapp.viewmodel.LocoTimeSheetIosViewModel
+import com.z_company.iosapp.viewmodel.PdfExportIosViewModel
 import com.z_company.iosapp.viewmodel.SeriesListIosViewModel
 import com.z_company.iosapp.viewmodel.StationListIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
@@ -128,6 +129,8 @@ val iosUseCaseModule = module {
     factory { SettingsScreenIosViewModel(get(), get(), get(), get(), get(), get()) }
     single { FormIosViewModel(get(), get()) }
     single { SalaryCalculationIosViewModel(get(), get(), get(), get()) }
+    // Экспорт PDF §21: single — выбор разделов переживает пересоздание шторки.
+    single { PdfExportIosViewModel(get(), get(), get(), get(), get(), get()) }
     single { LocoFormIosViewModel(get()) }
     // Экран «Локомотив» §1 и шторка времени §2: factory — по экземпляру на открытый экран/шторку.
     factory {

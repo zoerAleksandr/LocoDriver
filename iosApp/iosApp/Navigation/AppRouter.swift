@@ -1,6 +1,12 @@
 import SwiftUI
 import ComposeApp
 
+/// Файл PDF для презентации после шторки действий (§21 «PDF сформирован»).
+struct PdfFileItem: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
 /// Общий роутер приложения — iOS-аналог `domain.navigation.Router` (SCREEN_SPECS §3.2).
 /// Экраны не знают про `NavigationStack`: они вызывают методы роутера.
 ///
@@ -22,6 +28,9 @@ final class AppRouter: ObservableObject {
     @Published var isSignInRequiredAlertShown = false
     /// Диалог гейта кнопки «+» (§3.4): «Бесплатный лимит исчерпан» / «Пробный период».
     @Published var newRouteGate: NewRouteGate?
+    /// §21 PDF: файл для просмотра (QuickLook) / шаринга — после закрытия шторки (§24.1).
+    @Published var pdfPreview: PdfFileItem?
+    @Published var pdfShare: PdfFileItem?
 
     // MARK: - Базовые операции
 
@@ -69,6 +78,16 @@ final class AppRouter: ObservableObject {
 
     func dismissFullScreen() {
         fullScreen = nil
+    }
+
+    /// §21 PDF: «Открыть PDF» (QuickLook) после закрытия шторки действий.
+    func presentPdfPreview(url: URL) {
+        pdfPreview = PdfFileItem(url: url)
+    }
+
+    /// §21 PDF: «Поделиться» (share sheet) после закрытия шторки действий.
+    func presentPdfShare(url: URL) {
+        pdfShare = PdfFileItem(url: url)
     }
 
     // MARK: - Методы Router (§3.2)

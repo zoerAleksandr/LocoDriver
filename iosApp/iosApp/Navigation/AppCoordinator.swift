@@ -38,6 +38,13 @@ struct AppCoordinator: View {
         .fullScreenCover(item: $router.fullScreen) { sheet in
             AppSheetView(sheet: sheet, onClose: { router.dismissFullScreen() })
         }
+        // §21 PDF: просматривать/шарить файл после закрытия шторки «PDF сформирован» (§24.1).
+        .fullScreenCover(item: $router.pdfPreview) { item in
+            PdfPreviewView(url: item.url) { router.pdfPreview = nil }
+        }
+        .sheet(item: $router.pdfShare) { item in
+            PdfShareView(url: item.url) { router.pdfShare = nil }
+        }
         .alert("Нужен вход в аккаунт", isPresented: $router.isSignInRequiredAlertShown) {
             Button("Войти") { router.showProfile() }
             Button("Отмена", role: .cancel) {}

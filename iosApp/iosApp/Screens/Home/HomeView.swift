@@ -12,6 +12,8 @@ import ComposeApp
 struct HomeView: View {
     @StateObject private var vm = HomeScreenViewModelWrapper()
     @ObservedObject private var router = AppRouter.shared
+    /// §21 PDF: ошибка генерации приходит snackbar'ом на Главный.
+    @ObservedObject private var pdfExport = PdfExportViewModelWrapper.shared
     @Environment(\.openURL) private var openURL
 
     @State private var metricsPage = 0
@@ -46,6 +48,13 @@ struct HomeView: View {
         .background(DSColor.bg.ignoresSafeArea())
         .dsHideSystemNavBar()
         .dsSnackbarQueue(vm.messages) { vm.popMessage() }
+        // §21 п.5: ошибка формирования PDF — snackbar на Главном.
+        .onReceive(pdfExport.$errorMessage) { message in
+            if let message {
+                vm.messages.append(DSSnackbarItem(text: message))
+                pdfExport.errorMessage = nil
+            }
+        }
         .onAppear { vm.onAppear() }
         .onDisappear {
             vm.onDisappear()
@@ -300,8 +309,10 @@ struct HomeView: View {
                 HStack(spacing: 10) {
                     HomeToolTile(systemImage: DSIcon.calendar.rawValue, title: "Календарь") { router.showCalendar() }
                     HomeToolTile(systemImage: "chart.bar", title: "Статистика") { router.showStatistics() }
-                    // PDF (§21): формирование PDF на iOS ещё не реализовано — карточка всегда активна.
-                    HomeToolTile(systemImage: DSIcon.pdf.rawValue, title: "PDF") { router.present(.pdfContent) }
+                    // PDF (§21): во время генерации карточка неактивна.
+                    HomeToolTile(systemImage: DSIcon.pdf.rawValue, title: "PDF", isEnabled: !pdfExport.isGenerating) {
+                        router.present(.pdfContent)
+                    }
                     HomeToolTile(systemImage: DSIcon.search.rawValue, title: "Поиск") { router.showSearch() }
                 }
                 .padding(.horizontal, DSMetrics.screenPadX)
