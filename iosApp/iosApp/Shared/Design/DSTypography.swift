@@ -13,10 +13,9 @@ import UIKit
 /// (см. «Правила шрифтов.md» в корне репозитория). Признак mono: значение можно
 /// перепутать посимвольно (0/O, 1/l) или оно выравнивается в столбик.
 ///
-/// Файлы шрифтов в бандл пока НЕ добавлены (нужен .ttf + `UIAppFonts` в Info.plist).
-/// Пока их нет, используется системный фолбэк: SF Pro вместо Inter и
-/// SF Mono (`design: .monospaced`) вместо JetBrains Mono — с теми же кеглями и весами.
-/// После добавления файлов код менять не нужно: имена PostScript уже прописаны.
+/// Файлы шрифтов в бандле: `Resources/Fonts/` (Inter + JetBrains Mono, 5 начертаний),
+/// регистрация — `UIAppFonts` в Info.plist. Если файл не найден, используется
+/// системный фолбэк: SF Pro вместо Inter и SF Mono вместо JetBrains Mono.
 enum DSFont {
     static func sans(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
         if let name = postScriptName(family: "Inter", weight: weight) {
