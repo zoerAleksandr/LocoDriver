@@ -20,6 +20,10 @@ import com.z_company.iosapp.viewmodel.SeriesListIosViewModel
 import com.z_company.iosapp.viewmodel.StationEditorIosViewModel
 import com.z_company.iosapp.viewmodel.StationListIosViewModel
 import com.z_company.iosapp.viewmodel.RouteFormIosViewModel
+import com.z_company.iosapp.viewmodel.AllRoutesScreenIosViewModel
+import com.z_company.iosapp.viewmodel.RouteQuickViewIosViewModel
+import com.z_company.iosapp.viewmodel.SearchIosViewModel
+import com.z_company.iosapp.viewmodel.TrashIosViewModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import org.koin.core.component.inject
@@ -86,4 +90,16 @@ object IosViewModelHelper : KoinComponent {
         SeriesEditorIosViewModel(get(), get(), id, initialName)
     fun createStationEditorViewModel(id: String?, initialName: String?): StationEditorIosViewModel =
         StationEditorIosViewModel(get(), get(), get(), id, initialName)
+
+    /** Экран «Все маршруты» §9: новый экземпляр на экран; Swift вызывает `dispose()`. */
+    fun createAllRoutesViewModel(): AllRoutesScreenIosViewModel = get()
+
+    /** Быстрый просмотр маршрута §9.1: новый экземпляр на шторку. */
+    fun createRouteQuickViewModel(): RouteQuickViewIosViewModel = get()
+
+    /** Корзина маршрутов §9.4: новый экземпляр на экран. */
+    fun createTrashViewModel(): TrashIosViewModel = get()
+
+    /** Поиск §10: новый экземпляр на экран. */
+    fun createSearchViewModel(): SearchIosViewModel = get()
 }

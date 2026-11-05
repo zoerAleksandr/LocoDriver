@@ -17,9 +17,11 @@ struct AppDestinationView: View {
         case let .passengerForm(basicId, passengerId):
             FormPassengerView(routeId: basicId, passengerId: passengerId)
         case .allRoutes:
-            AllRoutesDestination()
+            AllRoutesView()
         case .search:
             SearchView()
+        case .trash:
+            TrashView()
         case .calendar:
             // Временная частичная реализация (сетка месяца). Волна «Календарь» (§14)
             // заменяет на полноценный CalendarView.
@@ -50,23 +52,14 @@ struct AppDestinationView: View {
             PartnersListView(basicId: basicId)
         case .partnerEditor(let partnerId):
             PartnerEditorView(partnerId: partnerId)
-        case .trash, .payrollCodeSearch, .settingSalary, .statistics,
+        case .payrollCodeSearch, .settingSalary, .statistics,
              .scheduleWizard, .absence, .referral:
             StubView(title: route.title, specSection: route.specSection)
         }
     }
 }
 
-/// «Все маршруты» использует ViewModel Главной (как и в Android — месяц общий).
-private struct AllRoutesDestination: View {
-    @StateObject private var vm = HomeViewModelWrapper()
-
-    var body: some View {
-        AllRoutesView(vm: vm)
-    }
-}
-
-/// Содержимое шторки/оверлея из реестра `AppSheet`. Пока все — заглушки.
+/// Содержимое шторки/оверлея из реестра `AppSheet`.
 /// ОБЩАЯ ЗОНА: волна заменяет ТОЛЬКО ветку своей шторки.
 struct AppSheetView: View {
     let sheet: AppSheet
@@ -83,8 +76,125 @@ struct AppSheetView: View {
                         }
                     }
             }
+        case let .routeQuickView(basicId):
+            RouteQuickViewStandaloneView(basicId: basicId, onClose: onClose)
+        case .routeLegend:
+            RouteLegendSheet(onClose: onClose)
+        case .routesFilter:
+            StandaloneFilterSheet(onClose: onClose)
+        case .routesSort:
+            StandaloneSortSheet(onClose: onClose)
+        case .searchSettings:
+            StandaloneSearchSettingsSheet(onClose: onClose)
         default:
             StubSheetView(title: sheet.title, specSection: sheet.specSection, onClose: onClose)
         }
+    }
+}
+
+// MARK: - Самодостаточные шторки для глобального реестра `AppSheet`
+//
+// Экраны «Все маршруты» и «Поиск» показывают эти шторки ЛОКАЛЬНО (с доступом
+// к своему ViewModel). Глобальный реестр — для переходов из других экранов
+// (например, быстрый просмотр с Главной), поэтому здесь обёртки создают свой
+// ViewModel для действий.
+
+/// Быстрый просмотр из глобального реестра (действия — через свой ViewModel).
+private struct RouteQuickViewStandaloneView: View {
+    let basicId: String
+    let onClose: () -> Void
+
+    @StateObject private var actionsVM = AllRoutesViewModelWrapper()
+    @State private var deleteRequest: DSDeleteRequest?
+    @State private var shareItem: SharePayload?
+    @State private var favorite = false
+
+    var body: some View {
+        RouteQuickViewSheet(
+            basicId: basicId,
+            isFavorite: favorite,
+            actions: RouteQuickViewActions(
+                onOpen: {
+                    onClose()
+                    AppRouter.shared.showRouteForm(basicId: basicId)
+                },
+                onToggleFavorite: { actionsVM.setFavoriteRoute(routeId: basicId) },
+                onShare: {
+                    onClose()
+                    actionsVM.shareRoute(routeId: basicId)
+                },
+                onCopy: {
+                    onClose()
+                    actionsVM.onCopyRoute(routeId: basicId) { decision in
+                        if decision.type == "open" {
+                            AppRouter.shared.showRouteForm(basicId: basicId, isMakeCopy: true)
+                        }
+                    }
+                },
+                onSync: {
+                    onClose()
+                    actionsVM.syncRoute(routeId: basicId)
+                },
+                onDelete: {
+                    onClose()
+                    deleteRequest = DSDeleteRequest(
+                        title: "Удалить маршрут?",
+                        message: "Это действие нельзя отменить.",
+                        confirmTitle: "Да, удалить"
+                    ) {
+                        actionsVM.deleteRoute(routeId: basicId)
+                    }
+                }
+            )
+        )
+        .dsDeleteAlert($deleteRequest)
+        .sheet(item: $shareItem) { RouteShareSheet(text: $0.text, subject: $0.subject) }
+        .onReceive(actionsVM.$share) { payload in
+            if let payload = payload {
+                shareItem = SharePayload(text: payload.text, subject: payload.subject)
+                actionsVM.share = nil
+            }
+        }
+    }
+}
+
+/// Глобальная шторка «Фильтры» (состояние — в SharedPreferences через ViewModel).
+private struct StandaloneFilterSheet: View {
+    let onClose: () -> Void
+    @StateObject private var vm = AllRoutesViewModelWrapper()
+
+    var body: some View {
+        RoutesFilterSheet(
+            selectedFilters: vm.ui?.selectedFilters ?? ["ALL"],
+            onToggle: { vm.toggleFilter(name: $0) },
+            onClose: onClose
+        )
+    }
+}
+
+/// Глобальная шторка «Сортировка».
+private struct StandaloneSortSheet: View {
+    let onClose: () -> Void
+    @StateObject private var vm = AllRoutesViewModelWrapper()
+
+    var body: some View {
+        RoutesSortSheet(
+            current: vm.sortName,
+            onSelect: { name in
+                vm.setSort(name: name)
+                onClose()
+            },
+            onClose: onClose
+        )
+    }
+}
+
+/// Глобальная шторка «Параметры поиска» (§10.3).
+private struct StandaloneSearchSettingsSheet: View {
+    let onClose: () -> Void
+    @StateObject private var vm = SearchViewModelWrapper()
+
+    var body: some View {
+        SearchSettingsSheet(vm: vm, onClose: onClose)
     }
 }

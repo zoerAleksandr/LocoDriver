@@ -4357,6 +4357,15 @@ nav-destination), Back и «‹» возвращают в профиль. В Н�
 (`isHeavyTrains`, `isExtendedServicePhaseTrains`, `isLongCompositionTrain`,
 `timeFollowingSingleLocomotive`, `getLongDistanceTime`).
 
+**iOS (реализация, ios/routes-list):** SwiftUI `AllRoutesView` + `AllRoutesViewModelWrapper`
+(обёртка `AllRoutesScreenIosViewModel`). Карточка `AllRoutesCardRow` (свайп-удаление с
+подтверждением `DSDeleteRequest` → «Маршрут перемещён в корзину», long-press → быстрый просмотр,
+тап по значкам → легенда); строки трея `AllRouteRowUi` (route/tripHeader/tripConnector); плотность
+карточек и «отдых в ПО» — в строке фильтра/сортировки (220 мс); шторки `RoutesFilterSheet`,
+`RoutesSortSheet`, месяц — `HomeMonthSheet`; FAB → гейт подписки. §9.1 `RouteQuickViewSheet`
+(действия — замыкания `RouteQuickViewActions`); §9.3 `RouteLegendSheet`; §9.4 `TrashView` +
+`TrashViewModelWrapper`. BUG-10/15/20/31/32/33/34 сохранены как в спеке.
+
 ---
 
 ## 10. Экран «Поиск» (SearchScreen)
@@ -4455,6 +4464,11 @@ nav-destination), Back и «‹» возвращают в профиль. В Н�
 `data_local/.../route/SqlDelightHistoryResponseRepository.kt`,
 `domain/.../entities/SearchHelperClass.kt`, `domain/.../entities/route/UtilsForEntities.kt`
 (`inTimePeriod`), `core_android/.../util/EntityString.kt`.
+
+**iOS (реализация, ios/routes-list):** SwiftUI `SearchView` + `SearchViewModelWrapper` (обёртка
+`SearchIosViewModel`). Ввод с дебаунсом 200 мс (внутри VM), подсветка совпадений
+`SearchMatchHighlight` (UTF-16 `matchRanges`), история «НЕДАВНИЕ ЗАПРОСЫ», шторка
+`SearchSettingsSheet` (7 чипов «ГДЕ ИСКАТЬ» + период + «Сбросить»). BUG-32/34 сохранены.
 
 ---
 
