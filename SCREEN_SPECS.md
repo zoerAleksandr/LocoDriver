@@ -8325,6 +8325,19 @@ N ч.», «Личная норма N ч.» (если отличается), «М
 `component/ConfirmEmailDialog.kt`, `ui/SettingsScreen.kt` (`LegacyTrashContent`),
 `ui/login/UIHelper.kt`.
 
+> **iOS (волна `ios/service`):** «Что нового» реализовано как `WhatsNewView`
+> (`iosApp/iosApp/Screens/Service/`): те же 2 слайда `OnBoardingItems.getDataUpdatePresentation()`,
+> «Пропустить»/«Начать» → закрыть; вместо drawable — тональные иконки дизайн-кита.
+> Показ overlay'ем (`AppSheet.whatsNew`, `LaunchOverlays`), если
+> `TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16` (NSUserDefaults) не сброшен и это не
+> первый запуск (`TOKEN_IS_FIRST_APP_ENTRY_TAG`, NSUserDefaults). Отклонения:
+> (1) блок всё же перенесён по заданию волны (против строки «в iOS/PWA не переносить»);
+> (2) BUG-08 не воспроизведён — кнопки реально закрывают блок;
+> (3) флаг сбрасывается при закрытии блока (на Android — при первом создании
+> `HomeViewModel`), иначе блок недостижим на iOS. Остальное из §22 (DetailsRoute,
+> `ConfirmEmailDialog`, `HomeBottomSheetContent`, `RemoveTimeContent`, `ItemHomeScreen`
+> как destination и т.д.) — мёртвый код/не отдельные экраны, на iOS не реализовано.
+
 > **Проверено (аудит покрытия и мёртвого кода):** все экраны, зарегистрированные в
 > `features/route/.../navigation/Navigation.kt`, плюс онбординг и PDF-экспорт описаны
 > в разделах 1–23. Шторки, диалоги и состояния описаны в разделах своих
@@ -8453,6 +8466,19 @@ N ч.», «Личная норма N ч.» (если отличается), «М
   список, `DELETE /v1/announcements/{number}`. Ключ `ADMIN_API_KEY` в конфиге
   сервера (fail-closed: пусто ⇒ доступа нет).
 
+> **iOS (волна `ios/service`):** реализовано — `AnnouncementIosViewModel`
+> (`iosApp/src/commonMain/.../viewmodel/`) + `AnnouncementView`
+> (`iosApp/iosApp/Screens/Service/`), показ overlay'ем через `AppSheet.announcement`
+> и `LaunchOverlays` после старта приложения. Очередь: сначала «Обновление», затем
+> «Новость» (порядок `AnnouncementUseCase.getAnnouncementsToShow`, §23.3);
+> «видел/не видел» — `IosSharedPreferencesRepository` (NSUserDefaults
+> `ld.lastSeenAnnouncement.<type>`, дефолт -1); свежая установка — `ld.firstSeenBuild`
+> (сборка первого запуска == текущая ⇒ свежая, аналог `firstInstallTime ==
+> lastUpdateTime`); платформа `"ios"`, `build` = `CFBundleVersion`. Контракт §23.2
+> без изменений (общий `RemoteAnnouncementRepository`); картинки — `AsyncImage`
+> c предзагрузкой всех фич через `URLSession` (анлог Coil enqueue). §23.4 (админ) —
+> не делалась. Мёртвый код из §22 на iOS не реализован.
+
 ---
 
 **Станция не найдена (решение 07.10.2026, уточнено 07.10).** Если у станции нет координат и автоопределение их не нашло, об этом
@@ -8578,6 +8604,23 @@ N ч.», «Личная норма N ч.» (если отличается), «М
 | Профиль | состояния, вход/регистрация, email/VK, `SyncProgressDialog`, миграция, шторки ввода | §18.S–18.6 |
 | Покупки | `PaymentDialog`, лимит, глобальные диалоги подписки | §19.1a, §19.4–19.6 |
 | PDF | содержание, действия | §21 |
+
+> **iOS (волна `ios/service`, аудит §24.1–24.5):** контракт покрыт дизайн-китом
+> `iosApp/iosApp/Shared/Components` (`DSBottomSheet`, `DSDateTimeSheet`,
+> `DSConfirmAlert`/`.dsDeleteAlert`, `RouteConfirmDialog`, `DSSnackbar`,
+> `DSEmptyState`, `DSTimeRow` + long-press «Удалить значение»). Недоставало
+> контейнеров §24.1 — добавлены: `DSActionSheet` (`AppBottomSheet`+`BottomSheetAction`:
+> опасное действие цветом ошибки, тап = закрыть → действие), `DSInputSheet`
+> (`AppInputBottomSheet`, §18.6), `DSModalProgress` (`AnimationDialog`). Реестр
+> §24.5 — `AppSheet` (`iosApp/iosApp/Navigation/AppRoute.swift`); стартовые оверлеи
+> §22/§23 — `AppSheet.announcement`/`whatsNew` + `LaunchOverlays`. Отклонения:
+> (1) `DateTimePickerBottomSheet` (календарь+барабаны) заменён нативным
+> `DSDateTimeSheet` (колёсико; нативный вид допустим), режим
+> `useStandardTimePicker` на iOS не разделяет варианты; (2) подтверждение
+> «Удалить значение»/«Создать копию» — `RouteConfirmDialog` (центральный диалог,
+> §5.8) вместо нижней шторки `AppBottomSheet`; (3) преобразование network-текстов
+> и VPN-подсказка (§24.4) — в экранах, общего DS-маппера нет; (4) `ConfirmExitDialog`
+> и `CustomDatePickerDialog` — 🚫 мёртвый код, не реализованы.
 
 ---
 
