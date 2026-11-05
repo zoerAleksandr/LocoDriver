@@ -29,6 +29,7 @@ struct AppCoordinator: View {
             }
         }
         .onAppear { loadedTabs.insert(router.selectedTab) }
+        .onAppear { LaunchOverlays.shared.start() }
         .onChange(of: router.selectedTab) { tab in loadedTabs.insert(tab) }
         .sheet(item: $router.sheet) { sheet in
             AppSheetView(sheet: sheet, onClose: { router.dismissSheet() })

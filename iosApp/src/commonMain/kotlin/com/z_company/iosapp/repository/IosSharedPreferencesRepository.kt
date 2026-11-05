@@ -26,6 +26,13 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private fun udSetBool(key: String, value: Boolean) {
         NSUserDefaults.standardUserDefaults.setBool(value, forKey = "ld.$key")
     }
+    private fun udInt(key: String, default: Int): Int {
+        val d = NSUserDefaults.standardUserDefaults
+        return if (d.objectForKey("ld.$key") == null) default else d.integerForKey("ld.$key").toInt()
+    }
+    private fun udSetInt(key: String, value: Int) {
+        NSUserDefaults.standardUserDefaults.setInteger(value.toLong(), forKey = "ld.$key")
+    }
     private var lastScheduleMonth: String? = null
     override fun getLastScheduleMonth(): String? = lastScheduleMonth
     override fun setLastScheduleMonth(value: String) { lastScheduleMonth = value }
@@ -44,9 +51,15 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private var releaseDayMigrationDone: Boolean = true // iOS не нуждается в миграции отвлечений
     private var productionCalendarMigrationDone: Boolean = true // iOS — нет старых данных для миграции
     private var opKeyRobokassa: String? = null
-    private var showUpdatePresentation: Boolean = true
+    // Флаг «Что нового» (§22): ключ и семантика как на Android
+    // (TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16, по умолчанию true).
+    private var showUpdatePresentation: Boolean
+        get() = udBool("TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16", true)
+        set(v) = udSetBool("TOKEN_IS_SHOW_UPDATE_PRESENTATION_VER_1_2_16", v)
     private var tokenIsChangesHave: Boolean = false
-    private var tokenIsFirstAppEntry: Boolean = true
+    private var tokenIsFirstAppEntry: Boolean
+        get() = udBool("TOKEN_IS_FIRST_APP_ENTRY_TAG", true)
+        set(v) = udSetBool("TOKEN_IS_FIRST_APP_ENTRY_TAG", v)
     private var tokenIsLoadStationAndLocomotiveSeries: Boolean = false
     private var stationsReversed: Boolean = false
     private var showSegments: Boolean = true
@@ -85,7 +98,13 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
         set(v) = udSetBool("passenger12hAutoAccepted", v)
     private var timePickerKeyboardInput: Boolean = false
     private val recentTimesMap = mutableMapOf<String, MutableList<Long>>()
-    private val lastSeenAnnouncementNumbers = mutableMapOf<String, Int>()
+    // «Видел/не видел» новость при запуске (§23.3) — хранение на устройстве,
+    // по ключу типа сообщения (news/update), дефолт -1 = ничего не видел.
+    override fun getLastSeenAnnouncementNumber(type: String): Int =
+        udInt("lastSeenAnnouncement.$type", -1)
+    override fun setLastSeenAnnouncementNumber(type: String, value: Int) {
+        udSetInt("lastSeenAnnouncement.$type", value)
+    }
     private val lastSeenSubscriptionPeriods = mutableMapOf<String, Long>()
     private var underworkInfoDismissed: Boolean = false
     private var themeMode: String?
@@ -115,7 +134,8 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     override fun isProductionCalendarMigrationDone(): Boolean = productionCalendarMigrationDone
     override fun setProductionCalendarMigrationDone() { productionCalendarMigrationDone = true }
     override fun isShowUpdatePresentation(): Boolean = showUpdatePresentation
-    override fun enableShowingUpdatePresentation() { showUpdatePresentation = true }
+    // Название обманчиво (как на Android): метод пишет false — «больше не показывать».
+    override fun enableShowingUpdatePresentation() { showUpdatePresentation = false }
     override fun getSubscriptionExpiration(): Long = subscriptionExpiration
     override fun tokenIsChangesHave(): Boolean = tokenIsChangesHave
     override fun tokenIsFirstAppEntry(): Boolean = tokenIsFirstAppEntry
@@ -139,8 +159,6 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     private var lastOtherWorkType: String? = null
     override fun getLastOtherWorkType(): String? = lastOtherWorkType
     override fun setLastOtherWorkType(value: String?) { lastOtherWorkType = value }
-    override fun getLastSeenAnnouncementNumber(type: String): Int = lastSeenAnnouncementNumbers[type] ?: -1
-    override fun setLastSeenAnnouncementNumber(type: String, value: Int) { lastSeenAnnouncementNumbers[type] = value }
     override fun getLastSeenSubscriptionPeriod(userId: String): Long = lastSeenSubscriptionPeriods[userId] ?: -1L
     override fun setLastSeenSubscriptionPeriod(userId: String, value: Long) { lastSeenSubscriptionPeriods[userId] = value }
     private val subscriptionPeriodReferralDays = mutableMapOf<String, Int>()

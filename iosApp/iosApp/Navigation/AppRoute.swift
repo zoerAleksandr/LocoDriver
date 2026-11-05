@@ -8,7 +8,7 @@ import Foundation
 //
 // Не заводятся (🚫 мёртвый код Android / Android-легаси, в iOS не реализуется):
 // SignIn/LogIn (§20), FirstPresentationBlock (§20), DetailsRoute (§22),
-// SelectReleaseDaysScreen (§16.2), UpdatePresentationBlock «Что нового» (§22),
+// SelectReleaseDaysScreen (§16.2),
 // MigrationRecoveryScreen и диагностика (§25), ConfirmExitDialog (§3.3),
 // CustomDatePickerDialog (§24.2), EnteredCoefficientDialog/EnteredRefuelDialog (§1.3).
 
@@ -248,6 +248,8 @@ enum AppSheet: Identifiable, Hashable {
     case dateTimePicker(key: String)
     // §23 Новость при запуске (полноэкранный оверлей)
     case announcement
+    // §22 «Что нового» после обновления (полноэкранный оверлей)
+    case whatsNew
 
     var id: String {
         switch self {
@@ -288,6 +290,7 @@ enum AppSheet: Identifiable, Hashable {
         case .pdfActions: return "pdfActions"
         case let .dateTimePicker(key): return "dateTimePicker-\(key)"
         case .announcement: return "announcement"
+        case .whatsNew: return "whatsNew"
         }
     }
 
@@ -330,6 +333,7 @@ enum AppSheet: Identifiable, Hashable {
         case .pdfActions: return "PDF"
         case .dateTimePicker: return "Дата и время"
         case .announcement: return "Новость"
+        case .whatsNew: return "Что нового"
         }
     }
 
@@ -365,11 +369,12 @@ enum AppSheet: Identifiable, Hashable {
         case .pdfContent, .pdfActions: return "§21"
         case .dateTimePicker: return "§24.2"
         case .announcement: return "§23"
+        case .whatsNew: return "§22"
         }
     }
 
     /// Показывать на весь экран (`fullScreenCover`), а не шторкой.
     var isFullScreen: Bool {
-        self == .announcement
+        self == .announcement || self == .whatsNew
     }
 }

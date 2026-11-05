@@ -1,5 +1,6 @@
 package com.z_company.iosapp.di
 
+import com.z_company.iosapp.viewmodel.AnnouncementIosViewModel
 import com.z_company.iosapp.viewmodel.FormIosViewModel
 import com.z_company.iosapp.viewmodel.HomeIosViewModel
 import com.z_company.iosapp.viewmodel.HomeScreenIosViewModel
@@ -13,6 +14,7 @@ import com.z_company.iosapp.viewmodel.SettingsIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsScreenIosViewModel
 import com.z_company.iosapp.viewmodel.PassengerFormIosViewModel
 import com.z_company.iosapp.viewmodel.TrainFormIosViewModel
+import com.z_company.iosapp.viewmodel.WhatsNewIosViewModel
 import com.z_company.iosapp.viewmodel.SeriesEditorIosViewModel
 import com.z_company.iosapp.viewmodel.SeriesListIosViewModel
 import com.z_company.iosapp.viewmodel.StationEditorIosViewModel
@@ -43,6 +45,8 @@ object IosViewModelHelper : KoinComponent {
     private val profileViewModel: ProfileIosViewModel by inject()
     private val homeScreenViewModel: HomeScreenIosViewModel by inject()
     private val newRouteViewModel: NewRouteIosViewModel by inject()
+    private val announcementViewModel: AnnouncementIosViewModel by inject()
+    private val whatsNewViewModel: WhatsNewIosViewModel by inject()
 
     fun getHomeViewModel(): HomeIosViewModel = homeViewModel
     fun getFormViewModel(): FormIosViewModel = formViewModel
@@ -54,6 +58,12 @@ object IosViewModelHelper : KoinComponent {
     fun getProfileViewModel(): ProfileIosViewModel = profileViewModel
     fun getHomeScreenViewModel(): HomeScreenIosViewModel = homeScreenViewModel
     fun getNewRouteViewModel(): NewRouteIosViewModel = newRouteViewModel
+
+    /** Новость при запуске §23: single на сессию. */
+    fun getAnnouncementViewModel(): AnnouncementIosViewModel = announcementViewModel
+
+    /** «Что нового» §22: single на сессию. */
+    fun getWhatsNewViewModel(): WhatsNewIosViewModel = whatsNewViewModel
 
     /** Форма маршрута §5: новый экземпляр на каждую открытую форму; Swift вызывает `dispose()`. */
     fun createRouteFormViewModel(): RouteFormIosViewModel = get()

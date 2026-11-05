@@ -7,6 +7,7 @@ import com.z_company.data_local.calendar.SqlDelightReleaseDayRepository
 import com.z_company.data_local.norma_time.SqlDelightLocomotiveSeriesRepository
 import com.z_company.data_local.norma_time.SqlDelightPartnerRepository
 import com.z_company.data_local.norma_time.SqlDelightStationNormRepository
+import com.z_company.data_local.route.SqlDelightDiagnosticRepository
 import com.z_company.data_local.route.SqlDelightRouteRepository
 import com.z_company.data_local.route.db.RouteDatabase
 import com.z_company.data_local.route.searchdb.SearchResponseDatabase
@@ -15,6 +16,7 @@ import com.z_company.data_local.setting.SqlDelightSettingRepository
 import com.z_company.data_local.setting.db.SettingsDatabase
 import com.z_company.data_local.setting.salarydb.SalarySettingDatabase
 import com.z_company.domain.repositories.CalendarRepositories
+import com.z_company.domain.repositories.DiagnosticRepository
 import com.z_company.domain.repositories.LocomotiveSeriesRepository
 import com.z_company.domain.repositories.ProductionCalendarRepository
 import com.z_company.domain.repositories.ReleaseDayRepository
@@ -22,8 +24,10 @@ import com.z_company.domain.repositories.RouteRepository
 import com.z_company.domain.repositories.SalarySettingRepository
 import com.z_company.domain.repositories.SettingsRepository
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.domain.repositories.AnnouncementRepository
 import com.z_company.domain.repositories.PartnerRepository
 import com.z_company.domain.repositories.StationNormRepository
+import com.z_company.domain.use_cases.AnnouncementUseCase
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.PartnerUseCase
 import com.z_company.domain.use_cases.LocomotiveUseCase
@@ -35,6 +39,7 @@ import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.iosapp.repository.IosSharedPreferencesRepository
+import com.z_company.iosapp.viewmodel.AnnouncementIosViewModel
 import com.z_company.iosapp.viewmodel.FormIosViewModel
 import com.z_company.iosapp.viewmodel.HomeIosViewModel
 import com.z_company.iosapp.viewmodel.HomeScreenIosViewModel
@@ -51,6 +56,8 @@ import com.z_company.iosapp.viewmodel.SettingsScreenIosViewModel
 import com.z_company.iosapp.viewmodel.PassengerFormIosViewModel
 import com.z_company.iosapp.viewmodel.RouteFormIosViewModel
 import com.z_company.iosapp.viewmodel.TrainFormIosViewModel
+import com.z_company.iosapp.viewmodel.WhatsNewIosViewModel
+import com.z_company.repository.remote_rest.RemoteAnnouncementRepository
 import com.z_company.repository.remote_rest.SyncManager
 import org.koin.dsl.module
 
@@ -88,6 +95,9 @@ val iosUseCaseModule = module {
     single<ProductionCalendarRepository> { SqlDelightProductionCalendarRepository() }
     single<SalarySettingRepository> { SqlDelightSalarySettingRepository() }
     single<SharedPreferencesRepositories> { IosSharedPreferencesRepository() }
+    // Новость при запуске §23: публичный API + «видел/не видел» на устройстве.
+    single<AnnouncementRepository> { RemoteAnnouncementRepository(get()) }
+    single<DiagnosticRepository> { SqlDelightDiagnosticRepository() }
 
     // ── UseCases ──────────────────────────────────────────────────────────
     single { RouteUseCase(get()) }
@@ -101,6 +111,7 @@ val iosUseCaseModule = module {
     single { NormaUseCase(get(), get(), get()) }
     single { RoutePartnerUseCase(get()) }
     single { PartnerUseCase(get()) }
+    single { AnnouncementUseCase(repository = get(), sharedPreferences = get(), diagnostics = get()) }
 
     // ── Remote managers (SyncManager нужны все UseCases + remote managers) ─
     single {
@@ -181,4 +192,7 @@ val iosUseCaseModule = module {
         )
     }
     single { NewRouteIosViewModel(routeUseCase = get(), settingsUseCase = get(), secureTokenStorage = get()) }
+    // Новость при запуске §23 и «Что нового» §22 — single, живут на протяжении сессии.
+    single { AnnouncementIosViewModel(announcementUseCase = get()) }
+    single { WhatsNewIosViewModel(sharedPrefs = get()) }
 }
