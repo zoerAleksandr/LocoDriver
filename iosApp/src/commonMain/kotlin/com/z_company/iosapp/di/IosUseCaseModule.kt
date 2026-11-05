@@ -45,6 +45,7 @@ import com.z_company.iosapp.viewmodel.LocoTimeSheetIosViewModel
 import com.z_company.iosapp.viewmodel.SeriesListIosViewModel
 import com.z_company.iosapp.viewmodel.StationListIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
+import com.z_company.iosapp.viewmodel.PurchasesIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsScreenIosViewModel
@@ -181,4 +182,17 @@ val iosUseCaseModule = module {
         )
     }
     single { NewRouteIosViewModel(routeUseCase = get(), settingsUseCase = get(), secureTokenStorage = get()) }
+    // Экран «Покупки» §19: single — ожидаемая оплата и глобальные диалоги §19.5–19.6 живут дольше экрана.
+    single {
+        PurchasesIosViewModel(
+            remoteRestApi = get(),
+            settingManager = get(),
+            settingsUseCase = get(),
+            secureTokenStorage = get(),
+            sharedPrefs = get(),
+            authManager = get(),
+            syncManager = get(),
+            routeUseCase = get(),
+        )
+    }
 }
