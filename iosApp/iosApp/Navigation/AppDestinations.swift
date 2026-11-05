@@ -42,6 +42,10 @@ struct AppDestinationView: View {
             FormView(routeId: basicId, isCopy: true)
         case .sharedRoutePreview(let routeId):
             FormView(routeId: routeId, isSharedPreview: true)
+        case .payrollCodeSearch:
+            PayrollCodeSearchView()
+        case .settingSalary:
+            SettingSalaryView()
         case .settingsSection(let section):
             SettingsSectionDestination(section: section)
         case let .otherWorkForm(basicId, otherWorkId):
@@ -52,7 +56,7 @@ struct AppDestinationView: View {
             PartnersListView(basicId: basicId)
         case .partnerEditor(let partnerId):
             PartnerEditorView(partnerId: partnerId)
-        case .payrollCodeSearch, .settingSalary, .statistics,
+        case .statistics,
              .scheduleWizard, .absence, .referral:
             StubView(title: route.title, specSection: route.specSection)
         }
@@ -86,6 +90,10 @@ struct AppSheetView: View {
             StandaloneSortSheet(onClose: onClose)
         case .searchSettings:
             StandaloneSearchSettingsSheet(onClose: onClose)
+        case let .calcSheet(basicId):
+            CalcBottomSheet(basicId: basicId, onClose: onClose)
+        case .tariffChanged:
+            TariffChangedSheet(onClose: onClose)
         default:
             StubSheetView(title: sheet.title, specSection: sheet.specSection, onClose: onClose)
         }

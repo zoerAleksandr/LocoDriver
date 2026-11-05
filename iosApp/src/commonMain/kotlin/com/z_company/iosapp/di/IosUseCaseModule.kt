@@ -145,7 +145,30 @@ val iosUseCaseModule = module {
     // Экран «Настройки» §17: factory — по экземпляру на открытый экран.
     factory { SettingsScreenIosViewModel(get(), get(), get(), get(), get(), get()) }
     single { FormIosViewModel(get(), get()) }
-    single { SalaryCalculationIosViewModel(get(), get(), get(), get()) }
+    // Экран «Расчёт зарплаты» §11: single — пересчёт живёт на протяжении сессии.
+    single {
+        com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel(
+            routeUseCase = get(),
+            settingsUseCase = get(),
+            salarySettingUseCase = get(),
+            normaUseCase = get(),
+            calendarUseCase = get(),
+            sharedPrefs = get(),
+        )
+    }
+    // Справочник кодов §11.8: factory — по экземпляру на открытие.
+    factory { com.z_company.iosapp.viewmodel.PayrollCodeSearchIosViewModel() }
+    // Настройки зарплаты §12: factory — по экземпляру на экран.
+    factory {
+        com.z_company.iosapp.viewmodel.SettingSalaryIosViewModel(
+            salarySettingUseCase = get(),
+            settingsUseCase = get(),
+            calendarUseCase = get(),
+            sharedPrefs = get(),
+            syncManager = get(),
+            secureTokenStorage = get(),
+        )
+    }
     single { LocoFormIosViewModel(get()) }
     // Экран «Локомотив» §1 и шторка времени §2: factory — по экземпляру на открытый экран/шторку.
     factory {

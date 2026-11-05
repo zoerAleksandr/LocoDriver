@@ -10,6 +10,9 @@ import com.z_company.iosapp.viewmodel.LocoScreenIosViewModel
 import com.z_company.iosapp.viewmodel.LocoTimeSheetIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
+import com.z_company.iosapp.viewmodel.PayrollCodeSearchIosViewModel
+import com.z_company.iosapp.viewmodel.SettingSalaryIosViewModel
+import com.z_company.iosapp.viewmodel.CalcSheetIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsScreenIosViewModel
 import com.z_company.iosapp.viewmodel.PassengerFormIosViewModel
@@ -102,4 +105,23 @@ object IosViewModelHelper : KoinComponent {
 
     /** Поиск §10: новый экземпляр на экран. */
     fun createSearchViewModel(): SearchIosViewModel = get()
+
+    // ── Зарплата (§11, §12) ─────────────────────────────────────────────────
+
+    /** Справочник кодов §11.8: по экземпляру на открытие экрана. */
+    fun createPayrollCodeSearchViewModel(): PayrollCodeSearchIosViewModel = get()
+
+    /**
+     * Настройки зарплаты §12: по экземпляру на экран. Последний созданный
+     * экземпляр остаётся доступным для шторки «Изменилась тарифная ставка» (§12.3).
+     */
+    var lastSettingSalaryViewModel: SettingSalaryIosViewModel? = null
+        private set
+
+    fun createSettingSalaryViewModel(): SettingSalaryIosViewModel =
+        get<SettingSalaryIosViewModel>().also { lastSettingSalaryViewModel = it }
+
+    /** «Расчёт за смену» §11.9: экземпляр на открытую шторку конкретного маршрута. */
+    fun createCalcSheetViewModel(basicId: String): CalcSheetIosViewModel =
+        CalcSheetIosViewModel(get(), get(), get(), basicId)
 }

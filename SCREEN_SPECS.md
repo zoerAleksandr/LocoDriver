@@ -4946,6 +4946,19 @@ SQL-выборка по периоду такие маршруты, вероят
 `annualOvertimeBeforePeriod` и, по-видимому, `workScheduleProfile`. Для совпадения «до
 копейки» с Android iOS обязана передавать **все** входы из таблицы выше.
 
+**iOS-реализация (волна `ios/salary`):** `SalaryCalculationIosViewModel` передаёт в
+`SalaryCalculationHelper` **все** входы таблицы §11.1, включая
+`effectiveNormaHoursForUnderwork` (`isUnderworkPeriodClosed` + `NormaUseCase`),
+`annualOvertimeBeforePeriod` (помесячный обход календаря того же года после ФЗ
+№144, фильтр будущих не применяется — как в Android) и
+`workScheduleProfile` (`SharedPreferencesRepositories.getWorkScheduleProfile`).
+Строки листа собирает `buildSalaryAccrualRows`/`buildSalaryDeductionRows`
+(`SalaryStatementModels.kt`) — тот же состав и порядок, что Android
+`buildAccrualRows`/`buildDeductionRows`; денежные потоки — только из общего
+расчётчика. Форматы строк (`ЧЧ:ММ`/`Ч,ДД`, `40,0`, `str2decimalSign`) считаются
+в Kotlin; SwiftUI только рендерит. BUG-35/BUG-38/BUG-39 перенесены как есть
+(с комментариями в `SalaryCalculationIosViewModel.kt` / `SalaryStatementModels.kt`).
+
 ### 11.2. Базовые примитивы расчёта
 
 - **Интервалы** — полуинтервалы `[start, end)` в мс. Маршрут с
@@ -5291,6 +5304,18 @@ PASSENGER) × p/100`, часы — сумма длительностей.
 `features/route/src/main/java/com/z_company/route/ui/FormScreen.kt` (`CalcBottomSheet`),
 `core_android/src/main/java/com/z_company/core/util/ConverterLongToTime.kt`.
 
+**iOS (волна `ios/salary`):** экраны `iosApp/iosApp/Screens/SalaryCalculation/`
+(`SalaryCalculationView` §11.6, `SalaryMonthSheet` §11.7, `PayrollCodeSearchView`
+§11.8, `CalcBottomSheet` §11.9) + врапперы `iosApp/iosApp/ViewModels/`. Логика —
+только Kotlin: `SalaryCalculationIosViewModel` (месяц, строки, итоги, инфо-окно
+недоработки), `PayrollCodeSearchIosViewModel` (`PayrollCodeReferenceCatalog.search`,
+текст запроса сохраняется между открытиями), `CalcSheetIosViewModel`
+(`createCalcSheetViewModel(basicId)`, тот же `SalaryCalculationHelper(allRoutes =
+[маршрут])`, что и форма; BUG-40/BUG-41 перенесены как есть). Поиск открывается
+отдельным nav-роутом `AppRoute.payrollCodeSearch` (стрелка возвращает к листу с
+сохранённым месяцем); шторка смены — `AppSheet.calcSheet(basicId:)` (форма
+маршрута продолжает использовать свою локальную шторку `RouteCalcSheet`).
+
 ---
 
 ## 12. Экран «Настройки зарплаты» (SettingSalaryScreen)
@@ -5453,6 +5478,19 @@ PASSENGER) × p/100`, часы — сумма длительностей.
 `domain/src/commonMain/kotlin/com/z_company/domain/entities/setting/SalarySetting.kt`,
 `domain/src/commonMain/kotlin/com/z_company/domain/salary/UnderworkPeriod.kt`,
 `domain/src/commonMain/kotlin/com/z_company/domain/util/StringUtil.kt`.
+
+**iOS (волна `ios/salary`):** `SettingSalaryView` (`iosApp/iosApp/Screens/SalaryCalculation/`)
++ `SettingSalaryViewModelWrapper`; логика — `SettingSalaryIosViewModel`
+(`iosApp/src/commonMain/.../viewmodel/SettingSalaryIosViewModel.kt`): все поля
+§12.1 (включая ПДМ, Благосостояние, Алименты, тумблер недоработки), валидация
+§12.2 (`toNonNegativeFiniteDoubleOrNull`, невалидное не пишет модель), debounce
+500 мс → `saveLocalEdit` → `autoPushSettings` (порядок «сначала БД, потом push»),
+списки порогов атомарно, «По плечам» — `UserSettings.servicePhases`. Выход —
+`onBackPressed`: при смене ставки открывается `AppSheet.tariffChanged`
+(`TariffChangedSheet`, §12.3), иначе экран закрывается; день `1` очищает
+`dateSetTariffRate`; BUG-42 перенесён как есть (ошибка старой ставки — по флагу
+новой, `oldRate.toString()` после выбора даты). Пикер даты открывается на месте
+шторки (без одновременного показа двух модальных шторок).
 
 ---
 
