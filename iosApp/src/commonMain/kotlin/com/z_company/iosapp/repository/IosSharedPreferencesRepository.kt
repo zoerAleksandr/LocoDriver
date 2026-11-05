@@ -39,14 +39,23 @@ class IosSharedPreferencesRepository : SharedPreferencesRepositories {
     // Для продакшена следует использовать NSUserDefaults.
     private var lastSyncTimestamp: Long = 0L
     private var subscriptionExpiration: Long = 0L
-    private var isMigrated: Boolean = false
+    // Сквозная задача С1: флаги первого запуска живут в NSUserDefaults (как в
+    // Android SharedPreferences). Иначе каждый запуск iOS выглядит как первая
+    // установка и applyInitialCountryAndTimezone затирает выбор пользователя.
+    private var isMigrated: Boolean
+        get() = udBool("isMigrated", false)
+        set(v) = udSetBool("isMigrated", v)
     private var timezoneMigrationDone: Boolean = true // iOS не нуждается в миграции временных меток
     private var releaseDayMigrationDone: Boolean = true // iOS не нуждается в миграции отвлечений
     private var productionCalendarMigrationDone: Boolean = true // iOS — нет старых данных для миграции
     private var opKeyRobokassa: String? = null
     private var showUpdatePresentation: Boolean = true
     private var tokenIsChangesHave: Boolean = false
-    private var tokenIsFirstAppEntry: Boolean = true
+    // default true — только самая первая установка; после setTokenIsFirstAppEntry(false)
+    // значение остаётся в NSUserDefaults и между запусками.
+    private var tokenIsFirstAppEntry: Boolean
+        get() = udBool("tokenIsFirstAppEntry", true)
+        set(v) = udSetBool("tokenIsFirstAppEntry", v)
     private var tokenIsLoadStationAndLocomotiveSeries: Boolean = false
     private var stationsReversed: Boolean = false
     private var showSegments: Boolean = true

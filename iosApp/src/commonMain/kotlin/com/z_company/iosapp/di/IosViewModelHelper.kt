@@ -1,5 +1,6 @@
 package com.z_company.iosapp.di
 
+import com.z_company.iosapp.viewmodel.AppInitIosViewModel
 import com.z_company.iosapp.viewmodel.FormIosViewModel
 import com.z_company.iosapp.viewmodel.HomeIosViewModel
 import com.z_company.iosapp.viewmodel.HomeScreenIosViewModel
@@ -57,6 +58,9 @@ object IosViewModelHelper : KoinComponent {
 
     /** Форма маршрута §5: новый экземпляр на каждую открытую форму; Swift вызывает `dispose()`. */
     fun createRouteFormViewModel(): RouteFormIosViewModel = get()
+
+    /** С1: инициализация при старте (календарь/миграции); один экземпляр за процесс. */
+    fun createAppInitViewModel(): AppInitIosViewModel = get()
 
     /** Экран «Локомотив» §1: новый экземпляр на экран; Swift вызывает `dispose()`. */
     fun createLocoScreenViewModel(): LocoScreenIosViewModel = get()
