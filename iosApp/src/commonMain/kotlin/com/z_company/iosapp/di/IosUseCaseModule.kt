@@ -109,6 +109,8 @@ val iosUseCaseModule = module {
     single { NormaUseCase(get(), get(), get()) }
     single { RoutePartnerUseCase(get()) }
     single { PartnerUseCase(get()) }
+    single { com.z_company.domain.use_cases.PassengerUseCase(get()) }
+    single { com.z_company.domain.use_cases.OtherWorkUseCase(get()) }
 
     // ── Remote managers (SyncManager нужны все UseCases + remote managers) ─
     single {
@@ -160,6 +162,24 @@ val iosUseCaseModule = module {
     factory { StationListIosViewModel(repository = get(), settingsUseCase = get()) }
     single { TrainFormIosViewModel(get()) }
     single { PassengerFormIosViewModel(get()) }
+    // «Пассажиром» §7, «Прочая работа» §8, «Напарники» §8.5: factory — по экземпляру на открытый экран.
+    factory {
+        com.z_company.iosapp.viewmodel.PassengerScreenIosViewModel(
+            passengerUseCase = get(), routeUseCase = get(), settingsUseCase = get(),
+            stationDirectory = get(), sharedPrefs = get(),
+        )
+    }
+    factory {
+        com.z_company.iosapp.viewmodel.OtherWorkScreenIosViewModel(
+            otherWorkUseCase = get(), routeUseCase = get(), settingsUseCase = get(),
+            stationDirectory = get(), sharedPrefs = get(),
+        )
+    }
+    factory {
+        com.z_company.iosapp.viewmodel.PartnersScreenIosViewModel(
+            partnerUseCase = get(), routePartnerUseCase = get(), sharedPrefs = get(),
+        )
+    }
     // Форма маршрута §5: factory — по экземпляру на открытую форму (копия поверх оригинала).
     factory {
         RouteFormIosViewModel(
