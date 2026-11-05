@@ -18,6 +18,8 @@ struct ContentView: View {
     var body: some View {
         AppCoordinator()
             .preferredColorScheme(scheme)
+            // С6: язык системных пикеров и локализованных форматов дат — русский
+            .environment(\.locale, Locale(identifier: "ru_RU"))
             .task { appInit.startIfNeeded() }
     }
 }
