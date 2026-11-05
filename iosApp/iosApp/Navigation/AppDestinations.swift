@@ -42,10 +42,13 @@ struct AppDestinationView: View {
             FormView(routeId: routeId, isSharedPreview: true)
         case .settingsSection(let section):
             SettingsSectionDestination(section: section)
+        case .referral:
+            ReferralView()
         case .otherWorkForm,
              .partnersManage, .partnerPicker, .partnerEditor,
              .trash, .payrollCodeSearch, .settingSalary, .statistics,
-             .scheduleWizard, .absence, .referral:
+             .scheduleWizard, .absence,
+             .dataPrivacy, .trackHistory:
             StubView(title: route.title, specSection: route.specSection)
         }
     }

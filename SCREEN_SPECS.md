@@ -7177,6 +7177,22 @@ Email визуально отделён от парольной группы у�
 `core_android/.../util/DateAndTimeConverter.kt`, `core_android/.../util/StringExtention.kt`,
 `app/.../viewmodel/MainViewModel.kt` (флаг первого запуска).
 
+**iOS (задача `ios/profile`).** Логика — `ProfileIosViewModel` / `ReferralIosViewModel`
+(`iosApp/src/commonMain/.../viewmodel/`), UI — `iosApp/iosApp/Screens/Profile/`
+(`ProfileView`, `ProfileAuthFormView`, `ProfileInputSheets`, `ProfileSyncDialogView`,
+`ReferralView`). Состояния экрана §18.S, форма §18.0 (с чекбоксами и кулдауном сброса
+пароля), профиль §18.1 (баннер данных, шапка VK+почта одной карточкой, подписка,
+синхронизация, «Данные», выход), SyncProgressDialog §18.5 (отмена, отчёт, «Сессия
+истекла»), pull-to-refresh. Авторизация — единый источник истины
+`AuthSessionHolder` (Kotlin) + `AuthSession` (Swift), см. IOS_PLAN С4: `isAuthorized`
+больше не передаётся от вызывающего экрана. VK ID SDK для iOS не реализован (§18.4):
+кнопки VK показывают сообщение, сетевые методы (`authWithVKID`/`attachVKID`/
+`registerByVKID`) готовы под SDK — ❓ не проверено. Легаси-миграция «на отечественный
+сервер» (§18.5) на iOS не выполняется (только старые Android-установки); BUG-54/BUG-56
+поэтому на iOS не воспроизводятся. ❓ не проверено (офлайн-сборка): end-to-end вход и
+регистрация, полная синхронизация, смена/добавление почты, привязка/отвязка VK,
+отчёт об ошибках синхронизации — код повторяет пути Android.
+
 ### 18.3. Состояния аккаунта (бывш. §31.1)
 
 - **Гость** (токена нет): форма входа/регистрации §18.0.
@@ -7377,6 +7393,12 @@ Email визуально отделён от парольной группы у�
 `remote_rest/NetworkErrorMapper.kt`, `remote_rest/SyncManager.kt`,
 `app/.../StartApp.kt`.
 
+**iOS.** Шторки — `ProfileInputSheet` / `ProfileEmailPasswordSheet`
+(`iosApp/iosApp/Screens/Profile/ProfileInputSheets.swift`) на `DSBottomSheet`: фокус и
+выделение начального значения целиком (UITextField), рамка ошибки, кнопка действия с
+индикатором загрузки, «Отмена». Подтверждения (отвязка VK) — `DSDeleteRequest` /
+`.dsDeleteAlert` (§24.3).
+
 ### 18.R. Экран «Пригласить друга» (ReferralScreen) — реферальная программа
 
 **Вход.** Строка «Пригласить друга» / «Получите бесплатные дни обслуживания»
@@ -7462,10 +7484,14 @@ Email визуально отделён от парольной группы у�
   и начисления.
 - Реферальные endpoint'ы отдельные; ответы авторизации и настроек не менялись.
 
-**iOS (текущее состояние).** Переходы «Машинист Про» и «Реферальная программа» —
-системные `Label`; экран в стиле `List`/`Section`: hero с системной иконкой,
-моноширинный код с `ShareLink`, `LabeledContent` для статистики, три нумерованных
-шага, inline-заголовок. **PWA**: `/profile/referrals`, та же логика и та же SVG через
+**iOS (задача `ios/profile`).** Push-маршрут `AppRoute.referral` (стрелка «назад»
+возвращает в Профиль); `ReferralView` + `ReferralIosViewModel` — запрос при каждом
+открытии. Hero — `referral_v3_animated.svg` в WKWebView с CSS-переменными темы
+(как на Android; при отсутствии ресурса в бандле — нативная заглушка). Дальше
+статус (спиннер / «Не удалось загрузить код» + «Повторить» / жёлтая плашка
+`canInvite == false`), карточка кода с копированием тапом и `ShareLink`, метрики
+«Приглашено» (`rewardedCount`) и «Начислено» (`awardedDays`), три шага и ссылка на
+правила. **PWA**: `/profile/referrals`, та же логика и та же SVG через
 `img` (360:320).
 
 Источник: `features/route/.../ui/ReferralScreen.kt`,
