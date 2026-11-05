@@ -23,9 +23,11 @@ struct AppDestinationView: View {
         case .trash:
             TrashView()
         case .calendar:
-            // Временная частичная реализация (сетка месяца). Волна «Календарь» (§14)
-            // заменяет на полноценный CalendarView.
-            WorkScheduleView()
+            CalendarView()
+        case .scheduleWizard:
+            ScheduleWizardView()
+        case .absence:
+            AbsenceView()
         case .purchases:
             PurchasesView()
         case .settingsSection(.seriesList):
@@ -58,8 +60,7 @@ struct AppDestinationView: View {
             PartnerEditorView(partnerId: partnerId)
         case .statistics:
             StatisticsView()
-        case
-             .scheduleWizard, .absence, .referral:
+        case .referral:
             StubView(title: route.title, specSection: route.specSection)
         }
     }
@@ -96,6 +97,8 @@ struct AppSheetView: View {
             CalcBottomSheet(basicId: basicId, onClose: onClose)
         case .tariffChanged:
             TariffChangedSheet(onClose: onClose)
+        case .addEvent(let dayMillis):
+            AddEventSheetHost(dayMillis: dayMillis, onClose: onClose)
         default:
             StubSheetView(title: sheet.title, specSection: sheet.specSection, onClose: onClose)
         }
@@ -206,5 +209,53 @@ private struct StandaloneSearchSettingsSheet: View {
 
     var body: some View {
         SearchSettingsSheet(vm: vm, onClose: onClose)
+    }
+}
+
+/// Хост «Что добавить?» (§14.3) для `AppSheet.addEvent`: шторка действует на
+/// общий CalendarViewModel (single), поэтому работает и из реестра шторок.
+private struct AddEventSheetHost: View {
+    let dayMillis: Int64
+    let onClose: () -> Void
+    @StateObject private var vm = CalendarViewModelWrapper()
+    @ObservedObject private var router = AppRouter.shared
+    @State private var showTechStudy = false
+
+    private var day: Int {
+        let date = Date(timeIntervalSince1970: Double(dayMillis) / 1000)
+        return Calendar.current.component(.day, from: date)
+    }
+
+    var body: some View {
+        AddEventSheetView(
+            day: day,
+            monthLabel: vm.ui?.monthLabelNormal ?? "",
+            onRoute: {
+                onClose()
+                vm.enterRoutePlan(initialDay: day)
+            },
+            onAbsence: {
+                onClose()
+                router.showAbsence()
+            },
+            onDayOff: {
+                onClose()
+                vm.addDayOff(day)
+            },
+            onTechStudy: {
+                showTechStudy = true
+            }
+        )
+        .dsSheet(isPresented: $showTechStudy, detents: [.height(340)]) {
+            TechnicalStudyDialog(
+                day: day,
+                monthLabel: vm.ui?.monthLabelNormal ?? "",
+                averagePayText: { hours in vm.techStudyPayText(hours: hours) },
+                onSave: { hours in
+                    onClose()
+                    vm.addTechnicalStudy(day, hours: hours)
+                }
+            )
+        }
     }
 }

@@ -46,9 +46,13 @@ import com.z_company.iosapp.viewmodel.HomeIosViewModel
 import com.z_company.iosapp.viewmodel.HomeScreenIosViewModel
 import com.z_company.iosapp.viewmodel.NewRouteIosViewModel
 import com.z_company.iosapp.viewmodel.AllRoutesScreenIosViewModel
+import com.z_company.iosapp.viewmodel.AbsenceIosViewModel
+import com.z_company.iosapp.viewmodel.CalendarIosViewModel
 import com.z_company.iosapp.viewmodel.LocoFormIosViewModel
 import com.z_company.iosapp.viewmodel.LocoScreenIosViewModel
 import com.z_company.iosapp.viewmodel.LocoTimeSheetIosViewModel
+import com.z_company.iosapp.viewmodel.NormMonthIosViewModel
+import com.z_company.iosapp.viewmodel.ScheduleWizardIosViewModel
 import com.z_company.iosapp.viewmodel.SeriesListIosViewModel
 import com.z_company.iosapp.viewmodel.StationListIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
@@ -319,6 +323,57 @@ val iosUseCaseModule = module {
             calendarUseCase = get(),
             normaUseCase = get(),
             sharedPreferences = get(),
+        )
+    }
+
+    // ── Календарь §14 / Мастер §15 / Отвлечения §16 / Норма по месяцам §16.3 ─
+    // Календарь — single: месяц глобален (settings.selectMonthOfYear), как HomeScreen.
+    single {
+        CalendarIosViewModel(
+            settingsUseCase = get(),
+            salarySettingUseCase = get(),
+            calendarUseCase = get(),
+            routeUseCase = get(),
+            partnerUseCase = get(),
+            releaseDayUseCase = get(),
+            sharedPrefs = get(),
+            secureTokenStorage = get(),
+            syncManager = get(),
+            shareRouteManager = get(),
+            routesManager = get(),
+        )
+    }
+    // Мастер «Заполнить месяц» §15: factory — по экземпляру на открытие; Swift вызывает `dispose()`.
+    factory {
+        ScheduleWizardIosViewModel(
+            settingsUseCase = get(),
+            routeUseCase = get(),
+            partnerUseCase = get(),
+            calendarUseCase = get(),
+            prefs = get(),
+        )
+    }
+    // «Новое отвлечение» §16.1/16.4: factory — по экземпляру на экран.
+    factory {
+        AbsenceIosViewModel(
+            settingsUseCase = get(),
+            calendarUseCase = get(),
+            releaseDayUseCase = get(),
+            sharedPrefs = get(),
+            secureTokenStorage = get(),
+            syncManager = get(),
+        )
+    }
+    // «Норма по месяцам» §16.3/16.3.1: factory — по экземпляру на экран.
+    factory {
+        NormMonthIosViewModel(
+            settingsUseCase = get(),
+            calendarUseCase = get(),
+            releaseDayUseCase = get(),
+            normaUseCase = get(),
+            sharedPrefs = get(),
+            secureTokenStorage = get(),
+            syncManager = get(),
         )
     }
 }

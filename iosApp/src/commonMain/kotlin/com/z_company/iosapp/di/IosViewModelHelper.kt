@@ -5,10 +5,14 @@ import com.z_company.iosapp.viewmodel.FormIosViewModel
 import com.z_company.iosapp.viewmodel.HomeIosViewModel
 import com.z_company.iosapp.viewmodel.HomeScreenIosViewModel
 import com.z_company.iosapp.viewmodel.NewRouteIosViewModel
+import com.z_company.iosapp.viewmodel.AbsenceIosViewModel
+import com.z_company.iosapp.viewmodel.CalendarIosViewModel
 import com.z_company.iosapp.viewmodel.LocoFormIosViewModel
 import com.z_company.iosapp.viewmodel.LocoScreenIosViewModel
 import com.z_company.iosapp.viewmodel.LocoTimeSheetIosViewModel
+import com.z_company.iosapp.viewmodel.NormMonthIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
+import com.z_company.iosapp.viewmodel.ScheduleWizardIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
 import com.z_company.iosapp.viewmodel.PayrollCodeSearchIosViewModel
 import com.z_company.iosapp.viewmodel.SettingSalaryIosViewModel
@@ -128,4 +132,17 @@ object IosViewModelHelper : KoinComponent {
     /** «Расчёт за смену» §11.9: экземпляр на открытую шторку конкретного маршрута. */
     fun createCalcSheetViewModel(basicId: String): CalcSheetIosViewModel =
         CalcSheetIosViewModel(get(), get(), get(), basicId)
+
+    /** Календарь §14: single — месяц глобален (settings.selectMonthOfYear). */
+    private val calendarViewModel: CalendarIosViewModel by inject()
+    fun getCalendarViewModel(): CalendarIosViewModel = calendarViewModel
+
+    /** Мастер «Заполнить месяц» §15: по экземпляру на открытие; Swift вызывает `dispose()`. */
+    fun createScheduleWizardViewModel(): ScheduleWizardIosViewModel = get()
+
+    /** «Новое отвлечение» §16.1/16.4: по экземпляру на экран; Swift вызывает `dispose()`. */
+    fun createAbsenceViewModel(): AbsenceIosViewModel = get()
+
+    /** «Норма по месяцам» §16.3/16.3.1: по экземпляру на экран; Swift вызывает `dispose()`. */
+    fun createNormMonthViewModel(): NormMonthIosViewModel = get()
 }
