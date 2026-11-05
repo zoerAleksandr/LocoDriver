@@ -1,6 +1,12 @@
 import SwiftUI
 import ComposeApp
 
+/// Файл PDF для презентации после шторки действий (§21 «PDF сформирован»).
+struct PdfFileItem: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
 /// Общий роутер приложения — iOS-аналог `domain.navigation.Router` (SCREEN_SPECS §3.2).
 /// Экраны не знают про `NavigationStack`: они вызывают методы роутера.
 ///
@@ -22,6 +28,11 @@ final class AppRouter: ObservableObject {
     @Published var isSignInRequiredAlertShown = false
     /// Диалог гейта кнопки «+» (§3.4): «Бесплатный лимит исчерпан» / «Пробный период».
     @Published var newRouteGate: NewRouteGate?
+    /// Диалог «Не хватает бесплатных маршрутов» (§19.1a) для пакетного создания.
+    @Published var subscriptionLimit: SubscriptionLimitRequest?
+    /// §21 PDF: файл для просмотра (QuickLook) / шаринга — после закрытия шторки (§24.1).
+    @Published var pdfPreview: PdfFileItem?
+    @Published var pdfShare: PdfFileItem?
 
     // MARK: - Базовые операции
 
@@ -69,6 +80,16 @@ final class AppRouter: ObservableObject {
 
     func dismissFullScreen() {
         fullScreen = nil
+    }
+
+    /// §21 PDF: «Открыть PDF» (QuickLook) после закрытия шторки действий.
+    func presentPdfPreview(url: URL) {
+        pdfPreview = PdfFileItem(url: url)
+    }
+
+    /// §21 PDF: «Поделиться» (share sheet) после закрытия шторки действий.
+    func presentPdfShare(url: URL) {
+        pdfShare = PdfFileItem(url: url)
     }
 
     // MARK: - Методы Router (§3.2)
@@ -154,6 +175,42 @@ final class AppRouter: ObservableObject {
             self.showPurchases(isAuthorized: isAuthorized)
         }
     }
+
+    /// Пакетное создание маршрутов (Календарь «запланировать», мастер «Применить»,
+    /// §19.1): пачка создаётся целиком и только если помещается в остаток
+    /// бесплатного лимита; иначе — `SubscriptionLimitDialog` (§19.1a).
+    /// Ошибка проверки → сообщение «Не удалось проверить подписку» (§19.1).
+    func checkBatchRoutes(count: Int32) {
+        IosViewModelHelper.shared.getPurchasesViewModel().checkBatchRoutes(count: count) { [weak self] gate in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                switch gate.type {
+                case "limit":
+                    self.subscriptionLimit = SubscriptionLimitRequest(
+                        requested: Int(gate.requested),
+                        remaining: Int(gate.remaining),
+                        isAuthorized: gate.isAuthorized
+                    )
+                case "error":
+                    self.presentSnackbarMessage("Не удалось проверить подписку")
+                default:
+                    break
+                }
+            }
+        }
+    }
+
+    /// Короткое сообщение внизу экрана без привязки к конкретному View (§19.1).
+    /// Показывается через `AppRouter.shared.snackbarMessage`.
+    func presentSnackbarMessage(_ text: String) {
+        snackbarMessage = text
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            if self.snackbarMessage == text { self.snackbarMessage = nil }
+        }
+    }
+
+    /// Snackbar-сообщение глобального уровня (пока используется гейтом §19.1).
+    @Published var snackbarMessage: String? = nil
 }
 
 /// Диалог гейта «+» (§3.4).
@@ -185,4 +242,12 @@ enum NewRouteGate: Equatable {
         case let .trial(_, isAuthorized): return isAuthorized
         }
     }
+}
+
+/// Запрос диалога «Не хватает бесплатных маршрутов» (SubscriptionLimitDialog, §19.1a).
+struct SubscriptionLimitRequest: Identifiable, Equatable {
+    let id = UUID()
+    let requested: Int
+    let remaining: Int
+    let isAuthorized: Bool
 }

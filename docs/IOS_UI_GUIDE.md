@@ -140,10 +140,11 @@ LocoDriver поверх фундамента (этап 0): дизайн-кит, 
 `routesFilter`/`routesSort` §9.0.1, `searchSettings` §10.3, `tariffChanged` §12.3,
 `statisticsCompare` §13.3, `statisticsFreightInfo` §13.4, `addEvent` §14.3,
 `continueSchedule` §15.1, `settingsPicker` §17.2, `nightRange` §17.3, `appInput`/`emailPassword`
-§18.6, `pdfContent`/`pdfActions` §21, `dateTimePicker` §24.2, `announcement` §23 (полный экран).
+§18.6, `pdfContent`/`pdfActions` §21, `dateTimePicker` §24.2, `announcement` §23 (полный экран),
+`whatsNew` §22 (полный экран).
 
 **Не заводятся** (🚫 мёртвый код / Android-легаси): SignIn/LogIn, FirstPresentationBlock (§20),
-DetailsRoute (§22), SelectReleaseDaysScreen (§16.2), «Что нового» UpdatePresentationBlock (§22),
+DetailsRoute (§22), SelectReleaseDaysScreen (§16.2),
 MigrationRecoveryScreen и диагностика (§25), ConfirmExitDialog (§3.3), CustomDatePickerDialog
 (§24.2), EnteredCoefficientDialog/EnteredRefuelDialog (§1.3).
 
@@ -191,6 +192,7 @@ Android-эталон: `features/route/src/main/java/com/z_company/route/` (да�
 | Покупки | §19 | `purchase-screens.jsx` → `IOSPaywallA` / `IOSPaywallB` / `IOSPaywallC` (**выбор по п. 2.4**), `IOSPaywallCompare`, `IOSPaywallUnlock`, `IOSProManage`, `IOSRenewSheet`, `IOSPaywallExpired`, `IOSExpiringSoon` | `…/ui/PurchasesScreen.kt`, `SubscriptionLimitDialog.kt` |
 | PDF | §21 | нет макета | `…/component/PdfContentDialog.kt`, `PdfActionSheet.kt` |
 | Новость при запуске | §23 | нет макета | `app/src/main/java/com/z_company/loco_driver/ui/AnnouncementScreen.kt` |
+| «Что нового» | §22 | нет макета — слайды `OnBoardingItems.getDataUpdatePresentation()` | `features/route/.../ui/UpdatePresentationBlockScreen.kt` |
 
 ## 7. Общая зона — меняется только ДОБАВЛЕНИЕМ
 
