@@ -27,6 +27,7 @@ fun ProfileDestination(
         trashViewModel = trashViewModel,
         onBillingClick = showPurchasesScreen,
         onOpenTrackHistory = router::showTrackHistory,
+        onOpenOfflineSections = router::showOfflineSections,
         onOpenMyCertificates = router::showMyCertificates,
         onOpenDataPrivacy = router::showDataPrivacy,
         isPullRefreshing = pullToSyncState.isRefreshing,

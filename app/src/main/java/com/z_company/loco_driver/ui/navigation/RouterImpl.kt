@@ -249,6 +249,10 @@ class RouterImpl(
         requireNavController().navigate(com.z_company.route.navigation.MyCertificatesRoute.route)
     }
 
+    override fun showOfflineSections() {
+        requireNavController().navigate(com.z_company.route.navigation.OfflineSectionsRoute.route)
+    }
+
     override fun showTrackHistory() {
         requireNavController().navigate(com.z_company.route.navigation.TrackHistoryRoute.route)
     }

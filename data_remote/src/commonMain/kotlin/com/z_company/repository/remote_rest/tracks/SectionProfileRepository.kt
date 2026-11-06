@@ -30,7 +30,22 @@ interface SectionProfileCache {
 
     /** Удалить участки, которых нет в [keepIds] (сняты с публикации). */
     fun retain(keepIds: Set<String>)
+
+    /** Идентификаторы сохранённых на диске участков (без списка `index`). Экран «Участки без интернета». */
+    fun cachedIds(): Set<String> = emptySet()
+
+    /** Удалить один сохранённый участок (пользователь освобождает место). */
+    fun remove(sectionId: String) {}
+
+    /** Размер файла сохранённого участка в байтах (0 - нет). */
+    fun sizeBytes(sectionId: String): Long = 0L
 }
+
+/** Итог явной загрузки участка пользователем ([SectionProfileRepository.downloadForOffline]). */
+enum class OfflineDownloadResult { OK, RATE_LIMITED, DEVICE_REJECTED, NOT_AVAILABLE, FAILED }
+
+/** Сохранённый на телефоне участок: метка версии (`updatedAt`) и размер файла. */
+data class OfflineSectionInfo(val updatedAt: Double, val bytes: Long)
 
 /**
  * Профили участков советника для экрана «Профиль пути»: список участков и полный участок (ось, профиль, километраж, станции).
@@ -136,6 +151,42 @@ class SectionProfileRepository(
         fresh.filter { it.hasGeometry && readCached(it.id) != null }.forEach { runCatching { section(it.id, refresh = false) } }
         cleanUp()
         return true
+    }
+
+    /**
+     * Что уже лежит на телефоне: id -> версия и размер. Читает файлы (десятки участков - мгновенно); сеть не нужна.
+     * Участок с нечитаемым файлом (ключ потерян) в список не попадает - он будет скачан заново.
+     */
+    suspend fun offlineSections(): Map<String, OfflineSectionInfo> = lock.withLock {
+        cache.cachedIds().mapNotNull { id ->
+            readCached(id)?.let { id to OfflineSectionInfo(it.first, cache.sizeBytes(id)) }
+        }.toMap()
+    }
+
+    /**
+     * Явная загрузка участка «для работы без интернета». Действие пользователя: паузы и задержки после прошлых сбоев не
+     * мешают (число попыток ограничено нажатиями), но ответ сервера - лимит, отказ устройства - возвращается как есть.
+     */
+    suspend fun downloadForOffline(id: String): OfflineDownloadResult {
+        lock.withLock {
+            failedUntil.remove(id); failCount.remove(id)
+            pausedUntil = null
+            unusable.remove(id)
+        }
+        val profile = runCatching { section(id, refresh = false) }.getOrNull()
+        return when {
+            profile != null -> OfflineDownloadResult.OK
+            rateLimited -> OfflineDownloadResult.RATE_LIMITED
+            deviceRejected -> OfflineDownloadResult.DEVICE_REJECTED
+            lock.withLock { unusable.containsKey(id) } -> OfflineDownloadResult.NOT_AVAILABLE
+            else -> OfflineDownloadResult.FAILED
+        }
+    }
+
+    /** Убрать участок с телефона (освободить место). Список участков не трогается: его можно скачать снова. */
+    suspend fun removeOffline(id: String) = lock.withLock {
+        memory.remove(id)
+        cache.remove(id)
     }
 
     /** Удалить с диска участки, снятые с публикации. */

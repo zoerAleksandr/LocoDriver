@@ -100,4 +100,15 @@ class FileSectionProfileCache(private val dir: File, private val seal: LocalSeal
             if (it.name.removeSuffix(".json") !in keepIds) it.delete()
         }
     }
+
+    override fun cachedIds(): Set<String> =
+        dir.listFiles { f -> f.isFile && f.name.endsWith(".json") && f.name != "index.json" }
+            ?.map { it.name.removeSuffix(".json") }?.filter(::isSafeId)?.toSet().orEmpty()
+
+    override fun remove(sectionId: String) {
+        if (isSafeId(sectionId)) File(dir, "$sectionId.json").delete()
+    }
+
+    override fun sizeBytes(sectionId: String): Long =
+        if (isSafeId(sectionId)) File(dir, "$sectionId.json").takeIf { it.isFile }?.length() ?: 0L else 0L
 }
