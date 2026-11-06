@@ -6,6 +6,7 @@ import com.z_company.repository.remote_rest.AuthManager
 import com.z_company.repository.remote_rest.RemoteRestApi
 import com.z_company.repository.remote_rest.RemoteRestClient
 import com.z_company.repository.remote_rest.RoutesManager
+import com.z_company.repository.remote_rest.SessionRefresher
 import com.z_company.repository.remote_rest.SettingManager
 import com.z_company.repository.remote_rest.ShareRouteManager
 import org.koin.dsl.module
@@ -31,6 +32,7 @@ val iosRepositoryModule = module {
 
     // Менеджеры API (конструкторная инжекция, Step 2 миграции)
     single { AuthManager(remoteRestApi = get(), apiForSendEmail = get()) }
+    single { SessionRefresher(remoteRestApi = get(), secureTokenStorage = get()) }
     single { RoutesManager(remoteRestApi = get()) }
     single { SettingManager(remoteRestApi = get()) }
     single { ShareRouteManager(remoteRestApi = get()) }

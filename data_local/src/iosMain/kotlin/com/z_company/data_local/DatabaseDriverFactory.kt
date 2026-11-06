@@ -1,9 +1,14 @@
 package com.z_company.data_local
 
+import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
+import app.cash.sqldelight.db.SqlSchema
 import app.cash.sqldelight.driver.native.NativeSqliteDriver
 import com.z_company.data_local.route.db.RouteDatabase
 import com.z_company.data_local.route.searchdb.SearchResponseDatabase
+import com.z_company.data_local.schema.SchemaSelfCheck
+import com.z_company.data_local.schema.SchemaSpecs
+import com.z_company.data_local.schema.TableSpec
 import com.z_company.data_local.setting.db.SettingsDatabase
 import com.z_company.data_local.setting.salarydb.SalarySettingDatabase
 import com.z_company.data_local.brake.db.BrakeCertificateDatabase
@@ -17,20 +22,32 @@ import com.z_company.data_local.track.db.TrackDatabase
 actual class DatabaseDriverFactory {
 
     actual fun createRouteDriver(): SqlDriver =
-        NativeSqliteDriver(RouteDatabase.Schema, "Route.db")
+        createHealedDriver(RouteDatabase.Schema, "Route.db", SchemaSpecs.route)
 
     actual fun createSettingsDriver(): SqlDriver =
-        NativeSqliteDriver(SettingsDatabase.Schema, "Settings.db")
+        createHealedDriver(SettingsDatabase.Schema, "Settings.db", SchemaSpecs.settings)
 
     actual fun createSalarySettingDriver(): SqlDriver =
-        NativeSqliteDriver(SalarySettingDatabase.Schema, "SalarySetting.db")
+        createHealedDriver(SalarySettingDatabase.Schema, "SalarySetting.db", SchemaSpecs.salarySetting)
 
     actual fun createSearchResponseDriver(): SqlDriver =
-        NativeSqliteDriver(SearchResponseDatabase.Schema, "SearchResponse.db")
+        createHealedDriver(SearchResponseDatabase.Schema, "SearchResponse.db", SchemaSpecs.searchResponse)
 
     actual fun createTrackDriver(): SqlDriver =
-        NativeSqliteDriver(TrackDatabase.Schema, "Track.db")
+        createHealedDriver(TrackDatabase.Schema, "Track.db", SchemaSpecs.track)
 
     actual fun createBrakeCertificateDriver(): SqlDriver =
-        NativeSqliteDriver(BrakeCertificateDatabase.Schema, "BrakeCertificate.db")
+        createHealedDriver(BrakeCertificateDatabase.Schema, "BrakeCertificate.db", SchemaSpecs.brake)
+
+    /**
+     * Драйвер + самопроверка схемы: достраивает таблицы/столбцы, если user_version
+     * поднят в обход миграций (как в Android createDriver).
+     */
+    private fun createHealedDriver(
+        schema: SqlSchema<QueryResult.Value<Unit>>,
+        name: String,
+        specs: List<TableSpec>,
+    ): SqlDriver = NativeSqliteDriver(schema, name).also { driver ->
+        SchemaSelfCheck.run(driver, schema, specs)
+    }
 }

@@ -33,7 +33,13 @@ struct iOSApp: App {
                     // Deep link: locodriver://share/{id}
                     // Обрабатываем в Kotlin-слое: загрузить Route, сохранить локально,
                     // AppNavHost переключится на FormRoute с новым id.
-                    SharedRouteLinkHandler.shared.handle(urlString: url.absoluteString)
+                    if url.host == "share" {
+                        SharedRouteLinkHandler.shared.handle(urlString: url.absoluteString)
+                        return
+                    }
+                    // Возврат из оплаты (§19.6): страница возврата открывает
+                    // locodriver:// — проверяем ожидаемую оплату.
+                    PurchasesViewModelWrapper.shared.onAppResumed()
                 }
         }
     }
