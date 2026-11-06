@@ -142,6 +142,9 @@ class SettingSalaryIosViewModel(
     private var longDraft: List<SurchargeLongTrains> = emptyList()
     private var extendedDraft: List<SurchargeExtendedServicePhase> = emptyList()
     private var phaseDrafts: Map<String, Pair<List<SurchargeHeavyTrains>, List<SurchargeLongTrains>>> = emptyMap()
+    // ВАЖНО: объявлять ДО init-блока — иначе корутина init (запускается синхронно)
+    // обращается к неинициализированному полю (null) и падает на итерации (SEGV).
+    private var servicePhases: List<ServicePhase> = emptyList()
 
     init {
         viewModelScope.launch {
@@ -222,8 +225,6 @@ class SettingSalaryIosViewModel(
             }
         )
     }
-
-    private var servicePhases: List<ServicePhase> = emptyList()
 
     private fun phaseName(phase: ServicePhase): String {
         val from = phase.departureStation.ifBlank { "?" }
