@@ -53,6 +53,16 @@ class SectionProfileRepository(
     /** После отказа сервера по лимиту (429) загрузки участков не повторяются [RATE_LIMIT_PAUSE]: повторы только продлевают блокировку. */
     private var pausedUntil: kotlin.time.TimeMark? = null
 
+    /**
+     * Участок не скачался (сеть, 5xx): следующую попытку - не раньше [FAIL_BACKOFF]. Без этого экран карты повторял всю цепочку
+     * (до 8 участков, каждый - challenge+регистрация+запрос) каждые 30 с и сжигал лимиты сервера у человека в зоне без связи.
+     */
+    private val failedUntil = HashMap<String, kotlin.time.TimeMark>()
+    private val failCount = HashMap<String, Int>()
+
+    /** Когда последний раз успешно обновляли список: чаще [INDEX_REFRESH_MIN] сервер за ним не спрашиваем (открытие/закрытие экрана). */
+    private var indexFetchedAt: kotlin.time.TimeMark? = null
+
     /** Список опубликованных участков. [refresh] - спросить сервер; ошибка сети - молча кэш (или пусто). */
     suspend fun summaries(refresh: Boolean = true): List<SectionSummary> =
         loadIndex(refresh).map {
@@ -139,20 +149,24 @@ class SectionProfileRepository(
      * кэш ([cached], [section], [sectionsNear]), ждало сеть - профиль не появлялся, хотя лежал на диске.
      */
     private suspend fun loadIndex(refresh: Boolean): List<AdvisorSectionSummaryDto> {
-        if (refresh) {
+        if (refresh && !indexFresh()) {
             val fresh = withTimeoutOrNull(INDEX_TIMEOUT_MS) { runCatching { api.sections() }.getOrNull() }
             if (fresh != null) return lock.withLock { storeIndexLocked(fresh); fresh }
         }
         return lock.withLock { loadIndexLocked(false) }
     }
 
+    private fun indexFresh(): Boolean =
+        index != null && indexFetchedAt?.let { it.elapsedNow() < INDEX_REFRESH_MIN } == true
+
     private fun storeIndexLocked(fresh: List<AdvisorSectionSummaryDto>) {
         index = fresh
+        indexFetchedAt = kotlin.time.TimeSource.Monotonic.markNow()
         runCatching { cache.saveIndex(json.encodeToString(ListSerializer(AdvisorSectionSummaryDto.serializer()), fresh)) }
     }
 
     private suspend fun loadIndexLocked(refresh: Boolean): List<AdvisorSectionSummaryDto> {
-        if (refresh) {
+        if (refresh && !indexFresh()) {
             val fresh = runCatching { api.sections() }.getOrNull()
             if (fresh != null) {
                 storeIndexLocked(fresh)
@@ -178,15 +192,37 @@ class SectionProfileRepository(
     var rateLimited: Boolean = false
         private set
 
+    /** Устройство не прошло проверку подлинности (403: root, эмулятор, чужая сборка): профили с сервера не придут, пока не изменится. */
+    @kotlin.concurrent.Volatile
+    var deviceRejected: Boolean = false
+        private set
+
     private suspend fun download(id: String): Pair<Double, SectionProfile>? {
-        // Пауза после 429: сети не трогаем, остаётся то, что в кэше.
-        pausedUntil?.let { if (!it.hasPassedNow()) { rateLimited = true; return null } else pausedUntil = null }
+        // Пауза после 429/отказа устройства: сети не трогаем, остаётся то, что в кэше. Флаги уже выставлены при отказе.
+        pausedUntil?.let { if (!it.hasPassedNow()) return null else pausedUntil = null }
+        failedUntil[id]?.let { if (!it.hasPassedNow()) return null }
         val res = runCatching { api.section(id) }
         val error = res.exceptionOrNull()
         rateLimited = error?.message?.contains("429") == true
-        if (rateLimited) pausedUntil = kotlin.time.TimeSource.Monotonic.markNow() + RATE_LIMIT_PAUSE
+        // Отказ устройства (аттестация) постоянный: без паузы карта опрашивает сервер каждые 30 с. 403 с другим смыслом
+        // (device_required: токен не принят) клиент уже повторил внутри api.section, здесь это тоже сбой, но не «устройство плохое».
+        val rejected = error is AdvisorApiException && error.status == 403
+        deviceRejected = rejected
+        val now = kotlin.time.TimeSource.Monotonic.markNow()
+        when {
+            rateLimited -> pausedUntil = now + RATE_LIMIT_PAUSE
+            rejected -> pausedUntil = now + DEVICE_FAIL_PAUSE
+            error != null -> {
+                // 1, 2, 4, 8, 15 мин и дальше раз в 15: долгая плохая связь не превращается в сотни запросов в час.
+                val n = (failCount[id] ?: 0) + 1
+                failCount[id] = n
+                failedUntil[id] = now + minOf(FAIL_BACKOFF * (1 shl minOf(n - 1, 4)), FAIL_BACKOFF_MAX)
+            }
+        }
         error?.let { println("SectionProfile download ${id.take(8)} failed: ${it::class.simpleName}: ${it.message?.take(80)}") }
         val dto = res.getOrNull() ?: return null
+        failedUntil.remove(id)
+        failCount.remove(id)
         val profile = withContext(Dispatchers.Default) { toProfile(dto) } ?: run { unusable[id] = dto.updatedAt; return null }
         runCatching { cache.save(id, json.encodeToString(AdvisorSectionDto.serializer(), dto)) }
         return dto.updatedAt to profile
@@ -231,5 +267,9 @@ class SectionProfileRepository(
         const val INDEX_TIMEOUT_MS = 10_000L
         const val NEAR_LIMIT = 8
         val RATE_LIMIT_PAUSE = kotlin.time.Duration.parse("10m")
+        val DEVICE_FAIL_PAUSE = kotlin.time.Duration.parse("30m")
+        val FAIL_BACKOFF = kotlin.time.Duration.parse("1m")
+        val FAIL_BACKOFF_MAX = kotlin.time.Duration.parse("15m")
+        val INDEX_REFRESH_MIN = kotlin.time.Duration.parse("5m")
     }
 }
