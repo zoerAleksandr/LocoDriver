@@ -526,6 +526,19 @@ internal fun ProfileChart(
                 }
         }
 
+        // Переезды: квадрат с крестом на линии профиля (section.crossings; пусто - ничего не рисуется).
+        section.crossings.forEach { c ->
+            val vx = live.toView(c.km)
+            if (vx < window.fromX || vx > window.toX) return@forEach
+            val xx = px(vx)
+            val yy = py(line.heightAt(c.km))
+            val half = (if (detailed) 6f else 4.5f) * dp
+            drawRect(Color.White.copy(alpha = 0.92f), Offset(xx - half, yy - half), androidx.compose.ui.geometry.Size(half * 2, half * 2))
+            drawRect(ink, Offset(xx - half, yy - half), androidx.compose.ui.geometry.Size(half * 2, half * 2), style = Stroke(width = 1.2f * dp))
+            drawLine(ink, Offset(xx - half * 0.6f, yy - half * 0.6f), Offset(xx + half * 0.6f, yy + half * 0.6f), strokeWidth = 1.2f * dp)
+            drawLine(ink, Offset(xx - half * 0.6f, yy + half * 0.6f), Offset(xx + half * 0.6f, yy - half * 0.6f), strokeWidth = 1.2f * dp)
+        }
+
         // Линия поезда: от головы (положение) назад по ходу на длину поезда, вдоль линии профиля.
         val trainKm = model.trainLengthKm
         if (pos != null && trainKm != null && !pos.offRoute) {

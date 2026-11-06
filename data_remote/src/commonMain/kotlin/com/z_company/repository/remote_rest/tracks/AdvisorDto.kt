@@ -68,6 +68,13 @@ data class AdvisorSignalDto(
     val facing: Int = 0,
 )
 
+@Serializable
+data class AdvisorCrossingDto(
+    val km: Double,
+    val label: String = "",
+    val kind: String = "crossing",
+)
+
 /** Точка оси участка: `km` - от начала оси, высота клиенту не нужна. */
 @Serializable
 data class AdvisorGeoPointDto(val km: Double, val lat: Double, val lon: Double)
@@ -88,6 +95,7 @@ data class AdvisorSectionDto(
     val kmMarks: List<AdvisorKmMarkDto> = emptyList(),
     val stations: List<AdvisorStationDto> = emptyList(),
     val signals: List<AdvisorSignalDto> = emptyList(),
+    val crossings: List<AdvisorCrossingDto> = emptyList(),
 )
 
 /**
