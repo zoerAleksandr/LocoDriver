@@ -2,6 +2,7 @@ package com.z_company.iosapp.di
 
 import com.z_company.iosapp.viewmodel.AppInitIosViewModel
 import com.z_company.iosapp.viewmodel.AnnouncementIosViewModel
+import com.z_company.iosapp.viewmodel.DataPrivacyIosViewModel
 import com.z_company.iosapp.viewmodel.FormIosViewModel
 import com.z_company.iosapp.viewmodel.HomeIosViewModel
 import com.z_company.iosapp.viewmodel.HomeScreenIosViewModel
@@ -26,6 +27,7 @@ import com.z_company.iosapp.viewmodel.SettingsScreenIosViewModel
 import com.z_company.iosapp.viewmodel.PassengerFormIosViewModel
 import com.z_company.iosapp.viewmodel.TrainFormIosViewModel
 import com.z_company.iosapp.viewmodel.TrainScreenIosViewModel
+import com.z_company.iosapp.viewmodel.TrackHistoryIosViewModel
 import com.z_company.iosapp.viewmodel.WhatsNewIosViewModel
 import com.z_company.iosapp.viewmodel.SeriesEditorIosViewModel
 import com.z_company.iosapp.viewmodel.SeriesListIosViewModel
@@ -136,6 +138,12 @@ object IosViewModelHelper : KoinComponent {
 
     /** Корзина маршрутов §9.4: новый экземпляр на экран. */
     fun createTrashViewModel(): TrashIosViewModel = get()
+
+    /** «Данные и конфиденциальность» §17.7: новый экземпляр на экран; Swift вызывает `dispose()`. */
+    fun createDataPrivacyViewModel(): DataPrivacyIosViewModel = get()
+
+    /** «Мои треки» §17.8: новый экземпляр на экран; Swift вызывает `dispose()`. */
+    fun createTrackHistoryViewModel(): TrackHistoryIosViewModel = get()
 
     /** Поиск §10: новый экземпляр на экран. */
     fun createSearchViewModel(): SearchIosViewModel = get()

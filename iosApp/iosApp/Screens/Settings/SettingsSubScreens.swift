@@ -19,9 +19,12 @@ struct SettingsSectionDestination: View {
         case .normaMonth: NormMonthView()
         case .accounting: SettingsAccountingView()
         case .shoulders: SettingsShouldersView()
-        // Справочники серий/станций — отдельная задача (§17.4, сессия «стандартные редакторы»).
-        case .seriesList, .seriesEditor, .seriesNew, .stationList, .stationEditor:
-            StubView(title: section.title, specSection: section.specSection)
+        // Справочники серий/станций (§17.4): списки и редакторы.
+        case .seriesList: SeriesListView()
+        case .stationList: StationListView()
+        case .seriesNew(let name): SeriesEditorScreen(id: nil, name: name)
+        case .seriesEditor(let id): SeriesEditorScreen(id: id, name: nil)
+        case .stationEditor(let id): StationEditorScreen(id: id)
         }
     }
 }

@@ -62,8 +62,10 @@ struct AppDestinationView: View {
             StatisticsView()
         case .referral:
             ReferralView()
-        case .dataPrivacy, .trackHistory:
-            StubView(title: route.title, specSection: route.specSection)
+        case .dataPrivacy:
+            DataPrivacyView()
+        case .trackHistory:
+            TrackHistoryView()
         }
     }
 }

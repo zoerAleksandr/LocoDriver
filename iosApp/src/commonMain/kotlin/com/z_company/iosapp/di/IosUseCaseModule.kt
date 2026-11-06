@@ -17,6 +17,8 @@ import com.z_company.data_local.setting.SqlDelightSalarySettingRepository
 import com.z_company.data_local.setting.SqlDelightSettingRepository
 import com.z_company.data_local.setting.db.SettingsDatabase
 import com.z_company.data_local.setting.salarydb.SalarySettingDatabase
+import com.z_company.data_local.track.SqlDelightTrackRepository
+import com.z_company.data_local.track.db.TrackDatabase
 import com.z_company.domain.repositories.HistoryResponseRepository
 import com.z_company.domain.repositories.CalendarRepositories
 import com.z_company.domain.repositories.CalendarStorage
@@ -31,6 +33,7 @@ import com.z_company.domain.repositories.SharedPreferencesRepositories
 import com.z_company.domain.repositories.AnnouncementRepository
 import com.z_company.domain.repositories.PartnerRepository
 import com.z_company.domain.repositories.StationNormRepository
+import com.z_company.domain.track.TrackRepository
 import com.z_company.domain.use_cases.AnnouncementUseCase
 import com.z_company.domain.use_cases.CalendarUseCase
 import com.z_company.domain.use_cases.LoadCalendarFromStorage
@@ -44,8 +47,10 @@ import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.iosapp.repository.IosSharedPreferencesRepository
+import com.z_company.iosapp.repository.IosTrackConsentStore
 import com.z_company.iosapp.viewmodel.AppInitIosViewModel
 import com.z_company.iosapp.viewmodel.AnnouncementIosViewModel
+import com.z_company.iosapp.viewmodel.DataPrivacyIosViewModel
 import com.z_company.iosapp.viewmodel.FormIosViewModel
 import com.z_company.iosapp.viewmodel.HomeIosViewModel
 import com.z_company.iosapp.viewmodel.HomeScreenIosViewModel
@@ -74,11 +79,14 @@ import com.z_company.iosapp.viewmodel.RouteQuickViewIosViewModel
 import com.z_company.iosapp.viewmodel.SearchIosViewModel
 import com.z_company.iosapp.viewmodel.TrainFormIosViewModel
 import com.z_company.iosapp.viewmodel.TrainScreenIosViewModel
+import com.z_company.iosapp.viewmodel.TrackHistoryIosViewModel
 import com.z_company.domain.use_cases.TrainUseCase
 import com.z_company.iosapp.viewmodel.TrashIosViewModel
 import com.z_company.iosapp.viewmodel.WhatsNewIosViewModel
 import com.z_company.repository.remote_rest.RemoteAnnouncementRepository
 import com.z_company.repository.remote_rest.SyncManager
+import com.z_company.repository.remote_rest.tracks.IosTrackBlobTools
+import com.z_company.repository.remote_rest.tracks.TrackHistoryLoader
 import org.koin.dsl.module
 import platform.Foundation.NSBundle
 
@@ -108,10 +116,15 @@ val iosUseCaseModule = module {
     single { SearchResponseDatabase(get<DatabaseDriverFactory>().createSearchResponseDriver()) }
     single { SettingsDatabase(get<DatabaseDriverFactory>().createSettingsDriver()) }
     single { SalarySettingDatabase(get<DatabaseDriverFactory>().createSalarySettingDriver()) }
+    // Треки (§6.9, §17.7/§17.8): Track.db зарегистрирован и на iOS.
+    single { TrackDatabase(get<DatabaseDriverFactory>().createTrackDriver()) }
 
     // ── Репозитории ───────────────────────────────────────────────────────
     single<RouteRepository> { SqlDelightRouteRepository() }
     single<SettingsRepository> { SqlDelightSettingRepository() }
+    single<TrackRepository> { SqlDelightTrackRepository(get()) }
+    // Согласия №1/№2 (§17.7): состояние только на устройстве (NSUserDefaults).
+    single { IosTrackConsentStore() }
     single<CalendarRepositories> { SqlDelightCalendarRepository() }
     single<ReleaseDayRepository> { SqlDelightReleaseDayRepository() }
     single<LocomotiveSeriesRepository> { SqlDelightLocomotiveSeriesRepository() }
@@ -123,6 +136,13 @@ val iosUseCaseModule = module {
     // Новость при запуске §23: публичный API + «видел/не видел» на устройстве.
     single<AnnouncementRepository> { RemoteAnnouncementRepository(get()) }
     single<DiagnosticRepository> { SqlDelightDiagnosticRepository() }
+    // История треков с сервера (§17.8): `GET /v1/tracks` и действия над серверными треками.
+    single {
+        TrackHistoryLoader(
+            api = com.z_company.repository.remote_rest.RemoteRestClient.tracksApi,
+            tools = IosTrackBlobTools(),
+        )
+    }
 
     // ── UseCases ──────────────────────────────────────────────────────────
     single { RouteUseCase(get()) }
@@ -348,6 +368,24 @@ val iosUseCaseModule = module {
             syncManager = get(),
             secureTokenStorage = get(),
             trackRepository = getOrNull(),
+        )
+    }
+    // «Данные и конфиденциальность» §17.7: factory — по экземпляру на открытый экран.
+    factory {
+        DataPrivacyIosViewModel(
+            consentStore = get(),
+            secureTokenStorage = get(),
+        )
+    }
+    // «Мои треки» §17.8: factory — по экземпляру на открытый экран.
+    factory {
+        TrackHistoryIosViewModel(
+            trackRepository = get(),
+            routeUseCase = get(),
+            settingsUseCase = get(),
+            consentStore = get(),
+            secureTokenStorage = get(),
+            loader = get(),
         )
     }
     // Поиск §10: factory — по экземпляру на открытый экран.
