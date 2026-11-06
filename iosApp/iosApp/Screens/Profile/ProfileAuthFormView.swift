@@ -46,6 +46,16 @@ struct ProfileAuthFormView: View {
                 primaryButton
                     .padding(.top, 18)
 
+                if let errorMessage = isRegisterMode
+                    ? vm.state?.registrationErrorMessage
+                    : vm.state?.authErrorMessage {
+                    Text(errorMessage)
+                        .font(DSFont.sans(13))
+                        .foregroundColor(DSColor.danger)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 10)
+                }
+
                 if isRegisterMode {
                     consentCheckboxes
                         .padding(.top, 16)

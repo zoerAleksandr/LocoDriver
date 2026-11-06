@@ -266,6 +266,7 @@ class ProfileIosViewModel(
     fun authWithEmail(email: String, password: String) {
         loginJob?.cancel()
         registerJob?.cancel()
+        println("AuthFlow: authWithEmail start (login form)")
         _state.updateCopy(
             authErrorMessage = null,
             registrationErrorMessage = null,
@@ -273,9 +274,13 @@ class ProfileIosViewModel(
         loginJob = scope.launch {
             authManager.authWithEmail(email = email, password = password).collect { authState ->
                 when (authState) {
-                    is AuthState.Loading -> _state.updateCopy(authLoading = true)
+                    is AuthState.Loading -> {
+                        println("AuthFlow: authWithEmail → Loading")
+                        _state.updateCopy(authLoading = true)
+                    }
                     is AuthState.Success -> {
                         val token = authState.accessToken
+                        println("AuthFlow: authWithEmail → Success (token ${if (token.isEmpty()) "EMPTY" else "present"})")
                         if (token.isNotEmpty()) {
                             logInAs(token)
                             refresh()
@@ -284,6 +289,8 @@ class ProfileIosViewModel(
                         _state.updateCopy(authLoading = false)
                     }
                     is AuthState.Error -> {
+                        // Текст ошибки уже обезличен (без пароля/токена).
+                        println("AuthFlow: authWithEmail → Error: ${authState.errorMessage}")
                         _state.updateCopy(authLoading = false, authErrorMessage = authState.errorMessage)
                     }
                     else -> {}
@@ -300,6 +307,7 @@ class ProfileIosViewModel(
     fun registerByEmail(email: String, password: String) {
         loginJob?.cancel()
         registerJob?.cancel()
+        println("AuthFlow: registerByEmail start")
         _state.updateCopy(
             authErrorMessage = null,
             registrationErrorMessage = null,
@@ -307,9 +315,13 @@ class ProfileIosViewModel(
         registerJob = scope.launch {
             authManager.registerByEmail(email = email, password = password).collect { regState ->
                 when (regState) {
-                    is RegistrationState.Loading -> _state.updateCopy(registrationLoading = true)
+                    is RegistrationState.Loading -> {
+                        println("AuthFlow: registerByEmail → Loading")
+                        _state.updateCopy(registrationLoading = true)
+                    }
                     is RegistrationState.Success -> {
                         val token = regState.accessToken
+                        println("AuthFlow: registerByEmail → Success (token ${if (token.isEmpty()) "EMPTY" else "present"})")
                         if (token.isNotEmpty()) {
                             logInAs(token)
                             // Легаси-срок локальной покупки переносим в UserSettings (§18.0).
@@ -330,6 +342,7 @@ class ProfileIosViewModel(
                         } else {
                             regState.message
                         }
+                        println("AuthFlow: registerByEmail → Error(${regState.code}): $text")
                         _state.updateCopy(registrationLoading = false, registrationErrorMessage = text)
                     }
                     else -> {}
@@ -445,6 +458,7 @@ class ProfileIosViewModel(
      * сервера — 0, чтобы чужой срок не утёк новому аккаунту).
      */
     private suspend fun logInAs(token: String, vkId: String? = null) {
+        println("AuthFlow: logInAs — storing token (len=${token.length}), switching account")
         authSession.beginAccountSwitch(token, vkId)
         val period = try {
             settingManager.getAccountSubscriptionPeriod("Bearer $token")
@@ -455,6 +469,7 @@ class ProfileIosViewModel(
         }
         settingsUseCase.updateSubscriptionPeriod(period ?: 0L).collect {}
         _state.updateCopy(isAuthorized = true)
+        println("AuthFlow: logInAs done — isAuthorized=true, subscription period ${if (period == null) "NOT loaded" else "loaded"}")
         if (period == null) {
             _messages.tryEmit("Вход выполнен, но данные подписки не загрузились")
         }

@@ -312,6 +312,7 @@ val iosUseCaseModule = module {
             productionCalendarUseCase = get(),
             releaseDayUseCase = get(),
             settingManager = get(),
+            sessionRefresher = get(),
         )
     }
 
