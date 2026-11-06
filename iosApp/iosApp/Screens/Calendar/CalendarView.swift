@@ -393,18 +393,20 @@ struct CalendarView: View {
                         .padding(.vertical, 12)
                 }
                 ForEach(trips, id: \.basicId) { trip in
-                    CalendarTripRow(trip: trip) {
-                        router.show(.routeForm(basicId: trip.basicId))
-                    } onLongPress: {
-                        router.present(.routeQuickView(basicId: trip.basicId))
-                    } onDelete: {
-                        deleteRequest = DSDeleteRequest(
-                            title: "Удалить маршрут?",
-                            message: tripLabel(trip)
-                        ) {
-                            vm.deleteRoute(trip.basicId)
+                    HomeRouteCardRow(
+                        card: trip.card,
+                        onTap: { router.show(.routeForm(basicId: trip.basicId)) },
+                        onLongPress: { router.present(.routeQuickView(basicId: trip.basicId)) },
+                        onLegend: { router.present(.routeLegend) },
+                        onDelete: {
+                            deleteRequest = DSDeleteRequest(
+                                title: "Удалить маршрут?",
+                                message: tripLabel(trip)
+                            ) {
+                                vm.deleteRoute(trip.basicId)
+                            }
                         }
-                    }
+                    )
                 }
             }
         }
@@ -534,51 +536,6 @@ private struct DayCellView: View {
         case "technicalStudy": return DSColor.text
         default: return DSColor.textMuted
         }
-    }
-}
-
-// MARK: - Строка маршрута дня
-
-struct CalendarTripRow: View {
-    let trip: CalendarIosTrip
-    let onTap: () -> Void
-    let onLongPress: () -> Void
-    let onDelete: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Text(trip.timeText)
-                .dsTextStyle(.timeMono)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(trip.numberText)
-                    .font(DSFont.sans(15, .semibold))
-                    .foregroundColor(DSColor.text)
-                HStack(spacing: 6) {
-                    if trip.isFavorite {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 10))
-                            .foregroundColor(DSColor.warning)
-                    }
-                    if trip.isSynchronized {
-                        Image(systemName: "checkmark.icloud")
-                            .font(.system(size: 10))
-                            .foregroundColor(DSColor.success)
-                    }
-                }
-            }
-            Spacer()
-            Text(trip.hoursText)
-                .dsTextStyle(.valueMono)
-                .foregroundColor(DSColor.textMuted)
-        }
-        .padding(.horizontal, DSMetrics.rowPadX)
-        .padding(.vertical, DSMetrics.rowPadY)
-        .background(DSColor.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onTap)
-        .onLongPressGesture(perform: onLongPress)
-        .swipeToDelete(action: onDelete)
     }
 }
 

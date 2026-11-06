@@ -202,11 +202,17 @@ class CalendarIosViewModel(
         val (routes, totalWorked) = workResult
 
         val tripsByDay = mutableMapOf<Int, MutableList<CalendarIosTrip>>()
+        // Нумерация «#N» — как на Главном: список месяца по убыванию явки, #N = порядок от старых.
+        val orderedRoutes = routes.sortedByDescending { it.basicData.timeStartWork ?: Long.MIN_VALUE }
+        val monthRouteCount = orderedRoutes.size
+        val cardSettings = salarySetting ?: SalarySetting()
+        val displayTz = iosDisplayTimeZone(setting)
         routes.forEach { route ->
             val start = route.basicData.timeStartWork ?: return@forEach
             if (iosMonthIndex(start, setting) != month.month) return@forEach
             val day = iosDayOfMonth(start, setting)
             val dt = iosLocal(start, iosDisplayOffsetMs(setting))
+            val indexInMonth = orderedRoutes.indexOfFirst { it.basicData.id == route.basicData.id }
             tripsByDay.getOrPut(day) { mutableListOf() }.add(
                 CalendarIosTrip(
                     basicId = route.basicData.id,
@@ -215,6 +221,10 @@ class CalendarIosViewModel(
                     hoursText = iosFormatWorkTime(route.getWorkTime() ?: 0L, setting),
                     isFavorite = route.basicData.isFavorite,
                     isSynchronized = route.basicData.isSynchronized,
+                    card = HomeRouteCardBuilder.build(
+                        route, indexInMonth, monthRouteCount,
+                        setting, cardSettings, month, displayTz,
+                    ),
                 )
             )
         }

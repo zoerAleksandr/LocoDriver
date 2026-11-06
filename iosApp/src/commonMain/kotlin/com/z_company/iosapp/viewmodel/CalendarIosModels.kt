@@ -42,6 +42,8 @@ data class CalendarIosTrip(
     val hoursText: String,      // «04:35»
     val isFavorite: Boolean,
     val isSynchronized: Boolean,
+    /** Карточка маршрута §4.5 — та же, что на Главном экране. */
+    val card: HomeIosRouteCard,
 )
 
 /** Отвлечение дня (в составе непрерывного периода). */
