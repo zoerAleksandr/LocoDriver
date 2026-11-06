@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -98,8 +99,18 @@ fun OfflineSectionsScreen(viewModel: OfflineSectionsViewModel, onBack: () -> Uni
                         keyboardOptions = KeyboardOptions.Default,
                         shape = Shapes.small,
                     )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = !ui.onlyDownloaded, onClick = { viewModel.setOnlyDownloaded(false) }, label = { Text("Все") })
+                        FilterChip(selected = ui.onlyDownloaded, onClick = { viewModel.setOnlyDownloaded(true) }, label = { Text("На телефоне") })
+                    }
                     if (ui.items.isEmpty()) {
-                        Note(if (ui.query.isBlank()) "Участки не загружены. Проверьте интернет." else "Ничего не найдено.")
+                        Note(
+                            when {
+                                ui.onlyDownloaded -> "На телефоне пока нет сохранённых участков."
+                                ui.query.isBlank() -> "Участки не загружены. Проверьте интернет."
+                                else -> "Ничего не найдено."
+                            },
+                        )
                     } else {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
                             items(ui.items, key = { it.id }) { item ->
