@@ -671,7 +671,7 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
                 MapButton(onClick = onDismiss, description = "Назад", size = 38.dp) { PstIcon(PstIcons.ChevronLeft, 22.dp, Pst.text) }
                 SectionHeader(model, Modifier.weight(1f)) { showPicker = true }
                 if (reason == null && live != null) {
-                    val length = live.lengthKm
+                    val length = live.viewSpanKm
                     ProfileScale.values().forEach { sc ->
                         val target = if (sc == ProfileScale.ALL) length.toFloat() else sc.spanKm.toFloat()
                         val on = abs(spanKm - target) < 0.05f * target.coerceAtLeast(1f)
@@ -744,12 +744,13 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
                 )
             }
             if (reason == null && live != null) {
-                val length = live.lengthKm
+                val length = live.viewSpanKm
+                val vFrom = live.viewFrom
                 val span = spanKm.toDouble().coerceIn(MIN_SPAN_KM.coerceAtMost(length), length)
                 val followKm = model.position?.kmAxis // подписка на положение: окно сдвигается за поездом при каждом новом фиксе
                 val window = if (follow) {
                     if (span >= length) {
-                        ProfileWindow(0.0, length)
+                        ProfileWindow(vFrom, vFrom + length)
                     } else {
                         // Позади головы - не меньше длины поезда с запасом: поезд виден целиком при любом масштабе.
                         val room = ((model.trainLengthKm ?: 0.0) + TRAIN_MARGIN_KM).coerceAtMost(span * 0.8)
@@ -757,7 +758,7 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
                         else live.window(max(span / 6, room), span - max(span / 6, room))
                     }
                 } else {
-                    val from = manualFrom.toDouble().coerceIn(0.0, (length - span).coerceAtLeast(0.0))
+                    val from = manualFrom.toDouble().coerceIn(vFrom, vFrom + (length - span).coerceAtLeast(0.0))
                     ProfileWindow(from, from + span)
                 }
                 // Жест: масштаб вокруг точки между пальцами, сдвиг пальцем. Чистый зум не отключает слежение за поездом.
@@ -767,7 +768,7 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
                     if (movedPan || !follow) {
                         val anchor = window.fromX + cFrac * span
                         val from = anchor - cFrac * newSpan - panFrac * newSpan
-                        manualFrom = from.coerceIn(0.0, (length - newSpan).coerceAtLeast(0.0)).toFloat()
+                        manualFrom = from.coerceIn(vFrom, vFrom + (length - newSpan).coerceAtLeast(0.0)).toFloat()
                         follow = false
                     }
                     spanKm = newSpan.toFloat()
