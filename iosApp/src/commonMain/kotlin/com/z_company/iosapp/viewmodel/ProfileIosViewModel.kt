@@ -136,10 +136,10 @@ data class ProfileIosEvent(val kind: String, val text: String = "")
  * iOS-аналог Android `ProfileViewModel` (§18). Вся логика аутентификации,
  * синхронизации и профиля — здесь; SwiftUI только отображает [ProfileIosState].
  *
- * VK ID SDK для iOS не реализован (§18.4 «❓ не реализовано»): сетевые методы
- * `authWithVKID`/`attachVKID`/`registerByVKID` повторяют Android и готовы к
- * подключению SDK, но получить VK access token с экрана пока нельзя — кнопки VK
- * в UI показывают сообщение «не реализовано».
+ * VK ID SDK подключён в Swift (`iosApp/iosApp/Shared/VKIDService.swift`):
+ * one-tap авторизация отдаёт access token, который уходит в [authWithVKID],
+ * [attachVKID] и [registerByVKID] (§18.2/§18.4). Кнопки VK в UI —
+ * `ProfileAuthFormView`/`ProfileView` через `ProfileViewModelWrapper`.
  */
 class ProfileIosViewModel(
     private val authManager: AuthManager,
@@ -356,16 +356,19 @@ class ProfileIosViewModel(
      * один сетевой запрос и нигде не сохраняется. Аккаунта с этим VK нет →
      * [ProfileIosState.vkRegistrationOffer], а не ошибка входа.
      *
-     * ⚠️ Поведение Android (возможный баг, BUG-52): ошибка самого VK SDK на форме
-     * входа только логируется — пользователь сообщения не видит.
+     * Ошибка самого VK SDK сюда не приходит: её показывает Swift-обёртка
+     * (`ProfileViewModelWrapper.signInWithVKID`) русским сообщением — в отличие
+     * от Android, где ошибка SDK только логируется (BUG-52).
      */
     fun authWithVKID(vkId: String, vkAccessToken: String, email: String) {
         loginJob?.cancel()
         loginJob = scope.launch {
+            println("AuthFlow: authWithVKID → start")
             authManager.authWithVKID(vkId, vkAccessToken).collect { authState ->
                 when {
                     authState is AuthState.Success -> {
                         val token = authState.accessToken
+                        println("AuthFlow: authWithVKID → success")
                         if (token.isNotEmpty()) {
                             logInAs(token, vkId)
                             refresh()
@@ -375,6 +378,7 @@ class ProfileIosViewModel(
                     }
                     authState is AuthState.Error &&
                         authState.vkError == com.z_company.repository.remote_rest.VkAuthError.UserNotFound -> {
+                        println("AuthFlow: authWithVKID → vkUserNotFound (registration offer)")
                         // Токен держим в памяти до подтверждения (§18.2).
                         pendingVkRegistration = PendingVkRegistration(vkId, vkAccessToken, email)
                         _state.updateCopy(
@@ -384,6 +388,7 @@ class ProfileIosViewModel(
                         )
                     }
                     authState is AuthState.Error -> {
+                        println("AuthFlow: authWithVKID → error: ${authState.errorMessage}")
                         _state.updateCopy(authLoading = false, authErrorMessage = authState.errorMessage)
                     }
                     authState is AuthState.Loading -> _state.updateCopy(authLoading = true)
@@ -398,6 +403,7 @@ class ProfileIosViewModel(
         val pending = pendingVkRegistration ?: return
         pendingVkRegistration = null
         _state.updateCopy(vkRegistrationOffer = false)
+        println("AuthFlow: confirmVkRegistration → registerByVKID")
         registerByVKID(pending.vkId, pending.vkAccessToken, pending.email)
     }
 
@@ -411,11 +417,13 @@ class ProfileIosViewModel(
     fun registerByVKID(vkId: String, vkAccessToken: String, email: String) {
         registerJob?.cancel()
         registerJob = scope.launch {
+            println("AuthFlow: registerByVKID → start")
             authManager.registerByVKID(vkId, vkAccessToken, email).collect { regState ->
                 when (regState) {
                     is RegistrationState.Loading -> _state.updateCopy(registrationLoading = true)
                     is RegistrationState.Success -> {
                         val token = regState.accessToken
+                        println("AuthFlow: registerByVKID → success")
                         if (token.isNotEmpty()) {
                             logInAs(token, vkId)
                             // Легаси-срок при регистрации по VK не переносится (§18.0).
@@ -430,6 +438,7 @@ class ProfileIosViewModel(
                         } else {
                             regState.message
                         }
+                        println("AuthFlow: registerByVKID → error(${regState.code}): $text")
                         _state.updateCopy(registrationLoading = false, registrationErrorMessage = text)
                     }
                     else -> {}
@@ -760,8 +769,8 @@ class ProfileIosViewModel(
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // VK (§18.2, §18.4). VK ID SDK для iOS не реализован — методы повторяют
-    // Android и вызываются, когда SDK сможет дать access token.
+    // VK (§18.2, §18.4). Access token приходит из VK ID SDK (Swift-обёртка
+    // `VKIDService`) и уходит ровно в один сетевой запрос, нигде не сохраняясь.
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
@@ -771,13 +780,16 @@ class ProfileIosViewModel(
     fun attachVKID(vkId: String, vkAccessToken: String) {
         scope.launch {
             val bearer = authSession.currentBearer() ?: return@launch
+            println("AuthFlow: attachVKID → start")
             authManager.attachVKID(bearer, vkId, vkAccessToken).collect { result ->
                 when (result) {
                     is GetUserProfileState.Success -> {
+                        println("AuthFlow: attachVKID → success")
                         authSession.saveVkId(vkId)
                         refresh()
                     }
                     is GetUserProfileState.Error -> {
+                        println("AuthFlow: attachVKID → error: ${result.message}")
                         _state.updateCopy(vkLinkMessage = result.message)
                     }
                     else -> {}
@@ -788,20 +800,24 @@ class ProfileIosViewModel(
 
     /**
      * Отвязка VK (`PATCH /v1/auth/vkId/remove`): сервер отзывает все токены и
-     * возвращает новый — сохраняем его, чистим локальный vk_id. Сессия VK SDK
-     * на iOS отсутствует (Android завершает её через `VKID.instance.logout`).
+     * возвращает новый — сохраняем его, чистим локальный vk_id. Сессия VK ID SDK
+     * завершается на стороне Swift (`VKIDService.logout`, аналог Android
+     * `VKID.instance.logout`).
      */
     fun removeUsersVKID() {
         scope.launch {
             val bearer = authSession.currentBearer() ?: return@launch
+            println("AuthFlow: removeUsersVKID → start")
             authManager.removeVKID(bearer).collect { result ->
                 when (result) {
                     is GetUserProfileState.Success -> {
+                        println("AuthFlow: removeUsersVKID → success")
                         result.accessToken?.let { authSession.saveToken(it) }
                         authSession.saveVkId("")
                         refresh()
                     }
                     is GetUserProfileState.Error -> {
+                        println("AuthFlow: removeUsersVKID → error: ${result.message}")
                         _state.updateCopy(vkLinkMessage = result.message)
                     }
                     else -> {}
@@ -819,11 +835,6 @@ class ProfileIosViewModel(
 
     fun clearVkLinkMessage() {
         _state.updateCopy(vkLinkMessage = null)
-    }
-
-    /** iOS: VK ID SDK не реализован (§18.4). Сообщение для кнопок VK в UI. */
-    fun vkNotImplementedMessage() {
-        _messages.tryEmit("Вход через VK ID на iOS пока не реализован")
     }
 
     // ═══════════════════════════════════════════════════════════════════════

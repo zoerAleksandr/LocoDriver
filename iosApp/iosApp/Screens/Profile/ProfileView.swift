@@ -320,8 +320,9 @@ struct ProfileView: View {
                         }
                     }
                     Button {
-                        // VK ID SDK для iOS не реализован (§18.4 «❓ не реализовано»).
-                        vm.vkNotImplemented()
+                        // One-tap VK ID (§18.1/§18.4): не привязан → attachVKID с
+                        // access-токеном; привязан → только локальный признак.
+                        vm.linkVKID()
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "person.crop.circle.badge.checkmark")

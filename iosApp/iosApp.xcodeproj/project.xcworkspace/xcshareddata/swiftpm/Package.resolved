@@ -1,5 +1,5 @@
 {
-  "originHash" : "a72b37d142139a9f8de021ec1a2d4e7ec2a7ffc9ebc87493f58bac80a85691cb",
+  "originHash" : "fd637957456c2358e6d86b13c1fced7bd02c39f401edff1d117f4aad7979d8ba",
   "pins" : [
     {
       "identity" : "sentry-cocoa",
@@ -8,6 +8,24 @@
       "state" : {
         "revision" : "16cd512711375fa73f25ae5e373f596bdf4251ae",
         "version" : "8.58.0"
+      }
+    },
+    {
+      "identity" : "vkid-captcha-ios-sdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/VKCOM/vkid-captcha-ios-sdk",
+      "state" : {
+        "revision" : "95ba7944a79da5e85b064d47833be4426fb763ee",
+        "version" : "0.1.6"
+      }
+    },
+    {
+      "identity" : "vkid-ios-sdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/VKCOM/vkid-ios-sdk.git",
+      "state" : {
+        "revision" : "e986a5d75984928e2dc80fafea8c6ea4a8c24d53",
+        "version" : "3.0.0"
       }
     }
   ],

@@ -305,9 +305,9 @@ struct ProfileAuthFormView: View {
 
     private var vkButton: some View {
         Button {
-            // VK ID SDK для iOS не реализован (§18.4). BUG-52: на Android ошибка
-            // VK SDK на форме входа только логируется — сообщения пользователю нет.
-            vm.vkNotImplemented()
+            // One-tap VK ID (§18.2): SDK → access token → authWithVKID;
+            // «аккаунта нет» — диалог регистрации, отмена/ошибка SDK — snackbar.
+            vm.signInWithVKID()
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "person.crop.circle.badge.checkmark")
