@@ -99,6 +99,9 @@ internal fun vuColors(): VuColors {
 
 internal val VuMono = MonoFont
 
+// Число с единицей в строках нормы (см. VuNormLine): компилируется один раз, вызывается на каждую рекомпозицию.
+private val NORM_VALUE_REGEX = Regex("""\d+(?:,\d+)?(?:\s*[–-]\s*\d+(?:,\d+)?)?\s*(?:сек|тс|с)\b""")
+
 /** Сегментный переключатель (вкладки): контейнер bgSubtle r16, активный - accent/accentInk. */
 @Composable
 internal fun VuTabs(items: List<String>, active: Int, onSelect: (Int) -> Unit, h: Dp = 48.dp, mono: Boolean = false, modifier: Modifier = Modifier) {
@@ -344,8 +347,8 @@ internal fun VuHint(text: String, modifier: Modifier = Modifier, color: Color? =
 @Composable
 internal fun VuNormLine(text: String, modifier: Modifier = Modifier) {
     val t = vuColors()
-    // число (или диапазон «a–b») с единицей - целиком одним акцентным цветом
-    val m = Regex("""\d+(?:,\d+)?(?:\s*[–-]\s*\d+(?:,\d+)?)?\s*(?:сек|тс|с)\b""").find(text)
+    // число (или диапазон «a–b») с единицей - целиком одним акцентным цветом; регулярка компилируется один раз
+    val m = NORM_VALUE_REGEX.find(text)
     val annotated = androidx.compose.ui.text.buildAnnotatedString {
         if (m == null) append(text) else {
             append(text.substring(0, m.range.first))
@@ -625,9 +628,10 @@ internal fun VuStationSuggest(
     // значение на момент получения фокуса: список показывается, когда ввод начался (значение изменилось), а не сразу по фокусу
     var valueAtFocus by remember { mutableStateOf<String?>(null) }
     val items = remember(value, suggestions) { BrakeStations.filter(suggestions, value) }
+    val isExact = remember(value, suggestions) { BrakeStations.isExact(suggestions, value) }
     Box(modifier.onFocusChanged { focused = it.hasFocus; if (focused) { dismissed = false; valueAtFocus = value } else valueAtFocus = null }) {
         content()
-        if (focused && !dismissed && value != valueAtFocus && items.isNotEmpty() && !BrakeStations.isExact(suggestions, value)) {
+        if (focused && !dismissed && value != valueAtFocus && items.isNotEmpty() && !isExact) {
             DropdownMenu(
                 expanded = true,
                 onDismissRequest = { dismissed = true },
