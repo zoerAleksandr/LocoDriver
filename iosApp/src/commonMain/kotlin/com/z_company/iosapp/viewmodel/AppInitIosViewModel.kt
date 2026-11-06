@@ -17,6 +17,7 @@ import com.z_company.domain.use_cases.ReleaseDayUseCase
 import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
+import com.z_company.repository.remote_rest.SessionRefresher
 import com.z_company.repository.remote_rest.SettingManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -53,6 +54,7 @@ class AppInitIosViewModel(
     private val productionCalendarUseCase: ProductionCalendarUseCase,
     private val releaseDayUseCase: ReleaseDayUseCase,
     private val settingManager: SettingManager,
+    private val sessionRefresher: SessionRefresher,
 ) : ViewModel() {
 
     // Флаг первого запуска — считываем ОДИН РАЗ до любых async операций,
@@ -76,6 +78,12 @@ class AppInitIosViewModel(
             sharedPrefs.setTokenIsFirstAppEntry(false)
         }
         viewModelScope.launch {
+            // Продление сессии (POST /v1/auth/refresh) при старте — как Android StartApp.
+            val outcome = sessionRefresher.refreshIfDue()
+            println("AppInit: session refresh → ${outcome::class.simpleName}")
+            if (outcome is SessionRefresher.Outcome.Failed) {
+                println("AppInit: session refresh failed: ${outcome.cause?.message}")
+            }
             runTimezoneMigration()
             runReleaseDayMigration()
             runProductionCalendarMigration()
