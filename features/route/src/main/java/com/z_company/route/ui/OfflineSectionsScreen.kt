@@ -47,7 +47,7 @@ import com.z_company.route.viewmodel.OfflineStatus
 import java.util.Locale
 
 /**
- * «Участки без интернета» (SCREEN_SPECS §6.10): список опубликованных участков с поиском. Пользователь скачивает нужные -
+ * «Скачанные участки» (SCREEN_SPECS §6.10): список опубликованных участков с поиском. Пользователь скачивает нужные -
  * профиль пути, станции и ось сохраняются на телефоне (зашифрованно), «Профиль пути» и определение плеча работают без сети.
  * Скачанное, изменившееся на сервере, помечается «Есть обновление». Открывается из Профиля → «ДАННЫЕ».
  */
@@ -79,7 +79,7 @@ fun OfflineSectionsScreen(viewModel: OfflineSectionsViewModel, onBack: () -> Uni
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
-        topBar = { ScreenHeader(title = "Участки без интернета", navigation = { HeaderBackTile(onBack) }) },
+        topBar = { ScreenHeader(title = "Скачанные участки", navigation = { HeaderBackTile(onBack) }) },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
