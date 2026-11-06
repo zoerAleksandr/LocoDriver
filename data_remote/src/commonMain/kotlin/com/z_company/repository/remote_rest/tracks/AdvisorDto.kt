@@ -75,6 +75,13 @@ data class AdvisorCrossingDto(
     val kind: String = "crossing",
 )
 
+@Serializable
+data class AdvisorBrakeTestDto(
+    val km: Double,
+    val label: String = "",
+    val kind: String = "brake_test",
+)
+
 /** Точка оси участка: `km` - от начала оси, высота клиенту не нужна. */
 @Serializable
 data class AdvisorGeoPointDto(val km: Double, val lat: Double, val lon: Double)
@@ -96,6 +103,7 @@ data class AdvisorSectionDto(
     val stations: List<AdvisorStationDto> = emptyList(),
     val signals: List<AdvisorSignalDto> = emptyList(),
     val crossings: List<AdvisorCrossingDto> = emptyList(),
+    val brakeTests: List<AdvisorBrakeTestDto> = emptyList(),
 )
 
 /**

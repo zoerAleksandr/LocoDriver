@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -216,6 +217,7 @@ internal fun ProfileChart(
     val oddColor = Pst.cta
     val onEven = Pst.onAccent
     val onOdd = Pst.ctaInk
+    val crossingSign = androidx.compose.ui.graphics.ImageBitmap.imageResource(com.z_company.route.R.drawable.level_crossing_sign)
     val signalStyle: TextStyle = Pst.mono.copy(fontSize = if (detailed) 10.sp else 8.sp, fontWeight = FontWeight.Bold)
     val hasCurves = remember(section) { section.elements.any { it.curveRadiusM > 0 } }
     // Лямбда меняется при каждой перерисовке: ключом жеста берём только «жесты включены», иначе жест рвётся посреди движения.
@@ -526,17 +528,36 @@ internal fun ProfileChart(
                 }
         }
 
-        // Переезды: квадрат с крестом на линии профиля (section.crossings; пусто - ничего не рисуется).
+        // Переезды: дорожный знак «Железнодорожный переезд без шлагбаума» над линией профиля (section.crossings; пусто - ничего).
         section.crossings.forEach { c ->
             val vx = live.toView(c.km)
             if (vx < window.fromX || vx > window.toX) return@forEach
             val xx = px(vx)
             val yy = py(line.heightAt(c.km))
-            val half = (if (detailed) 6f else 4.5f) * dp
-            drawRect(Color.White.copy(alpha = 0.92f), Offset(xx - half, yy - half), androidx.compose.ui.geometry.Size(half * 2, half * 2))
-            drawRect(ink, Offset(xx - half, yy - half), androidx.compose.ui.geometry.Size(half * 2, half * 2), style = Stroke(width = 1.2f * dp))
-            drawLine(ink, Offset(xx - half * 0.6f, yy - half * 0.6f), Offset(xx + half * 0.6f, yy + half * 0.6f), strokeWidth = 1.2f * dp)
-            drawLine(ink, Offset(xx - half * 0.6f, yy + half * 0.6f), Offset(xx + half * 0.6f, yy - half * 0.6f), strokeWidth = 1.2f * dp)
+            val signH = (if (detailed) 26f else 18f) * dp
+            val signW = signH * crossingSign.width / crossingSign.height
+            val signTop = (yy - signH - 4f * dp).coerceAtLeast(topPad)
+            drawLine(ink.copy(alpha = 0.6f), Offset(xx, signTop + signH), Offset(xx, yy), strokeWidth = 1f * dp)
+            drawImage(
+                crossingSign,
+                dstOffset = androidx.compose.ui.unit.IntOffset((xx - signW / 2).roundToInt(), signTop.roundToInt()),
+                dstSize = androidx.compose.ui.unit.IntSize(signW.roundToInt(), signH.roundToInt()),
+                filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
+            )
+        }
+
+        // Места опробования тормозов: кружок с буквой «Т» на линии профиля (section.brakeTests; пусто - ничего).
+        section.brakeTests.forEach { b ->
+            val vx = live.toView(b.km)
+            if (vx < window.fromX || vx > window.toX) return@forEach
+            val xx = px(vx)
+            val yy = py(line.heightAt(b.km))
+            val r = (if (detailed) 8f else 6f) * dp
+            drawCircle(Color.White.copy(alpha = 0.95f), r, Offset(xx, yy - r - 3f * dp))
+            drawCircle(accent, r, Offset(xx, yy - r - 3f * dp), style = Stroke(width = 1.6f * dp))
+            val tl = measurer.measure("Т", signalStyle.copy(color = accent), maxLines = 1)
+            drawText(tl, topLeft = Offset(xx - tl.size.width / 2f, yy - r - 3f * dp - tl.size.height / 2f))
+            drawLine(accent.copy(alpha = 0.7f), Offset(xx, yy - 3f * dp), Offset(xx, yy), strokeWidth = 1f * dp)
         }
 
         // Линия поезда: от головы (положение) назад по ходу на длину поезда, вдоль линии профиля.
