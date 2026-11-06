@@ -16,6 +16,9 @@ private class MemProfileCache : SectionProfileCache {
     override fun load(sectionId: String) = sections[sectionId]
     override fun save(sectionId: String, text: String) { sections[sectionId] = text }
     override fun retain(keepIds: Set<String>) { sections.keys.retainAll(keepIds) }
+    override fun cachedIds(): Set<String> = sections.keys.toSet()
+    override fun remove(sectionId: String) { sections.remove(sectionId) }
+    override fun sizeBytes(sectionId: String): Long = sections[sectionId]?.length?.toLong() ?: 0L
 }
 
 private class ProfileApi : AdvisorApi {
@@ -210,5 +213,46 @@ class SectionProfileRepositoryTest {
         repo.summaries(refresh = true)
         repo.summaries(refresh = true)
         assertEquals(1, api.sectionsCalls)
+    }
+
+    @Test
+    fun offline_download_saves_reports_and_removes() = runBlocking {
+        val api = ProfileApi()
+        val cache = MemProfileCache()
+        val repo = SectionProfileRepository(api, cache)
+        repo.summaries(refresh = true)
+        assertTrue(repo.offlineSections().isEmpty())
+        assertEquals(OfflineDownloadResult.OK, repo.downloadForOffline("s1"))
+        val info = repo.offlineSections()["s1"]
+        assertNotNull(info)
+        assertEquals(1000.0, info.updatedAt)
+        assertTrue(info.bytes > 0)
+        // Повторная явная загрузка уже сохранённого участка сеть не трогает (версия та же).
+        assertEquals(OfflineDownloadResult.OK, repo.downloadForOffline("s1"))
+        assertEquals(1, api.sectionCalls)
+        repo.removeOffline("s1")
+        assertTrue(repo.offlineSections().isEmpty())
+    }
+
+    @Test
+    fun offline_download_ignores_previous_backoff_and_reports_device_rejection() = runBlocking {
+        val api = ProfileApi().apply { failNetwork = true }
+        val repo = SectionProfileRepository(api, MemProfileCache())
+        repo.summaries(refresh = true)
+        assertEquals(OfflineDownloadResult.FAILED, repo.downloadForOffline("s1"))
+        // Обычная загрузка теперь в задержке, а явная - нет: пользователь нажал сам.
+        assertNull(repo.section("s1"))
+        api.failNetwork = false
+        assertEquals(OfflineDownloadResult.OK, repo.downloadForOffline("s1"))
+        api.deviceReject = true
+        assertEquals(OfflineDownloadResult.DEVICE_REJECTED, repo.downloadForOffline("s2"))
+    }
+
+    @Test
+    fun offline_download_reports_rate_limit() = runBlocking {
+        val api = ProfileApi().apply { rateLimit = true }
+        val repo = SectionProfileRepository(api, MemProfileCache())
+        repo.summaries(refresh = true)
+        assertEquals(OfflineDownloadResult.RATE_LIMITED, repo.downloadForOffline("s1"))
     }
 }

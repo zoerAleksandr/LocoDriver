@@ -68,6 +68,7 @@ val viewModelModule = module {
     viewModel { (id: String?, name: String?) -> StationNormEditorViewModel(id, name) }
     viewModel { PartnerListViewModel() }
     viewModel { com.z_company.route.viewmodel.TrackHistoryViewModel() }
+    viewModel { com.z_company.route.viewmodel.OfflineSectionsViewModel(get()) }
     viewModel { TrashViewModel() }
     viewModel { (partnerId: String?) -> PartnerEditorViewModel(partnerId) }
     viewModel { (basicId: String) -> PartnerPickerViewModel(basicId) }
