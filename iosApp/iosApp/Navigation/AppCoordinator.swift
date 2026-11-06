@@ -13,6 +13,8 @@ import SwiftUI
 /// автоматически пропадает на вложенных экранах.
 struct AppCoordinator: View {
     @ObservedObject private var router = AppRouter.shared
+    /// Покупки §19: глобальные диалоги «Платёж принят!»/«Бонус начислен!»/«Подписка продлена».
+    @ObservedObject private var purchases = PurchasesViewModelWrapper.shared
     /// Вкладка создаётся при первом открытии (не грузим VM всех вкладок на старте).
     @State private var loadedTabs: Set<AppTab> = []
 
@@ -29,6 +31,7 @@ struct AppCoordinator: View {
             }
         }
         .onAppear { loadedTabs.insert(router.selectedTab) }
+        .onAppear { LaunchOverlays.shared.start() }
         .onChange(of: router.selectedTab) { tab in loadedTabs.insert(tab) }
         .sheet(item: $router.sheet) { sheet in
             AppSheetView(sheet: sheet, onClose: { router.dismissSheet() })
@@ -38,6 +41,13 @@ struct AppCoordinator: View {
         .fullScreenCover(item: $router.fullScreen) { sheet in
             AppSheetView(sheet: sheet, onClose: { router.dismissFullScreen() })
         }
+        // §21 PDF: просматривать/шарить файл после закрытия шторки «PDF сформирован» (§24.1).
+        .fullScreenCover(item: $router.pdfPreview) { item in
+            PdfPreviewView(url: item.url) { router.pdfPreview = nil }
+        }
+        .sheet(item: $router.pdfShare) { item in
+            PdfShareView(url: item.url) { router.pdfShare = nil }
+        }
         .alert("Нужен вход в аккаунт", isPresented: $router.isSignInRequiredAlertShown) {
             Button("Войти") { router.showProfile() }
             Button("Отмена", role: .cancel) {}
@@ -45,6 +55,44 @@ struct AppCoordinator: View {
         .dsToastHost()
         // Гейт «+» (§3.4). Отдельный фоновый носитель — чтобы не делить view с алертом выше.
         .background(newRouteGateAlertHost)
+        // §19.5–19.6: глобальные диалоги на любом экране; §19.1a — лимит пачки.
+        .overlay(globalPurchasesOverlay)
+        // Возврат в приложение → проверка ожидаемой оплаты (§19.6).
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            purchases.onAppResumed()
+        }
+        .onAppear { purchases.onAppResumed() }
+    }
+
+    @ViewBuilder
+    private var globalPurchasesOverlay: some View {
+        ZStack {
+            if let notice = purchases.globalNotice {
+                PurchasesGlobalNoticeDialog(notice: notice) {
+                    purchases.dismissGlobalNotice()
+                }
+            }
+            if let limit = router.subscriptionLimit {
+                SubscriptionLimitDialog(
+                    requested: limit.requested,
+                    remaining: limit.remaining,
+                    isAuthorized: limit.isAuthorized
+                ) {
+                    router.subscriptionLimit = nil
+                    router.showPurchasesFromNewRouteGate(isAuthorized: limit.isAuthorized)
+                } onCancel: {
+                    router.subscriptionLimit = nil
+                }
+            }
+            if let text = router.snackbarMessage {
+                VStack {
+                    Spacer()
+                    DSSnackbar(text: text)
+                        .padding(.horizontal, DSMetrics.screenPadX)
+                        .padding(.bottom, 96)
+                }
+            }
+        }
     }
 
     private var newRouteGateAlertHost: some View {

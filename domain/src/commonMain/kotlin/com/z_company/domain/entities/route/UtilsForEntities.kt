@@ -706,9 +706,28 @@ object UtilsForEntities {
                 route.basicData.timeEndWork?.let { timeEnd ->
                     if (timeEnd < firstDataInMillis || timeStart > secondDataInMillis) return@forEach
 
+                    val workStart = if (firstDataInMillis > timeStart) firstDataInMillis else timeStart
+                    val workEnd = if (secondDataInMillis < timeEnd) secondDataInMillis else timeEnd
+                    // BUG-36 fix (С9): маршрут, вставший точно на границу периода,
+                    // не даёт пустой части; перерыв обрезается по границе периода —
+                    // иначе переходящий через дату смены тарифа маршрут вычитал
+                    // перерыв в обеих частях.
+                    if (workEnd <= workStart && timeEnd > timeStart) return@forEach
+                    val breakStart = route.basicData.timeStartBreak
+                    val breakEnd = route.basicData.timeEndBreak
+                    val clippedBreak =
+                        if (breakStart != null && breakEnd != null && breakEnd > breakStart) {
+                            val bStart = maxOf(breakStart, workStart)
+                            val bEnd = minOf(breakEnd, workEnd)
+                            if (bEnd > bStart) bStart to bEnd else null
+                        } else {
+                            null
+                        }
                     val updatedBasicData = route.basicData.copy(
-                        timeStartWork = if (firstDataInMillis > timeStart) firstDataInMillis else timeStart,
-                        timeEndWork = if (secondDataInMillis < timeEnd) secondDataInMillis else timeEnd
+                        timeStartWork = workStart,
+                        timeEndWork = workEnd,
+                        timeStartBreak = clippedBreak?.first,
+                        timeEndBreak = clippedBreak?.second
                     )
                     val newRoute = route.copy(basicData = updatedBasicData)
 
@@ -747,9 +766,28 @@ object UtilsForEntities {
                 route.basicData.timeEndWork?.let { timeEnd ->
                     if (timeEnd < firstDataInMillis || timeStart > secondDataInMillis) return@forEach
 
+                    val workStart = if (firstDataInMillis > timeStart) firstDataInMillis else timeStart
+                    val workEnd = if (secondDataInMillis < timeEnd) secondDataInMillis else timeEnd
+                    // BUG-36 fix (С9): маршрут, вставший точно на границу периода,
+                    // не даёт пустой части; перерыв обрезается по границе периода —
+                    // иначе переходящий через дату смены тарифа маршрут вычитал
+                    // перерыв в обеих частях.
+                    if (workEnd <= workStart && timeEnd > timeStart) return@forEach
+                    val breakStart = route.basicData.timeStartBreak
+                    val breakEnd = route.basicData.timeEndBreak
+                    val clippedBreak =
+                        if (breakStart != null && breakEnd != null && breakEnd > breakStart) {
+                            val bStart = maxOf(breakStart, workStart)
+                            val bEnd = minOf(breakEnd, workEnd)
+                            if (bEnd > bStart) bStart to bEnd else null
+                        } else {
+                            null
+                        }
                     val updatedBasicData = route.basicData.copy(
-                        timeStartWork = if (firstDataInMillis > timeStart) firstDataInMillis else timeStart,
-                        timeEndWork = if (secondDataInMillis < timeEnd) secondDataInMillis else timeEnd
+                        timeStartWork = workStart,
+                        timeEndWork = workEnd,
+                        timeStartBreak = clippedBreak?.first,
+                        timeEndBreak = clippedBreak?.second
                     )
                     val newRoute = route.copy(basicData = updatedBasicData)
 
@@ -807,14 +845,10 @@ object UtilsForEntities {
         var totalTime = 0L
         this.forEach { route ->
             if (route.isTransition(context)) {
-                val time = monthOfYear.getTimeInCurrentMonth(
-                    route.basicData.timeStartWork!!,
-                    route.basicData.timeEndWork!!,
-                    context
-                )
-                // Проезд пассажиром до явки тоже входит в отработанное время.
-                totalTime += time + route.getPassengerTimeOutsideWork() +
-                        (route.getWorkStartWaitingInterval()?.durationMillis ?: 0L)
+                // BUG-37 fix (С9): часть переходного маршрута в месяце — с вычетом
+                // перерыва в пределах этой части, как в Route.getWorkTimeInMonth
+                // (раньше перерыв не вычитался, W и переработка завышались).
+                totalTime += route.getWorkTimeInMonth(monthOfYear, context) ?: 0L
             } else {
                 route.getWorkTime().let { time ->
                     totalTime += time ?: 0

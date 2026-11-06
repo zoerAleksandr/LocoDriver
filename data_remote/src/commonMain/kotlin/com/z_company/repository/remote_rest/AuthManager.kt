@@ -65,7 +65,13 @@ class AuthManager(
         } catch (e: ServerResponseException) {
             results.add(RegistrationState.Error("Ошибка сервера: ${e.response.status.value}", code = e.response.status.value))
         } catch (e: Exception) {
-            results.add(RegistrationState.Error("Ошибка: ${e.message}"))
+            // Сетевой сбой — понятное русское сообщение вместо сырого текста исключения.
+            results.add(
+                RegistrationState.Error(
+                    if (NetworkErrorMapper.isConnectivityError(e)) NetworkErrorMapper.humanMessage(e)
+                    else "Ошибка: ${e.message}"
+                )
+            )
         }
         results.forEach { emit(it) }
     }
@@ -145,7 +151,13 @@ class AuthManager(
             }
             results.add(AuthState.Error(text))
         } catch (e: Exception) {
-            results.add(AuthState.Error("Ошибка: ${e.message}"))
+            // Сетевой сбой — понятное русское сообщение вместо сырого текста исключения.
+            results.add(
+                AuthState.Error(
+                    if (NetworkErrorMapper.isConnectivityError(e)) NetworkErrorMapper.humanMessage(e)
+                    else "Ошибка: ${e.message}"
+                )
+            )
         }
         results.forEach { emit(it) }
     }

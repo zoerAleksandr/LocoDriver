@@ -47,6 +47,7 @@ struct DSBottomSheet<Content: View>: View {
             }
         }
         .background(DSColor.bg.ignoresSafeArea())
+        .dsSheetCornerRadius(DSRadius.sheet)
     }
 
     @ViewBuilder
@@ -91,10 +92,22 @@ struct DSBottomSheet<Content: View>: View {
 }
 
 extension View {
+    /// С7: радиус шторки из макета (`DSRadius.sheet`).
+    /// `presentationCornerRadius` — iOS 16.4+; на iOS 16.0–16.3 публичного API
+    /// нет — остаётся системный радиус (deployment target не поднимаем).
+    @ViewBuilder
+    func dsSheetCornerRadius(_ radius: CGFloat) -> some View {
+        if #available(iOS 16.4, *) {
+            self.presentationCornerRadius(radius)
+        } else {
+            self
+        }
+    }
+
     /// Показывает шторку кита через системный `.sheet` (iOS 16: detents).
     /// Системный грэббер скрыт — каркас рисует свой.
-    /// ⚠️ Радиус системной шторки на iOS 16 изменить нельзя
-    /// (`presentationCornerRadius` — iOS 16.4+); используется системный.
+    /// ⚠️ Радиус шторки задаёт `DSBottomSheet` через `presentationCornerRadius`
+    /// (iOS 16.4+); на iOS 16.0–16.3 остаётся системный.
     func dsSheet<Item: Identifiable, SheetContent: View>(
         item: Binding<Item?>,
         detents: Set<PresentationDetent> = [.medium, .large],

@@ -24,6 +24,7 @@ struct TimeFormatter {
     static func formatDateTime(ms: Int64) -> String {
         let date = Date(timeIntervalSince1970: Double(ms) / 1000)
         let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
         formatter.dateFormat = "dd.MM HH:mm"
         return formatter.string(from: date)
     }
@@ -32,6 +33,7 @@ struct TimeFormatter {
     static func formatDate(ms: Int64) -> String {
         let date = Date(timeIntervalSince1970: Double(ms) / 1000)
         let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
         formatter.dateFormat = "dd.MM.yyyy"
         return formatter.string(from: date)
     }
@@ -40,6 +42,7 @@ struct TimeFormatter {
     static func formatShortDate(ms: Int64) -> String {
         let date = Date(timeIntervalSince1970: Double(ms) / 1000)
         let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
         formatter.dateFormat = "dd.MM"
         return formatter.string(from: date)
     }

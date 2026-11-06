@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		AA5QL1TE10000001 /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = AA5QL1TE00000001 /* libsqlite3.tbd */; };
 		C11C11C101000001 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = C11C11C001000002 /* Sentry */; };
+		C11C11C101000002 /* VKID in Frameworks */ = {isa = PBXBuildFile; productRef = C11C11C001000004 /* VKID */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,6 +45,7 @@
 			files = (
 				AA5QL1TE10000001 /* libsqlite3.tbd in Frameworks */,
 				C11C11C101000001 /* Sentry in Frameworks */,
+				C11C11C101000002 /* VKID in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -98,6 +100,7 @@
 			name = "LocoDriver iOS";
 			packageProductDependencies = (
 				C11C11C001000002 /* Sentry */,
+				C11C11C001000004 /* VKID */,
 			);
 			productName = "LocoDriver iOS";
 			productReference = A11A11A001000010 /* LocoDriver iOS.app */;
@@ -130,6 +133,7 @@
 			productRefGroup = A11A11A001000030 /* Products */;
 			packageReferences = (
 				C11C11C001000001 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
+				C11C11C001000003 /* XCRemoteSwiftPackageReference "vkid-ios-sdk" */,
 			);
 			projectDirPath = "";
 			projectRoot = "";
@@ -400,6 +404,14 @@
 				minimumVersion = 8.0.0;
 			};
 		};
+		C11C11C001000003 /* XCRemoteSwiftPackageReference "vkid-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/VKCOM/vkid-ios-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -407,6 +419,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C11C11C001000001 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
 			productName = Sentry;
+		};
+		C11C11C001000004 /* VKID */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C11C11C001000003 /* XCRemoteSwiftPackageReference "vkid-ios-sdk" */;
+			productName = VKID;
 		};
 /* End XCSwiftPackageProductDependency section */
 

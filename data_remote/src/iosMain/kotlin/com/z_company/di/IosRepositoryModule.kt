@@ -6,6 +6,7 @@ import com.z_company.repository.remote_rest.AuthManager
 import com.z_company.repository.remote_rest.RemoteRestApi
 import com.z_company.repository.remote_rest.RemoteRestClient
 import com.z_company.repository.remote_rest.RoutesManager
+import com.z_company.repository.remote_rest.SessionRefresher
 import com.z_company.repository.remote_rest.SettingManager
 import com.z_company.repository.remote_rest.ShareRouteManager
 import org.koin.dsl.module
@@ -30,7 +31,18 @@ val iosRepositoryModule = module {
     single<ApiForSendEmail> { RemoteRestClient.apiForSendEmail }
 
     // Менеджеры API (конструкторная инжекция, Step 2 миграции)
-    single { AuthManager(remoteRestApi = get(), apiForSendEmail = get()) }
+    // vkClientId — client_id веб-PWA «VK Машинист Web» (54740437), тем же
+    // значением настроен VKID SDK в iosApp/iosApp/Shared/VKIDService.swift.
+    // Сервер сверяет его с allowlist VK_APP_IDS и берёт vk_id из access-токена
+    // (VKID_AUTH_MIGRATION.md); без значения — лишний перебор allowlist.
+    single {
+        AuthManager(
+            remoteRestApi = get(),
+            apiForSendEmail = get(),
+            vkClientId = "54740437",
+        )
+    }
+    single { SessionRefresher(remoteRestApi = get(), secureTokenStorage = get()) }
     single { RoutesManager(remoteRestApi = get()) }
     single { SettingManager(remoteRestApi = get()) }
     single { ShareRouteManager(remoteRestApi = get()) }

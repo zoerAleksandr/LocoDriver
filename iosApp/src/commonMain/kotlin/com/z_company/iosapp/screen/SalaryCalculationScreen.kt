@@ -35,7 +35,7 @@ import org.koin.compose.koinInject
 @Composable
 internal fun SalaryCalculationScreen(router: Router) {
     val viewModel: SalaryCalculationIosViewModel = koinInject()
-    val summary by viewModel.summary.collectAsState()
+    val statement by viewModel.statement.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
     Scaffold(
@@ -69,9 +69,9 @@ internal fun SalaryCalculationScreen(router: Router) {
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            summary?.let { s ->
+            statement.let { s ->
                 Text(
-                    text = s.month,
+                    text = s.monthLabel,
                     style = MaterialTheme.typography.titleLarge,
                 )
 
@@ -85,18 +85,14 @@ internal fun SalaryCalculationScreen(router: Router) {
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        SummaryRow("Маршрутов", s.routeCount.toString())
+                        SummaryRow("К выдаче", s.toBeCreditedText)
                         SummaryRow(
                             "Общее время",
-                            "${s.totalWorkHours} ч ${s.totalWorkMinutes} мин",
+                            s.totalWorkText,
                         )
                     }
                 }
-            } ?: Text(
-                text = "Нет данных за выбранный месяц",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
