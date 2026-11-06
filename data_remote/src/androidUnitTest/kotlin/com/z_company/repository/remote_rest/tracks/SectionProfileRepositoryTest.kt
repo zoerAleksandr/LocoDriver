@@ -26,9 +26,13 @@ private class ProfileApi : AdvisorApi {
     var withBox = false
     var withEmptySection = false
     var rateLimit = false
+    var deviceReject = false
+    var failNetwork = false
+    var sectionsCalls = 0
     var sectionCallsById = mutableMapOf<String, Int>()
 
     override suspend fun sections(): List<AdvisorSectionSummaryDto> {
+        sectionsCalls++
         if (offline) throw IOException("no network")
         val near = if (withBox) listOf(55.0, 37.0, 55.02, 37.0) else null
         val far = if (withBox) listOf(10.0, 10.0, 10.1, 10.0) else null
@@ -41,6 +45,8 @@ private class ProfileApi : AdvisorApi {
     override suspend fun section(id: String): AdvisorSectionDto {
         if (offline) throw IOException("no network")
         if (rateLimit) throw IOException("advisor api: 429 rate_limited")
+        if (deviceReject) { sectionCalls++; throw AdvisorApiException(403, "root_untrusted") }
+        if (failNetwork) { sectionCalls++; throw IOException("timeout") }
         sectionCalls++
         sectionCallsById[id] = (sectionCallsById[id] ?: 0) + 1
         return AdvisorSectionDto(
@@ -172,5 +178,37 @@ class SectionProfileRepositoryTest {
 
         api.offline = true
         assertEquals(false, SectionProfileRepository(api, cache).syncAll())
+    }
+
+    @Test
+    fun device_rejection_pauses_downloads_and_sets_flag() = runBlocking {
+        val api = ProfileApi().apply { deviceReject = true }
+        val repo = SectionProfileRepository(api, MemProfileCache())
+        assertNull(repo.section("s1"))
+        assertTrue(repo.deviceRejected)
+        assertNull(repo.section("s2"))
+        // Вторая загрузка (другой участок) сеть уже не трогает: пауза на отказ устройства.
+        assertEquals(1, api.sectionCalls)
+    }
+
+    @Test
+    fun network_failure_backs_off_per_section() = runBlocking {
+        val api = ProfileApi().apply { failNetwork = true }
+        val repo = SectionProfileRepository(api, MemProfileCache())
+        repeat(5) { assertNull(repo.section("s1")) }
+        assertEquals(1, api.sectionCalls)
+        // Другой участок не заблокирован сбоем первого.
+        assertNull(repo.section("s2"))
+        assertEquals(2, api.sectionCalls)
+    }
+
+    @Test
+    fun index_refresh_is_throttled() = runBlocking {
+        val api = ProfileApi()
+        val repo = SectionProfileRepository(api, MemProfileCache())
+        repo.summaries(refresh = true)
+        repo.summaries(refresh = true)
+        repo.summaries(refresh = true)
+        assertEquals(1, api.sectionsCalls)
     }
 }

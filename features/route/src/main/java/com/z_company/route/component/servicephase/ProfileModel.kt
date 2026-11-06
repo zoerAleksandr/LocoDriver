@@ -748,6 +748,9 @@ internal class ProfileModel(
     /** Сервер отклонил загрузку профиля по лимиту (429): сообщения «проверьте интернет» были бы неверными. */
     val rateLimited: Boolean get() = repo.rateLimited
 
+    /** Устройство не прошло проверку подлинности (403): профили с сервера не придут, «проверьте интернет» было бы неверным. */
+    val deviceRejected: Boolean get() = repo.deviceRejected
+
     private fun merge(list: List<SectionProfile>) {
         if (list.isEmpty()) return
         val ids = list.map { it.id }.toSet()
@@ -807,7 +810,8 @@ internal class ProfileModel(
         scope.launch {
             val loadedSection = runCatching { withContext(Dispatchers.Default) { repo.section(id, refresh = false) } }.getOrNull()
             if (loadedSection == null) {
-                chooseError = if (repo.rateLimited) "Сервер временно ограничил загрузку профилей путей. Повторите через несколько минут."
+                chooseError = if (repo.deviceRejected) "Устройство не прошло проверку подлинности: загрузка профилей недоступна."
+                else if (repo.rateLimited) "Сервер временно ограничил загрузку профилей путей. Повторите через несколько минут."
                 else "Не удалось загрузить участок. Проверьте интернет."
             } else {
                 merge(listOf(loadedSection))
@@ -1040,6 +1044,33 @@ internal class ProfileModel(
         rebuild()
     }
 
+    private var legPrefetchKey: String? = null
+    private val LEG_PREFETCH_MAX_POINTS = 16
+
+    /**
+     * Заранее кэширует участки вдоль плеча (точки по ходу каждые 25 км): пока интернет есть, профили ложатся на диск,
+     * и в мёртвой зоне карта показывает профиль из кэша. Один прогон на плечо, фоном.
+     */
+    fun prefetchLeg() {
+        if (!loaded || needLogin || stopPoints.size < 2) return
+        val key = stopPoints.joinToString(",") { it.name }
+        if (key == legPrefetchKey) return
+        legPrefetchKey = key
+        scope.launch {
+            for (p in legCorridor(stopPoints).take(LEG_PREFETCH_MAX_POINTS)) {
+                // Отказ устройства/лимит сервера - дальше качать бессмысленно: остановка, а не серия заведомо неудачных запросов.
+                if (repo.deviceRejected || repo.rateLimited) break
+                val found = runCatching {
+                    withContext(Dispatchers.Default) { repo.sectionsNear(p.latitude, p.longitude) }
+                }.getOrDefault(emptyList())
+                if (found.isNotEmpty()) {
+                    merge(found)
+                    rebuild()
+                }
+            }
+        }
+    }
+
     private fun autoPick(fix: GeoFix, force: Boolean = false) {
         if (!force && autoId != null && live?.position?.offRoute != true) return
         val near = SectionPicker.nearest(sections.map { it.axis }, fix.latitude, fix.longitude)
@@ -1170,8 +1201,32 @@ internal fun rememberProfileModel(
         }
     }
     LaunchedEffect(model.loaded, model.stopNames) { model.ensureLeg() }
+    LaunchedEffect(model.loaded, model.stopNames) { model.prefetchLeg() }
     LaunchedEffect(fix, fixAtMs, model.loaded) { model.onFix(fix, speedKmh, if (fixAtMs > 0) fixAtMs else System.currentTimeMillis()) }
     return model
+}
+
+/** Точки вдоль плеча (станции плюс промежутки по 25 км) — отбор участков вокруг для предзагрузки в кэш. */
+private fun legCorridor(stops: List<com.z_company.domain.util.TrainMapStop>, stepKm: Double = 25.0): List<com.z_company.domain.util.TrainMapStop> {
+    if (stops.size < 2) return stops
+    val out = mutableListOf<com.z_company.domain.util.TrainMapStop>()
+    for (i in 0 until stops.size - 1) {
+        val a = stops[i]
+        val b = stops[i + 1]
+        out += a
+        val distKm = com.z_company.domain.track.TrackAnalysis.distanceM(a.latitude, a.longitude, b.latitude, b.longitude) / 1000.0
+        val n = (distKm / stepKm).toInt().coerceIn(0, 40)
+        for (k in 1..n) {
+            val t = k.toDouble() / (n + 1)
+            out += com.z_company.domain.util.TrainMapStop(
+                name = "",
+                latitude = a.latitude + (b.latitude - a.latitude) * t,
+                longitude = a.longitude + (b.longitude - a.longitude) * t,
+            )
+        }
+    }
+    out += stops.last()
+    return out
 }
 
 /** Ограничения, не поставленные на профиль из-за неизвестного километража: места для заголовка и текста диалога. */
