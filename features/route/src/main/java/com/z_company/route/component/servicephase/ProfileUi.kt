@@ -486,10 +486,13 @@ internal fun ProfileChart(
             }
         }
 
-        // Светофоры: чип с литерой и номером на полосе вверху графика, тонкий стебель вниз до линии профиля. Литер Ч - акцентный,
-        // Н - тёмный; светофор, стоящий к поезду спиной (неправильный путь), - контуром без заливки. Тесные чипы пропускаются.
+        // Светофоры: кружок на полосе вверху графика, под ним табличка с литерой и номером, тонкий стебель вниз до линии профиля.
+        // Литер Ч - акцентный, Н - тёмный; светофор, стоящий к поезду спиной (неправильный путь), - контуром без заливки.
+        // Тесные таблички пропускаются.
         if (signals.isNotEmpty()) {
             val chipH = (if (detailed) 15f else 12f) * dp
+            val rad = (if (detailed) 8f else 5.5f) * dp
+            val levelH = rad * 2f + 2f * dp + chipH + 2f * dp
             val lastEnd = floatArrayOf(-1e9f, -1e9f)
             signals.map { it to px(live.toView(it.km)) }
                 .filter { it.second in (-20f * dp)..(w + 20f * dp) }
@@ -502,18 +505,23 @@ internal fun ProfileChart(
                     val cw = tl.size.width + 6f * dp
                     val left = xx - cw / 2
                     val level = (0..1).firstOrNull { left > lastEnd[it] + 2f * dp } ?: return@forEach
-                    val top = topPad + 2f * dp + level * (chipH + 2f * dp)
+                    val top = topPad + 2f * dp + level * levelH
+                    val plateTop = top + rad * 2f + 2f * dp
                     val lineY = py(line.heightAt(sg.km))
-                    if (lineY > top + chipH) drawLine(color.copy(alpha = 0.8f), Offset(xx, top + chipH), Offset(xx, lineY), strokeWidth = 1f * dp)
+                    if (lineY > plateTop + chipH) drawLine(color.copy(alpha = 0.8f), Offset(xx, plateTop + chipH), Offset(xx, lineY), strokeWidth = 1f * dp)
                     val radius = androidx.compose.ui.geometry.CornerRadius(3f * dp, 3f * dp)
                     val chipSize = androidx.compose.ui.geometry.Size(cw, chipH)
+                    val center = Offset(xx, top + rad)
                     if (back) {
-                        drawRoundRect(color.copy(alpha = 0.12f), Offset(left, top), chipSize, radius)
-                        drawRoundRect(color, Offset(left, top), chipSize, radius, style = Stroke(width = 1.2f * dp))
+                        drawCircle(color.copy(alpha = 0.12f), rad, center)
+                        drawCircle(color, rad, center, style = Stroke(width = 1.2f * dp))
+                        drawRoundRect(color.copy(alpha = 0.12f), Offset(left, plateTop), chipSize, radius)
+                        drawRoundRect(color, Offset(left, plateTop), chipSize, radius, style = Stroke(width = 1.2f * dp))
                     } else {
-                        drawRoundRect(color, Offset(left, top), chipSize, radius)
+                        drawCircle(color, rad, center)
+                        drawRoundRect(color, Offset(left, plateTop), chipSize, radius)
                     }
-                    drawText(tl, topLeft = Offset(left + 3f * dp, top + (chipH - tl.size.height) / 2f))
+                    drawText(tl, topLeft = Offset(left + 3f * dp, plateTop + (chipH - tl.size.height) / 2f))
                     lastEnd[level] = left + cw
                 }
         }
@@ -654,6 +662,7 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
                     MeasureButton(model)
                     StripButton("Сменить направление", { model.toggleDirection() }) { PstIcon(PstIcons.Swap, 20.dp, Pst.text) }
                     if (model.hasSignals) {
+                        SignalTrackSwitch(model)
                         StripButton("Настройки профиля", { showSettings = true }) { PstIcon(PstIcons.Settings, 20.dp, Pst.text) }
                     }
                 }
@@ -781,21 +790,23 @@ private fun ProfileSettingsDialog(model: ProfileModel, onDismiss: () -> Unit) {
                     }
                 }
             }
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("ПУТЬ", style = Pst.mono.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    ChoiceChip("Правильный", on = !model.wrongTrack) { model.chooseWrongTrack(false) }
-                    ChoiceChip("Неправильный", on = model.wrongTrack) { model.chooseWrongTrack(true) }
-                }
-                Text(
-                    text = "Неправильный — едете по пути другого направления: показываются его светофоры, они стоят к вам спиной.",
-                    style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted,
-                )
-            }
             Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
                 PstButton("Готово", onDismiss, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
             }
         }
+    }
+}
+
+/**
+ * Переключатель пути светофоров: 1П - нечётные (литер Н), 2П - чётные (литер Ч). Положение по умолчанию - по чётности
+ * поезда (номер), иначе по направлению; по неправильному пути машинист включает светофоры того пути, по которому едет.
+ */
+@Composable
+private fun SignalTrackSwitch(model: ProfileModel) {
+    val current = model.signalTrack
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+        ChoiceChip("1П", on = current == SignalTrack.ODD) { model.chooseSignalTrack(SignalTrack.ODD) }
+        ChoiceChip("2П", on = current == SignalTrack.EVEN) { model.chooseSignalTrack(SignalTrack.EVEN) }
     }
 }
 

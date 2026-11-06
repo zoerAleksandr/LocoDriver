@@ -87,6 +87,15 @@ object SignalRules {
     fun shownTrack(parity: TravelParity, wrongTrack: Boolean): SignalTrack =
         if (wrongTrack) parity.track.opposite else parity.track
 
+    /**
+     * Чётность поезда по номеру: чётный номер - чётное направление, нечётный - нечётное; null - номера нет или в нём нет цифр.
+     * Берутся цифры первой группы номера (суффикс-буква не мешает: «2704Ч» - чётный).
+     */
+    fun parityOfTrainNumber(number: String?): TravelParity? {
+        val digits = number?.let { Regex("\\d+").find(it)?.value } ?: return null
+        return if ((digits.last() - '0') % 2 == 0) TravelParity.EVEN else TravelParity.ODD
+    }
+
     fun visible(signals: List<TrackSignal>, parity: TravelParity, wrongTrack: Boolean): List<TrackSignal> {
         val track = shownTrack(parity, wrongTrack)
         return signals.filter { it.track == track }
@@ -104,8 +113,19 @@ object SignalRules {
         wrongTrack: Boolean,
         limit: Int = 3,
     ): List<SignalAhead> {
+        return aheadOfTrack(signals, kmAxis, travelAxisDir, shownTrack(parity, wrongTrack), limit)
+    }
+
+    /** То же по выбранному литеру напрямую (переключатель 1П/2П на экране профиля). */
+    fun aheadOfTrack(
+        signals: List<TrackSignal>,
+        kmAxis: Double,
+        travelAxisDir: Int,
+        track: SignalTrack,
+        limit: Int = 3,
+    ): List<SignalAhead> {
         val dir = if (travelAxisDir >= 0) 1 else -1
-        return visible(signals, parity, wrongTrack)
+        return signals.filter { it.track == track }
             .map { it to (it.km - kmAxis) * dir }
             .filter { it.second > 0.02 }
             .sortedBy { it.second }
