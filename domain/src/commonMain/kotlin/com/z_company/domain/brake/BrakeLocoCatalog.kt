@@ -108,8 +108,11 @@ object BrakeLocoCatalog {
     fun find(series: String?): LocoBrakeData? {
         val n = norm(series ?: return null)
         if (n.isEmpty()) return null
-        return items.firstOrNull { norm(it.series) == n }
+        return byNorm[n]
     }
+
+    // Нормализованные ключи каталога - один раз: find() вызывается на каждый символ ввода серии.
+    private val byNorm: Map<String, LocoBrakeData> = items.associateBy { norm(it.series) }
 }
 
 /** Данные для предзаполнения справки из маршрута (поезд и локомотив); строки как в `Train`/`Locomotive`. */

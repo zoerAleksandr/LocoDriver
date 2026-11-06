@@ -51,8 +51,10 @@ private fun Modifier.verticalScrollbar(
 }
 
 /** Нормализация для сравнения названий станций: без регистра, пробелов по краям/внутри, е = ё. */
+private val WHITESPACE = Regex("\\s+")
+
 internal fun normalizeStationForMatch(text: String): String =
-    text.trim().lowercase().replace('ё', 'е').replace(Regex("\\s+"), " ")
+    text.trim().lowercase().replace('ё', 'е').replace(WHITESPACE, " ")
 
 /** true, если текст ПОЛНОСТЬЮ совпадает с одним из вариантов — подсказки тогда не нужны. */
 internal fun isExactStationMatch(text: String, stations: List<String>): Boolean {
@@ -77,6 +79,7 @@ fun StationDropdownMenu(
     val scrollState = rememberScrollState()
     val scrollbarColor = primaryColor.copy(alpha = 0.3f)
 
+    // Считаем только при открытом меню и без remember: список может меняться на месте (SnapshotStateList).
     if (stations.isNotEmpty() && expanded && !isExactStationMatch(currentText, stations)) {
         DropdownMenu(
             modifier = modifier

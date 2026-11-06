@@ -1378,16 +1378,15 @@ class LocoFormViewModel(
         if (content.isEmpty()) {
             mutableSeriesList.addAllOrSkip(seriesList.value)
         } else {
-            mutableSeriesList.clear()
             val newSeriesList =
                 seriesList.value
                     .filter { it.startsWith(prefix = content, ignoreCase = true) }
                     .filterNot { it == content }
-                    .toMutableStateList()
-            newSeriesList.forEach { ser ->
-                mutableSeriesList.add(ser)
-                changeExpandedMenu(true)
-            }
+            // Список - одним батчем и одно раскрытие меню: пообновлению на каждый элемент
+            // ввод серии давал шторм рекомпозиций.
+            mutableSeriesList.clear()
+            mutableSeriesList.addAll(newSeriesList)
+            if (newSeriesList.isNotEmpty()) changeExpandedMenu(true)
         }
     }
 

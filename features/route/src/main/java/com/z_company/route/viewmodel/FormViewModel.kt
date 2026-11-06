@@ -49,6 +49,7 @@ import com.z_company.route.viewmodel.home_view_model.StartPurchasesEvent
 import com.z_company.use_case.SubscriptionHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
@@ -64,6 +65,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -221,6 +223,7 @@ class FormViewModel(
     }
 
     // Инициализация реактивных flows
+    @OptIn(FlowPreview::class)
     private fun initializeFlows() {
         // Flow для настроек
         viewModelScope.launch {
@@ -245,10 +248,12 @@ class FormViewModel(
             salarySettingUseCase.salarySettingFlow().collect { _salarySetting.value = it }
         }
 
-        // Комбинированный flow для всех вычислений (реактивно на изменения route и settings)
+        // Комбинированный flow для всех вычислений (реактивно на изменения route и settings).
+        // currentRoute с debounce: без него тяжёлые пересчёты (зарплата, отдыхи, выборка всех
+        // маршрутов месяца) запускались на каждый символ ввода и тормозили занос данных.
         viewModelScope.launch(Dispatchers.IO) {
             combine(
-                currentRoute,
+                currentRoute.debounce(400),
                 userSetting,
                 salarySetting
             ) { route, settings, salSetting ->
