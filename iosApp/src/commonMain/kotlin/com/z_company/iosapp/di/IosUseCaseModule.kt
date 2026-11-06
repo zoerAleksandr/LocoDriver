@@ -1,12 +1,15 @@
 package com.z_company.iosapp.di
 
 import com.z_company.data_local.DatabaseDriverFactory
+import com.z_company.data_local.calendar.CalendarStorageLocalImpl
 import com.z_company.data_local.calendar.SqlDelightCalendarRepository
 import com.z_company.data_local.calendar.SqlDelightProductionCalendarRepository
 import com.z_company.data_local.calendar.SqlDelightReleaseDayRepository
 import com.z_company.data_local.norma_time.SqlDelightLocomotiveSeriesRepository
 import com.z_company.data_local.norma_time.SqlDelightPartnerRepository
 import com.z_company.data_local.norma_time.SqlDelightStationNormRepository
+import com.z_company.data_local.route.SqlDelightHistoryResponseRepository
+import com.z_company.data_local.route.SqlDelightDiagnosticRepository
 import com.z_company.data_local.route.SqlDelightRouteRepository
 import com.z_company.data_local.route.db.RouteDatabase
 import com.z_company.data_local.route.searchdb.SearchResponseDatabase
@@ -14,7 +17,10 @@ import com.z_company.data_local.setting.SqlDelightSalarySettingRepository
 import com.z_company.data_local.setting.SqlDelightSettingRepository
 import com.z_company.data_local.setting.db.SettingsDatabase
 import com.z_company.data_local.setting.salarydb.SalarySettingDatabase
+import com.z_company.domain.repositories.HistoryResponseRepository
 import com.z_company.domain.repositories.CalendarRepositories
+import com.z_company.domain.repositories.CalendarStorage
+import com.z_company.domain.repositories.DiagnosticRepository
 import com.z_company.domain.repositories.LocomotiveSeriesRepository
 import com.z_company.domain.repositories.ProductionCalendarRepository
 import com.z_company.domain.repositories.ReleaseDayRepository
@@ -22,9 +28,12 @@ import com.z_company.domain.repositories.RouteRepository
 import com.z_company.domain.repositories.SalarySettingRepository
 import com.z_company.domain.repositories.SettingsRepository
 import com.z_company.domain.repositories.SharedPreferencesRepositories
+import com.z_company.domain.repositories.AnnouncementRepository
 import com.z_company.domain.repositories.PartnerRepository
 import com.z_company.domain.repositories.StationNormRepository
+import com.z_company.domain.use_cases.AnnouncementUseCase
 import com.z_company.domain.use_cases.CalendarUseCase
+import com.z_company.domain.use_cases.LoadCalendarFromStorage
 import com.z_company.domain.use_cases.PartnerUseCase
 import com.z_company.domain.use_cases.LocomotiveUseCase
 import com.z_company.domain.use_cases.NormaUseCase
@@ -35,24 +44,47 @@ import com.z_company.domain.use_cases.RouteUseCase
 import com.z_company.domain.use_cases.SalarySettingUseCase
 import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.iosapp.repository.IosSharedPreferencesRepository
+import com.z_company.iosapp.viewmodel.AppInitIosViewModel
+import com.z_company.iosapp.viewmodel.AnnouncementIosViewModel
 import com.z_company.iosapp.viewmodel.FormIosViewModel
 import com.z_company.iosapp.viewmodel.HomeIosViewModel
 import com.z_company.iosapp.viewmodel.HomeScreenIosViewModel
 import com.z_company.iosapp.viewmodel.NewRouteIosViewModel
+import com.z_company.iosapp.viewmodel.AllRoutesScreenIosViewModel
+import com.z_company.iosapp.viewmodel.AbsenceIosViewModel
+import com.z_company.iosapp.viewmodel.CalendarIosViewModel
 import com.z_company.iosapp.viewmodel.LocoFormIosViewModel
 import com.z_company.iosapp.viewmodel.LocoScreenIosViewModel
 import com.z_company.iosapp.viewmodel.LocoTimeSheetIosViewModel
+import com.z_company.iosapp.viewmodel.NormMonthIosViewModel
+import com.z_company.iosapp.viewmodel.ScheduleWizardIosViewModel
+import com.z_company.iosapp.viewmodel.PdfExportIosViewModel
 import com.z_company.iosapp.viewmodel.SeriesListIosViewModel
 import com.z_company.iosapp.viewmodel.StationListIosViewModel
 import com.z_company.iosapp.viewmodel.ProfileIosViewModel
+import com.z_company.iosapp.viewmodel.ReferralIosViewModel
+import com.z_company.iosapp.viewmodel.PurchasesIosViewModel
 import com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel
+import com.z_company.iosapp.viewmodel.StatisticsIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsIosViewModel
 import com.z_company.iosapp.viewmodel.SettingsScreenIosViewModel
 import com.z_company.iosapp.viewmodel.PassengerFormIosViewModel
 import com.z_company.iosapp.viewmodel.RouteFormIosViewModel
+import com.z_company.iosapp.viewmodel.RouteQuickViewIosViewModel
+import com.z_company.iosapp.viewmodel.SearchIosViewModel
 import com.z_company.iosapp.viewmodel.TrainFormIosViewModel
+import com.z_company.iosapp.viewmodel.TrainScreenIosViewModel
+import com.z_company.domain.use_cases.TrainUseCase
+import com.z_company.iosapp.viewmodel.TrashIosViewModel
+import com.z_company.iosapp.viewmodel.WhatsNewIosViewModel
+import com.z_company.repository.remote_rest.RemoteAnnouncementRepository
 import com.z_company.repository.remote_rest.SyncManager
 import org.koin.dsl.module
+import platform.Foundation.NSBundle
+
+/** Маркетинговая версия клиента (CFBundleShortVersionString) — аналог BuildConfig.VERSION_NAME. */
+private fun iosAppVersion(): String? =
+    NSBundle.mainBundle.infoDictionary?.get("CFBundleShortVersionString") as? String
 
 /**
  * Единый Koin-модуль iOS: SQLDelight-драйверы, репозитории, UseCases, ViewModels.
@@ -88,6 +120,9 @@ val iosUseCaseModule = module {
     single<ProductionCalendarRepository> { SqlDelightProductionCalendarRepository() }
     single<SalarySettingRepository> { SqlDelightSalarySettingRepository() }
     single<SharedPreferencesRepositories> { IosSharedPreferencesRepository() }
+    // Новость при запуске §23: публичный API + «видел/не видел» на устройстве.
+    single<AnnouncementRepository> { RemoteAnnouncementRepository(get()) }
+    single<DiagnosticRepository> { SqlDelightDiagnosticRepository() }
 
     // ── UseCases ──────────────────────────────────────────────────────────
     single { RouteUseCase(get()) }
@@ -95,12 +130,22 @@ val iosUseCaseModule = module {
     single { SettingsUseCase(get()) }
     single { com.z_company.domain.use_cases.StationDirectoryUseCase(get()) }
     single { CalendarUseCase(get()) }
+    // С1: базовый производственный календарь (жёстко заданные теги дней) для
+    // склейки в AppInitIosViewModel.loadCalendar — как CalendarStorageLocalImpl на Android.
+    single<CalendarStorage> { CalendarStorageLocalImpl() }
+    single { LoadCalendarFromStorage(get()) }
     single { SalarySettingUseCase(get(), get()) }
     single { ReleaseDayUseCase(get()) }
     single { ProductionCalendarUseCase(get()) }
     single { NormaUseCase(get(), get(), get()) }
     single { RoutePartnerUseCase(get()) }
     single { PartnerUseCase(get()) }
+    single { com.z_company.domain.use_cases.PassengerUseCase(get()) }
+    single { com.z_company.domain.use_cases.OtherWorkUseCase(get()) }
+
+    // ── Авторизация (IOS_PLAN С4): единый источник истины «авторизован/нет» ─
+    single { com.z_company.iosapp.session.AuthSessionHolder(get(), get()) }
+    single { AnnouncementUseCase(repository = get(), sharedPreferences = get(), diagnostics = get()) }
 
     // ── Remote managers (SyncManager нужны все UseCases + remote managers) ─
     single {
@@ -118,6 +163,10 @@ val iosUseCaseModule = module {
             stationNormRepository = get(),
             partnerRepository = get(),
             remoteRestApi = get(),
+            // Метаданные клиента (ClientInfoRequest) — как clientPlatform/clientVersion
+            // на Android (BuildConfig.VERSION_NAME); версия — из Info.plist.
+            clientPlatform = "ios",
+            clientVersion = iosAppVersion(),
         )
     }
 
@@ -127,7 +176,32 @@ val iosUseCaseModule = module {
     // Экран «Настройки» §17: factory — по экземпляру на открытый экран.
     factory { SettingsScreenIosViewModel(get(), get(), get(), get(), get(), get()) }
     single { FormIosViewModel(get(), get()) }
-    single { SalaryCalculationIosViewModel(get(), get(), get(), get()) }
+    // Экран «Расчёт зарплаты» §11: single — пересчёт живёт на протяжении сессии.
+    single {
+        com.z_company.iosapp.viewmodel.SalaryCalculationIosViewModel(
+            routeUseCase = get(),
+            settingsUseCase = get(),
+            salarySettingUseCase = get(),
+            normaUseCase = get(),
+            calendarUseCase = get(),
+            sharedPrefs = get(),
+        )
+    }
+    // Справочник кодов §11.8: factory — по экземпляру на открытие.
+    factory { com.z_company.iosapp.viewmodel.PayrollCodeSearchIosViewModel() }
+    // Настройки зарплаты §12: factory — по экземпляру на экран.
+    factory {
+        com.z_company.iosapp.viewmodel.SettingSalaryIosViewModel(
+            salarySettingUseCase = get(),
+            settingsUseCase = get(),
+            calendarUseCase = get(),
+            sharedPrefs = get(),
+            syncManager = get(),
+            secureTokenStorage = get(),
+        )
+    }
+    // Экспорт PDF §21: single — выбор разделов переживает пересоздание шторки.
+    single { PdfExportIosViewModel(get(), get(), get(), get(), get(), get()) }
     single { LocoFormIosViewModel(get()) }
     // Экран «Локомотив» §1 и шторка времени §2: factory — по экземпляру на открытый экран/шторку.
     factory {
@@ -151,7 +225,35 @@ val iosUseCaseModule = module {
     factory { SeriesListIosViewModel(repository = get(), settingsUseCase = get()) }
     factory { StationListIosViewModel(repository = get(), settingsUseCase = get()) }
     single { TrainFormIosViewModel(get()) }
+    // Экран «Поезд» §6: factory — по экземпляру на открытый экран.
+    single { TrainUseCase(get()) }
+    factory {
+        TrainScreenIosViewModel(
+            trainUseCase = get(),
+            routeUseCase = get(),
+            settingsUseCase = get(),
+            sharedPrefs = get(),
+        )
+    }
     single { PassengerFormIosViewModel(get()) }
+    // «Пассажиром» §7, «Прочая работа» §8, «Напарники» §8.5: factory — по экземпляру на открытый экран.
+    factory {
+        com.z_company.iosapp.viewmodel.PassengerScreenIosViewModel(
+            passengerUseCase = get(), routeUseCase = get(), settingsUseCase = get(),
+            stationDirectory = get(), sharedPrefs = get(),
+        )
+    }
+    factory {
+        com.z_company.iosapp.viewmodel.OtherWorkScreenIosViewModel(
+            otherWorkUseCase = get(), routeUseCase = get(), settingsUseCase = get(),
+            stationDirectory = get(), sharedPrefs = get(),
+        )
+    }
+    factory {
+        com.z_company.iosapp.viewmodel.PartnersScreenIosViewModel(
+            partnerUseCase = get(), routePartnerUseCase = get(), sharedPrefs = get(),
+        )
+    }
     // Форма маршрута §5: factory — по экземпляру на открытую форму (копия поверх оригинала).
     factory {
         RouteFormIosViewModel(
@@ -167,7 +269,22 @@ val iosUseCaseModule = module {
             syncManager = get(),
         )
     }
-    single { ProfileIosViewModel(authManager = get(), syncManager = get(), secureTokenStorage = get(), sharedPrefs = get(), remoteRestApi = get()) }
+    // Профиль §18: factory — по экземпляру на открытый экран (С4: состояние
+    // авторизации — из AuthSessionHolder, а не из своей копии флага).
+    factory {
+        ProfileIosViewModel(
+            authManager = get(),
+            syncManager = get(),
+            authSession = get(),
+            secureTokenStorage = get(),
+            sharedPrefs = get(),
+            settingsUseCase = get(),
+            settingManager = get(),
+            routeUseCase = get(),
+        )
+    }
+    // «Пригласить друга» §18.R: factory — по экземпляру на открытый экран.
+    factory { ReferralIosViewModel(remoteRestApi = get(), authSession = get()) }
     single {
         HomeScreenIosViewModel(
             routeUseCase = get(),
@@ -181,4 +298,142 @@ val iosUseCaseModule = module {
         )
     }
     single { NewRouteIosViewModel(routeUseCase = get(), settingsUseCase = get(), secureTokenStorage = get()) }
+    // С1 «Производственный календарь»: инициализация при старте (первый запуск,
+    // миграции, загрузка календаря). factory — один экземпляр на запуск процесса;
+    // SettingManager уже зарегистрирован в iosRepositoryModule (data_remote).
+    factory {
+        AppInitIosViewModel(
+            sharedPrefs = get(),
+            settingsUseCase = get(),
+            routeUseCase = get(),
+            calendarUseCase = get(),
+            loadCalendarFromStorage = get(),
+            salarySettingUseCase = get(),
+            productionCalendarUseCase = get(),
+            releaseDayUseCase = get(),
+            settingManager = get(),
+            sessionRefresher = get(),
+        )
+    }
+
+    // ── Экран «Все маршруты» §9: factory — по экземпляру на открытый экран. ──
+    factory {
+        AllRoutesScreenIosViewModel(
+            routeUseCase = get(),
+            settingsUseCase = get(),
+            salarySettingUseCase = get(),
+            calendarUseCase = get(),
+            sharedPrefs = get(),
+            syncManager = get(),
+            secureTokenStorage = get(),
+            routesManager = get(),
+            shareRouteManager = get(),
+            trackRepository = getOrNull(),
+        )
+    }
+    // Быстрый просмотр маршрута §9.1: factory — по экземпляру на открытую шторку.
+    factory {
+        RouteQuickViewIosViewModel(
+            routeUseCase = get(),
+            settingsUseCase = get(),
+            salarySettingUseCase = get(),
+        )
+    }
+    // Корзина маршрутов §9.4: factory — по экземпляру на открытый экран.
+    factory {
+        TrashIosViewModel(
+            routeUseCase = get(),
+            settingsUseCase = get(),
+            syncManager = get(),
+            secureTokenStorage = get(),
+            trackRepository = getOrNull(),
+        )
+    }
+    // Поиск §10: factory — по экземпляру на открытый экран.
+    single<HistoryResponseRepository> { SqlDelightHistoryResponseRepository() }
+    factory {
+        SearchIosViewModel(
+            routeUseCase = get(),
+            settingsUseCase = get(),
+            historyRepository = get(),
+        )
+    }
+    // Экран «Статистика» §13: factory — по экземпляру на открытый экран.
+    factory {
+        StatisticsIosViewModel(
+            routeUseCase = get(),
+            settingsUseCase = get(),
+            salarySettingUseCase = get(),
+            calendarUseCase = get(),
+            normaUseCase = get(),
+            sharedPreferences = get(),
+        )
+    }
+
+    // ── Календарь §14 / Мастер §15 / Отвлечения §16 / Норма по месяцам §16.3 ─
+    // Календарь — single: месяц глобален (settings.selectMonthOfYear), как HomeScreen.
+    single {
+        CalendarIosViewModel(
+            settingsUseCase = get(),
+            salarySettingUseCase = get(),
+            calendarUseCase = get(),
+            routeUseCase = get(),
+            partnerUseCase = get(),
+            releaseDayUseCase = get(),
+            sharedPrefs = get(),
+            secureTokenStorage = get(),
+            syncManager = get(),
+            shareRouteManager = get(),
+            routesManager = get(),
+        )
+    }
+    // Мастер «Заполнить месяц» §15: factory — по экземпляру на открытие; Swift вызывает `dispose()`.
+    factory {
+        ScheduleWizardIosViewModel(
+            settingsUseCase = get(),
+            routeUseCase = get(),
+            partnerUseCase = get(),
+            calendarUseCase = get(),
+            prefs = get(),
+        )
+    }
+    // «Новое отвлечение» §16.1/16.4: factory — по экземпляру на экран.
+    factory {
+        AbsenceIosViewModel(
+            settingsUseCase = get(),
+            calendarUseCase = get(),
+            releaseDayUseCase = get(),
+            sharedPrefs = get(),
+            secureTokenStorage = get(),
+            syncManager = get(),
+        )
+    }
+    // «Норма по месяцам» §16.3/16.3.1: factory — по экземпляру на экран.
+    factory {
+        NormMonthIosViewModel(
+            settingsUseCase = get(),
+            calendarUseCase = get(),
+            releaseDayUseCase = get(),
+            normaUseCase = get(),
+            sharedPrefs = get(),
+            secureTokenStorage = get(),
+            syncManager = get(),
+        )
+    }
+    // Экран «Покупки» §19: single — ожидаемая оплата и глобальные диалоги §19.5–19.6 живут дольше экрана.
+    single {
+        PurchasesIosViewModel(
+            remoteRestApi = get(),
+            settingManager = get(),
+            settingsUseCase = get(),
+            secureTokenStorage = get(),
+            sharedPrefs = get(),
+            authManager = get(),
+            syncManager = get(),
+            routeUseCase = get(),
+        )
+    }
+    // Новость при запуске §23 и «Что нового» §22 — single, живут на протяжении сессии.
+    single { AnnouncementIosViewModel(announcementUseCase = get()) }
+    single { WhatsNewIosViewModel(sharedPrefs = get()) }
 }

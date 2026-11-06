@@ -57,6 +57,8 @@ kotlin {
             implementation(Libs.koin_compose)   // koinInject() для Compose MP
             implementation(Libs.kotlinx_coroutines_core)
             implementation(Libs.kotlinx_date_time)
+            // JSON-хранилище WorkScheduleProfile в NSUserDefaults (IosSharedPreferencesRepository)
+            implementation(Libs.kotlin_x_serialization_json)
         }
 
         iosMain.dependencies {
