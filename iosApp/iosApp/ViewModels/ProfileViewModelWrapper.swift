@@ -78,9 +78,6 @@ final class ProfileViewModelWrapper: ObservableObject {
 
     func cancelAuth() { viewModel.cancelAuth() }
 
-    /// VK ID SDK для iOS не реализован (§18.4) — кнопки VK показывают сообщение.
-    func vkNotImplemented() { viewModel.vkNotImplementedMessage() }
-
     func confirmVkRegistration() { viewModel.confirmVkRegistration() }
     func dismissVkRegistration() { viewModel.dismissVkRegistration() }
 
@@ -113,7 +110,60 @@ final class ProfileViewModelWrapper: ObservableObject {
 
     // MARK: - VK (§18.2, §18.4)
 
-    func removeUsersVKID() { viewModel.removeUsersVKID() }
+    /// One-tap вход через VK ID (§18.2): SDK → access token → `authWithVKID`.
+    /// Аккаунта с этим VK нет — Kotlin покажет диалог «Аккаунта с этим VK нет»
+    /// («Создать»/«Отмена») и продолжит через `registerByVKID`. Отмена шторки
+    /// или ошибка SDK — русское сообщение, без крашей (на Android ошибка SDK
+    /// в этом месте только логировалась, BUG-52).
+    func signInWithVKID() {
+        VKIDService.authorize { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let auth):
+                self.viewModel.authWithVKID(
+                    vkId: auth.vkId,
+                    vkAccessToken: auth.accessToken,
+                    email: ""
+                )
+            case .failure(let failure):
+                self.messages.append(DSSnackbarItem(text: failure == .cancelled
+                    ? "Вход через VK ID отменён"
+                    : "Не удалось подтвердить вход через VK ID. Попробуйте ещё раз."))
+            }
+        }
+    }
+
+    /// Привязка/вход VK ID в авторизованном профиле (§18.1/§18.4), как на
+    /// Android (`ProfileScreen`, OneTap в шапке): VK ещё не привязан →
+    /// `attachVKID` с access-токеном; уже привязан → только локальный признак
+    /// (`onVkAuthForLinkedAccount`), сетевого запроса нет.
+    func linkVKID() {
+        VKIDService.authorize { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let auth):
+                if self.state?.vkId != nil {
+                    self.viewModel.onVkAuthForLinkedAccount(vkId: auth.vkId)
+                } else {
+                    self.viewModel.attachVKID(
+                        vkId: auth.vkId,
+                        vkAccessToken: auth.accessToken
+                    )
+                }
+            case .failure(let failure):
+                self.messages.append(DSSnackbarItem(text: failure == .cancelled
+                    ? "Привязка VK ID отменена"
+                    : "Не удалось привязать VK ID. Попробуйте ещё раз."))
+            }
+        }
+    }
+
+    func removeUsersVKID() {
+        viewModel.removeUsersVKID()
+        // Сессия VK ID SDK завершается и на устройстве (как VKID.instance.logout
+        // на Android): на авторизацию «Машиниста» не влияет.
+        VKIDService.logout()
+    }
     func clearVkLinkMessage() { viewModel.clearVkLinkMessage() }
 
     // MARK: - Синхронизация (§18.5)
