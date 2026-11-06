@@ -313,6 +313,7 @@ val iosUseCaseModule = module {
             releaseDayUseCase = get(),
             settingManager = get(),
             sessionRefresher = get(),
+            secureTokenStorage = get(),
         )
     }
 

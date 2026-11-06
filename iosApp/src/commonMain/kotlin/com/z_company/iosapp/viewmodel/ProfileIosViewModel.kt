@@ -460,6 +460,9 @@ class ProfileIosViewModel(
     private suspend fun logInAs(token: String, vkId: String? = null) {
         println("AuthFlow: logInAs — storing token (len=${token.length}), switching account")
         authSession.beginAccountSwitch(token, vkId)
+        // Сначала переключаем экран на профиль (§18.1): сетевые вызовы ниже не
+        // должны задерживать или откатывать UI, даже если подписка не загрузилась.
+        _state.updateCopy(isAuthorized = true)
         val period = try {
             settingManager.getAccountSubscriptionPeriod("Bearer $token")
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -468,7 +471,6 @@ class ProfileIosViewModel(
             null
         }
         settingsUseCase.updateSubscriptionPeriod(period ?: 0L).collect {}
-        _state.updateCopy(isAuthorized = true)
         println("AuthFlow: logInAs done — isAuthorized=true, subscription period ${if (period == null) "NOT loaded" else "loaded"}")
         if (period == null) {
             _messages.tryEmit("Вход выполнен, но данные подписки не загрузились")

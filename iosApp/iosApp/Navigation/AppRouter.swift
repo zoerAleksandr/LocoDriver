@@ -126,10 +126,11 @@ final class AppRouter: ObservableObject {
     func showSettingsSection(_ section: SettingsSection) { show(.settingsSection(section)) }
 
     /// Гейт покупок (§3.2): без авторизации — диалог «Нужен вход в аккаунт»
-    /// («Войти» → Профиль). `isAuthorized` — непустой bearer-токен; передаёт вызывающий,
-    /// пока нет общего iOS-хелпера авторизации.
+    /// («Войти» → Профиль). Статус авторизации — живой, из общего хелпера (С4).
     func showPurchases(isAuthorized: Bool) {
-        if isAuthorized {
+        // isAuthorized от вызывающего — совместимость; итог — живое значение С4,
+        // чтобы не пробрасывать устаревший флаг из разных точек входа.
+        if isAuthorized || AuthSession.shared.isAuthorizedNow {
             show(.purchases)
         } else {
             isSignInRequiredAlertShown = true
