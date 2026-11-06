@@ -5,6 +5,7 @@ import com.z_company.domain.track.KmMark
 import com.z_company.domain.track.ProfileElement
 import com.z_company.domain.track.SectionAxis
 import com.z_company.domain.track.SectionBox
+import com.z_company.domain.track.SectionBrakeTest
 import com.z_company.domain.track.SectionCrossing
 import com.z_company.domain.track.SectionProfile
 import com.z_company.domain.track.SectionStation
@@ -220,6 +221,7 @@ class SectionProfileRepository(
                 )
             }.sortedBy { it.km },
             crossings = d.crossings.map { SectionCrossing(it.km, it.label, it.kind) }.sortedBy { it.km },
+            brakeTests = d.brakeTests.map { SectionBrakeTest(it.km, it.label, it.kind) }.sortedBy { it.km },
         )
     }
 

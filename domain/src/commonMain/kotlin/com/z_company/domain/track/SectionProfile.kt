@@ -32,6 +32,9 @@ data class SectionStation(val km: Double, val name: String, val lat: Double? = n
 /** Железнодорожный переезд на оси участка: [label] - подпись («134 км 2 пк»), [kind] - вид (пока crossing). */
 data class SectionCrossing(val km: Double, val label: String = "", val kind: String = "crossing")
 
+/** Место опробования тормозов на оси участка: [label] - подпись, [kind] - вид (пока brake_test). */
+data class SectionBrakeTest(val km: Double, val label: String = "", val kind: String = "brake_test")
+
 /** Участок с осью, профилем, километражем и станциями. */
 data class SectionProfile(
     val id: String,
@@ -48,6 +51,8 @@ data class SectionProfile(
     val signals: List<TrackSignal> = emptyList(),
     /** Переезды на оси; пусто - данных нет. */
     val crossings: List<SectionCrossing> = emptyList(),
+    /** Места опробования тормозов на оси; пусто - данных нет. */
+    val brakeTests: List<SectionBrakeTest> = emptyList(),
 ) {
     /** Есть ли что рисовать: хотя бы один элемент профиля. Иначе - «данные профиля собираются». */
     val hasProfile: Boolean get() = elements.any { !it.noData }

@@ -199,6 +199,9 @@ internal class ProfileModel(
         return "$t|${s.id}"
     }
     private val spokenAt = HashMap<String, Long>()
+
+    /** Переезды, о которых уже сказано на этом подходе (ключ - участок и км). */
+    private val crossingSpoken = HashSet<String>()
     private val passes = com.z_company.domain.track.WarningPassTracker()
     private var passDir = 0
 
@@ -296,6 +299,7 @@ internal class ProfileModel(
         if (historySectionId != s.id) {
             historySectionId = s.id
             spokenAt.clear()
+            crossingSpoken.clear()
             passes.reset()
             history = warningStore?.loadAll(s.id).orEmpty()
         }
@@ -537,6 +541,28 @@ internal class ProfileModel(
         }
     }
 
+    /**
+     * «Впереди переезд»: один раз на подходе (за [WarningVoiceSettings.distanceM], но не дальше 1000 м); снова - только после того,
+     * как переезд остался позади или поезд ушёл от него дальше запаса. Голос и его настройки те же, что у предупреждений.
+     */
+    private fun announceCrossings(p: LivePosition?) {
+        val settings = voiceSettings ?: return
+        val v = voice ?: return
+        val s = section ?: return
+        if (!settings.enabled || p == null || p.offRoute || !p.locked || s.crossings.isEmpty()) return
+        val dir = if (reversed) -1 else 1
+        val limitM = settings.distanceM.coerceAtMost(1000).toDouble()
+        s.crossings.forEach { c ->
+            val id = "${s.id}|${c.km}"
+            val dM = (c.km - p.kmAxis) * dir * 1000.0
+            if (dM < -50.0 || dM > limitM * 1.15) { crossingSpoken.remove(id); return@forEach }
+            if (dM in 0.0..limitM && crossingSpoken.add(id)) {
+                val text = if (dM < 150.0) "Впереди переезд" else "Через ${TrackWarnings.roundedMeters(dM)} метров переезд"
+                v.speak(text, com.z_company.domain.track.WarningSpeechPriority.AHEAD)
+            }
+        }
+    }
+
     /** Начало замера пройденного расстояния: точка, где нажали «Линейку». Положение на оси участка запоминается, если привязка была. */
     private class MeasureStart(val sectionId: String?, val axisKm: Double?, val fix: GeoFix)
     private var measureFrom by mutableStateOf<MeasureStart?>(null)
@@ -770,6 +796,7 @@ internal class ProfileModel(
         updateMeasure(fix, p)
         syncWarnings()
         announceWarnings(p, timeMs)
+        announceCrossings(p)
         // Участок выбран автоматически, а мы вне его оси - возможно, поезд уехал на другой участок: подберём заново.
         if (manualId == null && p?.offRoute == true) autoPick(fix, force = true)
     }
