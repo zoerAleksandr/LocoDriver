@@ -546,18 +546,21 @@ internal fun ProfileChart(
             )
         }
 
-        // Места опробования тормозов: кружок с буквой «Т» на линии профиля (section.brakeTests; пусто - ничего).
+        // Места торможения (section.brakeTests): красная рамка с красными буквами «НТ» (начало торможения) над линией профиля.
+        val brakeRed = Color(0xFFD62828)
         section.brakeTests.forEach { b ->
             val vx = live.toView(b.km)
             if (vx < window.fromX || vx > window.toX) return@forEach
             val xx = px(vx)
             val yy = py(line.heightAt(b.km))
-            val r = (if (detailed) 8f else 6f) * dp
-            drawCircle(Color.White.copy(alpha = 0.95f), r, Offset(xx, yy - r - 3f * dp))
-            drawCircle(accent, r, Offset(xx, yy - r - 3f * dp), style = Stroke(width = 1.6f * dp))
-            val tl = measurer.measure("Т", signalStyle.copy(color = accent), maxLines = 1)
-            drawText(tl, topLeft = Offset(xx - tl.size.width / 2f, yy - r - 3f * dp - tl.size.height / 2f))
-            drawLine(accent.copy(alpha = 0.7f), Offset(xx, yy - 3f * dp), Offset(xx, yy), strokeWidth = 1f * dp)
+            val boxW = (if (detailed) 26f else 20f) * dp
+            val boxH = (if (detailed) 20f else 15f) * dp
+            val top = (yy - boxH - 4f * dp).coerceAtLeast(topPad)
+            drawLine(brakeRed.copy(alpha = 0.8f), Offset(xx, top + boxH), Offset(xx, yy), strokeWidth = 1f * dp)
+            drawRect(Color.White, Offset(xx - boxW / 2, top), androidx.compose.ui.geometry.Size(boxW, boxH))
+            drawRect(brakeRed, Offset(xx - boxW / 2, top), androidx.compose.ui.geometry.Size(boxW, boxH), style = Stroke(width = 1.6f * dp))
+            val tl = measurer.measure("НТ", signalStyle.copy(color = brakeRed), maxLines = 1)
+            drawText(tl, topLeft = Offset(xx - tl.size.width / 2f, top + (boxH - tl.size.height) / 2f))
         }
 
         // Линия поезда: от головы (положение) назад по ходу на длину поезда, вдоль линии профиля.
