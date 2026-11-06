@@ -99,6 +99,7 @@ internal fun gradeText(live: LiveProfile, e: ProfileElement?): String? {
     }
 }
 
+private const val DEVICE_REJECTED_TEXT = "Это устройство не прошло проверку подлинности, поэтому профили путей с сервера не загружаются. Ранее сохранённые участки доступны."
 private const val RATE_LIMITED_TEXT = "Сервер временно ограничил загрузку профилей путей. Повторите через несколько минут."
 
 private fun emptyText(model: ProfileModel): String = emptyBase(model) + legHint(model)
@@ -111,7 +112,8 @@ private fun emptyBase(model: ProfileModel): String = when (model.emptyReason) {
     ProfileEmpty.LOADING -> "Загружаем профили участков…"
     ProfileEmpty.NO_LOCATION -> "Поиск спутников… Определяем местоположение."
     ProfileEmpty.NO_SECTIONS, ProfileEmpty.NO_NEARBY ->
-        if (model.rateLimited) RATE_LIMITED_TEXT
+        if (model.deviceRejected) DEVICE_REJECTED_TEXT
+        else if (model.rateLimited) RATE_LIMITED_TEXT
         else if (model.emptyReason == ProfileEmpty.NO_SECTIONS) "Профили участков не загружены. Проверьте интернет — после загрузки профиль появится."
         else "Для этого места профиль пока не собран. Данные профиля собираются — скоро он появится."
     ProfileEmpty.NEED_LOGIN -> "Профиль пути доступен после входа в аккаунт. Войдите в приложение (Профиль) — участки загрузятся."
@@ -1234,7 +1236,7 @@ internal fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
             } else if (rows.isEmpty()) {
                 Box(Modifier.weight(1f).fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                     Text(
-                        text = if (model.needLogin) "Профиль пути доступен после входа в аккаунт." else if (model.rateLimited) RATE_LIMITED_TEXT else if (model.summaries.isEmpty()) "Участки не загружены. Проверьте интернет." else "Ничего не найдено. Данные профилей собираются — список пополняется.",
+                        text = if (model.needLogin) "Профиль пути доступен после входа в аккаунт." else if (model.deviceRejected) DEVICE_REJECTED_TEXT else if (model.rateLimited) RATE_LIMITED_TEXT else if (model.summaries.isEmpty()) "Участки не загружены. Проверьте интернет." else "Ничего не найдено. Данные профилей собираются — список пополняется.",
                         style = Pst.sans.copy(fontSize = 14.sp),
                         color = Pst.textMuted,
                         textAlign = TextAlign.Center,
