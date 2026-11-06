@@ -174,6 +174,14 @@ fun ShoulderEditBottomSheet(
     // Координаты станций — из справочника (единый источник); в плече — запасная копия.
     val stationDirectory: StationDirectoryUseCase = koinInject()
     val stopNamer: com.z_company.domain.util.StopStationNamer = koinInject()
+    // Станции скачанных участков тоже подсказываются в полях «От станции»/«До станции»: плечо можно составить из ЛЮБЫХ двух станций участка.
+    val sectionRepo: com.z_company.repository.remote_rest.tracks.SectionProfileRepository = koinInject()
+    var sectionStationNames by remember { mutableStateOf(emptyList<String>()) }
+    LaunchedEffect(Unit) {
+        sectionStationNames = runCatching {
+            sectionRepo.cachedSections().flatMap { sec -> sec.stations.map { it.name.trim() } }.filter { it.isNotEmpty() }.distinct().sorted()
+        }.getOrDefault(emptyList())
+    }
     @Suppress("NAME_SHADOWING")
     val phase = remember { phase?.let(stationDirectory::resolve) }
     val directoryPoints = remember { StationDirectory.byName(stationDirectory.stations()) }
@@ -1087,7 +1095,7 @@ fun ShoulderEditBottomSheet(
                             onArrival = { arrival = it },
                             distance = distance,
                             onDistance = { v -> distance = v.copy(text = v.text.filter(Char::isDigit)) },
-                            stationList = stationList,
+                            stationList = (stationList + sectionStationNames).distinct(),
                             onDeleteStationName = onDeleteStationName,
                             onNext = { focusManager.moveFocus(FocusDirection.Down) },
                             departureFocus = departureFocus,

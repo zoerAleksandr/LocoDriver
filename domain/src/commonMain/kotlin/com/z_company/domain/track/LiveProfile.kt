@@ -237,6 +237,10 @@ object AxisSlice {
         return cr(p0.lat, p1.lat, p2.lat, p3.lat) to cr(p0.lon, p1.lon, p2.lon, p3.lon)
     }
 
+    /** Точка `(lat, lon)` оси на километре [km] (интерполяция; за пределами оси - её конец); null - ось короче двух точек. */
+    fun pointAt(points: List<AxisPoint>, km: Double): Pair<Double, Double>? =
+        if (points.size < 2) null else at(points, km.coerceIn(points.first().km, points.last().km))
+
     private fun at(points: List<AxisPoint>, km: Double): Pair<Double, Double> {
         var l = 0
         var h = points.size - 1

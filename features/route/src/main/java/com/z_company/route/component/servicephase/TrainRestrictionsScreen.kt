@@ -470,7 +470,10 @@ private fun RestrictionAddHost(
     WhereSheet(
         leg = leg,
         places = places.map { WhereItem(it, isStation = " — " !in it) },
-        hint = "Выберите станцию или перегон. Когда профиль пути загрузится на карте, ограничение появится на нём.",
+        hint = if (leg.phase?.isMapVerified == false) {
+            "Плечо не проверено на карте, поэтому станций между крайними в списке нет. Ограничение всё равно можно добавить: выберите станцию или перегон " +
+                "из списка либо «Другое место». Нажмите «Определить», чтобы подобрать станции плеча."
+        } else "Выберите станцию или перегон. Когда профиль пути загрузится на карте, ограничение появится на нём.",
         onPick = { place = places[it]; showForm = true },
         onOther = { place = null; showForm = true },
         onClose = onClose,
