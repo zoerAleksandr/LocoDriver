@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -38,6 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.z_company.core.ui.theme.MonoFont
 import com.z_company.core.ui.theme.Shapes
+import com.z_company.route.component.ChipApp
 import com.z_company.route.component.AppAlertDialog
 import com.z_company.route.component.HeaderBackTile
 import com.z_company.route.component.ScreenHeader
@@ -100,13 +100,13 @@ fun OfflineSectionsScreen(viewModel: OfflineSectionsViewModel, onBack: () -> Uni
                         shape = Shapes.small,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = !ui.onlyDownloaded, onClick = { viewModel.setOnlyDownloaded(false) }, label = { Text("Все") })
-                        FilterChip(selected = ui.onlyDownloaded, onClick = { viewModel.setOnlyDownloaded(true) }, label = { Text("На телефоне") })
+                        ChipApp(label = "Все", selected = !ui.onlyDownloaded, onClick = { viewModel.setOnlyDownloaded(false) })
+                        ChipApp(label = "Скачано", selected = ui.onlyDownloaded, onClick = { viewModel.setOnlyDownloaded(true) })
                     }
                     if (ui.items.isEmpty()) {
                         Note(
                             when {
-                                ui.onlyDownloaded -> "На телефоне пока нет сохранённых участков."
+                                ui.onlyDownloaded -> "Скачанных участков пока нет."
                                 ui.query.isBlank() -> "Участки не загружены. Проверьте интернет."
                                 else -> "Ничего не найдено."
                             },
