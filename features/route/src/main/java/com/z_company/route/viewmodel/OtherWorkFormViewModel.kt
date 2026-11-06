@@ -365,11 +365,14 @@ class OtherWorkFormViewModel(
         if (value.isEmpty()) {
             currentStationList.addAllOrSkip(stationSorter.sort(initStationList))
         } else {
+            // Список - одним батчем: пообновлению на каждый элемент ввод станции давал шторм рекомпозиций.
+            val newStationList = stationSorter.sort(
+                initStationList
+                    .filter { com.z_company.route.util.stationNameMatches(it, value) }
+                    .filterNot { it == value }
+            )
             currentStationList.clear()
-            stationSorter.sort(initStationList)
-                .filter { com.z_company.route.util.stationNameMatches(it, value) }
-                .filterNot { it == value }
-                .forEach { currentStationList.add(it) }
+            currentStationList.addAll(newStationList)
         }
     }
 

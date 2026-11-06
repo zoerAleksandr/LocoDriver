@@ -19,6 +19,8 @@ class StationSuggestionSorter(
 ) {
     @Volatile
     private var fix: GeoFix? = null
+    @Volatile
+    private var pointsCache: Map<String, Pair<Double, Double>>? = null
     private var started = false
 
     fun start(scope: CoroutineScope) {
@@ -29,7 +31,9 @@ class StationSuggestionSorter(
 
     fun sort(names: List<String>): List<String> {
         val f = fix ?: return names
-        return StationSuggestionOrder.sort(names, emptyMap(), StationDirectory.points(directory.stations()), f)
+        // Координаты справочника - один раз: запрос БД на каждый символ ввода недопустим.
+        val points = pointsCache ?: StationDirectory.points(directory.stations()).also { if (it.isNotEmpty()) pointsCache = it }
+        return StationSuggestionOrder.sort(names, emptyMap(), points, f)
     }
 
     private companion object {

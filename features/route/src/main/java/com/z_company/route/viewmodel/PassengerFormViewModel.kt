@@ -562,16 +562,17 @@ class PassengerFormViewModel(
             changeExpandMenuDepartureStation(false)
             currentStationList.addAllOrSkip(stationSorter.sort(initStationList))
         } else {
-            currentStationList.clear()
             val newStationList =
-                stationSorter.sort(initStationList)
-                    .filter { com.z_company.route.util.stationNameMatches(it, value) }
-                    .filterNot { it == value }
-                    .toMutableStateList()
-            newStationList.forEach { st ->
-                currentStationList.add(st)
-                changeExpandMenuDepartureStation(true)
-            }
+                stationSorter.sort(
+                    initStationList
+                        .filter { com.z_company.route.util.stationNameMatches(it, value) }
+                        .filterNot { it == value }
+                )
+            // Список - одним батчем и одно раскрытие меню: пообновлению на каждый элемент
+            // ввод станции давал шторм рекомпозиций.
+            currentStationList.clear()
+            currentStationList.addAll(newStationList)
+            if (newStationList.isNotEmpty()) changeExpandMenuDepartureStation(true)
         }
     }
 
@@ -580,16 +581,15 @@ class PassengerFormViewModel(
             changeExpandMenuArrivalStation(false)
             currentStationList.addAllOrSkip(stationSorter.sort(initStationList))
         } else {
-            currentStationList.clear()
             val newStationList =
-                stationSorter.sort(initStationList)
-                    .filter { com.z_company.route.util.stationNameMatches(it, value) }
-                    .filterNot { it == value }
-                    .toMutableStateList()
-            newStationList.forEach { st ->
-                currentStationList.add(st)
-                changeExpandMenuArrivalStation(true)
-            }
+                stationSorter.sort(
+                    initStationList
+                        .filter { com.z_company.route.util.stationNameMatches(it, value) }
+                        .filterNot { it == value }
+                )
+            currentStationList.clear()
+            currentStationList.addAll(newStationList)
+            if (newStationList.isNotEmpty()) changeExpandMenuArrivalStation(true)
         }
     }
 }

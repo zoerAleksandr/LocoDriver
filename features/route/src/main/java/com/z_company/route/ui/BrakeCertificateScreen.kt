@@ -96,6 +96,7 @@ import com.z_company.domain.brake.DensityLocoGroup
 import com.z_company.domain.brake.AxleCheck
 import com.z_company.domain.brake.AxleRow
 import com.z_company.domain.brake.BrakeTable
+import com.z_company.domain.brake.LocoBrakeInput
 import com.z_company.domain.onboarding.Vu45TourStep
 import com.z_company.route.component.coachAnchor
 import com.z_company.domain.brake.AxleSumCheck
@@ -121,6 +122,7 @@ import com.z_company.route.ui.settings.SettingsPickerOption
 import com.z_company.route.ui.settings.SettingsPickerSheet
 import com.z_company.route.viewmodel.BrakeCertificateUiState
 import com.z_company.route.viewmodel.BrakeCertificateViewModel
+import com.z_company.route.viewmodel.BrakeRowUi
 import com.z_company.route.viewmodel.FillPick
 import com.z_company.route.viewmodel.PressureField
 import com.z_company.route.viewmodel.effectiveDensityGroup
@@ -131,8 +133,6 @@ import com.z_company.route.viewmodel.effectiveRows
 import com.z_company.route.viewmodel.grade
 import com.z_company.route.viewmodel.manualInfo
 import com.z_company.route.viewmodel.toInput
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 
 private sealed interface BrakeSheet {
@@ -168,7 +168,18 @@ private fun formatTimer(ms: Long): String {
     return "%d,%d".format(tenths / 10, tenths % 10)
 }
 
-private fun hhmm(ms: Long): String = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(ms))
+// DateTimeFormatter потокобезопасен; часовой пояс берётся при каждом вызове (смена пояса на ходу),
+// форматтер пересоздаётся только при смене локали.
+private var hhmmFormatter: Pair<Locale, java.time.format.DateTimeFormatter>? = null
+
+private fun hhmmFormatter(): java.time.format.DateTimeFormatter {
+    val locale = Locale.getDefault()
+    hhmmFormatter?.let { if (it.first == locale) return it.second }
+    return java.time.format.DateTimeFormatter.ofPattern("HH:mm", locale).also { hhmmFormatter = locale to it }
+}
+
+private fun hhmm(ms: Long): String =
+    java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneId.systemDefault()).format(hhmmFormatter())
 
 private fun axlesForNorm(state: BrakeCertificateUiState): Int =
     state.totalAxlesText.trim().toIntOrNull() ?: state.effectiveRows().sumOf { it.axlesText.trim().toIntOrNull() ?: 0 }
@@ -209,7 +220,6 @@ fun BrakeCertificateScreen(
         }
     }
     var openCustomVolume by remember { mutableStateOf(false) }
-    val now by viewModel.nowMs.collectAsState()
     val t = vuColors()
 
     val category = BrakeNorms.category(state.categoryId) ?: BrakeNorms.categories.first()
@@ -279,14 +289,14 @@ fun BrakeCertificateScreen(
                     anchors = tourAnchors,
                 )
                 0 -> BlankTab(
-                    state, category, result, viewModel, now, side, turnaroundApplies,
+                    state, category, result, viewModel, side, turnaroundApplies,
                     onSide = { side = it },
                     onSheet = { sheet = it },
                     onOpenMeasure = { tab = 2 },
                     anchors = tourAnchors,
                 )
                 2 -> MeasureTab(
-                    state, category, viewModel, now,
+                    state, category, viewModel,
                     kind = TimerKind.valueOf(measureKind), onKind = { measureKind = it.name },
                     onGroupClick = { sheet = BrakeSheet.DensityGroup },
                     onHelp = { sheet = BrakeSheet.Help(it) },
@@ -812,7 +822,6 @@ private fun BlankTab(
     category: BrakeCategory,
     result: BrakeCertificateResult?,
     vm: BrakeCertificateViewModel,
-    now: Long,
     side: Int,
     turnaroundApplies: Boolean,
     onSide: (Int) -> Unit,
@@ -1013,18 +1022,42 @@ private fun FrontBody(
     Spacer(Modifier.height(10.dp))
 }
 
+/** Производные величины таблицы нажатий: считаются один раз на изменение состояния, а не на каждую рекомпозицию. */
+private data class AxleTableCalc(
+    val rows: List<BrakeRowUi>,
+    val byPressure: Map<Double?, BrakeRowUi>,
+    val extra: List<BrakeRowUi>,
+    val locoIn: LocoBrakeInput?,
+    val locoRowInfo: com.z_company.domain.brake.LocoTableRow,
+    val low: Boolean,
+)
+
 @Composable
 private fun AxleTable(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, onSheet: (BrakeSheet) -> Unit) {
     val t = vuColors()
-    val rows = state.effectiveRows()
-    val byPressure = rows.associateBy { it.pressureText.toFiniteDoubleOrNull() }
-    val extra = rows.filter { r -> val p = r.pressureText.toFiniteDoubleOrNull(); p != null && p !in PRINTED }
-    val locoIn = state.toInput()?.loco
-    val axleRowsForTable = rows.mapNotNull { r -> val p = r.pressureText.toFiniteDoubleOrNull(); val n = r.axlesText.trim().toIntOrNull(); if (p != null && n != null && n > 0) AxleRow(p, n) else null }
-    val locoRowInfo = BrakeTable.locoRow(axleRowsForTable, locoIn, PRINTED)
+    val calc = remember(state) {
+        val rows = state.effectiveRows()
+        val byPressure = rows.associateBy { it.pressureText.toFiniteDoubleOrNull() }
+        val extra = rows.filter { r -> val p = r.pressureText.toFiniteDoubleOrNull(); p != null && p !in PRINTED }
+        val locoIn = state.toInput()?.loco
+        val axleRowsForTable = rows.mapNotNull { r -> val p = r.pressureText.toFiniteDoubleOrNull(); val n = r.axlesText.trim().toIntOrNull(); if (p != null && n != null && n > 0) AxleRow(p, n) else null }
+        AxleTableCalc(
+            rows = rows,
+            byPressure = byPressure,
+            extra = extra,
+            locoIn = locoIn,
+            locoRowInfo = BrakeTable.locoRow(axleRowsForTable, locoIn, PRINTED),
+            low = state.toInput()?.let { BrakeCertificateCalculator.calculate(it) }?.let { it.actualPressure > 0 && !it.enough } == true,
+        )
+    }
+    val rows = calc.rows
+    val byPressure = calc.byPressure
+    val extra = calc.extra
+    val locoIn = calc.locoIn
+    val locoRowInfo = calc.locoRowInfo
     val totalAxles = locoRowInfo.totalAxles
     val totalPressure = locoRowInfo.totalPressure
-    val low = state.toInput()?.let { BrakeCertificateCalculator.calculate(it) }?.let { it.actualPressure > 0 && !it.enough } == true
+    val low = calc.low
     val lineColor = t.borderStrong
     val head: @Composable (String, Boolean) -> Unit = { text, right ->
         Box(Modifier.fillMaxSize().vuCellBorders(lineColor, right = right, bottom = true).padding(horizontal = 2.dp), contentAlignment = Alignment.Center) {
@@ -1095,8 +1128,10 @@ private fun AxleTable(state: BrakeCertificateUiState, vm: BrakeCertificateViewMo
 @Composable
 private fun AxleSumWarning(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, modifier: Modifier = Modifier) {
     val t = vuColors()
-    val sum = state.effectiveRows().sumOf { it.axlesText.trim().toIntOrNull() ?: 0 }
-    val check = AxleCheck.compareWithLoco(state.totalAxlesText.trim().toIntOrNull(), sum, state.toInput()?.loco?.axles ?: 0)
+    val check = remember(state) {
+        val sum = state.effectiveRows().sumOf { it.axlesText.trim().toIntOrNull() ?: 0 }
+        AxleCheck.compareWithLoco(state.totalAxlesText.trim().toIntOrNull(), sum, state.toInput()?.loco?.axles ?: 0)
+    }
     if (!state.rowsMode) return
     when (check) {
         is AxleSumCheck.Equal -> Unit
@@ -1575,7 +1610,6 @@ private fun MeasureTab(
     state: BrakeCertificateUiState,
     category: BrakeCategory,
     vm: BrakeCertificateViewModel,
-    now: Long,
     kind: TimerKind,
     onKind: (TimerKind) -> Unit,
     onGroupClick: () -> Unit,
@@ -1584,6 +1618,8 @@ private fun MeasureTab(
     anchors: Map<Vu45TourStep, com.z_company.route.component.CoachAnchor>,
 ) {
     val t = vuColors()
+    // Таймер читается только здесь: тик 100 мс не должен пересобирать весь бланк.
+    val now by vm.nowMs.collectAsState()
     val passenger = category.group == TrainGroup.PASSENGER
     val kinds = if (passenger) listOf(TimerKind.II, TimerKind.ROUTE) else TimerKind.values().toList()
     val active = if (kind in kinds) kind else TimerKind.II
