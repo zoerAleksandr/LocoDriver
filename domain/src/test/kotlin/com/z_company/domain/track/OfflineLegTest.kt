@@ -58,4 +58,16 @@ class OfflineLegTest {
         assertNull(OfflineLeg.determine(listOf(s), "Луга I", "луга-i"))
         assertTrue(OfflineLeg.determine(emptyList(), "A", "B") == null)
     }
+
+    @Test
+    fun repeated_names_on_axis_collapse_into_one_station() {
+        val dup = section(
+            "d",
+            SectionStation(0.0, "А", 1.0, 1.0), SectionStation(10.0, "Платформа Б", 2.0, 2.0),
+            SectionStation(11.0, "Платформа Б", 3.0, 3.0), SectionStation(12.0, "Платформа Б", 4.0, 4.0),
+            SectionStation(20.0, "В", 5.0, 5.0), SectionStation(21.0, "В", 6.0, 6.0),
+        )
+        val r = assertNotNull(OfflineLeg.determine(listOf(dup), "А", "В"))
+        assertEquals(listOf("Платформа Б"), r.stations.map { it.name })
+    }
 }
