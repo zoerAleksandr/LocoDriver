@@ -8,7 +8,7 @@ import Foundation
 //
 // Не заводятся (🚫 мёртвый код Android / Android-легаси, в iOS не реализуется):
 // SignIn/LogIn (§20), FirstPresentationBlock (§20), DetailsRoute (§22),
-// SelectReleaseDaysScreen (§16.2), UpdatePresentationBlock «Что нового» (§22),
+// SelectReleaseDaysScreen (§16.2),
 // MigrationRecoveryScreen и диагностика (§25), ConfirmExitDialog (§3.3),
 // CustomDatePickerDialog (§24.2), EnteredCoefficientDialog/EnteredRefuelDialog (§1.3).
 
@@ -49,6 +49,8 @@ enum SettingsSection: Hashable {
     case rest
     /// `NORMA` (Норма и регион, §17.2)
     case norma
+    /// `NORMA_MONTH` (Норма по месяцам / «Своя настройка», §16.3.1)
+    case normaMonth
     /// `ACCOUNTING` (Учёт, §17.3)
     case accounting
     /// `SHOULDERS` (Плечи, §17.4)
@@ -69,6 +71,7 @@ enum SettingsSection: Hashable {
         case .route: return "Основные"
         case .routeForm: return "Маршрут"
         case .norma: return "Норма и регион"
+        case .normaMonth: return "Норма по месяцам"
         case .accounting: return "Учёт"
         case .shoulders: return "Плечи"
         case .locomotive: return "Локомотив"
@@ -85,6 +88,7 @@ enum SettingsSection: Hashable {
         switch self {
         case .route, .routeForm, .locomotive, .train, .rest: return "§17.5"
         case .norma: return "§17.2"
+        case .normaMonth: return "§16.3.1"
         case .accounting: return "§17.3"
         case .shoulders: return "§17.4"
         case .seriesList, .seriesEditor, .seriesNew, .stationList, .stationEditor: return "§17.4, §2.10"
@@ -127,6 +131,9 @@ enum AppRoute: Hashable {
     case settingsSection(SettingsSection)
     // §18.R Пригласить друга
     case referral
+    // §17.7 Данные и конфиденциальность, §17.8 Мои треки (открываются из Профиля, §18.1)
+    case dataPrivacy
+    case trackHistory
     // §19 Покупки (только через гейт — AppRouter.showPurchases)
     case purchases
 
@@ -153,6 +160,8 @@ enum AppRoute: Hashable {
         case .absence: return "Новое отвлечение"
         case .settingsSection(let section): return section.title
         case .referral: return "Пригласить друга"
+        case .dataPrivacy: return "Данные и конфиденциальность"
+        case .trackHistory: return "Мои треки"
         case .purchases: return "Машинист Pro"
         }
     }
@@ -179,6 +188,8 @@ enum AppRoute: Hashable {
         case .absence: return "§16.4"
         case .settingsSection(let section): return section.specSection
         case .referral: return "§18.R"
+        case .dataPrivacy: return "§17.7"
+        case .trackHistory: return "§17.8"
         case .purchases: return "§19"
         }
     }
@@ -248,6 +259,8 @@ enum AppSheet: Identifiable, Hashable {
     case dateTimePicker(key: String)
     // §23 Новость при запуске (полноэкранный оверлей)
     case announcement
+    // §22 «Что нового» после обновления (полноэкранный оверлей)
+    case whatsNew
 
     var id: String {
         switch self {
@@ -288,6 +301,7 @@ enum AppSheet: Identifiable, Hashable {
         case .pdfActions: return "pdfActions"
         case let .dateTimePicker(key): return "dateTimePicker-\(key)"
         case .announcement: return "announcement"
+        case .whatsNew: return "whatsNew"
         }
     }
 
@@ -330,6 +344,7 @@ enum AppSheet: Identifiable, Hashable {
         case .pdfActions: return "PDF"
         case .dateTimePicker: return "Дата и время"
         case .announcement: return "Новость"
+        case .whatsNew: return "Что нового"
         }
     }
 
@@ -365,11 +380,12 @@ enum AppSheet: Identifiable, Hashable {
         case .pdfContent, .pdfActions: return "§21"
         case .dateTimePicker: return "§24.2"
         case .announcement: return "§23"
+        case .whatsNew: return "§22"
         }
     }
 
     /// Показывать на весь экран (`fullScreenCover`), а не шторкой.
     var isFullScreen: Bool {
-        self == .announcement
+        self == .announcement || self == .whatsNew
     }
 }
