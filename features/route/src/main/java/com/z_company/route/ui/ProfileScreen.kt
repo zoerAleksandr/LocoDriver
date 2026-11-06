@@ -1420,8 +1420,8 @@ fun ProfileScreen(
                                     ProfileDataDivider()
                                     ProfileDataRow(
                                         iconRes = R.drawable.ic_offline_24px,
-                                        title = "Участки без интернета",
-                                        subtitle = "Профиль пути и станции на телефоне",
+                                        title = "Скачанные участки",
+                                        subtitle = "Профиль пути, станции и светофоры на телефоне",
                                         titleStyle = styleData,
                                         subtitleStyle = styleHint,
                                         titleColor = primaryColor,

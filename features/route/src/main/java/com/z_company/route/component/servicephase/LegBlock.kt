@@ -134,7 +134,7 @@ internal fun LegDetermineRow(ctx: LegContext, phase: ServicePhase, wideButtonTex
                             applying = true
                             offlineNote = "Нет связи с сервером: плечо определено по скачанному участку «${offline.sectionName}»."
                         } else {
-                            message = st.failure.message() + ". Скачайте нужные участки заранее: Профиль → Участки без интернета."
+                            message = st.failure.message() + ". Скачайте нужные участки заранее: Профиль → Скачанные участки."
                         }
                     }
                 }
