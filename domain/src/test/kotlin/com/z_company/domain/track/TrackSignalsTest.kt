@@ -81,4 +81,21 @@ class TrackSignalsTest {
         assertEquals("5", odd(11.0, "5").title)
         assertEquals("ЧМ2А", even(1.0, "ЧМ2А", SignalKind.SHUNT).title)
     }
+
+    @Test
+    fun train_number_parity() {
+        assertEquals(TravelParity.EVEN, SignalRules.parityOfTrainNumber("2704"))
+        assertEquals(TravelParity.ODD, SignalRules.parityOfTrainNumber("2701"))
+        assertEquals(TravelParity.EVEN, SignalRules.parityOfTrainNumber("2704Ч"))
+        assertEquals(TravelParity.ODD, SignalRules.parityOfTrainNumber(" 31-й"))
+        assertNull(SignalRules.parityOfTrainNumber(null))
+        assertNull(SignalRules.parityOfTrainNumber("без номера"))
+    }
+
+    @Test
+    fun ahead_of_track_uses_chosen_track_and_marks_back_to_train() {
+        val ahead = SignalRules.aheadOfTrack(signals, 8.0, travelAxisDir = +1, track = SignalTrack.ODD, limit = 2)
+        assertEquals(listOf("3", "5"), ahead.map { it.signal.label })
+        assertTrue(ahead.all { it.backToTrain })
+    }
 }
