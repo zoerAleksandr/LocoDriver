@@ -78,6 +78,7 @@ struct TariffChangedSheet: View {
             )
             .datePickerStyle(.graphical)
             .tint(DSColor.accent)
+            .environment(\.locale, Locale(identifier: "ru_RU"))
 
             HStack(spacing: 12) {
                 DSTonalButton(title: "Отмена", tone: .neutral) {

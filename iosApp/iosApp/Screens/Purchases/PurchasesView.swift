@@ -325,6 +325,7 @@ struct PurchasesView: View {
         guard plan.discountActive, plan.discountUntil > 0 else { return nil }
         let date = Date(timeIntervalSince1970: Double(plan.discountUntil) / 1000)
         let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
         formatter.dateFormat = "dd.MM.yyyy"
         return "Действует до " + formatter.string(from: date)
     }

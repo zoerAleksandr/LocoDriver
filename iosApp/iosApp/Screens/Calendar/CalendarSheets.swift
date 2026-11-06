@@ -288,6 +288,7 @@ struct PlanCustomTimeSheet: View {
             DatePicker("", selection: $date, displayedComponents: .hourAndMinute)
                 .datePickerStyle(.wheel)
                 .labelsHidden()
+                .environment(\.locale, Locale(identifier: "ru_RU"))
                 .frame(maxWidth: .infinity)
         }
     }

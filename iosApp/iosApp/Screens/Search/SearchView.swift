@@ -321,6 +321,7 @@ struct SearchSettingsSheet: View {
                 DatePicker("", selection: $periodDate, displayedComponents: [.date])
                     .datePickerStyle(.wheel)
                     .labelsHidden()
+                    .environment(\.locale, Locale(identifier: "ru_RU"))
             }
         }
     }
