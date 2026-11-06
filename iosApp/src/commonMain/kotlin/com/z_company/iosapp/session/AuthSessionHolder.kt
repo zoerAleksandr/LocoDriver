@@ -34,9 +34,14 @@ class AuthSessionHolder(
     private val _isAuthorized = MutableStateFlow(false)
     val isAuthorized: StateFlow<Boolean> = _isAuthorized.asStateFlow()
 
+    /** In-memory копия токена: Keychain-запись может не пройти (нет подписи/entitlement),
+     *  и тогда чтение из хранилища вернул бы пустоту прямо во время сеанса. */
+    private var cachedToken: String? = null
+
     init {
         scope.launch {
             secureTokenStorage.getAuthBearerTokenFlow().collect { token ->
+                if (!token.isNullOrBlank()) cachedToken = token
                 _isAuthorized.value = !token.isNullOrBlank()
             }
         }
@@ -47,8 +52,12 @@ class AuthSessionHolder(
         scope.launch { _isAuthorized.collect { callback(it) } }
     }
 
+    /** Синхронная проверка для гейтов (§3.2): без ожидания асинхронной подписки. */
+    fun isAuthorizedNow(): Boolean = _isAuthorized.value || !cachedToken.isNullOrBlank()
+
     /** Сырой bearer-токен без префикса; null — сессии нет. */
-    suspend fun currentToken(): String? = secureTokenStorage.getAuthBearerTokenFlow().first()
+    suspend fun currentToken(): String? =
+        cachedToken?.takeIf { it.isNotBlank() } ?: secureTokenStorage.getAuthBearerTokenFlow().first()
 
     /** Токен в формате HTTP `Authorization`; null — сессии нет. */
     suspend fun currentBearer(): String? = currentToken()?.let { "Bearer $it" }
@@ -59,6 +68,8 @@ class AuthSessionHolder(
 
     suspend fun saveToken(token: String) {
         secureTokenStorage.saveAuthToken(token)
+        cachedToken = token.takeIf { it.isNotBlank() }
+        _isAuthorized.value = token.isNotBlank()
     }
 
     suspend fun saveUserId(userId: String) {
@@ -78,6 +89,10 @@ class AuthSessionHolder(
         secureTokenStorage.saveUserId("")
         secureTokenStorage.saveAuthToken(token)
         vkId?.let { secureTokenStorage.saveVkId(it) }
+        // Токен-флоу одноразовый (cold flow) — флаг обновляем здесь, иначе
+        // isAuthorized навсегда остался бы значением с последнего чтения.
+        cachedToken = token.takeIf { it.isNotBlank() }
+        _isAuthorized.value = token.isNotBlank()
     }
 
     /**
@@ -90,5 +105,7 @@ class AuthSessionHolder(
         secureTokenStorage.saveVkId("")
         secureTokenStorage.saveUserId("")
         sharedPrefs.setRouteSyncCursor(null)
+        cachedToken = null
+        _isAuthorized.value = false
     }
 }

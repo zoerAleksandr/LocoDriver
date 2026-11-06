@@ -397,7 +397,7 @@ struct ProfileView: View {
     private func subscriptionCard(_ state: ProfileIosState) -> some View {
         Button {
             // Гейт покупок (§3.2): isAuthorized — из общего хелпера авторизации (С4).
-            router.showPurchases(isAuthorized: AuthSession.shared.isAuthorized)
+            router.showPurchases(isAuthorized: AuthSession.shared.isAuthorizedNow)
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "crown.fill")
@@ -441,20 +441,35 @@ struct ProfileView: View {
     }
 
     /// Строка «Пригласить друга» + одноразовая подсказка (§18.1, §6.9).
+    /// Подсказка — тултип-пузырь над строкой, а не блок экрана.
     private func referralRow(_ state: ProfileIosState) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             if state.showReferralHint {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text("Приглашайте друзей: после первой оплаты друга вы оба получите бесплатные дни.")
-                        .dsTextStyle(.hint)
-                    Button("Понятно") { vm.dismissReferralHint() }
-                        .font(DSFont.sans(14, .semibold))
-                        .foregroundColor(DSColor.accent)
+                        .font(DSFont.sans(12))
+                        .foregroundColor(DSColor.textMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack {
+                        Spacer()
+                        Button("Понятно") { vm.dismissReferralHint() }
+                            .font(DSFont.sans(12, .semibold))
+                            .foregroundColor(DSColor.accent)
+                    }
                 }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(DSColor.accentSoft, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .padding(.top, 10)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(DSColor.bgSubtle, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(alignment: .bottomTrailing) {
+                    // Хвостик тултипа, направленный на строку «Пригласить друга».
+                    Triangle()
+                        .fill(DSColor.bgSubtle)
+                        .frame(width: 14, height: 7)
+                        .rotationEffect(.degrees(180))
+                        .offset(x: -18, y: 7)
+                }
+                .padding(.horizontal, 18)
+                .padding(.bottom, 8)
             }
             DSCard {
                 DSListRow(
@@ -585,5 +600,17 @@ struct ProfileView: View {
         ) {
             vm.removeUsersVKID()
         }
+    }
+}
+
+/// Хвостик тултипа-подсказки.
+private struct Triangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        p.closeSubpath()
+        return p
     }
 }

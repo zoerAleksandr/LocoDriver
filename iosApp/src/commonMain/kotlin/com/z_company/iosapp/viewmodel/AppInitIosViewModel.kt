@@ -20,6 +20,7 @@ import com.z_company.domain.use_cases.SettingsUseCase
 import com.z_company.repository.remote_rest.SessionRefresher
 import com.z_company.repository.remote_rest.SettingManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,6 +56,7 @@ class AppInitIosViewModel(
     private val releaseDayUseCase: ReleaseDayUseCase,
     private val settingManager: SettingManager,
     private val sessionRefresher: SessionRefresher,
+    private val secureTokenStorage: com.z_company.repository.SecureTokenStorage,
 ) : ViewModel() {
 
     // Флаг первого запуска — считываем ОДИН РАЗ до любых async операций,
@@ -78,6 +80,16 @@ class AppInitIosViewModel(
             sharedPrefs.setTokenIsFirstAppEntry(false)
         }
         viewModelScope.launch {
+            // Самотест Keychain: запись+чтение пробного значения (ключ vk_id, без секретов).
+            try {
+                val savedVk = secureTokenStorage.getVkIdFlow().first()
+                secureTokenStorage.saveVkId("probe")
+                val probe = secureTokenStorage.getVkIdFlow().first()
+                println("AppInit: keychain probe → write+read '${probe}', auth token ${secureTokenStorage.getAuthBearerTokenFlow().first()?.let { "len=${it.length}" } ?: "EMPTY"}")
+                secureTokenStorage.saveVkId(savedVk ?: "")
+            } catch (e: Exception) {
+                println("AppInit: keychain probe failed: ${e::class.simpleName}")
+            }
             // Продление сессии (POST /v1/auth/refresh) при старте — как Android StartApp.
             val outcome = sessionRefresher.refreshIfDue()
             println("AppInit: session refresh → ${outcome::class.simpleName}")
