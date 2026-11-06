@@ -29,6 +29,7 @@ data class OfflineSectionsState(
     val needLogin: Boolean = false,
     val items: List<OfflineSectionItem> = emptyList(),
     val query: String = "",
+    val onlyDownloaded: Boolean = false,
     val downloadedCount: Int = 0,
     val outdatedCount: Int = 0,
     val totalBytes: Long = 0L,
@@ -70,6 +71,11 @@ class OfflineSectionsViewModel(private val repo: SectionProfileRepository) : Vie
 
     fun setQuery(query: String) {
         _state.update { it.copy(query = query) }
+        publish()
+    }
+
+    fun setOnlyDownloaded(value: Boolean) {
+        _state.update { it.copy(onlyDownloaded = value) }
         publish()
     }
 
@@ -133,9 +139,11 @@ class OfflineSectionsViewModel(private val repo: SectionProfileRepository) : Vie
             OfflineSectionItem(s.id, s.name, s.lengthKm, status, info?.bytes ?: 0L)
         }
         val q = _state.value.query.trim().lowercase()
+        val only = _state.value.onlyDownloaded
+        // Порядок только по названию: скачанный участок не «убегает» из-под пальца в другую часть списка.
         val shown = all
-            .filter { q.isEmpty() || it.title.lowercase().contains(q) }
-            .sortedWith(compareBy<OfflineSectionItem> { it.status == OfflineStatus.NOT_DOWNLOADED }.thenBy { it.title })
+            .filter { (q.isEmpty() || it.title.lowercase().contains(q)) && (!only || it.status != OfflineStatus.NOT_DOWNLOADED) }
+            .sortedBy { it.title }
         _state.update {
             it.copy(
                 loading = loading,
