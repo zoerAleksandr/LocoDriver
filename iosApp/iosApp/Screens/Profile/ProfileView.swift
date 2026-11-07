@@ -419,14 +419,20 @@ struct ProfileView: View {
     // MARK: - Подписка (§18.1)
 
     private func subscriptionCard(_ state: ProfileIosState) -> some View {
-        Button {
+        // Активная подписка — белая карточка (как кнопка «+»): тёмные краски
+        // ФИКСИРОВАННЫЕ, не DSColor (в тёмной теме text — белый).
+        let active = state.hasActiveSubscription
+        let inkTitle = active ? Color(red: 0.10, green: 0.11, blue: 0.13) : DSColor.text
+        let inkMuted = active ? Color(red: 0.45, green: 0.47, blue: 0.50) : DSColor.textMuted
+        let inkChevron = active ? Color(red: 0.62, green: 0.64, blue: 0.67) : DSColor.textFaint
+        return Button {
             // Гейт покупок (§3.2): isAuthorized — из общего хелпера авторизации (С4).
             router.showPurchases(isAuthorized: AuthSession.shared.isAuthorizedNow)
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "crown.fill")
                     .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(state.hasActiveSubscription ? DSColor.accent : DSColor.accent)
+                    .foregroundColor(DSColor.accent)
                     .frame(width: 40, height: 40)
                     .background(
                         DSColor.accentSoft,
@@ -435,29 +441,29 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 8) {
                         Text("Машинист Pro").font(DSFont.sans(16, .semibold))
-                        if state.hasActiveSubscription {
+                        if active {
                             DSPill(text: "АКТИВНА", tone: .accent)
                         }
                     }
-                    .foregroundColor(DSColor.text)
-                    Text(state.hasActiveSubscription
+                    .foregroundColor(inkTitle)
+                    Text(active
                          ? state.subscriptionEndLabel
                          : "Оформить подписку — откроется больше возможностей")
-                        .dsTextStyle(.captionMuted, color: DSColor.textMuted)
+                        .dsTextStyle(.captionMuted, color: inkMuted)
                 }
                 Spacer(minLength: 4)
                 DSIcon.chevronRight.image
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(DSColor.textFaint)
+                    .foregroundColor(inkChevron)
             }
             .padding(16)
             .background(
-                state.hasActiveSubscription ? Color.white : DSColor.surface,
+                active ? Color.white : DSColor.surface,
                 in: RoundedRectangle(cornerRadius: 16, style: .continuous)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(state.hasActiveSubscription ? Color.clear : DSColor.border, lineWidth: 1)
+                    .stroke(active ? Color.clear : DSColor.border, lineWidth: 1)
             )
         }
         .buttonStyle(DSPressableStyle())

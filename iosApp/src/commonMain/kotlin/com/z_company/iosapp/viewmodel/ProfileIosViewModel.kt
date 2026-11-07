@@ -186,6 +186,9 @@ class ProfileIosViewModel(
     private var displayOffsetCache: Long = 3 * 3_600_000L
 
     init {
+        // ВК-профиль (имя/фото/вход) переживает перезапуск — иначе карточка
+        // откатывается к «Войдите в VK, чтобы показать профиль».
+        restoreVkProfile()
         // Токен — единый источник истины (С4): сессию могли закрыть по 401 с
         // другого экрана — профиль переходит в форму входа (§18.5).
         scope.launch {
@@ -388,6 +391,7 @@ class ProfileIosViewModel(
                             vkAvatarUrl = vkAvatar.ifBlank { null },
                             vkSdkSignedIn = true,
                         )
+                        persistVkProfile(vkName.ifBlank { null }, vkAvatar.ifBlank { null }, true)
                     }
                     authState is AuthState.Error &&
                         authState.vkError == com.z_company.repository.remote_rest.VkAuthError.UserNotFound -> {
@@ -449,6 +453,7 @@ class ProfileIosViewModel(
                             vkAvatarUrl = vkAvatar.ifBlank { null },
                             vkSdkSignedIn = true,
                         )
+                        persistVkProfile(vkName.ifBlank { null }, vkAvatar.ifBlank { null }, true)
                     }
                     is RegistrationState.Error -> {
                         val text = if (regState.code == 409) {
@@ -625,6 +630,7 @@ class ProfileIosViewModel(
             vkAvatarUrl = null,
             vkSdkSignedIn = false,
         )
+        persistVkProfile(null, null, false)
     }
 
     /**
@@ -811,6 +817,7 @@ class ProfileIosViewModel(
                             vkAvatarUrl = vkAvatar.ifBlank { null },
                             vkSdkSignedIn = true,
                         )
+                        persistVkProfile(vkName.ifBlank { null }, vkAvatar.ifBlank { null }, true)
                         refresh()
                     }
                     is GetUserProfileState.Error -> {
@@ -840,6 +847,7 @@ class ProfileIosViewModel(
                         result.accessToken?.let { authSession.saveToken(it) }
                         authSession.saveVkId("")
                         _state.updateCopy(vkProfileName = null, vkAvatarUrl = null, vkSdkSignedIn = false)
+                        persistVkProfile(null, null, false)
                         refresh()
                     }
                     is GetUserProfileState.Error -> {
@@ -865,10 +873,30 @@ class ProfileIosViewModel(
             vkAvatarUrl = vkAvatar.ifBlank { null },
             vkSdkSignedIn = true,
         )
+        persistVkProfile(vkName.ifBlank { null }, vkAvatar.ifBlank { null }, true)
     }
 
     fun clearVkLinkMessage() {
         _state.updateCopy(vkLinkMessage = null)
+    }
+
+    // ── Персистентность VK-профиля (имя/фото/флаг входа) ──────────────────
+
+    private fun persistVkProfile(name: String?, avatar: String?, signedIn: Boolean) {
+        val ud = NSUserDefaults.standardUserDefaults
+        ud.setObject(name, forKey = "ld.vkProfileName")
+        ud.setObject(avatar, forKey = "ld.vkAvatarUrl")
+        ud.setBool(signedIn, forKey = "ld.vkSdkSignedIn")
+    }
+
+    private fun restoreVkProfile() {
+        val ud = NSUserDefaults.standardUserDefaults
+        if (!ud.boolForKey("ld.vkSdkSignedIn")) return
+        _state.updateCopy(
+            vkProfileName = ud.stringForKey("ld.vkProfileName"),
+            vkAvatarUrl = ud.stringForKey("ld.vkAvatarUrl"),
+            vkSdkSignedIn = true,
+        )
     }
 
     // ═══════════════════════════════════════════════════════════════════════
