@@ -886,7 +886,8 @@ private fun SectionHeader(model: ProfileModel, modifier: Modifier = Modifier, on
     ) {
         Column(Modifier.weight(1f)) {
             Text(
-                text = s?.let { sectionTitle(it.name, live.reversed) } ?: "Выбрать участок",
+                text = model.profileTitle
+                    ?: (s?.let { sectionTitle(it.name, live.reversed) } ?: "Выбрать участок"),
                 style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
                 color = Pst.text, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
