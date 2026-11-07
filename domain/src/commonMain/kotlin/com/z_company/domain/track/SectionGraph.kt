@@ -210,11 +210,16 @@ object FactRoute {
      */
     fun axisRange(graph: SectionGraph, section: SectionProfile, posKm: Double, reversed: Boolean): ClosedFloatingPointRange<Double>? {
         val junction = nextJunctionKm(graph, section, posKm, reversed) ?: return null
+        return axisRangeAt(section, posKm, reversed, junction)
+    }
+
+    /** Диапазон от поезда до известной развилки [junctionKm] (без скана узлов графа). */
+    fun axisRangeAt(section: SectionProfile, posKm: Double, reversed: Boolean, junctionKm: Double): ClosedFloatingPointRange<Double>? {
         val lengthKm = section.axis.locator.lengthKm
         val behind = (posKm - BEHIND_KM).coerceAtLeast(0.0)
         val ahead = posKm + BEHIND_KM
-        val lo = minOf(behind, junction).coerceAtLeast(0.0)
-        val hi = maxOf(ahead, junction).coerceAtMost(lengthKm)
+        val lo = minOf(behind, junctionKm).coerceAtLeast(0.0)
+        val hi = maxOf(ahead, junctionKm).coerceAtMost(lengthKm)
         return if (hi - lo < MIN_RANGE_KM) null else lo..hi
     }
 

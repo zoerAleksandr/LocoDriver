@@ -1254,18 +1254,20 @@ internal class ProfileModel(
     /** Диапазон показа: плечо внутри участка, иначе без плеча - до ближайшей развилки («по факту»). */
     private fun refreshAxisRange() {
         val l = live ?: return
+        // Превью ветки показываем только пока оно и есть на экране: иначе флаг «съедал» кроп
+        // «по факту» (полный участок вместо обрезки до развилки).
+        if (branchPreviewKey != null && l.section.id != virtualSection?.id) clearBranchPreview()
         l.legAxisRange = LegMatch.axisRange(l.section, legStopNames()) ?: factAxisRange(l.section, l.reversed)
         // Чипы веток и превью - по реальному участку «по факту» (не по превью/плечу).
         if (!l.section.id.startsWith("virtual:")) factBaseId = l.section.id
-        scope.launch { refreshBranches() }
+        scope.launch { refreshGraphAhead() }
     }
 
-    /** Ближайшая развилка впереди на текущем профиле (км оси + имя узла); null - нет графа, положения или развилки впереди. */
-    fun junctionAhead(section: SectionProfile, reversed: Boolean): com.z_company.domain.track.FactRoute.Ahead? {
-        val g = graphCache ?: return null
-        val pos = position?.takeIf { !it.offRoute }?.kmAxis ?: return null
-        return com.z_company.domain.track.FactRoute.nextJunction(g, section, pos, reversed)
-    }
+    /** Ближайшая развилка впереди (км оси + имя узла); считается в фоне, здесь - чтение кэша. */
+    fun junctionAhead(section: SectionProfile, reversed: Boolean): com.z_company.domain.track.FactRoute.Ahead? = junctionCache
+
+    private var junctionCache: com.z_company.domain.track.FactRoute.Ahead? = null
+    private var junctionCacheKey: String? = null
 
     /** Чип ветки за развилкой: «→ Колпино · 12 км». */
     data class BranchChip(val edgeId: String, val title: String, val distanceKm: Double)
@@ -1285,49 +1287,74 @@ internal class ProfileModel(
         if (edgeId == selectedBranchId) return
         selectedBranchId = edgeId
         branchPreviewKey = null  // пересобрать превью под новую ветку
-        scope.launch { refreshBranches() }
+        scope.launch { refreshGraphAhead() }
     }
 
     /**
-     * Чипы веток и превью выбранной ветки («по факту» за развилкой). Плечо не трогаем: его маршрут
-     * задан виртуальным участком. Пока поезд не дошёл до развилки - показываем превью
-     * «подъезд + ветка»; после прохода развилки превью снимается, дальше поезда ведёт GPS-подбор.
+     * Развилка/чипы/превью ветки в фоне (тяжёлая геометрия графа - не на UI-потоке, иначе ANR при зуме).
+     * Плечо не трогаем: его маршрут задан виртуальным участком. Пока поезд не дошёл до развилки -
+     * показываем превью «подъезд + ветка»; после прохода развилки превью снимается, дальше ведёт GPS.
      */
-    private suspend fun refreshBranches() {
+    private suspend fun refreshGraphAhead() {
         val names = legStopNames()
         val rev = live?.reversed ?: false
         val pos = position?.takeIf { !it.offRoute }?.kmAxis
         val g = graphCache
-        if (names.size >= 2 || pos == null || g == null) {
+        val base = sections.firstOrNull { it.id == factBaseId }
+        if (names.size >= 2 || pos == null || g == null || base == null) {
+            junctionCache = null
+            junctionCacheKey = null
             branchChips = emptyList()
             return
         }
-        val base = sections.firstOrNull { it.id == factBaseId } ?: run { branchChips = emptyList(); return }
-        val ahead = FactRoute.nextJunction(g, base, pos, rev) ?: run {
-            branchChips = emptyList(); clearBranchPreview(); return
+        // Ключ с шагом 0.5 км: пересчёт геометрии не на каждом фиксе.
+        val key = "${base.id}|${(pos * 2).toInt()}|$rev"
+        if (key != junctionCacheKey) {
+            val ahead = withContext(Dispatchers.Default) { FactRoute.nextJunction(g, base, pos, rev) }
+            junctionCache = ahead
+            junctionCacheKey = key
+            // Пересчитать кроп/подпись по свежему кэпу.
+            live?.let { it.legAxisRange = LegMatch.axisRange(it.section, names) ?: factAxisRange(it.section, it.reversed) }
         }
-        val chips = Branches.ahead(g, base, pos, rev, sections.associateBy { it.id })
+        val ahead = junctionCache
+        if (ahead == null) {
+            branchChips = emptyList()
+            clearBranchPreview()
+            return
+        }
+        val byId = sections.associateBy { it.id }
+        val chips = withContext(Dispatchers.Default) { Branches.ahead(g, base, pos, rev, byId) }
             .map { BranchChip(it.edgeId, it.title, it.distanceKm) }
         branchChips = chips
-        if (chips.isEmpty()) { clearBranchPreview(); return }
+        if (chips.isEmpty()) {
+            clearBranchPreview()
+            return
+        }
         val eff = selectedBranchId?.takeIf { id -> chips.any { it.edgeId == id } } ?: chips.first().edgeId
         selectedBranchId = eff
-        val key = "${base.id}|${ahead.nodeId}|$eff"
-        if (key == branchPreviewKey) return
-        val branch = Branches.ahead(g, base, pos, rev, sections.associateBy { it.id }).firstOrNull { it.edgeId == eff } ?: return
+        val previewKey = "${base.id}|${ahead.nodeId}|$eff"
+        if (previewKey == branchPreviewKey) return
+        val branch = withContext(Dispatchers.Default) {
+            Branches.ahead(g, base, pos, rev, byId).firstOrNull { it.edgeId == eff }
+        } ?: return
         // Владелец ветки нужен целиком (станции/уклоны срезаются по км ребра).
         val owner = sections.firstOrNull { it.id == branch.edge.sectionId }
             ?: runCatching { repo.section(branch.edge.sectionId, refresh = false) }.getOrNull()
             ?: return
-        val preview = VirtualSection.compose(
-            listOf(
-                approachTraversal(base, pos, rev, ahead.km),
-                EdgeTraversal(branch.edge, if (branch.edge.fromNode == ahead.nodeId) branch.edge.fromKm else branch.edge.toKm,
-                    if (branch.edge.fromNode == ahead.nodeId) branch.edge.toKm else branch.edge.fromKm),
-            ),
-            mapOf(base.id to base, owner.id to owner),
-        ) ?: return
-        branchPreviewKey = key
+        val preview = withContext(Dispatchers.Default) {
+            VirtualSection.compose(
+                listOf(
+                    approachTraversal(base, pos, rev, ahead.km),
+                    EdgeTraversal(
+                        branch.edge,
+                        if (branch.edge.fromNode == ahead.nodeId) branch.edge.fromKm else branch.edge.toKm,
+                        if (branch.edge.fromNode == ahead.nodeId) branch.edge.toKm else branch.edge.fromKm,
+                    ),
+                ),
+                mapOf(base.id to base, owner.id to owner),
+            )
+        } ?: return
+        branchPreviewKey = previewKey
         virtualSection = preview
         autoId = preview.id
         rebuild()
@@ -1356,9 +1383,9 @@ internal class ProfileModel(
         // «По факту» - только для автоподбора: участок, выбранный вручную, показываем целиком с его именем.
         // Превью ветки за развилкой само собрано по маршруту - его не кропим.
         if (manualId != null || branchPreviewKey != null || legStopNames().size >= 2) return null
-        val g = graphCache ?: return null
+        val junction = junctionCache ?: return null
         val pos = position?.takeIf { !it.offRoute }?.kmAxis ?: return null
-        return com.z_company.domain.track.FactRoute.axisRange(g, s, pos, rev)
+        return FactRoute.axisRangeAt(s, pos, rev, junction.km)
     }
 
     /** Поправка по оси для выбранного участка, км (0 - нет); для показа «поправка +120 м». */
