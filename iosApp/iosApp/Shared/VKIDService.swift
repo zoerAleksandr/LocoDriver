@@ -19,6 +19,7 @@ enum VKIDService {
         let vkId: String
         let accessToken: String
         let fullName: String?
+        let avatarURL: String?
     }
 
     enum Failure: Error {
@@ -70,11 +71,18 @@ enum VKIDService {
                 switch result {
                 case .success(let session):
                     print("AuthFlow: VKID auth → success")
-                    completion(.success(Auth(
-                        vkId: String(session.accessToken.userId.value),
-                        accessToken: session.accessToken.value,
-                        fullName: name(from: session.idToken.value)
-                    )))
+                    let vkId = String(session.accessToken.userId.value)
+                    let token = session.accessToken.value
+                    // Имя/фото профиля: публичный user_info (как сервер), с фолбэком
+                    // на claims ID-токена. Сеть — короткий запрос, отмена не мешает.
+                    fetchVKProfile(token: token) { profile in
+                        completion(.success(Auth(
+                            vkId: vkId,
+                            accessToken: token,
+                            fullName: profile?.name ?? name(from: session.idToken.value),
+                            avatarURL: profile?.avatar
+                        )))
+                    }
                 case .failure(let error):
                     let failure: Failure
                     switch error {
@@ -90,6 +98,40 @@ enum VKIDService {
                 }
             }
         }
+    }
+
+    /// Публичный профиль VK (`POST https://id.vk.com/oauth2/user_info`) —
+    /// тот же запрос, что делает сервер при обмене токена. Имя и фото берём
+    /// отсюда; ошибки сети не критичны — возвращаем nil.
+    private struct VKProfile {
+        let name: String?
+        let avatar: String?
+    }
+
+    private static func fetchVKProfile(token: String, done: @escaping (VKProfile?) -> Void) {
+        var request = URLRequest(url: URL(string: "https://id.vk.com/oauth2/user_info")!)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        let body = "client_id=\(clientId)&access_token=\(token)"
+        request.httpBody = body.data(using: .utf8)
+        URLSession.shared.dataTask(with: request) { data, _, _ in
+            var profile: VKProfile? = nil
+            if let data = data,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let user = json["user"] as? [String: Any] {
+                let first = user["first_name"] as? String ?? ""
+                let last = user["last_name"] as? String ?? ""
+                let joined = (first + " " + last).trimmingCharacters(in: .whitespaces)
+                profile = VKProfile(
+                    name: joined.isEmpty ? nil : joined,
+                    avatar: user["avatar"] as? String
+                )
+                print("AuthFlow: VK user_info → name \(profile?.name != nil ? "ok" : "empty"), avatar \(profile?.avatar != nil ? "ok" : "none")")
+            } else {
+                print("AuthFlow: VK user_info → нет данных (сеть/формат)")
+            }
+            DispatchQueue.main.async { done(profile) }
+        }.resume()
     }
 
     /// Имя пользователя из ID-токена (JWT). Поддерживает варианты claims:

@@ -97,6 +97,8 @@ data class ProfileIosState(
     val vkId: String? = null,
     /** Имя из VK SDK; на iOS VK ID SDK не реализован (§18.4) — всегда null. */
     val vkProfileName: String? = null,
+    /** Фото профиля VK (user_info); null — фото нет или не загрузилось. */
+    val vkAvatarUrl: String? = null,
     /** Вход в VK через SDK выполнен (§18.1): карточка перестаёт просить «Войдите в VK»,
      *  даже если имя из токена не досталось. */
     val vkSdkSignedIn: Boolean = false,
@@ -175,6 +177,7 @@ class ProfileIosViewModel(
         val vkAccessToken: String,
         val email: String,
         val vkName: String,
+        val vkAvatar: String,
     )
 
     private var pendingVkRegistration: PendingVkRegistration? = null
@@ -364,7 +367,7 @@ class ProfileIosViewModel(
      * (`ProfileViewModelWrapper.signInWithVKID`) русским сообщением — в отличие
      * от Android, где ошибка SDK только логируется (BUG-52).
      */
-    fun authWithVKID(vkId: String, vkAccessToken: String, email: String, vkName: String) {
+    fun authWithVKID(vkId: String, vkAccessToken: String, email: String, vkName: String, vkAvatar: String) {
         loginJob?.cancel()
         loginJob = scope.launch {
             println("AuthFlow: authWithVKID → start")
@@ -382,6 +385,7 @@ class ProfileIosViewModel(
                         _state.updateCopy(
                             authLoading = false,
                             vkProfileName = vkName.ifBlank { null },
+                            vkAvatarUrl = vkAvatar.ifBlank { null },
                             vkSdkSignedIn = true,
                         )
                     }
@@ -389,7 +393,7 @@ class ProfileIosViewModel(
                         authState.vkError == com.z_company.repository.remote_rest.VkAuthError.UserNotFound -> {
                         println("AuthFlow: authWithVKID → vkUserNotFound (registration offer)")
                         // Токен держим в памяти до подтверждения (§18.2).
-                        pendingVkRegistration = PendingVkRegistration(vkId, vkAccessToken, email, vkName)
+                        pendingVkRegistration = PendingVkRegistration(vkId, vkAccessToken, email, vkName, vkAvatar)
                         _state.updateCopy(
                             authLoading = false,
                             vkRegistrationOffer = true,
@@ -413,7 +417,7 @@ class ProfileIosViewModel(
         pendingVkRegistration = null
         _state.updateCopy(vkRegistrationOffer = false)
         println("AuthFlow: confirmVkRegistration → registerByVKID")
-        registerByVKID(pending.vkId, pending.vkAccessToken, pending.email, pending.vkName)
+        registerByVKID(pending.vkId, pending.vkAccessToken, pending.email, pending.vkName, pending.vkAvatar)
     }
 
     /** «Отмена» — отложенный access token стирается (§18.2). */
@@ -423,7 +427,7 @@ class ProfileIosViewModel(
     }
 
     /** Регистрация по VK ID (§18.0): без пароля, почта — из данных VK. */
-    fun registerByVKID(vkId: String, vkAccessToken: String, email: String, vkName: String) {
+    fun registerByVKID(vkId: String, vkAccessToken: String, email: String, vkName: String, vkAvatar: String) {
         registerJob?.cancel()
         registerJob = scope.launch {
             println("AuthFlow: registerByVKID → start")
@@ -442,6 +446,7 @@ class ProfileIosViewModel(
                         _state.updateCopy(
                             registrationLoading = false,
                             vkProfileName = vkName.ifBlank { null },
+                            vkAvatarUrl = vkAvatar.ifBlank { null },
                             vkSdkSignedIn = true,
                         )
                     }
@@ -617,6 +622,7 @@ class ProfileIosViewModel(
             email = null,
             vkId = null,
             vkProfileName = null,
+            vkAvatarUrl = null,
             vkSdkSignedIn = false,
         )
     }
@@ -791,7 +797,7 @@ class ProfileIosViewModel(
      * Привязка VK к текущему аккаунту (`PATCH /v1/auth/vkId/add`). Ошибка
      * (в т.ч. 409) показывается через [ProfileIosState.vkLinkMessage].
      */
-    fun attachVKID(vkId: String, vkAccessToken: String, vkName: String) {
+    fun attachVKID(vkId: String, vkAccessToken: String, vkName: String, vkAvatar: String) {
         scope.launch {
             val bearer = authSession.currentBearer() ?: return@launch
             println("AuthFlow: attachVKID → start")
@@ -802,6 +808,7 @@ class ProfileIosViewModel(
                         authSession.saveVkId(vkId)
                         _state.updateCopy(
                             vkProfileName = vkName.ifBlank { null },
+                            vkAvatarUrl = vkAvatar.ifBlank { null },
                             vkSdkSignedIn = true,
                         )
                         refresh()
@@ -832,7 +839,7 @@ class ProfileIosViewModel(
                         println("AuthFlow: removeUsersVKID → success")
                         result.accessToken?.let { authSession.saveToken(it) }
                         authSession.saveVkId("")
-                        _state.updateCopy(vkProfileName = null, vkSdkSignedIn = false)
+                        _state.updateCopy(vkProfileName = null, vkAvatarUrl = null, vkSdkSignedIn = false)
                         refresh()
                     }
                     is GetUserProfileState.Error -> {
@@ -846,7 +853,7 @@ class ProfileIosViewModel(
     }
 
     /** Локальная авторизация VK SDK для уже привязанного аккаунта (§18.1). */
-    fun onVkAuthForLinkedAccount(vkId: String, vkName: String) {
+    fun onVkAuthForLinkedAccount(vkId: String, vkName: String, vkAvatar: String) {
         scope.launch {
             authSession.saveVkId(vkId)
         }
@@ -855,6 +862,7 @@ class ProfileIosViewModel(
         _state.updateCopy(
             vkId = vkId,
             vkProfileName = vkName.ifBlank { null },
+            vkAvatarUrl = vkAvatar.ifBlank { null },
             vkSdkSignedIn = true,
         )
     }
@@ -1247,6 +1255,7 @@ class ProfileIosViewModel(
         email: String? = value.email,
         vkId: String? = value.vkId,
         vkProfileName: String? = value.vkProfileName,
+        vkAvatarUrl: String? = value.vkAvatarUrl,
         vkSdkSignedIn: Boolean = value.vkSdkSignedIn,
         vkLinkMessage: String? = value.vkLinkMessage,
         vkRegistrationOffer: Boolean = value.vkRegistrationOffer,
@@ -1279,6 +1288,7 @@ class ProfileIosViewModel(
             email = email,
             vkId = vkId,
             vkProfileName = vkProfileName,
+            vkAvatarUrl = vkAvatarUrl,
             vkSdkSignedIn = vkSdkSignedIn,
             vkLinkMessage = vkLinkMessage,
             vkRegistrationOffer = vkRegistrationOffer,

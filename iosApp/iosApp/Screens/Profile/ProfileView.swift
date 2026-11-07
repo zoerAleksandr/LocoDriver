@@ -287,7 +287,7 @@ struct ProfileView: View {
             }
             if let name = state.vkProfileName {
                 HStack(alignment: .top, spacing: 12) {
-                    DSIconAvatar(icon: .profile, size: .lg, tone: .accent, shape: .circle)
+                    VKAvatar(url: state.vkAvatarUrl, size: 52)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(name).font(DSFont.sans(17, .semibold))
                         HStack(spacing: 6) {
@@ -310,7 +310,7 @@ struct ProfileView: View {
                 // Вход в VK выполнен, но имя из токена не досталось: показываем id
                 // без призыва «Войдите в VK» и без повторной кнопки входа.
                 HStack(alignment: .top, spacing: 12) {
-                    DSIconAvatar(icon: .profile, size: .lg, tone: .accent, shape: .circle)
+                    VKAvatar(url: state.vkAvatarUrl, size: 52)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("VK ID").font(DSFont.sans(17, .semibold))
                         HStack(spacing: 6) {
@@ -634,5 +634,28 @@ private struct Triangle: Shape {
         p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
         p.closeSubpath()
         return p
+    }
+}
+
+/// Аватар VK: фото профиля, иначе стандартная иконка (§18.1).
+private struct VKAvatar: View {
+    let url: String?
+    let size: CGFloat
+
+    var body: some View {
+        if let url = url, let remote = URL(string: url) {
+            AsyncImage(url: remote) { phase in
+                switch phase {
+                case .success(let image):
+                    image.resizable().scaledToFill()
+                default:
+                    DSIconAvatar(icon: .profile, size: .lg, tone: .accent, shape: .circle)
+                }
+            }
+            .frame(width: size, height: size)
+            .clipShape(Circle())
+        } else {
+            DSIconAvatar(icon: .profile, size: .lg, tone: .accent, shape: .circle)
+        }
     }
 }
