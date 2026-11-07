@@ -54,6 +54,35 @@ data class AdvisorStationDto(
     val lon: Double? = null,
 )
 
+/** `GET /v1/advisor/graph`: узел графа участков (стык, развилка или тупик). */
+@Serializable
+data class AdvisorGraphNodeDto(
+    val id: String,
+    val lat: Double = 0.0,
+    val lon: Double = 0.0,
+    val name: String = "",
+)
+
+/** Ребро графа: отрезок оси участка-владельца [sectionId] между узлами, км — по его оси. */
+@Serializable
+data class AdvisorGraphEdgeDto(
+    val id: String,
+    val sectionId: String,
+    val fromKm: Double = 0.0,
+    val toKm: Double = 0.0,
+    val fromNode: String = "",
+    val toNode: String = "",
+    val lengthKm: Double = 0.0,
+)
+
+/** Граф оцифрованных участков; `version` меняется при правке участка или кабинета «Стыки». */
+@Serializable
+data class AdvisorGraphDto(
+    val version: String = "",
+    val nodes: List<AdvisorGraphNodeDto> = emptyList(),
+    val edges: List<AdvisorGraphEdgeDto> = emptyList(),
+)
+
 /**
  * Светофор на оси участка. `track` - литер: "E" (Ч, чётное направление) или "O" (Н, нечётное); `kind` - "pass" | "station" |
  * "shunt" | "distant"; `facing` - в какую сторону оси виден лицом (+1 по возрастанию км, −1 против). Поле необязательное:
