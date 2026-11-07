@@ -50,6 +50,8 @@ internal class LegContext(
     val title: String?,
     val phase: ServicePhase?,
     val country: String,
+    /** Концы плеча по названиям (отправление, прибытие) - есть даже у плеча без геоданных; null - плеча нет. */
+    val endNames: Pair<String, String>? = null,
     val onSelect: () -> Unit,
     val onUpdate: (ServicePhase) -> Unit,
     val onAddNames: (List<String>) -> Unit,

@@ -89,3 +89,60 @@ class SectionGraphTest {
         assertEquals(listOf<GraphPoint>(GraphPoint.OnEdge("e1", 5.0)), pts)
     }
 }
+
+class FactRouteTest {
+    /* A —(e1 0..10)— B —(e2 0..10)— C; D —(e3 0..4)— B: B - развилка (3 ребра), A/C/D - тупики (1). */
+    private val nA = GraphNode("A", 55.0, 30.0, "Андреево")
+    private val nB = GraphNode("B", 55.1, 30.0, "Борисово")
+    private val nC = GraphNode("C", 55.2, 30.0, "")
+    private val nD = GraphNode("D", 55.1, 30.3, "Данилово")
+    private val e1 = GraphEdge("e1", "s1", 0.0, 10.0, "A", "B", 10.0)
+    private val e2 = GraphEdge("e2", "s2", 0.0, 10.0, "B", "C", 10.0)
+    private val e3 = GraphEdge("e3", "s3", 0.0, 4.0, "D", "B", 4.0)
+    private val graph = SectionGraph("v1", listOf(nA, nB, nC, nD), listOf(e1, e2, e3))
+
+    /* Участок s1: ось 0..10 км по широте 55.0 -> 55.1 (в т.ч. точка узла B в конце). */
+    private fun sectionS1() = SectionProfile(
+        id = "s1", name = "Уч", fromStation = "", toStation = "", lengthKm = 10.0, axisHash = "h",
+        axis = SectionAxis(
+            "s1", "h", listOf(
+                AxisPoint(0.0, 55.0, 30.0),
+                AxisPoint(5.0, 55.05, 30.0),
+                AxisPoint(10.0, 55.1, 30.0),
+            ),
+        ),
+        elements = emptyList(), kmMarks = emptyList(), stations = emptyList(),
+    )
+
+    @Test
+    fun junction_ahead_is_found() {
+        val km = FactRoute.nextJunctionKm(graph, sectionS1(), posKm = 3.0, reversed = false)
+        assertNotNull(km)
+        assertEquals(10.0, km!!, 0.05)  // узел B в конце оси s1
+    }
+
+    @Test
+    fun junction_behind_is_skipped() {
+        // едем от B к A (reverse): развилка B позади, впереди её нет
+        assertNull(FactRoute.nextJunctionKm(graph, sectionS1(), posKm = 8.0, reversed = true))
+    }
+
+    @Test
+    fun range_is_from_train_to_junction() {
+        val r = FactRoute.axisRange(graph, sectionS1(), posKm = 3.0, reversed = false)
+        assertNotNull(r)
+        assertTrue(r!!.endInclusive >= 10.0 - 0.05)   // правая граница - развилка
+        assertTrue(r.start <= 3.0)                    // поезд внутри диапазона
+    }
+
+    @Test
+    fun no_junction_ahead_gives_null() {
+        // участок без развилок (впереди только тупик)
+        val s = SectionProfile(
+            id = "x", name = "У", fromStation = "", toStation = "", lengthKm = 5.0, axisHash = "h",
+            axis = SectionAxis("x", "h", listOf(AxisPoint(0.0, 56.0, 31.0), AxisPoint(5.0, 56.05, 31.0))),
+            elements = emptyList(), kmMarks = emptyList(), stations = emptyList(),
+        )
+        assertNull(FactRoute.axisRange(graph, s, posKm = 1.0, reversed = false))
+    }
+}

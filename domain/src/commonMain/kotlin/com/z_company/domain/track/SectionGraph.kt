@@ -164,3 +164,54 @@ object GraphLeg {
         return best
     }
 }
+
+/** «Маршрут по факту» без плеча: следование по выбранному по GPS участку до ближайшей развилки пути. */
+object FactRoute {
+    /** Узел развилки, если к нему ведут больше двух рёбер (продолжаются оцифрованные участки). */
+    const val JUNCTION_DEGREE = 3
+
+    /** Развилки примыкают к оси не дальше этого (м): узел стыка может быть чуть в стороне от оси. */
+    const val JUNCTION_SNAP_M = 60.0
+
+    /**
+     * Км оси ближайшей развилки впереди по ходу (null - впереди до конца участка развилок нет).
+     * [posKm] - положение поезда на оси участка; [reversed] - поезд идёт от конца оси к началу.
+     */
+    fun nextJunctionKm(graph: SectionGraph, section: SectionProfile, posKm: Double, reversed: Boolean): Double? {
+        val degree = HashMap<String, Int>()
+        for (e in graph.edges) {
+            degree[e.fromNode] = (degree[e.fromNode] ?: 0) + 1
+            degree[e.toNode] = (degree[e.toNode] ?: 0) + 1
+        }
+        val locator = section.axis.locator
+        var best: Double? = null
+        for (n in graph.nodes) {
+            if ((degree[n.id] ?: 0) < JUNCTION_DEGREE) continue
+            val hit = locator.project(n.lat, n.lon) ?: continue
+            if (hit.offsetM > JUNCTION_SNAP_M) continue
+            val km = hit.kmM / 1000.0
+            if (!reversed && km <= posKm + 0.05) continue
+            if (reversed && km >= posKm - 0.05) continue
+            if (best == null || (!reversed && km < best) || (reversed && km > best)) best = km
+        }
+        return best
+    }
+
+    /**
+     * Диапазон оси для показа «по факту»: от поезда ([posKm], с запасом [BEHIND_KM] позади) до ближайшей
+     * развилки впереди по ходу. null - развилки впереди нет или положение неизвестно - участок целиком.
+     */
+    fun axisRange(graph: SectionGraph, section: SectionProfile, posKm: Double, reversed: Boolean): ClosedFloatingPointRange<Double>? {
+        val junction = nextJunctionKm(graph, section, posKm, reversed) ?: return null
+        val lengthKm = section.axis.locator.lengthKm
+        val behind = (posKm - BEHIND_KM).coerceAtLeast(0.0)
+        val ahead = posKm + BEHIND_KM
+        val lo = minOf(behind, junction).coerceAtLeast(0.0)
+        val hi = maxOf(ahead, junction).coerceAtMost(lengthKm)
+        return if (hi - lo < MIN_RANGE_KM) null else lo..hi
+    }
+
+    /** Сколько км профиля оставлять позади поезда (чтобы окно показывало и то, что уже проехали). */
+    const val BEHIND_KM = 2.0
+    const val MIN_RANGE_KM = 0.5
+}

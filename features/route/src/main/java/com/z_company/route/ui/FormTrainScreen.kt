@@ -327,6 +327,9 @@ fun FormTrainScreen(
             title = formUiState.selectedServicePhase?.let { "${it.departureStation} — ${it.arrivalStation}" },
             phase = servicePhaseList.firstOrNull { it.id == formUiState.selectedServicePhase?.id },
             country = viewModel.userCountry,
+            endNames = formUiState.selectedServicePhase
+                ?.let { it.departureStation to it.arrivalStation }
+                ?.takeIf { it.first.isNotBlank() && it.second.isNotBlank() },
             onSelect = { showSelectServicePhase = true },
             onUpdate = onUpdateServicePhase,
             onAddNames = viewModel::addStationNames,

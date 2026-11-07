@@ -32,6 +32,9 @@ interface AdvisorApi {
     /** Граф стыков и развилок участков (`GET /v1/advisor/graph`); без конверта - только топология и км. */
     suspend fun graph(): AdvisorGraphDto
 
+    /** Путь плеча между станциями по графу стыков (`GET /v1/advisor/graph/path`); 404 `path_not_found` - станции не соединены. */
+    suspend fun graphPath(fromStation: String, toStation: String): AdvisorGraphPathDto
+
     /** [token] - полный заголовок `Bearer ...`. */
     suspend fun postAltitudeContrib(token: String, body: AltitudeContribRequest): AltitudeContribResponse
 }
@@ -56,6 +59,16 @@ class KtorAdvisorApi(
     override suspend fun graph(): AdvisorGraphDto {
         val auth = authorization()
         return call { client.get("v1/advisor/graph") { header("Authorization", auth) }.body() }
+    }
+
+    override suspend fun graphPath(fromStation: String, toStation: String): AdvisorGraphPathDto {
+        val auth = authorization()
+        return call {
+            client.get("v1/advisor/graph/path") {
+                header("Authorization", auth)
+                url { parameters.append("from_station", fromStation); parameters.append("to_station", toStation) }
+            }.body()
+        }
     }
 
     override suspend fun section(id: String): AdvisorSectionDto {

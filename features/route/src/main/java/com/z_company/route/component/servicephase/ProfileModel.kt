@@ -144,6 +144,22 @@ internal class ProfileModel(
     private var virtualSection: SectionProfile? = null
     private var virtualLegKey: String? = null
 
+    /** Граф стыков для «профиля по факту» (до ближайшей развилки); подгружается в фоне один раз. */
+    private var graphCache: com.z_company.domain.track.SectionGraph? = null
+    private var graphWanted = false
+
+    private fun fetchGraphOnce() {
+        if (graphWanted) return
+        graphWanted = true
+        scope.launch {
+            val g = runCatching { withContext(Dispatchers.Default) { repo.graph() } }.getOrNull()
+            if (g != null) {
+                graphCache = g
+                refreshAxisRange()
+            }
+        }
+    }
+
     /** Направление, выбранное пользователем; null - по плечу, а без плеча - по движению. */
     private var manualReversed by mutableStateOf<Boolean?>(null)
     private var motionReversed by mutableStateOf<Boolean?>(null)
@@ -172,6 +188,10 @@ internal class ProfileModel(
 
     /** Крайние станции плеча по названиям: не зависят от того, есть ли у станции координаты ([stopNames] строится по станциям с координатами). */
     var legEnds: Pair<String, String>? = null
+
+    /** Станции плеча для сверки с участками: [stopNames] (с координатами), иначе просто концы [legEnds] — плечо без геоданных тоже работает. */
+    fun legStopNames(): List<String> =
+        if (stopNames.size >= 2) stopNames else legEnds?.toList() ?: emptyList()
     private var lastFix: GeoFix? = null
     var hasFix by mutableStateOf(false)
         private set
@@ -675,10 +695,10 @@ internal class ProfileModel(
     }
 
     /** Плечо поезда заполнено (есть отправление и прибытие). */
-    val hasLeg: Boolean get() = stopNames.size >= 2
+    val hasLeg: Boolean get() = legStopNames().size >= 2
 
     /** Подходит ли выбранный участок плечу; null - плеча нет. */
-    val fitsLeg: Boolean? get() = section?.let { LegMatch.fits(it, stopNames) }
+    val fitsLeg: Boolean? get() = section?.let { LegMatch.fits(it, legStopNames()) }
 
     val emptyReason: ProfileEmpty?
         get() = when {
@@ -797,11 +817,13 @@ internal class ProfileModel(
         ensureNear(fix)
         if (section == null || position?.offRoute == true) checkRails(fix, timeMs) else offRails = false
         if (sections.isEmpty()) return
+        fetchGraphOnce()
         if (manualId == null) autoPick(fix)
         ensureLive()
         val l = live ?: return
         val p = l.onFix(timeMs, fix.latitude, fix.longitude, speedKmh, fix.accuracyMeters)
         position = p
+        refreshAxisRange()
         detectMotionDirection(p)
         updateMeasure(fix, p)
         syncWarnings()
@@ -1046,33 +1068,43 @@ internal class ProfileModel(
     private var legLoadKey: String? = null
 
     /** Участок плеча поезда среди загруженных; null - плеча нет или подходящего участка пока нет. */
-    private fun legSectionId(): String? =
-        if (stopNames.size < 2) null else LegMatch.sections(sections, stopNames).firstOrNull()?.id
+    private fun legSectionId(): String? {
+        val names = legStopNames()
+        return if (names.size < 2) null else LegMatch.sections(sections, names).firstOrNull()?.id
+    }
 
     /**
      * Плечо известно, а положения на участке нет (вне путей, GPS ещё не поймал): участки подгружаются у станций плеча и берётся тот,
      * что подходит плечу, - профиль показывается сразу. Один раз на набор станций плеча.
      */
     fun ensureLeg() {
-        if (!loaded || needLogin || manualId != null || stopPoints.isEmpty() || stopNames.size < 2) return
-        // Участок уже выбран (по положению) - плечо ничего не добавляет, лишних загрузок не делаем (лимиты сервера на загрузки участков).
+        if (!loaded || needLogin || manualId != null) return
+        val names = legStopNames()
+        if (names.size < 2) return
+        // Положение уже выбрало участок (поезд на ходу) - локация главнее плеча: оставляем её выбор,
+        // даже если участок не по плечу (плашка «не совпадает с плечом», ручное «Сменить»). Плечо
+        // (в т.ч. виртуальное через граф) нужно, когда положения на участке нет или GPS ещё не поймал.
         if (live != null) return
-        val key = stopPoints.joinToString(",") { it.name }
+        fetchGraphOnce()
+        val key = names.joinToString(",")
         if (key == legLoadKey) { pickLeg(); return }
         legLoadKey = key
         scope.launch {
             // Сначала участки у начала плеча; у конца - только если подходящего плечу участка так и не нашлось.
-            for (p in listOf(stopPoints.first(), stopPoints.last())) {
+            // Плечо без геоданных (нет координат станций) собирается по именам через граф без этих загрузок.
+            for (p in listOfNotNull(stopPoints.firstOrNull(), stopPoints.lastOrNull())) {
                 val found = runCatching { withContext(Dispatchers.Default) { repo.sectionsNear(p.latitude, p.longitude) } }.getOrDefault(emptyList())
                 merge(found)
                 pickLeg()
                 if (live != null) break
             }
+            if (live == null) pickLeg()
         }
     }
 
     private fun pickLeg() {
-        if (manualId != null || live != null) return
+        val names = legStopNames()
+        if (manualId != null || live != null || names.size < 2) return
         val id = legSectionId()
         if (id != null) {
             autoId = id
@@ -1080,7 +1112,7 @@ internal class ProfileModel(
             return
         }
         // Плечо не помещается в один участок - собрать виртуальный из графа стыков (развилки, «профиль по факту»).
-        val key = stopNames.joinToString("|")
+        val key = names.joinToString("|")
         if (key == virtualLegKey) return
         scope.launch {
             val v = runCatching { buildVirtualLeg() }.getOrNull() ?: return@launch
@@ -1096,14 +1128,19 @@ internal class ProfileModel(
     private val VIRTUAL_LEG_MAX_LOADS = 8
 
     private suspend fun buildVirtualLeg(): SectionProfile? {
-        val names = stopNames
+        val names = legStopNames()
         if (names.size < 2) return null
-        val graph = runCatching { repo.graph() }.getOrNull() ?: return null
+        val g0 = runCatching { repo.graph() }.getOrNull()
+        val graph = g0 ?: return null
         val byId = HashMap<String, SectionProfile>(sections.associateBy { it.id })
         fun path(): List<EdgeTraversal>? = GraphLeg.pathForStops(graph, byId, names.first(), names.last())
         var found = path()
         if (found == null) {
-            // Станции плеча - внутри рёбер, их владельцы ещё не загружены (станции видны только по оси владельца).
+            // Станции плеча - на осях незагруженных владельцев: серверный поиск пути по всем участкам.
+            found = runCatching { repo.graphPath(names.first(), names.last()) }.getOrNull()
+        }
+        if (found == null) {
+            // Старый сервер или офлайн: докачиваем владельцев рёбер по одному, пока путь не находится.
             var loads = 0
             for (e in graph.edges) {
                 if (byId.containsKey(e.sectionId) || loads >= VIRTUAL_LEG_MAX_LOADS) continue
@@ -1153,10 +1190,12 @@ internal class ProfileModel(
 
     private fun autoPick(fix: GeoFix, force: Boolean = false) {
         if (!force && autoId != null && live?.position?.offRoute != true) return
+        val names = legStopNames()
         val near = SectionPicker.nearest(sections.map { it.axis }, fix.latitude, fix.longitude)
-        if (near.isEmpty()) { autoId = legSectionId(); return }
+        // Ни одного участка рядом с положением (GPS вне путей или локации нет): держимся за плечо/виртуальный участок.
+        if (near.isEmpty()) { autoId = legSectionId() ?: virtualSection?.id ?: autoId; return }
         // Среди близких предпочитаем участок, на котором есть станции плеча.
-        val legIds = LegMatch.sections(near.mapNotNull { m -> sections.firstOrNull { it.id == m.sectionId } }, stopNames).map { it.id }.toSet()
+        val legIds = LegMatch.sections(near.mapNotNull { m -> sections.firstOrNull { it.id == m.sectionId } }, names).map { it.id }.toSet()
         val pick = near.firstOrNull { it.sectionId in legIds } ?: near.first()
         if (pick.sectionId != autoId) { autoId = pick.sectionId; motionReversed = null; resetMotion() }
     }
@@ -1183,7 +1222,21 @@ internal class ProfileModel(
         }
         // Плечо внутри участка - профиль плеча, а не всего участка (участок без плеча или не по плечу показывается целиком).
         // Станции плеча могут появиться позже самого участка, поэтому диапазон обновляется при каждом вызове.
-        live?.legAxisRange = LegMatch.axisRange(s, stopNames)
+        // Без плеча - «по факту»: профиль от поезда до ближайшей развилки пути.
+        refreshAxisRange()
+    }
+
+    /** Диапазон показа: плечо внутри участка, иначе без плеча - до ближайшей развилки («по факту»). */
+    private fun refreshAxisRange() {
+        val l = live ?: return
+        l.legAxisRange = LegMatch.axisRange(l.section, legStopNames()) ?: factAxisRange(l.section, l.reversed)
+    }
+
+    private fun factAxisRange(s: SectionProfile, rev: Boolean): ClosedFloatingPointRange<Double>? {
+        if (legStopNames().size >= 2) return null
+        val g = graphCache ?: return null
+        val pos = position?.takeIf { !it.offRoute }?.kmAxis ?: return null
+        return com.z_company.domain.track.FactRoute.axisRange(g, s, pos, rev)
     }
 
     /** Поправка по оси для выбранного участка, км (0 - нет); для показа «поправка +120 м». */
@@ -1262,6 +1315,7 @@ internal fun rememberProfileModel(
     stops: List<TrainMapStop>,
     trains: List<ProfileTrain> = emptyList(),
     trainId: String? = null,
+    legEnds: Pair<String, String>? = null,
 ): ProfileModel {
     val repo: SectionProfileRepository = koinInject()
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -1276,6 +1330,8 @@ internal fun rememberProfileModel(
     }
     model.stopNames = remember(stops) { stops.map { it.name }.filter { it.isNotBlank() } }
     model.stopPoints = stops
+    // Концы плеча по названиям есть даже у плеча без геоданных (координат станций нет - stopNames пуст).
+    model.legEnds = remember(legEnds) { legEnds?.takeIf { it.first.isNotBlank() && it.second.isNotBlank() } }
     LaunchedEffect(trains, trainId) { model.initTrains(trains, trainId) }
     LaunchedEffect(Unit) { model.load() }
     // Журнал поезда меняют и другие экраны (раздел «Поезд», фоновая запись): профиль и карта читают его заново.
@@ -1285,7 +1341,7 @@ internal fun rememberProfileModel(
             kotlinx.coroutines.delay(2_000)
         }
     }
-    LaunchedEffect(model.loaded, model.stopNames) { model.ensureLeg() }
+    LaunchedEffect(model.loaded, model.stopNames, model.legEnds) { model.ensureLeg() }
     LaunchedEffect(model.loaded, model.stopNames) { model.prefetchLeg() }
     LaunchedEffect(fix, fixAtMs, model.loaded) { model.onFix(fix, speedKmh, if (fixAtMs > 0) fixAtMs else System.currentTimeMillis()) }
     return model

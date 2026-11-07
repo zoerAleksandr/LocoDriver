@@ -282,7 +282,10 @@ internal fun TrainMapScreen(
             chartPick = null
         }
         // Профиль пути: живое положение на профиле участка (выбор по местоположению и плечу, SCREEN_SPECS §6.9).
-        val profileModel = rememberProfileModel(liveFix, liveSpeed, liveAtMs, stops, profileTrains, profileTrainId)
+        val profileModel = rememberProfileModel(
+            liveFix, liveSpeed, liveAtMs, stops, profileTrains, profileTrainId,
+            legEnds = leg?.endNames,
+        )
         profileModel.notice?.let { notice ->
             com.z_company.route.component.AppAlertDialog(
                 onDismissRequest = { profileModel.notice = null },
