@@ -958,9 +958,7 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
                         Text(it, style = Pst.mono.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, maxLines = 1)
                     }
                     val junction = model.junctionAhead(live.section, live.reversed)
-                    val junctionKm = junction?.let {
-                        (it.km - pos.kmAxis).let { d -> if (live.reversed) -d else d }
-                    }
+                    val junctionKm = model.junctionDistanceKm(pos.kmAxis, live.reversed)
                     val tail = buildList {
                         junction?.name?.takeIf { it.isNotEmpty() }?.let {
                             add("до ст. $it — ${pstKm(junctionKm ?: 0.0)}")
