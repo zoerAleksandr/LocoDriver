@@ -6,6 +6,7 @@ import com.z_company.domain.track.SectionSummary
 import com.z_company.repository.remote_rest.tracks.OfflineDownloadResult
 import com.z_company.repository.remote_rest.tracks.OfflineSectionInfo
 import com.z_company.repository.remote_rest.tracks.SectionProfileRepository
+import com.z_company.route.util.MapTilePrefetch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +25,9 @@ data class OfflineSectionItem(
     val bytes: Long,
 )
 
+/** Диалог «скачать карту по мобильной сети»: данные уже сохранены, тайлы - по согласию. */
+data class TilePrompt(val sectionId: String, val name: String, val mb: Double)
+
 data class OfflineSectionsState(
     val loading: Boolean = true,
     val needLogin: Boolean = false,
@@ -35,6 +39,7 @@ data class OfflineSectionsState(
     val totalBytes: Long = 0L,
     val busy: Boolean = false,
     val message: String? = null,
+    val tilePrompt: TilePrompt? = null,
 )
 
 /**
@@ -79,27 +84,68 @@ class OfflineSectionsViewModel(private val repo: SectionProfileRepository) : Vie
         publish()
     }
 
-    fun download(id: String) {
-        viewModelScope.launch { downloadOne(id, showSuccess = true) }
+    fun download(id: String, context: android.content.Context) {
+        viewModelScope.launch {
+            if (downloadOne(id, showSuccess = true) == OfflineDownloadResult.OK) afterData(id, context)
+        }
+    }
+
+    /**
+     * Данные сохранены - докачать тайлы подложки вдоль оси (п. 4 плана): по Wi-Fi молча,
+     * по мобильной сети - вопрос с оценкой размера (размер считается по числу тайлов в полосе).
+     */
+    private fun afterData(id: String, context: android.content.Context) {
+        viewModelScope.launch {
+            val section = withContext(Dispatchers.Default) { repo.cached(id) } ?: return@launch
+            val mb = MapTilePrefetch.estimateMb(MapTilePrefetch.estimateTileCount(section.axis.points))
+            if (MapTilePrefetch.isUnmetered(context)) {
+                val ok = MapTilePrefetch.download(context, id, section.axisHash, section.axis.points)
+                _state.update {
+                    it.copy(message = if (ok) "Участок и карта сохранены на телефоне" else "Участок сохранён, но тайлы карты не скачались")
+                }
+            } else {
+                _state.update { it.copy(tilePrompt = TilePrompt(id, section.name, mb)) }
+            }
+        }
+    }
+
+    /** Пользователь согласился качать карту по мобильной сети. */
+    fun acceptTiles(context: android.content.Context) {
+        val prompt = _state.value.tilePrompt ?: return
+        _state.update { it.copy(tilePrompt = null, busy = true) }
+        viewModelScope.launch {
+            val section = withContext(Dispatchers.Default) { repo.cached(prompt.sectionId) }
+            val ok = section != null &&
+                MapTilePrefetch.download(context, prompt.sectionId, section.axisHash, section.axis.points)
+            _state.update {
+                it.copy(busy = false, message = if (ok) "Карта сохранена на телефоне" else "Тайлы карты не скачались. Попробуйте позже.")
+            }
+        }
+    }
+
+    fun declineTiles() {
+        _state.update { it.copy(tilePrompt = null, message = "Участок сохранён без карты. Тайлы можно докачать позже.") }
     }
 
     /** Обновить все скачанные, что изменились на сервере. Останавливается на первом лимите/отказе. */
-    fun updateOutdated() {
+    fun updateOutdated(context: android.content.Context) {
         viewModelScope.launch {
             _state.update { it.copy(busy = true) }
             val ids = _state.value.items.filter { it.status == OfflineStatus.OUTDATED }.map { it.id }
             var done = 0
             for (id in ids) {
                 val r = downloadOne(id, showSuccess = false)
-                if (r == OfflineDownloadResult.OK) done++ else if (r != OfflineDownloadResult.FAILED) break
+                if (r == OfflineDownloadResult.OK) { done++; afterData(id, context) }
+                else if (r != OfflineDownloadResult.FAILED) break
             }
             _state.update { it.copy(busy = false, message = if (done > 0) "Обновлено участков: $done" else it.message) }
         }
     }
 
-    fun remove(id: String) {
+    fun remove(id: String, context: android.content.Context) {
         viewModelScope.launch {
             withContext(Dispatchers.Default) { repo.removeOffline(id) }
+            withContext(Dispatchers.Default) { runCatching { MapTilePrefetch.delete(context, id) } }
             offline.value = withContext(Dispatchers.Default) { repo.offlineSections() }
             publish()
         }

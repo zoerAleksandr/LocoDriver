@@ -55,6 +55,17 @@ import java.util.Locale
 @Composable
 fun OfflineSectionsScreen(viewModel: OfflineSectionsViewModel, onBack: () -> Unit) {
     val ui by viewModel.state.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    ui.tilePrompt?.let { p ->
+        com.z_company.route.component.AppAlertDialog(
+            onDismissRequest = { viewModel.declineTiles() },
+            title = "Скачать карту?",
+            text = "Участок «${p.name}» займёт около ${"%.1f".format(p.mb)} МБ с картой. Скачать по мобильной сети?",
+            confirmText = "Скачать",
+            onConfirm = { viewModel.acceptTiles(context) },
+            dismissText = "Не сейчас",
+        )
+    }
     val snackbar = remember { SnackbarHostState() }
     var confirmRemove by remember { mutableStateOf<OfflineSectionItem?>(null) }
     LaunchedEffect(ui.message) {
@@ -72,7 +83,7 @@ fun OfflineSectionsScreen(viewModel: OfflineSectionsViewModel, onBack: () -> Uni
             text = "«${item.title}» будет удалён с этого устройства. Его можно скачать снова, пока есть интернет.",
             confirmText = "Удалить",
             isDestructive = true,
-            onConfirm = { viewModel.remove(item.id); confirmRemove = null },
+            onConfirm = { viewModel.remove(item.id, context); confirmRemove = null },
             dismissText = "Отмена",
         )
     }
@@ -89,7 +100,7 @@ fun OfflineSectionsScreen(viewModel: OfflineSectionsViewModel, onBack: () -> Uni
                     CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 2.dp)
                 }
                 else -> {
-                    Summary(ui.downloadedCount, ui.totalBytes, ui.outdatedCount, ui.busy, viewModel::updateOutdated)
+                    Summary(ui.downloadedCount, ui.totalBytes, ui.outdatedCount, ui.busy, { viewModel.updateOutdated(context) })
                     OutlinedTextField(
                         value = ui.query,
                         onValueChange = viewModel::setQuery,
@@ -114,7 +125,7 @@ fun OfflineSectionsScreen(viewModel: OfflineSectionsViewModel, onBack: () -> Uni
                     } else {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
                             items(ui.items, key = { it.id }) { item ->
-                                SectionRow(item, onDownload = { viewModel.download(item.id) }, onRemove = { confirmRemove = item })
+                                SectionRow(item, onDownload = { viewModel.download(item.id, context) }, onRemove = { confirmRemove = item })
                             }
                             item {
                                 Text(
