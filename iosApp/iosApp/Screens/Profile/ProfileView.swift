@@ -442,7 +442,7 @@ struct ProfileView: View {
                     HStack(spacing: 8) {
                         Text("Машинист Pro").font(DSFont.sans(16, .semibold))
                         if active {
-                            DSPill(text: "АКТИВНА", tone: .accent)
+                            DSPill(text: "АКТИВНА", tone: .success)
                         }
                     }
                     .foregroundColor(inkTitle)
