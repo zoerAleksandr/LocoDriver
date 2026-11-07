@@ -295,7 +295,6 @@ internal fun TrainMapScreen(
                 onConfirm = { profileModel.notice = null },
             )
         }
-        androidx.compose.runtime.SideEffect { profileModel.legUnverified = leg != null && leg.title != null && leg.phase?.isMapVerified == false }
         var showChart by rememberSaveable { mutableStateOf(false) }
         // Метки первого открытия карты + кнопка «?» для повтора (ONBOARDING_MATERIALS §2): один раз, не во время записи.
         val onboardingHints = com.z_company.route.component.rememberOnboardingHints()

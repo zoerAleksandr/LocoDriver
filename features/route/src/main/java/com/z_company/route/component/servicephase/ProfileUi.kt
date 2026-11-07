@@ -102,11 +102,7 @@ internal fun gradeText(live: LiveProfile, e: ProfileElement?): String? {
 private const val DEVICE_REJECTED_TEXT = "Это устройство не прошло проверку подлинности, поэтому профили путей с сервера не загружаются. Ранее сохранённые участки доступны."
 private const val RATE_LIMITED_TEXT = "Сервер временно ограничил загрузку профилей путей. Повторите через несколько минут."
 
-private fun emptyText(model: ProfileModel): String = emptyBase(model) + legHint(model)
-
-/** Плечо не проверено на карте: профиль без него подбирается хуже - скажем об этом, чтобы пустой профиль не выглядел нормой. */
-private fun legHint(model: ProfileModel): String =
-    if (model.legUnverified && model.emptyReason != null) " Плечо не проверено на карте: определите его в разделе «Поезд» → ДУ-61 (кнопка «Определить») — с проверенным плечом профиль подбирается точнее." else ""
+private fun emptyText(model: ProfileModel): String = emptyBase(model)
 
 private fun emptyBase(model: ProfileModel): String = when (model.emptyReason) {
     ProfileEmpty.LOADING -> "Загружаем профили участков…"

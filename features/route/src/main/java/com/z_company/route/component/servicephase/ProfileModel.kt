@@ -809,9 +809,6 @@ internal class ProfileModel(
         return legStationsCache
     }
 
-    /** У поезда выбрано плечо, но оно не проверено на карте (нет станций/координат): профиль подбирается хуже - пользователю нужна подсказка. */
-    var legUnverified: Boolean = false
-
     /** Сообщение пользователю (например, ограничение не поставлено: километраж неизвестен); показывается диалогом и сбрасывается. */
     var notice by mutableStateOf<RejectNotice?>(null)
 
@@ -1157,7 +1154,16 @@ internal class ProfileModel(
             found = runCatching { repo.graphPath(names.first(), names.last()) }.getOrNull()
         }
         if (found == null) {
-            // Старый сервер или офлайн: докачиваем владельцев рёбер по одному, пока путь не находится.
+            // Офлайн или станции на незагруженных владельцах: сначала всё, что уже лежит на диске
+            // (без сети и без лимитов), путь ищем по ним, и только потом докачиваем по одному.
+            for (sid in graph.edges.map { it.sectionId }.distinct()) {
+                val s = runCatching { repo.cached(sid) }.getOrNull() ?: continue
+                byId[s.id] = s
+            }
+            found = path()
+        }
+        if (found == null) {
+            // Старый сервер или частичный кэш: докачиваем владельцев рёбер по одному, пока путь не находится.
             var loads = 0
             for (e in graph.edges) {
                 if (byId.containsKey(e.sectionId) || loads >= VIRTUAL_LEG_MAX_LOADS) continue
@@ -1250,7 +1256,8 @@ internal class ProfileModel(
     }
 
     private fun factAxisRange(s: SectionProfile, rev: Boolean): ClosedFloatingPointRange<Double>? {
-        if (legStopNames().size >= 2) return null
+        // «По факту» - только для автоподбора: участок, выбранный вручную, показываем целиком с его именем.
+        if (manualId != null || legStopNames().size >= 2) return null
         val g = graphCache ?: return null
         val pos = position?.takeIf { !it.offRoute }?.kmAxis ?: return null
         return com.z_company.domain.track.FactRoute.axisRange(g, s, pos, rev)
