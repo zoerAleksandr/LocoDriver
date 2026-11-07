@@ -290,8 +290,10 @@ struct ProfileView: View {
                     VKAvatar(url: state.vkAvatarUrl, size: 52)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(name).font(DSFont.sans(17, .semibold))
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                         HStack(spacing: 6) {
-                            DSPill(text: "VK", tone: .muted)
+                            DSPill(text: "ID", tone: .muted)
                             if let vkId = state.vkId {
                                 Text(vkId)
                                     .font(DSFont.mono(13))
@@ -314,7 +316,7 @@ struct ProfileView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("VK ID").font(DSFont.sans(17, .semibold))
                         HStack(spacing: 6) {
-                            DSPill(text: "VK", tone: .muted)
+                            DSPill(text: "ID", tone: .muted)
                             if let vkId = state.vkId {
                                 Text(vkId)
                                     .font(DSFont.mono(13))
@@ -424,34 +426,33 @@ struct ProfileView: View {
             HStack(spacing: 12) {
                 Image(systemName: "crown.fill")
                     .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(state.hasActiveSubscription ? .white : DSColor.accent)
+                    .foregroundColor(state.hasActiveSubscription ? DSColor.accent : DSColor.accent)
                     .frame(width: 40, height: 40)
                     .background(
-                        state.hasActiveSubscription ? Color.white.opacity(0.18) : DSColor.accentSoft,
+                        DSColor.accentSoft,
                         in: RoundedRectangle(cornerRadius: 12, style: .continuous)
                     )
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 8) {
                         Text("Машинист Pro").font(DSFont.sans(16, .semibold))
                         if state.hasActiveSubscription {
-                            DSPill(text: "АКТИВНА", tone: .inverse)
+                            DSPill(text: "АКТИВНА", tone: .accent)
                         }
                     }
-                    .foregroundColor(state.hasActiveSubscription ? .white : DSColor.text)
+                    .foregroundColor(DSColor.text)
                     Text(state.hasActiveSubscription
                          ? state.subscriptionEndLabel
                          : "Оформить подписку — откроется больше возможностей")
-                        .dsTextStyle(.captionMuted, color: state.hasActiveSubscription
-                                     ? Color.white.opacity(0.8) : DSColor.textMuted)
+                        .dsTextStyle(.captionMuted, color: DSColor.textMuted)
                 }
                 Spacer(minLength: 4)
                 DSIcon.chevronRight.image
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(state.hasActiveSubscription ? Color.white.opacity(0.7) : DSColor.textFaint)
+                    .foregroundColor(DSColor.textFaint)
             }
             .padding(16)
             .background(
-                state.hasActiveSubscription ? DSColor.accent : DSColor.surface,
+                state.hasActiveSubscription ? Color.white : DSColor.surface,
                 in: RoundedRectangle(cornerRadius: 16, style: .continuous)
             )
             .overlay(
