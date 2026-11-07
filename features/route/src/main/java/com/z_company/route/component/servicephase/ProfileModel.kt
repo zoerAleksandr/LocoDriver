@@ -1214,6 +1214,8 @@ internal class ProfileModel(
     }
 
     private fun autoPick(fix: GeoFix, force: Boolean = false) {
+        // Превью ветки держим до прохода развилки: автоподбор его не трогает (иначе мигание участков/чипов).
+        if (branchPreviewKey != null) return
         if (!force && autoId != null && live?.position?.offRoute != true) return
         val names = legStopNames()
         val near = SectionPicker.nearest(sections.map { it.axis }, fix.latitude, fix.longitude)
@@ -1222,7 +1224,14 @@ internal class ProfileModel(
         // Среди близких предпочитаем участок, на котором есть станции плеча.
         val legIds = LegMatch.sections(near.mapNotNull { m -> sections.firstOrNull { it.id == m.sectionId } }, names).map { it.id }.toSet()
         val pick = near.firstOrNull { it.sectionId in legIds } ?: near.first()
-        if (pick.sectionId != autoId) { autoId = pick.sectionId; motionReversed = null; resetMotion() }
+        // Текущий участок всё ещё рядом и плечу не уступает - держимся его: GPS «Слабый GPS» дёргается между
+        // коллинеарными участками (одно место - разные км), прыжки давали мигание профиля.
+        val chosen = when {
+            pick.sectionId in legIds -> pick
+            autoId != null && near.any { it.sectionId == autoId } -> near.first { it.sectionId == autoId }
+            else -> pick
+        }
+        if (chosen.sectionId != autoId) { autoId = chosen.sectionId; motionReversed = null; resetMotion() }
     }
 
     private fun currentId(): String? = manualId ?: autoId
@@ -1254,9 +1263,6 @@ internal class ProfileModel(
     /** Диапазон показа: плечо внутри участка, иначе без плеча - до ближайшей развилки («по факту»). */
     private fun refreshAxisRange() {
         val l = live ?: return
-        // Превью ветки показываем только пока оно и есть на экране: иначе флаг «съедал» кроп
-        // «по факту» (полный участок вместо обрезки до развилки).
-        if (branchPreviewKey != null && l.section.id != virtualSection?.id) clearBranchPreview()
         l.legAxisRange = LegMatch.axisRange(l.section, legStopNames()) ?: factAxisRange(l.section, l.reversed)
         // Чипы веток и превью - по реальному участку «по факту» (не по превью/плечу).
         if (!l.section.id.startsWith("virtual:")) factBaseId = l.section.id
@@ -1282,6 +1288,8 @@ internal class ProfileModel(
     /** Реальный участок, по которому едем (для развилок); превью ветки живёт отдельно от него. */
     private var factBaseId: String? = null
     private var branchPreviewKey: String? = null
+    /** Км развилки в координатах ПРЕВЬЮ: по нему ловим проход развилки. */
+    private var previewJunctionKm: Double? = null
 
     fun selectBranch(edgeId: String) {
         if (edgeId == selectedBranchId) return
@@ -1300,6 +1308,16 @@ internal class ProfileModel(
         val rev = live?.reversed ?: false
         val pos = position?.takeIf { !it.offRoute }?.kmAxis
         val g = graphCache
+        // Режим превью ветки: картинку не пересчитываем (стабильность), ждём только прохода развилки.
+        if (branchPreviewKey != null) {
+            if (manualId != null) { clearBranchPreview(); return }
+            val jkm = previewJunctionKm
+            if (pos != null && jkm != null) {
+                val passed = if (!rev) pos > jkm + 0.1 else pos < jkm - 0.1
+                if (passed) clearBranchPreview()
+            }
+            return
+        }
         val base = sections.firstOrNull { it.id == factBaseId }
         if (names.size >= 2 || pos == null || g == null || base == null) {
             junctionCache = null
@@ -1307,12 +1325,20 @@ internal class ProfileModel(
             branchChips = emptyList()
             return
         }
-        // Ключ с шагом 0.5 км: пересчёт геометрии не на каждом фиксе.
-        val key = "${base.id}|${(pos * 2).toInt()}|$rev"
+        // Ключ с шагом 2 км: тяжёлая геометрия графа - только при реальном сдвиге, не на каждом фиксе.
+        val key = "${base.id}|${(pos / 2).toInt()}|$rev"
+        var chips: List<BranchChip> = branchChips
         if (key != junctionCacheKey) {
-            val ahead = withContext(Dispatchers.Default) { FactRoute.nextJunction(g, base, pos, rev) }
-            junctionCache = ahead
+            val computed = withContext(Dispatchers.Default) {
+                val ahead = FactRoute.nextJunction(g, base, pos, rev)
+                val branches = if (ahead == null) emptyList()
+                else Branches.ahead(g, base, pos, rev, sections.associateBy { it.id })
+                ahead to branches
+            }
+            junctionCache = computed.first
             junctionCacheKey = key
+            chips = computed.second.map { BranchChip(it.edgeId, it.title, it.distanceKm) }
+            branchChips = chips
             // Пересчитать кроп/подпись по свежему кэпу.
             live?.let { it.legAxisRange = LegMatch.axisRange(it.section, names) ?: factAxisRange(it.section, it.reversed) }
         }
@@ -1322,10 +1348,6 @@ internal class ProfileModel(
             clearBranchPreview()
             return
         }
-        val byId = sections.associateBy { it.id }
-        val chips = withContext(Dispatchers.Default) { Branches.ahead(g, base, pos, rev, byId) }
-            .map { BranchChip(it.edgeId, it.title, it.distanceKm) }
-        branchChips = chips
         if (chips.isEmpty()) {
             clearBranchPreview()
             return
@@ -1335,7 +1357,7 @@ internal class ProfileModel(
         val previewKey = "${base.id}|${ahead.nodeId}|$eff"
         if (previewKey == branchPreviewKey) return
         val branch = withContext(Dispatchers.Default) {
-            Branches.ahead(g, base, pos, rev, byId).firstOrNull { it.edgeId == eff }
+            Branches.ahead(g, base, pos, rev, sections.associateBy { it.id }).firstOrNull { it.edgeId == eff }
         } ?: return
         // Владелец ветки нужен целиком (станции/уклоны срезаются по км ребра).
         val owner = sections.firstOrNull { it.id == branch.edge.sectionId }
@@ -1355,6 +1377,7 @@ internal class ProfileModel(
             )
         } ?: return
         branchPreviewKey = previewKey
+        previewJunctionKm = abs(pos - ahead.km)  // развилка в координатах превью (от его начала по ходу)
         virtualSection = preview
         autoId = preview.id
         rebuild()
@@ -1371,6 +1394,7 @@ internal class ProfileModel(
     private fun clearBranchPreview() {
         if (branchPreviewKey == null) return
         branchPreviewKey = null
+        previewJunctionKm = null
         // Снять превью: вернуться к реальному участку (его подберёт ensureLive/автоподбор).
         if (virtualSection?.id == autoId) {
             virtualSection = null
