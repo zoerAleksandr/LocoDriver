@@ -180,8 +180,8 @@ object FactRoute {
     fun nextJunctionKm(graph: SectionGraph, section: SectionProfile, posKm: Double, reversed: Boolean): Double? =
         nextJunction(graph, section, posKm, reversed)?.km
 
-    /** Ближайшая развилка впереди: км оси и имя узла (пустое - узел без имени станции). */
-    data class Ahead(val km: Double, val name: String)
+    /** Ближайшая развилка впереди: км оси, имя узла (пустое - узел без имени станции) и его id. */
+    data class Ahead(val km: Double, val name: String, val nodeId: String)
 
     /** Ближайшая развилка впереди по ходу (см. [nextJunctionKm]); null - развилок впереди нет. */
     fun nextJunction(graph: SectionGraph, section: SectionProfile, posKm: Double, reversed: Boolean): Ahead? {
@@ -199,7 +199,7 @@ object FactRoute {
             val km = hit.kmM / 1000.0
             if (!reversed && km <= posKm + 0.05) continue
             if (reversed && km >= posKm - 0.05) continue
-            if (best == null || (!reversed && km < best.km) || (reversed && km > best.km)) best = Ahead(km, n.name)
+            if (best == null || (!reversed && km < best.km) || (reversed && km > best.km)) best = Ahead(km, n.name, n.id)
         }
         return best
     }
@@ -221,4 +221,59 @@ object FactRoute {
     /** Сколько км профиля оставлять позади поезда (чтобы окно показывало и то, что уже проехали). */
     const val BEHIND_KM = 2.0
     const val MIN_RANGE_KM = 0.5
+}
+
+/** Ветка за развилкой: ребро графа от узла развилки и подпись для чипа («→ Колпино · 12 км»). */
+data class Branch(
+    val edgeId: String,
+    val edge: GraphEdge,
+    /** Имя для чипа: ближайшая по ветке станция (или узел в конце ветки). */
+    val title: String,
+    /** Расстояние до [title] вдоль ветки, км. */
+    val distanceKm: Double,
+    /** Узел в конце ветки (для автоопределения направления после прохода развилки). */
+    val farNodeId: String,
+)
+
+object Branches {
+    /**
+     * Ветки за ближайшей развилкой впереди: рёбра узла развилки, кроме ребра, по которому поезд
+     * подъехал (по нему «назад»). Подпись - ближайшая станция владельца в пределах ребра, иначе
+     * имя узла в конце; расстояние - до этой станции, иначе до конца ребра.
+     */
+    fun ahead(
+        graph: SectionGraph,
+        section: SectionProfile,
+        posKm: Double,
+        reversed: Boolean,
+        sectionsById: Map<String, SectionProfile> = emptyMap(),
+    ): List<Branch> {
+        val junction = FactRoute.nextJunction(graph, section, posKm, reversed) ?: return emptyList()
+        val node = graph.nodes.firstOrNull { it.id == junction.nodeId } ?: return emptyList()
+        val locator = section.axis.locator
+        fun kmOnSection(lat: Double, lon: Double): Double? {
+            val hit = locator.project(lat, lon) ?: return null
+            return if (hit.offsetM <= FactRoute.JUNCTION_SNAP_M) hit.kmM / 1000.0 else null
+        }
+        fun behind(km: Double): Boolean = if (!reversed) km < posKm - 0.05 else km > posKm + 0.05
+        val atNode = graph.edges.filter { it.fromNode == node.id || it.toNode == node.id }
+        // Входящее ребро - то, чей дальний узел лежит на этой оси ПОЗАДИ поезда (по нему приехали).
+        val incoming = atNode.filter { e ->
+            val far = if (e.fromNode == node.id) e.toNode else e.fromNode
+            val farNode = graph.nodes.firstOrNull { it.id == far }
+            farNode?.let { kmOnSection(it.lat, it.lon)?.let(::behind) } == true
+        }.map { it.id }.toSet()
+        return atNode.filter { it.id !in incoming }.map { e ->
+            val farId = if (e.fromNode == node.id) e.toNode else e.fromNode
+            val farNode = graph.nodes.firstOrNull { it.id == farId }
+            val owner = sectionsById[e.sectionId] ?: section.takeIf { it.id == e.sectionId }
+            // Первая станция владельца на ребре в сторону от развилки; имя узла - запасной вариант.
+            val stations = (owner?.stations ?: emptyList())
+                .filter { it.km >= minOf(e.fromKm, e.toKm) - 0.05 && it.km <= maxOf(e.fromKm, e.toKm) + 0.05 }
+                .sortedBy { abs(it.km - junction.km) }
+            val title = stations.firstOrNull()?.name ?: farNode?.name ?: "Ветка"
+            val dist = stations.firstOrNull()?.let { abs(it.km - junction.km) } ?: e.lengthKm
+            Branch(e.id, e, title, dist, farId)
+        }.sortedBy { it.distanceKm }
+    }
 }

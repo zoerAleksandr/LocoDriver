@@ -1947,6 +1947,7 @@ internal fun TrainMapScreen(
                     }
                 } else {
                     if (profileVisible) {
+                        BranchChipsRow(profileModel)
                         ProfileStrip(
                             model = profileModel,
                             height = stripH,
