@@ -7,6 +7,7 @@ import com.z_company.domain.track.AxisPoint
 import com.z_company.route.component.servicephase.STYLE_URL
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
+import org.maplibre.android.MapLibre
 import org.maplibre.android.offline.OfflineGeometryRegionDefinition
 import org.maplibre.android.offline.OfflineManager
 import org.maplibre.android.offline.OfflineRegion
@@ -122,7 +123,7 @@ object MapTilePrefetch {
                 slot.cont = cont
                 deletePacks(app, sectionId) {
                     if (!cont.isActive) return@deletePacks
-                    OfflineManager.getInstance(app).createOfflineRegion(definition, metadata,
+                    manager(app).createOfflineRegion(definition, metadata,
                         object : OfflineManager.CreateOfflineRegionCallback {
                             override fun onCreate(region: OfflineRegion) {
                                 if (!cont.isActive) return
@@ -176,8 +177,17 @@ object MapTilePrefetch {
         deletePacks(context.applicationContext, sectionId) { if (cont.isActive) cont.resume(Unit) }
     }
 
+    /**
+     * OfflineManager требует инициализации MapLibre; экран «Скачанные участки» работает без карты,
+     * поэтому инициализируем здесь (getInstance идемпотентен).
+     */
+    private fun manager(app: Context): OfflineManager {
+        runCatching { MapLibre.getInstance(app) }
+        return OfflineManager.getInstance(app)
+    }
+
     private fun deletePacks(app: Context, sectionId: String, done: () -> Unit) {
-        OfflineManager.getInstance(app).listOfflineRegions(object : OfflineManager.ListOfflineRegionsCallback {
+        manager(app).listOfflineRegions(object : OfflineManager.ListOfflineRegionsCallback {
             override fun onList(offlineRegions: Array<OfflineRegion>?) {
                 val targets = offlineRegions.orEmpty().filter {
                     runCatching { String(it.metadata).contains("\"sectionId\":\"$sectionId\"") }.getOrDefault(false)
