@@ -4,6 +4,8 @@ import SwiftUI
 struct ContentView: View {
     /// Тема оформления (§17.5): пишет Kotlin (`ld.themeMode`), хранится на устройстве.
     @AppStorage("ld.themeMode") private var themeMode: String = "MODE_SYSTEM"
+    /// С1: загрузка производственного календаря и миграции при старте — один раз за процесс.
+    @StateObject private var appInit = AppInitViewModelWrapper()
 
     private var scheme: ColorScheme? {
         switch themeMode {
@@ -16,5 +18,8 @@ struct ContentView: View {
     var body: some View {
         AppCoordinator()
             .preferredColorScheme(scheme)
+            // С6: язык системных пикеров и локализованных форматов дат — русский
+            .environment(\.locale, Locale(identifier: "ru_RU"))
+            .task { appInit.startIfNeeded() }
     }
 }

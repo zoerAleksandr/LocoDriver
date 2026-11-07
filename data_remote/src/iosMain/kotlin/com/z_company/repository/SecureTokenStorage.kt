@@ -45,7 +45,10 @@ actual class SecureTokenStorage {
             CFDictionaryAddValue(addDict, kSecAttrService, cfService)
             CFDictionaryAddValue(addDict, kSecAttrAccount, cfKey)
             CFDictionaryAddValue(addDict, kSecValueData,   cfData)
-            SecItemAdd(addDict.reinterpret(), null)
+            val addStatus = SecItemAdd(addDict.reinterpret(), null)
+            if (addStatus != errSecSuccess) {
+                println("SecureTokenStorage: SecItemAdd($key) failed, status=$addStatus")
+            }
             CFRelease(addDict)
         } finally {
             CFRelease(cfKey)
@@ -104,7 +107,9 @@ actual class SecureTokenStorage {
         val length = CFDataGetLength(data)
         if (length <= 0L) return null
         val ptr = CFDataGetBytePtr(data) ?: return null
-        return ptr.reinterpret<ByteVar>().toKString()
+        // ВАЖНО: CFData не нуль-терминирован — toKString() читал бы за буфер
+        // и возвращал повреждённый токен. Читаем ровно length байт.
+        return ptr.reinterpret<ByteVar>().readBytes(length.toInt()).decodeToString()
     }
 
     companion object {
