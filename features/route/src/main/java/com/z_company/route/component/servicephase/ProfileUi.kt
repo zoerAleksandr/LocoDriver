@@ -793,6 +793,7 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
                     }
                     spanKm = newSpan.toFloat()
                 }
+                BranchChipsRow(model)
                 ProfileChart(
                     model, window, detailed = true,
                     modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
@@ -964,7 +965,7 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
                         junction?.name?.takeIf { it.isNotEmpty() }?.let {
                             add("до ст. $it — ${pstKm(junctionKm ?: 0.0)}")
                         }
-                        ahead?.let { add("До «${it.first}» — ${pstKm(it.second)}") }
+                        ahead?.let { add("до ст. ${it.first} — ${pstKm(it.second)}") }
                         model.signalsAhead(1).firstOrNull()?.let {
                             add("Светофор ${it.signal.title} — ${pstKm(it.distanceKm)}" + if (it.backToTrain) " (спиной)" else "")
                         }

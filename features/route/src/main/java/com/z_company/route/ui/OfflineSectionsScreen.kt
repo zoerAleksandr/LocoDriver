@@ -56,6 +56,16 @@ import java.util.Locale
 fun OfflineSectionsScreen(viewModel: OfflineSectionsViewModel, onBack: () -> Unit) {
     val ui by viewModel.state.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
+    ui.tileProgress?.let { p ->
+        val pct = if (p.total > 0) (p.done * 100 / p.total).toInt() else 0
+        com.z_company.route.component.AppAlertDialog(
+            onDismissRequest = {},
+            title = "Скачиваем карту",
+            text = "Участок «${p.name}»: тайлы подложки… " + (if (p.total > 0) "$pct%" else "подготовка"),
+            confirmText = "Отмена",
+            onConfirm = { viewModel.cancelTiles(context) },
+        )
+    }
     ui.tilePrompt?.let { p ->
         com.z_company.route.component.AppAlertDialog(
             onDismissRequest = { viewModel.declineTiles() },
