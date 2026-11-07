@@ -169,3 +169,38 @@ class FactRouteNameTest {
         assertEquals(10.0, ahead.km, 0.05)
     }
 }
+
+class BranchesTest {
+    private val nA = GraphNode("A", 55.0, 30.0, "Андреево")
+    private val nB = GraphNode("B", 55.1, 30.0, "Борисово")
+    private val nC = GraphNode("C", 55.2, 30.0, "")
+    private val nD = GraphNode("D", 55.1, 30.3, "Данилово")
+    private val e1 = GraphEdge("e1", "s1", 0.0, 10.0, "A", "B", 10.0)
+    private val e2 = GraphEdge("e2", "s2", 0.0, 10.0, "B", "C", 10.0)
+    private val e3 = GraphEdge("e3", "s3", 0.0, 4.0, "D", "B", 4.0)
+    private val graph = SectionGraph("v1", listOf(nA, nB, nC, nD), listOf(e1, e2, e3))
+
+    @Test
+    fun branches_exclude_incoming_edge_and_carry_titles() {
+        val s = SectionProfile(
+            id = "s1", name = "Уч", fromStation = "", toStation = "", lengthKm = 10.0, axisHash = "h",
+            axis = SectionAxis("s1", "h", listOf(AxisPoint(0.0, 55.0, 30.0), AxisPoint(5.0, 55.05, 30.0), AxisPoint(10.0, 55.1, 30.0))),
+            elements = emptyList(), kmMarks = emptyList(), stations = emptyList(),
+        )
+        val branches = Branches.ahead(graph, s, posKm = 3.0, reversed = false)
+        assertEquals(setOf("e2", "e3"), branches.map { it.edgeId }.toSet())
+        // входящее ребро e1 (узел A позади) в ветки не попадает
+        assertTrue(branches.none { it.edgeId == "e1" })
+        assertEquals("Данилово", branches.first { it.edgeId == "e3" }.title)
+    }
+
+    @Test
+    fun no_branches_when_no_junction_ahead() {
+        val s = SectionProfile(
+            id = "x", name = "У", fromStation = "", toStation = "", lengthKm = 5.0, axisHash = "h",
+            axis = SectionAxis("x", "h", listOf(AxisPoint(0.0, 56.0, 31.0), AxisPoint(5.0, 56.05, 31.0))),
+            elements = emptyList(), kmMarks = emptyList(), stations = emptyList(),
+        )
+        assertTrue(Branches.ahead(graph, s, posKm = 1.0, reversed = false).isEmpty())
+    }
+}

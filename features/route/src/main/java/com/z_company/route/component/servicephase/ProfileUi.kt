@@ -118,6 +118,30 @@ private fun emptyBase(model: ProfileModel): String = when (model.emptyReason) {
     null -> ""
 }
 
+/** Чипы веток за ближайшей развилкой («→ Колпино · 12 км») над лентой профиля; нажатие выбирает ветку. */
+@Composable
+internal fun BranchChipsRow(model: ProfileModel, modifier: Modifier = Modifier) {
+    val chips = model.branchChips
+    if (chips.isEmpty()) return
+    Row(
+        modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        chips.forEach { c ->
+            val on = c.edgeId == model.selectedBranchId
+            Text(
+                "\u2192 ${c.title} \u00b7 ${pstKm(c.distanceKm)}",
+                style = Pst.sans.copy(fontSize = 13.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal),
+                color = if (on) Pst.onAccent else Pst.text,
+                modifier = Modifier
+                    .background(if (on) Pst.accent else Pst.bgSubtle, RoundedCornerShape(12.dp))
+                    .clickable { model.selectBranch(c.edgeId) }
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                maxLines = 1,
+            )
+        }
+    }
+}
 /**
  * Полоса «Профиль пути»: слева над графиком километр и уклон, мини-профиль впереди по ходу; справа кнопки по вертикали:
  * «Развернуть на весь экран» вверху, «Скрыть» внизу. Нет данных - пояснение вместо графика.
