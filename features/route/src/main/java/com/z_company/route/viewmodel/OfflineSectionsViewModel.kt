@@ -28,6 +28,9 @@ data class OfflineSectionItem(
 /** Диалог «скачать карту по мобильной сети»: данные уже сохранены, тайлы - по согласию. */
 data class TilePrompt(val sectionId: String, val name: String, val mb: Double)
 
+/** Прогресс скачивания карты (тайлов) с возможностью отмены. */
+data class TileProgress(val sectionId: String, val name: String, val done: Long, val total: Long)
+
 data class OfflineSectionsState(
     val loading: Boolean = true,
     val needLogin: Boolean = false,
@@ -40,6 +43,7 @@ data class OfflineSectionsState(
     val busy: Boolean = false,
     val message: String? = null,
     val tilePrompt: TilePrompt? = null,
+    val tileProgress: TileProgress? = null,
 )
 
 /**
@@ -86,8 +90,13 @@ class OfflineSectionsViewModel(private val repo: SectionProfileRepository) : Vie
 
     fun download(id: String, context: android.content.Context) {
         viewModelScope.launch {
-            if (downloadOne(id, showSuccess = true) == OfflineDownloadResult.OK) afterData(id, context)
+            if (downloadOne(id, showSuccess = true) == OfflineDownloadResult.OK) tilesAfter(id, context)
         }
+    }
+
+    /** Данные сохранены - тайлы с ожиданием (последовательно, чтобы прогресс не путался). */
+    private suspend fun tilesAfter(id: String, context: android.content.Context) {
+        afterData(id, context)
     }
 
     /**
@@ -99,10 +108,7 @@ class OfflineSectionsViewModel(private val repo: SectionProfileRepository) : Vie
             val section = withContext(Dispatchers.Default) { repo.cached(id) } ?: return@launch
             val mb = MapTilePrefetch.estimateMb(MapTilePrefetch.estimateTileCount(section.axis.points))
             if (MapTilePrefetch.isUnmetered(context)) {
-                val ok = MapTilePrefetch.download(context, id, section.axisHash, section.axis.points)
-                _state.update {
-                    it.copy(message = if (ok) "Участок и карта сохранены на телефоне" else "Участок сохранён, но тайлы карты не скачались")
-                }
+                startTiles(context, section)
             } else {
                 _state.update { it.copy(tilePrompt = TilePrompt(id, section.name, mb)) }
             }
@@ -112,15 +118,46 @@ class OfflineSectionsViewModel(private val repo: SectionProfileRepository) : Vie
     /** Пользователь согласился качать карту по мобильной сети. */
     fun acceptTiles(context: android.content.Context) {
         val prompt = _state.value.tilePrompt ?: return
-        _state.update { it.copy(tilePrompt = null, busy = true) }
+        _state.update { it.copy(tilePrompt = null) }
         viewModelScope.launch {
             val section = withContext(Dispatchers.Default) { repo.cached(prompt.sectionId) }
-            val ok = section != null &&
-                MapTilePrefetch.download(context, prompt.sectionId, section.axisHash, section.axis.points)
-            _state.update {
-                it.copy(busy = false, message = if (ok) "Карта сохранена на телефоне" else "Тайлы карты не скачались. Попробуйте позже.")
+            if (section == null) {
+                _state.update { it.copy(message = "Тайлы карты не скачались. Попробуйте позже.") }
+            } else {
+                startTiles(context, section)
             }
         }
+    }
+
+    /** Скачивание тайлов с диалогом прогресса и кнопкой «Отмена». Одновременно - одна загрузка. */
+    private suspend fun startTiles(context: android.content.Context, section: com.z_company.domain.track.SectionProfile) {
+        if (_state.value.tileProgress != null) {
+            _state.update { it.copy(message = "Карта уже скачивается - дождитесь или отмените текущую.") }
+            return
+        }
+        var finished = false
+        _state.update { it.copy(tileProgress = TileProgress(section.id, section.name, 0L, 0L)) }
+        val ok = MapTilePrefetch.download(context, section.id, section.axisHash, section.axis.points) { done, total ->
+            // Поздние статусы после завершения не воскрешают закрытый диалог.
+            if (!finished) _state.update { it.copy(tileProgress = TileProgress(section.id, section.name, done, total)) }
+        }
+        finished = true
+        _state.update {
+            it.copy(
+                tileProgress = null,
+                message = when {
+                    ok -> "Участок и карта сохранены на телефоне"
+                    else -> "Скачивание карты остановлено"
+                },
+            )
+        }
+    }
+
+    /** Отмена скачивания карты (кнопка в диалоге прогресса); диалог закрывается всегда. */
+    fun cancelTiles(context: android.content.Context) {
+        val p = _state.value.tileProgress ?: return
+        MapTilePrefetch.cancel(context, p.sectionId)
+        _state.update { it.copy(tileProgress = null, message = "Скачивание карты отменено") }
     }
 
     fun declineTiles() {
@@ -135,7 +172,7 @@ class OfflineSectionsViewModel(private val repo: SectionProfileRepository) : Vie
             var done = 0
             for (id in ids) {
                 val r = downloadOne(id, showSuccess = false)
-                if (r == OfflineDownloadResult.OK) { done++; afterData(id, context) }
+                if (r == OfflineDownloadResult.OK) { done++; tilesAfter(id, context) }
                 else if (r != OfflineDownloadResult.FAILED) break
             }
             _state.update { it.copy(busy = false, message = if (done > 0) "Обновлено участков: $done" else it.message) }

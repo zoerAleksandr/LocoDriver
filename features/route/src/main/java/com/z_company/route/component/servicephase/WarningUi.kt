@@ -171,9 +171,15 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
     // Ограничения добавляются только до ближайшей развилки (решение владельца 07.11): дальше маршрут
     // не определён, места за развилкой из списка убираем. Нет графа/положения или список пуст - весь список.
     val junction = model.junctionAhead(section, live.reversed)
-    val places = remember(allPlaces, junction?.km) {
-        val f = if (junction == null) allPlaces else allPlaces.filter {
-            if (live.reversed) it.startKm >= junction.km - 0.05 else it.endKm <= junction.km + 0.05
+    val posKm = model.position?.takeIf { !it.offRoute }?.kmAxis
+    val places = remember(allPlaces, junction?.km, posKm) {
+        val f = allPlaces.filter { pl ->
+            // До развилки (верхняя граница) и не раньше поезда (прошедшие станции не показываем).
+            val beforeJunction = junction == null ||
+                if (live.reversed) pl.startKm >= junction.km - 0.05 else pl.endKm <= junction.km + 0.05
+            val afterPos = posKm == null ||
+                if (live.reversed) pl.startKm <= posKm + 0.05 else pl.endKm >= posKm - 0.05
+            beforeJunction && afterPos
         }
         if (f.isEmpty()) allPlaces else f
     }

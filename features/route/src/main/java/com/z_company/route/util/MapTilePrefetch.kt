@@ -76,7 +76,37 @@ object MapTilePrefetch {
      * Скачать тайлы вдоль оси [points] участка [sectionId]; прежний пак участка заменяется.
      * true - пак создан и загрузка завершилась (или нечего качать); false - ошибка/таймаут.
      */
-    suspend fun download(context: Context, sectionId: String, axisHash: String, points: List<AxisPoint>): Boolean {
+    private class Active(
+        var region: OfflineRegion? = null,
+        var cont: kotlinx.coroutines.CancellableContinuation<Boolean>? = null,
+        var total: Long = 0L,
+        var done: Long = 0L,
+        @Volatile var finished: Boolean = false,
+    )
+
+    private val active = java.util.concurrent.ConcurrentHashMap<String, Active>()
+
+    /** Отменить скачивание тайлов участка (кнопка «Отмена» в диалоге прогресса). */
+    fun cancel(context: Context, sectionId: String) {
+        val a = active.remove(sectionId) ?: return
+        a.finished = true
+        a.region?.let { region ->
+            region.setDownloadState(OfflineRegion.STATE_INACTIVE)
+            region.delete(object : OfflineRegion.OfflineRegionDeleteCallback {
+                override fun onDelete() {}
+                override fun onError(error: String) {}
+            })
+        }
+        a.cont?.let { if (it.isActive) it.resume(false) }
+    }
+
+    suspend fun download(
+        context: Context,
+        sectionId: String,
+        axisHash: String,
+        points: List<AxisPoint>,
+        onProgress: (done: Long, total: Long) -> Unit = { _, _ -> },
+    ): Boolean {
         if (points.size < 2) return true
         val app = context.applicationContext
         val definition = OfflineGeometryRegionDefinition(
@@ -85,29 +115,45 @@ object MapTilePrefetch {
             MIN_ZOOM, MAX_ZOOM, 1f,
         )
         val metadata = """{"sectionId":"$sectionId","axisHash":"$axisHash"}""".toByteArray()
-        return withTimeoutOrNull(DOWNLOAD_TIMEOUT_MS) {
+        val slot = Active()
+        active[sectionId] = slot
+        val result = withTimeoutOrNull(DOWNLOAD_TIMEOUT_MS) {
             suspendCancellableCoroutine<Boolean> { cont ->
+                slot.cont = cont
                 deletePacks(app, sectionId) {
+                    if (!cont.isActive) return@deletePacks
                     OfflineManager.getInstance(app).createOfflineRegion(definition, metadata,
                         object : OfflineManager.CreateOfflineRegionCallback {
                             override fun onCreate(region: OfflineRegion) {
                                 if (!cont.isActive) return
+                                slot.region = region
                                 region.setDeliverInactiveMessages(true)
                                 region.setObserver(object : OfflineRegion.OfflineRegionObserver {
                                     override fun onStatusChanged(status: OfflineRegionStatus) {
+                                        // После завершения MapLibre продолжает слать статусы (те же 100%):
+                                        // поздние события игнорируем - иначе диалог возвращался после закрытия.
+                                        if (slot.finished) return
+                                        slot.total = status.requiredResourceCount
+                                        slot.done = status.completedResourceCount
+                                        onProgress(status.completedResourceCount, status.requiredResourceCount)
                                         if (status.requiredResourceCount > 0 &&
                                             status.completedResourceCount >= status.requiredResourceCount
                                         ) {
+                                            slot.finished = true
                                             region.setDownloadState(OfflineRegion.STATE_INACTIVE)
                                             if (cont.isActive) cont.resume(true)
                                         }
                                     }
 
                                     override fun onError(error: OfflineRegionError) {
+                                        if (slot.finished) return
+                                        slot.finished = true
                                         if (cont.isActive) cont.resume(false)
                                     }
 
                                     override fun mapboxTileCountLimitExceeded(limit: Long) {
+                                        if (slot.finished) return
+                                        slot.finished = true
                                         if (cont.isActive) cont.resume(false)
                                     }
                                 })
@@ -121,6 +167,8 @@ object MapTilePrefetch {
                 }
             }
         } ?: false
+        active.remove(sectionId)
+        return result
     }
 
     /** Удалить тайлы участка (при «Удалить» на телефоне). */

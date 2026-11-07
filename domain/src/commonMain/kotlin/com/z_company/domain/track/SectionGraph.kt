@@ -262,21 +262,23 @@ object Branches {
         }
         fun behind(km: Double): Boolean = if (!reversed) km < posKm - 0.05 else km > posKm + 0.05
         val atNode = graph.edges.filter { it.fromNode == node.id || it.toNode == node.id }
-        // Входящее ребро - то, чей дальний узел лежит на этой оси ПОЗАДИ поезда (по нему приехали).
+        // Входящее ребро - то, по которому поезд ЕДЕТ СЕЙЧАС (владелец - текущий участок, км внутри ребра).
+        // «Позади по оси» не годится: параллельные линии чужих участков проецируются туда же и
+        // съедали ветки (оставался один чип).
         val incoming = atNode.filter { e ->
-            val far = if (e.fromNode == node.id) e.toNode else e.fromNode
-            val farNode = graph.nodes.firstOrNull { it.id == far }
-            farNode?.let { kmOnSection(it.lat, it.lon)?.let(::behind) } == true
+            e.sectionId == section.id && posKm >= minOf(e.fromKm, e.toKm) - 0.05 && posKm <= maxOf(e.fromKm, e.toKm) + 0.05
         }.map { it.id }.toSet()
         return atNode.filter { it.id !in incoming }.map { e ->
             val farId = if (e.fromNode == node.id) e.toNode else e.fromNode
             val farNode = graph.nodes.firstOrNull { it.id == farId }
             val owner = sectionsById[e.sectionId] ?: section.takeIf { it.id == e.sectionId }
-            // Первая станция владельца на ребре в сторону от развилки; имя узла - запасной вариант.
+            // Первая станция владельца ВДОЛЬ ветки от развилки (сама станция развилки - не подпись);
+            // если станций нет - узел в конце ветки, иначе просто «Ветка».
             val stations = (owner?.stations ?: emptyList())
                 .filter { it.km >= minOf(e.fromKm, e.toKm) - 0.05 && it.km <= maxOf(e.fromKm, e.toKm) + 0.05 }
+                .filter { abs(it.km - junction.km) > 0.5 }
                 .sortedBy { abs(it.km - junction.km) }
-            val title = stations.firstOrNull()?.name ?: farNode?.name ?: "Ветка"
+            val title = stations.firstOrNull()?.name ?: farNode?.name?.takeIf { it.isNotEmpty() } ?: "Ветка"
             val dist = stations.firstOrNull()?.let { abs(it.km - junction.km) } ?: e.lengthKm
             Branch(e.id, e, title, dist, farId)
         }.sortedBy { it.distanceKm }

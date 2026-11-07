@@ -711,10 +711,11 @@ internal class ProfileModel(
         get() {
             val l = live ?: return null
             val names = legStopNames()
+            // Условия считаются заново (дёшево): чтение legAxisRange отставало на пересчёт - заголовок врал один выбор.
             return when {
                 l.section.id.startsWith("virtual:") -> l.section.name
-                names.size >= 2 && l.legAxisRange != null -> "Плечо: ${names.first()} — ${names.last()}"
-                names.size < 2 && l.legAxisRange != null -> "Маршрут по факту"
+                names.size >= 2 && LegMatch.axisRange(l.section, names) != null -> "Плечо: ${names.first()} — ${names.last()}"
+                names.size < 2 && factAxisRange(l.section, l.reversed) != null -> "Маршрут по факту"
                 else -> null
             }
         }
@@ -1226,8 +1227,10 @@ internal class ProfileModel(
         // коллинеарными участками (одно место - разные км), прыжки давали мигание профиля.
         val chosen = when {
             pick.sectionId in legIds -> pick
+            // Текущий участок ещё рядом - держимся его (см. выше).
             autoId != null && near.any { it.sectionId == autoId } -> near.first { it.sectionId == autoId }
-            else -> pick
+            // Ушли с прежнего участка (прошли развилку): предпочитаем участок выбранной ветки.
+            else -> near.firstOrNull { it.sectionId == branchChips.firstOrNull { c -> c.edgeId == selectedBranchId }?.sectionId } ?: pick
         }
         if (chosen.sectionId != autoId) { autoId = chosen.sectionId; motionReversed = null; resetMotion() }
     }
@@ -1274,7 +1277,7 @@ internal class ProfileModel(
     private var junctionCacheKey: String? = null
 
     /** Чип ветки за развилкой: «→ Колпино · 12 км». */
-    data class BranchChip(val edgeId: String, val title: String, val distanceKm: Double)
+    data class BranchChip(val edgeId: String, val title: String, val distanceKm: Double, val sectionId: String)
 
     /** Ветки за ближайшей развилкой (режим «по факту»); пусто - развилки впереди нет или режим плеча. */
     var branchChips by mutableStateOf<List<BranchChip>>(emptyList())
@@ -1325,7 +1328,7 @@ internal class ProfileModel(
         }
         junctionCache = computed.first
         junctionCacheKey = key
-        branchChips = computed.second.map { BranchChip(it.edgeId, it.title, it.distanceKm) }
+        branchChips = computed.second.map { BranchChip(it.edgeId, it.title, it.distanceKm, it.edge.sectionId) }
         // Пересчитать кроп/подпись по свежему кэпу.
         live?.let { it.legAxisRange = LegMatch.axisRange(it.section, names) ?: factAxisRange(it.section, it.reversed) }
     }
