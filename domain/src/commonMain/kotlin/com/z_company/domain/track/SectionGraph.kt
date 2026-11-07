@@ -177,14 +177,21 @@ object FactRoute {
      * Км оси ближайшей развилки впереди по ходу (null - впереди до конца участка развилок нет).
      * [posKm] - положение поезда на оси участка; [reversed] - поезд идёт от конца оси к началу.
      */
-    fun nextJunctionKm(graph: SectionGraph, section: SectionProfile, posKm: Double, reversed: Boolean): Double? {
+    fun nextJunctionKm(graph: SectionGraph, section: SectionProfile, posKm: Double, reversed: Boolean): Double? =
+        nextJunction(graph, section, posKm, reversed)?.km
+
+    /** Ближайшая развилка впереди: км оси и имя узла (пустое - узел без имени станции). */
+    data class Ahead(val km: Double, val name: String)
+
+    /** Ближайшая развилка впереди по ходу (см. [nextJunctionKm]); null - развилок впереди нет. */
+    fun nextJunction(graph: SectionGraph, section: SectionProfile, posKm: Double, reversed: Boolean): Ahead? {
         val degree = HashMap<String, Int>()
         for (e in graph.edges) {
             degree[e.fromNode] = (degree[e.fromNode] ?: 0) + 1
             degree[e.toNode] = (degree[e.toNode] ?: 0) + 1
         }
         val locator = section.axis.locator
-        var best: Double? = null
+        var best: Ahead? = null
         for (n in graph.nodes) {
             if ((degree[n.id] ?: 0) < JUNCTION_DEGREE) continue
             val hit = locator.project(n.lat, n.lon) ?: continue
@@ -192,7 +199,7 @@ object FactRoute {
             val km = hit.kmM / 1000.0
             if (!reversed && km <= posKm + 0.05) continue
             if (reversed && km >= posKm - 0.05) continue
-            if (best == null || (!reversed && km < best) || (reversed && km > best)) best = km
+            if (best == null || (!reversed && km < best.km) || (reversed && km > best.km)) best = Ahead(km, n.name)
         }
         return best
     }

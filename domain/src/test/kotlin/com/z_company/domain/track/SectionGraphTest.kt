@@ -146,3 +146,26 @@ class FactRouteTest {
         assertNull(FactRoute.axisRange(graph, s, posKm = 1.0, reversed = false))
     }
 }
+
+class FactRouteNameTest {
+    private val nA = GraphNode("A", 55.0, 30.0, "Андреево")
+    private val nB = GraphNode("B", 55.1, 30.0, "Борисово")
+    private val nC = GraphNode("C", 55.2, 30.0, "")
+    private val nD = GraphNode("D", 55.1, 30.3, "Данилово")
+    private val e1 = GraphEdge("e1", "s1", 0.0, 10.0, "A", "B", 10.0)
+    private val e2 = GraphEdge("e2", "s2", 0.0, 10.0, "B", "C", 10.0)
+    private val e3 = GraphEdge("e3", "s3", 0.0, 4.0, "D", "B", 4.0)
+    private val graph = SectionGraph("v1", listOf(nA, nB, nC, nD), listOf(e1, e2, e3))
+
+    @Test
+    fun junction_ahead_carries_name() {
+        val s = SectionProfile(
+            id = "s1", name = "Уч", fromStation = "", toStation = "", lengthKm = 10.0, axisHash = "h",
+            axis = SectionAxis("s1", "h", listOf(AxisPoint(0.0, 55.0, 30.0), AxisPoint(5.0, 55.05, 30.0), AxisPoint(10.0, 55.1, 30.0))),
+            elements = emptyList(), kmMarks = emptyList(), stations = emptyList(),
+        )
+        val ahead = assertNotNull(FactRoute.nextJunction(graph, s, posKm = 3.0, reversed = false))
+        assertEquals("Борисово", ahead.name)
+        assertEquals(10.0, ahead.km, 0.05)
+    }
+}
