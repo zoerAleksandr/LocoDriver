@@ -1215,6 +1215,8 @@ internal class ProfileModel(
     }
 
     private fun autoPick(fix: GeoFix, force: Boolean = false) {
+        // Превью выбранной ветки держим до входа на неё - GPS-подбор его не подменяет.
+        if (branchPreview != null) return
         if (!force && autoId != null && live?.position?.offRoute != true) return
         val names = legStopNames()
         val near = SectionPicker.nearest(sections.map { it.axis }, fix.latitude, fix.longitude)
@@ -1358,10 +1360,16 @@ internal class ProfileModel(
         // Режим превью выбранной ветки: pos живёт в координатах превью - пересчёты графа выключены,
         // ловим только проход развилки (она в [previewJunctionKm] от начала превью).
         if (branchPreview != null) {
-            val jkm = previewJunctionKm
-            if (pos != null && jkm != null) {
-                val passed = if (!rev) pos > jkm + 0.1 else pos < jkm - 0.1
-                if (passed) clearBranchPreview()  // выбор (для GPS) сохраняем, дальше ведёт подбор
+            // Превью - только ветка от развилки вперёд (откуда едет поезд в режиме «по факту» - неизвестно).
+            // Позиция вне превью (поезд ещё до развилки) - ничего не меняем; вошёл на ветку - дальше ведёт GPS.
+            if (pos != null) {
+                val ownerId = selectedBranchSectionId
+                clearBranchPreview()
+                if (ownerId != null) {
+                    factBaseId = ownerId
+                    autoId = ownerId
+                    rebuild()
+                }
             }
             return
         }
@@ -1413,30 +1421,22 @@ internal class ProfileModel(
         val preview = withContext(Dispatchers.Default) {
             VirtualSection.compose(
                 listOf(
-                    approachTraversal(base, pos, rev, ahead.km),
+                    // Только ветка от развилки вперёд: предыдущий путь в режиме «по факту» неизвестен.
                     EdgeTraversal(
                         branch.edge,
                         if (branch.edge.fromNode == ahead.nodeId) branch.edge.fromKm else branch.edge.toKm,
                         if (branch.edge.fromNode == ahead.nodeId) branch.edge.toKm else branch.edge.fromKm,
                     ),
                 ),
-                mapOf(base.id to base, owner.id to owner),
+                mapOf(owner.id to owner),
             )
         } ?: return
         branchPreview = preview
         branchPreviewKey = previewKey
-        previewJunctionKm = abs(pos - ahead.km)  // развилка в координатах превью
+        previewJunctionKm = 0.0  // развилка - начало превью
         virtualSection = preview
         autoId = preview.id
         rebuild()
-    }
-
-    /** Подъезд к развилке: кусок текущего участка от поезда до развилки, по ходу движения. */
-    private fun approachTraversal(base: SectionProfile, pos: Double, reversed: Boolean, junctionKm: Double): EdgeTraversal {
-        val lo = minOf(pos, junctionKm)
-        val hi = maxOf(pos, junctionKm)
-        val e = com.z_company.domain.track.GraphEdge("approach", base.id, lo, hi, "", "", hi - lo)
-        return if (!reversed) EdgeTraversal(e, lo, hi) else EdgeTraversal(e, hi, lo)
     }
 
     private fun factAxisRange(s: SectionProfile, rev: Boolean): ClosedFloatingPointRange<Double>? {

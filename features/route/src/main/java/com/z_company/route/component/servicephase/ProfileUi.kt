@@ -130,7 +130,7 @@ internal fun BranchChipsRow(model: ProfileModel, modifier: Modifier = Modifier) 
         chips.forEach { c ->
             val on = c.edgeId == model.selectedBranchId
             Text(
-                "\u2192 ${c.title} \u00b7 ${pstKm(c.distanceKm)}",
+                "далее на ${c.title}",
                 style = Pst.sans.copy(fontSize = 13.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal),
                 color = if (on) Pst.onAccent else Pst.text,
                 modifier = Modifier
