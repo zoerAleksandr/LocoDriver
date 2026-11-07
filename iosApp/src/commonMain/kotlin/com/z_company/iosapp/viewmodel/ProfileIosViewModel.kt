@@ -97,6 +97,9 @@ data class ProfileIosState(
     val vkId: String? = null,
     /** Имя из VK SDK; на iOS VK ID SDK не реализован (§18.4) — всегда null. */
     val vkProfileName: String? = null,
+    /** Вход в VK через SDK выполнен (§18.1): карточка перестаёт просить «Войдите в VK»,
+     *  даже если имя из токена не досталось. */
+    val vkSdkSignedIn: Boolean = false,
     /** Ошибка привязки/отвязки VK — snackbar (§18.2). */
     val vkLinkMessage: String? = null,
     /** Вход по VK, аккаунта нет: диалог «Аккаунта с этим VK нет» → «Создать»/«Отмена». */
@@ -379,6 +382,7 @@ class ProfileIosViewModel(
                         _state.updateCopy(
                             authLoading = false,
                             vkProfileName = vkName.ifBlank { null },
+                            vkSdkSignedIn = true,
                         )
                     }
                     authState is AuthState.Error &&
@@ -438,6 +442,7 @@ class ProfileIosViewModel(
                         _state.updateCopy(
                             registrationLoading = false,
                             vkProfileName = vkName.ifBlank { null },
+                            vkSdkSignedIn = true,
                         )
                     }
                     is RegistrationState.Error -> {
@@ -612,6 +617,7 @@ class ProfileIosViewModel(
             email = null,
             vkId = null,
             vkProfileName = null,
+            vkSdkSignedIn = false,
         )
     }
 
@@ -794,7 +800,10 @@ class ProfileIosViewModel(
                     is GetUserProfileState.Success -> {
                         println("AuthFlow: attachVKID → success")
                         authSession.saveVkId(vkId)
-                        _state.updateCopy(vkProfileName = vkName.ifBlank { null })
+                        _state.updateCopy(
+                            vkProfileName = vkName.ifBlank { null },
+                            vkSdkSignedIn = true,
+                        )
                         refresh()
                     }
                     is GetUserProfileState.Error -> {
@@ -823,6 +832,7 @@ class ProfileIosViewModel(
                         println("AuthFlow: removeUsersVKID → success")
                         result.accessToken?.let { authSession.saveToken(it) }
                         authSession.saveVkId("")
+                        _state.updateCopy(vkProfileName = null, vkSdkSignedIn = false)
                         refresh()
                     }
                     is GetUserProfileState.Error -> {
@@ -845,6 +855,7 @@ class ProfileIosViewModel(
         _state.updateCopy(
             vkId = vkId,
             vkProfileName = vkName.ifBlank { null },
+            vkSdkSignedIn = true,
         )
     }
 
@@ -1236,6 +1247,7 @@ class ProfileIosViewModel(
         email: String? = value.email,
         vkId: String? = value.vkId,
         vkProfileName: String? = value.vkProfileName,
+        vkSdkSignedIn: Boolean = value.vkSdkSignedIn,
         vkLinkMessage: String? = value.vkLinkMessage,
         vkRegistrationOffer: Boolean = value.vkRegistrationOffer,
         hasActiveSubscription: Boolean = value.hasActiveSubscription,
@@ -1267,6 +1279,7 @@ class ProfileIosViewModel(
             email = email,
             vkId = vkId,
             vkProfileName = vkProfileName,
+            vkSdkSignedIn = vkSdkSignedIn,
             vkLinkMessage = vkLinkMessage,
             vkRegistrationOffer = vkRegistrationOffer,
             hasActiveSubscription = hasActiveSubscription,

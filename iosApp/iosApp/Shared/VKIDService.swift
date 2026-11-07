@@ -92,7 +92,8 @@ enum VKIDService {
         }
     }
 
-    /// Имя пользователя из ID-токена (JWT: claims `name` или `first_name`+`last_name`).
+    /// Имя пользователя из ID-токена (JWT). Поддерживает варианты claims:
+    /// `name`, `first_name`+`last_name`, `given_name`+`family_name`.
     /// Сеть не нужна — профиль берём из того, что SDK уже вернул.
     private static func name(from idToken: String) -> String? {
         let parts = idToken.split(separator: ".")
@@ -104,11 +105,16 @@ enum VKIDService {
         guard let data = Data(base64Encoded: base64),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else { return nil }
+        // Диагностика: какие claims есть в токене (без значений).
+        print("AuthFlow: VKID idToken claims — \(json.keys.sorted().joined(separator: ","))")
         if let name = json["name"] as? String, !name.isEmpty { return name }
-        let first = json["first_name"] as? String ?? ""
-        let last = json["last_name"] as? String ?? ""
-        let joined = (first + " " + last).trimmingCharacters(in: .whitespaces)
-        return joined.isEmpty ? nil : joined
+        for (firstKey, lastKey) in [("first_name", "last_name"), ("given_name", "family_name")] {
+            let first = json[firstKey] as? String ?? ""
+            let last = json[lastKey] as? String ?? ""
+            let joined = (first + " " + last).trimmingCharacters(in: .whitespaces)
+            if !joined.isEmpty { return joined }
+        }
+        return nil
     }
 
     /// Завершение локальной сессии VK ID SDK при отвязке (Android делает то же

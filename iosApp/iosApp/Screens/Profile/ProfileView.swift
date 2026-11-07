@@ -306,6 +306,27 @@ struct ProfileView: View {
                             .foregroundColor(DSColor.danger)
                     }
                 }
+            } else if state.vkSdkSignedIn, state.vkId != nil {
+                // Вход в VK выполнен, но имя из токена не досталось: показываем id
+                // без призыва «Войдите в VK» и без повторной кнопки входа.
+                HStack(alignment: .top, spacing: 12) {
+                    DSIconAvatar(icon: .profile, size: .lg, tone: .accent, shape: .circle)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("VK ID").font(DSFont.sans(17, .semibold))
+                        HStack(spacing: 6) {
+                            DSPill(text: "VK", tone: .muted)
+                            if let vkId = state.vkId {
+                                Text(vkId)
+                                    .font(DSFont.mono(13))
+                                    .foregroundColor(DSColor.textMuted)
+                            }
+                        }
+                    }
+                    Spacer(minLength: 8)
+                    Button("Отвязать") { confirmVkUnlink(state) }
+                        .font(DSFont.sans(14, .medium))
+                        .foregroundColor(DSColor.danger)
+                }
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(state.vkId != nil ? "VK ID привязан" : "VK ID не привязан")
