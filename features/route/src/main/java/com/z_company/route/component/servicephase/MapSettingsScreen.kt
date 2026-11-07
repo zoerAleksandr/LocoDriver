@@ -71,7 +71,7 @@ internal object TrainMapPrefs {
     private val _sensitivity = MutableStateFlow(LocationSensitivity.DEFAULT)
     private val _profileVisible = MutableStateFlow(true)
     private val _speedVisible = MutableStateFlow(true)
-    private val _trainAsLine = MutableStateFlow(true)
+    private val _trainAsLine = MutableStateFlow(false)  // по умолчанию точка (решение владельца 07.11)
     private var loaded = false
 
     fun sensitivity(context: Context): StateFlow<Int> {
@@ -133,7 +133,7 @@ internal object TrainMapPrefs {
             _sensitivity.value = LocationSensitivity.clamp(p.getInt(KEY_SENSITIVITY, LocationSensitivity.DEFAULT))
             _profileVisible.value = p.getBoolean(KEY_PROFILE, true)
             _speedVisible.value = p.getBoolean(KEY_SPEED, true)
-            _trainAsLine.value = p.getBoolean(KEY_TRAIN_LINE, true)
+            _trainAsLine.value = p.getBoolean(KEY_TRAIN_LINE, false)
         }
     }
 }
