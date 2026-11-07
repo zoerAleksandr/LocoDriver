@@ -9,6 +9,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.z_company.domain.track.Calibration
 import com.z_company.domain.track.ElevationLine
+import com.z_company.domain.track.EdgeTraversal
+import com.z_company.domain.track.GraphLeg
 import com.z_company.domain.track.LegMatch
 import com.z_company.domain.track.LivePosition
 import com.z_company.domain.track.LiveProfile
@@ -18,6 +20,7 @@ import com.z_company.domain.track.SectionSummary
 import com.z_company.domain.track.ResolvedWarning
 import com.z_company.domain.track.TrackWarning
 import com.z_company.domain.track.WarningType
+import com.z_company.domain.track.VirtualSection
 import com.z_company.domain.track.latLonAt
 import com.z_company.domain.track.TrackWarnings
 import com.z_company.domain.track.RestrictionKind
@@ -136,6 +139,10 @@ internal class ProfileModel(
     var manualId by mutableStateOf<String?>(null)
         private set
     private var autoId by mutableStateOf<String?>(null)
+
+    /** Виртуальный участок из графа стыков (плечо через несколько участков); показывается как обычный. */
+    private var virtualSection: SectionProfile? = null
+    private var virtualLegKey: String? = null
 
     /** Направление, выбранное пользователем; null - по плечу, а без плеча - по движению. */
     private var manualReversed by mutableStateOf<Boolean?>(null)
@@ -1066,9 +1073,55 @@ internal class ProfileModel(
 
     private fun pickLeg() {
         if (manualId != null || live != null) return
-        val id = legSectionId() ?: return
-        autoId = id
-        rebuild()
+        val id = legSectionId()
+        if (id != null) {
+            autoId = id
+            rebuild()
+            return
+        }
+        // Плечо не помещается в один участок - собрать виртуальный из графа стыков (развилки, «профиль по факту»).
+        val key = stopNames.joinToString("|")
+        if (key == virtualLegKey) return
+        scope.launch {
+            val v = runCatching { buildVirtualLeg() }.getOrNull() ?: return@launch
+            if (manualId != null || live != null) return@launch
+            virtualLegKey = key
+            virtualSection = v
+            autoId = v.id
+            rebuild()
+        }
+    }
+
+    /** Владельцев рёбер докачиваем по одному, пока плечо не находится: не больше [VIRTUAL_LEG_MAX_LOADS] за прогон. */
+    private val VIRTUAL_LEG_MAX_LOADS = 8
+
+    private suspend fun buildVirtualLeg(): SectionProfile? {
+        val names = stopNames
+        if (names.size < 2) return null
+        val graph = runCatching { repo.graph() }.getOrNull() ?: return null
+        val byId = HashMap<String, SectionProfile>(sections.associateBy { it.id })
+        fun path(): List<EdgeTraversal>? = GraphLeg.pathForStops(graph, byId, names.first(), names.last())
+        var found = path()
+        if (found == null) {
+            // Станции плеча - внутри рёбер, их владельцы ещё не загружены (станции видны только по оси владельца).
+            var loads = 0
+            for (e in graph.edges) {
+                if (byId.containsKey(e.sectionId) || loads >= VIRTUAL_LEG_MAX_LOADS) continue
+                val s = runCatching { repo.section(e.sectionId, refresh = false) }.getOrNull() ?: continue
+                byId[s.id] = s
+                loads++
+                found = path()
+                if (found != null) break
+            }
+        }
+        val p = found ?: return null
+        for (t in p) {
+            if (!byId.containsKey(t.edge.sectionId)) {
+                val owner = runCatching { repo.section(t.edge.sectionId, refresh = false) }.getOrNull() ?: return null
+                byId[owner.id] = owner
+            }
+        }
+        return VirtualSection.compose(p, byId, name = "Плечо: ${names.first()} — ${names.last()}")
     }
 
     private var legPrefetchKey: String? = null
@@ -1115,7 +1168,9 @@ internal class ProfileModel(
 
     private fun ensureLive() {
         val id = currentId() ?: run { live = null; position = null; return }
-        val s = sections.firstOrNull { it.id == id } ?: run { live = null; position = null; return }
+        val s = sections.firstOrNull { it.id == id }
+            ?: virtualSection?.takeIf { it.id == id }
+            ?: run { live = null; position = null; return }
         val rev = reversedNow(s)
         val cur = live
         if (cur == null || cur.section.id != s.id || cur.reversed != rev || cur.section !== s) {

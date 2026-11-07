@@ -1,12 +1,15 @@
 package com.z_company.repository.remote_rest.tracks
 
 import com.z_company.domain.track.AxisPoint
+import com.z_company.domain.track.GraphEdge
+import com.z_company.domain.track.GraphNode
 import com.z_company.domain.track.KmMark
 import com.z_company.domain.track.ProfileElement
 import com.z_company.domain.track.SectionAxis
 import com.z_company.domain.track.SectionBox
 import com.z_company.domain.track.SectionBrakeTest
 import com.z_company.domain.track.SectionCrossing
+import com.z_company.domain.track.SectionGraph
 import com.z_company.domain.track.SectionProfile
 import com.z_company.domain.track.SectionStation
 import com.z_company.domain.track.SectionSummary
@@ -61,6 +64,8 @@ class SectionProfileRepository(
     private val lock = Mutex()
     private val memory = HashMap<String, Pair<Double, SectionProfile>>()
     private var index: List<AdvisorSectionSummaryDto>? = null
+    private var graphMem: SectionGraph? = null
+    private var graphFetchedAt: kotlin.time.TimeMark? = null
 
     /** Участки, которые сервер отдал, но использовать нельзя (нет оси): id -> `updatedAt`, пока он тот же - заново не качаем. */
     private val unusable = HashMap<String, Double>()
@@ -130,6 +135,36 @@ class SectionProfileRepository(
     /** Участок только из памяти/диска, без сети (фоновые потребители вроде журнала проследования); null - не сохранён. */
     suspend fun cached(id: String): SectionProfile? = lock.withLock {
         memory[id]?.second ?: readCached(id)?.also { memory[id] = it }?.second
+    }
+
+    /**
+     * Граф стыков и развилок (топология участков для плеча через несколько участков). Сеть - не чаще [GRAPH_REFRESH_MIN];
+     * сбой сети или старый сервер без эндпоинта - кэш памяти/диска. null - графа нет (старый сервер, ничего не сохранено).
+     */
+    suspend fun graph(refresh: Boolean = true): SectionGraph? {
+        val cachedGraph = graphMem ?: readCachedGraph()?.also { graphMem = it }
+        val stale = graphFetchedAt?.elapsedNow()?.let { it >= GRAPH_REFRESH_MIN } ?: true
+        if (!refresh || !stale) return cachedGraph
+        val dto = runCatching { api.graph() }.getOrNull() ?: return cachedGraph
+        val parsed = toGraph(dto) ?: return cachedGraph
+        graphFetchedAt = kotlin.time.TimeSource.Monotonic.markNow()
+        graphMem = parsed
+        runCatching { cache.save(GRAPH_KEY, json.encodeToString(AdvisorGraphDto.serializer(), dto)) }
+        return parsed
+    }
+
+    private fun toGraph(d: AdvisorGraphDto): SectionGraph? {
+        if (d.edges.isEmpty()) return null
+        return SectionGraph(
+            version = d.version,
+            nodes = d.nodes.map { GraphNode(it.id, it.lat, it.lon, it.name) },
+            edges = d.edges.map { GraphEdge(it.id, it.sectionId, it.fromKm, it.toKm, it.fromNode, it.toNode, it.lengthKm) },
+        )
+    }
+
+    private fun readCachedGraph(): SectionGraph? {
+        val text = cache.load(GRAPH_KEY) ?: return null
+        return runCatching { json.decodeFromString(AdvisorGraphDto.serializer(), text) }.getOrNull()?.let(::toGraph)
     }
 
     /**
@@ -321,10 +356,13 @@ class SectionProfileRepository(
         const val NEAR_RADIUS_M = 5_000.0
         const val INDEX_TIMEOUT_MS = 10_000L
         const val NEAR_LIMIT = 8
+        /** Ключ дискового кэша графа (не id участка): файловый кэш его не удаляет и не показывает в «Скачанных». */
+        const val GRAPH_KEY = "graph"
         val RATE_LIMIT_PAUSE = kotlin.time.Duration.parse("10m")
         val DEVICE_FAIL_PAUSE = kotlin.time.Duration.parse("30m")
         val FAIL_BACKOFF = kotlin.time.Duration.parse("1m")
         val FAIL_BACKOFF_MAX = kotlin.time.Duration.parse("15m")
         val INDEX_REFRESH_MIN = kotlin.time.Duration.parse("5m")
+        val GRAPH_REFRESH_MIN = kotlin.time.Duration.parse("5m")
     }
 }

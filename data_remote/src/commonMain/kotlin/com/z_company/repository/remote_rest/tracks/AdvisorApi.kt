@@ -29,6 +29,9 @@ interface AdvisorApi {
     suspend fun sections(): List<AdvisorSectionSummaryDto>
     suspend fun section(id: String): AdvisorSectionDto
 
+    /** Граф стыков и развилок участков (`GET /v1/advisor/graph`); без конверта - только топология и км. */
+    suspend fun graph(): AdvisorGraphDto
+
     /** [token] - полный заголовок `Bearer ...`. */
     suspend fun postAltitudeContrib(token: String, body: AltitudeContribRequest): AltitudeContribResponse
 }
@@ -48,6 +51,11 @@ class KtorAdvisorApi(
     override suspend fun sections(): List<AdvisorSectionSummaryDto> {
         val auth = authorization()
         return call { client.get("v1/advisor/sections") { header("Authorization", auth) }.body() }
+    }
+
+    override suspend fun graph(): AdvisorGraphDto {
+        val auth = authorization()
+        return call { client.get("v1/advisor/graph") { header("Authorization", auth) }.body() }
     }
 
     override suspend fun section(id: String): AdvisorSectionDto {
