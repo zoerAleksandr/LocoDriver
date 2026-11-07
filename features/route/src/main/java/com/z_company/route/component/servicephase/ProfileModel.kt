@@ -1255,6 +1255,13 @@ internal class ProfileModel(
         l.legAxisRange = LegMatch.axisRange(l.section, legStopNames()) ?: factAxisRange(l.section, l.reversed)
     }
 
+    /** Ближайшая развилка впереди на текущем профиле (км оси + имя узла); null - нет графа, положения или развилки впереди. */
+    fun junctionAhead(section: SectionProfile, reversed: Boolean): com.z_company.domain.track.FactRoute.Ahead? {
+        val g = graphCache ?: return null
+        val pos = position?.takeIf { !it.offRoute }?.kmAxis ?: return null
+        return com.z_company.domain.track.FactRoute.nextJunction(g, section, pos, reversed)
+    }
+
     private fun factAxisRange(s: SectionProfile, rev: Boolean): ClosedFloatingPointRange<Double>? {
         // «По факту» - только для автоподбора: участок, выбранный вручную, показываем целиком с его именем.
         if (manualId != null || legStopNames().size >= 2) return null

@@ -932,7 +932,14 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
                     gradeText(live, pos.element)?.let {
                         Text(it, style = Pst.mono.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, maxLines = 1)
                     }
+                    val junction = model.junctionAhead(live.section, live.reversed)
+                    val junctionKm = junction?.let {
+                        (it.km - pos.kmAxis).let { d -> if (live.reversed) -d else d }
+                    }
                     val tail = buildList {
+                        junction?.name?.takeIf { it.isNotEmpty() }?.let {
+                            add("до ст. $it — ${pstKm(junctionKm ?: 0.0)}")
+                        }
                         ahead?.let { add("До «${it.first}» — ${pstKm(it.second)}") }
                         model.signalsAhead(1).firstOrNull()?.let {
                             add("Светофор ${it.signal.title} — ${pstKm(it.distanceKm)}" + if (it.backToTrain) " (спиной)" else "")
