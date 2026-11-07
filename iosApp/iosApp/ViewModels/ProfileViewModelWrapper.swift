@@ -123,7 +123,8 @@ final class ProfileViewModelWrapper: ObservableObject {
                 self.viewModel.authWithVKID(
                     vkId: auth.vkId,
                     vkAccessToken: auth.accessToken,
-                    email: ""
+                    email: "",
+                    vkName: auth.fullName ?? ""
                 )
             case .failure(let failure):
                 self.messages.append(DSSnackbarItem(text: failure == .cancelled
@@ -143,11 +144,12 @@ final class ProfileViewModelWrapper: ObservableObject {
             switch result {
             case .success(let auth):
                 if self.state?.vkId != nil {
-                    self.viewModel.onVkAuthForLinkedAccount(vkId: auth.vkId)
+                    self.viewModel.onVkAuthForLinkedAccount(vkId: auth.vkId, vkName: auth.fullName ?? "")
                 } else {
                     self.viewModel.attachVKID(
                         vkId: auth.vkId,
-                        vkAccessToken: auth.accessToken
+                        vkAccessToken: auth.accessToken,
+                        vkName: auth.fullName ?? ""
                     )
                 }
             case .failure(let failure):

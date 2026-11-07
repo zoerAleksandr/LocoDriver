@@ -11,12 +11,14 @@ enum VKIDService {
     static let clientId = "54740437"
 
     /// Результат one-tap авторизации: легаси-id (`accessToken.userId`, как
-    /// `accessToken.userID.toString()` на Android) и сам access token.
+    /// `accessToken.userID.toString()` на Android), сам access token и имя
+    /// профиля из ID-токена (JWT) — для карточки «VK ID» в профиле (§18.1).
     /// Email из VK по умолчанию не запрашивается — в регистрации уходит пустая
     /// строка, почту пользователь добавляет позже в профиле (контракт 3.0.4).
     struct Auth {
         let vkId: String
         let accessToken: String
+        let fullName: String?
     }
 
     enum Failure: Error {
@@ -70,7 +72,8 @@ enum VKIDService {
                     print("AuthFlow: VKID auth → success")
                     completion(.success(Auth(
                         vkId: String(session.accessToken.userId.value),
-                        accessToken: session.accessToken.value
+                        accessToken: session.accessToken.value,
+                        fullName: name(from: session.idToken.value)
                     )))
                 case .failure(let error):
                     let failure: Failure
@@ -87,6 +90,25 @@ enum VKIDService {
                 }
             }
         }
+    }
+
+    /// Имя пользователя из ID-токена (JWT: claims `name` или `first_name`+`last_name`).
+    /// Сеть не нужна — профиль берём из того, что SDK уже вернул.
+    private static func name(from idToken: String) -> String? {
+        let parts = idToken.split(separator: ".")
+        guard parts.count >= 2 else { return nil }
+        var base64 = String(parts[1])
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        while base64.count % 4 != 0 { base64.append("=") }
+        guard let data = Data(base64Encoded: base64),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return nil }
+        if let name = json["name"] as? String, !name.isEmpty { return name }
+        let first = json["first_name"] as? String ?? ""
+        let last = json["last_name"] as? String ?? ""
+        let joined = (first + " " + last).trimmingCharacters(in: .whitespaces)
+        return joined.isEmpty ? nil : joined
     }
 
     /// Завершение локальной сессии VK ID SDK при отвязке (Android делает то же
