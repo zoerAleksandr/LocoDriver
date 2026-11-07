@@ -83,6 +83,22 @@ data class AdvisorGraphDto(
     val edges: List<AdvisorGraphEdgeDto> = emptyList(),
 )
 
+/** Проезд ребра по ходу поезда (`GET /v1/advisor/graph/path`): диапазон км реального участка-владельца. */
+@Serializable
+data class AdvisorGraphTraversalDto(
+    val edge: AdvisorGraphEdgeDto,
+    val startKm: Double = 0.0,
+    val endKm: Double = 0.0,
+)
+
+/** Путь плеча по графу стыков; сервер ищет по всем опубликованным участкам. */
+@Serializable
+data class AdvisorGraphPathDto(
+    val version: String = "",
+    val lengthKm: Double = 0.0,
+    val traversals: List<AdvisorGraphTraversalDto> = emptyList(),
+)
+
 /**
  * Светофор на оси участка. `track` - литер: "E" (Ч, чётное направление) или "O" (Н, нечётное); `kind` - "pass" | "station" |
  * "shunt" | "distant"; `facing` - в какую сторону оси виден лицом (+1 по возрастанию км, −1 против). Поле необязательное:

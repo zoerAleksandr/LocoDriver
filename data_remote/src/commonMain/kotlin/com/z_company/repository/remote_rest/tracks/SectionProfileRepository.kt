@@ -1,6 +1,7 @@
 package com.z_company.repository.remote_rest.tracks
 
 import com.z_company.domain.track.AxisPoint
+import com.z_company.domain.track.EdgeTraversal
 import com.z_company.domain.track.GraphEdge
 import com.z_company.domain.track.GraphNode
 import com.z_company.domain.track.KmMark
@@ -165,6 +166,18 @@ class SectionProfileRepository(
     private fun readCachedGraph(): SectionGraph? {
         val text = cache.load(GRAPH_KEY) ?: return null
         return runCatching { json.decodeFromString(AdvisorGraphDto.serializer(), text) }.getOrNull()?.let(::toGraph)
+    }
+
+    /**
+     * Путь плеча между станциями по графу стыков: сервер ищет по всем опубликованным участкам
+     * (клиенту не нужно докачивать их владельцев, чтобы найти путь). null - пути нет, нет сети или старый сервер.
+     */
+    suspend fun graphPath(fromName: String, toName: String): List<EdgeTraversal>? {
+        val dto = runCatching { api.graphPath(fromName, toName) }.getOrNull() ?: return null
+        return dto.traversals.map { t ->
+            val e = t.edge
+            EdgeTraversal(GraphEdge(e.id, e.sectionId, e.fromKm, e.toKm, e.fromNode, e.toNode, e.lengthKm), t.startKm, t.endKm)
+        }.takeIf { it.isNotEmpty() }
     }
 
     /**
