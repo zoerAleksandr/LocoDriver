@@ -700,6 +700,23 @@ internal class ProfileModel(
     /** Подходит ли выбранный участок плечу; null - плеча нет. */
     val fitsLeg: Boolean? get() = section?.let { LegMatch.fits(it, legStopNames()) }
 
+    /**
+     * Название для карточки профиля: показ не всегда совпадает с именем участка. Плечо собрано из графа -
+     * своё имя; профиль обрезан по плечу - «Плечо: От — До»; обрезан «по факту» (без плеча, до развилки) -
+     * «Маршрут по факту»; иначе null - оставить имя участка (как было).
+     */
+    val profileTitle: String?
+        get() {
+            val l = live ?: return null
+            val names = legStopNames()
+            return when {
+                l.section.id.startsWith("virtual:") -> l.section.name
+                names.size >= 2 && l.legAxisRange != null -> "Плечо: ${names.first()} — ${names.last()}"
+                names.size < 2 && l.legAxisRange != null -> "Маршрут по факту"
+                else -> null
+            }
+        }
+
     val emptyReason: ProfileEmpty?
         get() = when {
             needLogin -> ProfileEmpty.NEED_LOGIN
