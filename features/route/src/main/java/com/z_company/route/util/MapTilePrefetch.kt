@@ -89,8 +89,11 @@ object MapTilePrefetch {
 
     /** Отменить скачивание тайлов участка (кнопка «Отмена» в диалоге прогресса). */
     fun cancel(context: Context, sectionId: String) {
-        val a = active.remove(sectionId) ?: return
+        val a = active[sectionId] ?: return
+        // Уже завершено (успех или сбой) - готовый пак не трогаем, отмена запоздала.
+        if (a.finished) return
         a.finished = true
+        active.remove(sectionId)
         a.region?.let { region ->
             region.setDownloadState(OfflineRegion.STATE_INACTIVE)
             region.delete(object : OfflineRegion.OfflineRegionDeleteCallback {
@@ -175,6 +178,45 @@ object MapTilePrefetch {
     /** Удалить тайлы участка (при «Удалить» на телефоне). */
     suspend fun delete(context: Context, sectionId: String): Unit = suspendCancellableCoroutine { cont ->
         deletePacks(context.applicationContext, sectionId) { if (cont.isActive) cont.resume(Unit) }
+    }
+
+    /**
+     * Паки тайлов на телефоне: id участка -> размер пака в байтах. Критерий «участок скачан» — есть карта:
+     * профиль без пака тайлов в «Скачанных участках» не считается скачанным.
+     */
+    suspend fun downloadedPacks(context: Context): Map<String, Long> = suspendCancellableCoroutine { cont ->
+        val app = context.applicationContext
+        manager(app).listOfflineRegions(object : OfflineManager.ListOfflineRegionsCallback {
+            override fun onList(offlineRegions: Array<OfflineRegion>?) {
+                val regions = offlineRegions.orEmpty()
+                if (regions.isEmpty()) {
+                    if (cont.isActive) cont.resume(emptyMap())
+                    return
+                }
+                val sizes = java.util.concurrent.ConcurrentHashMap<String, Long>()
+                val left = java.util.concurrent.atomic.AtomicInteger(regions.size)
+                regions.forEach { region ->
+                    val id = runCatching {
+                        Regex("\"sectionId\":\"([^\"]+)\"").find(String(region.metadata))?.groupValues?.get(1)
+                    }.getOrNull()
+                    region.getStatus(object : OfflineRegion.OfflineRegionStatusCallback {
+                        override fun onStatus(status: OfflineRegionStatus?) {
+                            if (id != null && status != null) sizes[id] = (sizes[id] ?: 0L) + status.completedResourceSize
+                            if (left.decrementAndGet() == 0 && cont.isActive) cont.resume(HashMap(sizes))
+                        }
+
+                        override fun onError(error: String?) {
+                            if (id != null) sizes[id] = (sizes[id] ?: 0L)
+                            if (left.decrementAndGet() == 0 && cont.isActive) cont.resume(HashMap(sizes))
+                        }
+                    })
+                }
+            }
+
+            override fun onError(error: String) {
+                if (cont.isActive) cont.resume(emptyMap())
+            }
+        })
     }
 
     /**
