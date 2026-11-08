@@ -48,6 +48,10 @@ private class FakeAdvisorApi : AdvisorApi {
         return AdvisorSectionDto(id, detailHash, geometry())
     }
 
+    override suspend fun graph() = AdvisorGraphDto()
+
+    override suspend fun graphPath(fromStation: String, toStation: String) = AdvisorGraphPathDto()
+
     override suspend fun postAltitudeContrib(token: String, body: AltitudeContribRequest): AltitudeContribResponse {
         failPost?.let { throw it }
         if (body.axisHash != serverHash) throw AdvisorApiException(409, "axis_changed")

@@ -43,13 +43,22 @@ interface SectionProfileCache {
 
     /** Размер файла сохранённого участка в байтах (0 - нет). */
     fun sizeBytes(sectionId: String): Long = 0L
+
+    /**
+     * Транзакция замены явно скачанного участка: старый файл живёт до успешной
+     * загрузки карты. Файловая реализация хранит backup на диске, чтобы пережить падение
+     * процесса. Значения по умолчанию нужны для нефайловых test/cache реализаций.
+     */
+    fun beginOfflineReplace(sectionId: String) {}
+    fun commitOfflineReplace(sectionId: String) {}
+    fun rollbackOfflineReplace(sectionId: String) {}
 }
 
 /** Итог явной загрузки участка пользователем ([SectionProfileRepository.downloadForOffline]). */
 enum class OfflineDownloadResult { OK, RATE_LIMITED, DEVICE_REJECTED, NOT_AVAILABLE, FAILED }
 
-/** Сохранённый на телефоне участок: метка версии (`updatedAt`) и размер файла. */
-data class OfflineSectionInfo(val updatedAt: Double, val bytes: Long)
+/** Сохранённый на телефоне участок: версия, хэш оси и размер файла. */
+data class OfflineSectionInfo(val updatedAt: Double, val axisHash: String, val bytes: Long)
 
 /**
  * Профили участков советника для экрана «Профиль пути»: список участков и полный участок (ось, профиль, километраж, станции).
@@ -207,8 +216,18 @@ class SectionProfileRepository(
      */
     suspend fun offlineSections(): Map<String, OfflineSectionInfo> = lock.withLock {
         cache.cachedIds().mapNotNull { id ->
-            readCached(id)?.let { id to OfflineSectionInfo(it.first, cache.sizeBytes(id)) }
+            readCached(id)?.let { id to OfflineSectionInfo(it.first, it.second.axisHash, cache.sizeBytes(id)) }
         }.toMap()
+    }
+
+    /** Начать/завершить атомарную замену профиля вместе с паком карты. */
+    suspend fun beginOfflineReplace(id: String) = lock.withLock { cache.beginOfflineReplace(id) }
+
+    suspend fun commitOfflineReplace(id: String) = lock.withLock { cache.commitOfflineReplace(id) }
+
+    suspend fun rollbackOfflineReplace(id: String) = lock.withLock {
+        cache.rollbackOfflineReplace(id)
+        memory.remove(id)
     }
 
     /** Все участки, сохранённые на телефоне (только диск/память, без сети): основа для расчёта плеча без интернета. */

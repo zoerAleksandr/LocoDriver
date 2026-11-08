@@ -73,6 +73,8 @@ class FileAxisCache(private val dir: File, private val seal: LocalSeal = LocalSe
 
 /** Кэш профилей участков на диске: файл `<id>.json` на участок и `index.json` со списком. Содержимое зашифровано ключом Keystore ([LocalSeal]); пишется через временный файл. */
 class FileSectionProfileCache(private val dir: File, private val seal: LocalSeal = LocalSeal.deviceBound()) : com.z_company.repository.remote_rest.tracks.SectionProfileCache {
+    init { recoverOfflineTransactions() }
+
     private fun isSafeId(id: String) = id.isNotEmpty() && id.all { it.isLetterOrDigit() || it == '-' }
 
     private fun write(target: File, text: String) {
@@ -111,4 +113,43 @@ class FileSectionProfileCache(private val dir: File, private val seal: LocalSeal
 
     override fun sizeBytes(sectionId: String): Long =
         if (isSafeId(sectionId)) File(dir, "$sectionId.json").takeIf { it.isFile }?.length() ?: 0L else 0L
+
+    override fun beginOfflineReplace(sectionId: String) {
+        if (!isSafeId(sectionId)) return
+        dir.mkdirs()
+        rollbackOfflineReplace(sectionId)
+        val target = File(dir, "$sectionId.json")
+        val backup = File(dir, "$sectionId.offline-backup")
+        if (target.isFile) target.copyTo(backup, overwrite = true)
+        File(dir, "$sectionId.offline-txn").writeText(if (target.isFile) "old" else "new")
+    }
+
+    override fun commitOfflineReplace(sectionId: String) {
+        if (!isSafeId(sectionId)) return
+        File(dir, "$sectionId.offline-backup").delete()
+        File(dir, "$sectionId.offline-txn").delete()
+    }
+
+    override fun rollbackOfflineReplace(sectionId: String) {
+        if (!isSafeId(sectionId)) return
+        val marker = File(dir, "$sectionId.offline-txn")
+        if (!marker.isFile) return
+        val target = File(dir, "$sectionId.json")
+        val backup = File(dir, "$sectionId.offline-backup")
+        if (backup.isFile) {
+            if (!backup.renameTo(target)) {
+                backup.copyTo(target, overwrite = true)
+                backup.delete()
+            }
+        } else {
+            target.delete()
+        }
+        marker.delete()
+    }
+
+    private fun recoverOfflineTransactions() {
+        dir.listFiles { f -> f.isFile && f.name.endsWith(".offline-txn") }?.forEach { marker ->
+            rollbackOfflineReplace(marker.name.removeSuffix(".offline-txn"))
+        }
+    }
 }

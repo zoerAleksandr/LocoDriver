@@ -7,6 +7,7 @@ import com.z_company.repository.remote_rest.tracks.OfflineDownloadResult
 import com.z_company.repository.remote_rest.tracks.OfflineSectionInfo
 import com.z_company.repository.remote_rest.tracks.SectionProfileRepository
 import com.z_company.route.util.MapTilePrefetch
+import com.z_company.route.util.OfflineTilePacks
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 
 enum class OfflineStatus { NOT_DOWNLOADED, READY, OUTDATED, DOWNLOADING }
@@ -61,9 +63,11 @@ class OfflineSectionsViewModel(
 ) : ViewModel() {
     private val summaries = MutableStateFlow<List<SectionSummary>>(emptyList())
     private val offline = MutableStateFlow<Map<String, OfflineSectionInfo>>(emptyMap())
-    /** Паки тайлов на телефоне: id участка -> размер пака. Есть пак - участок скачан. */
-    private val packs = MutableStateFlow<Map<String, Long>>(emptyMap())
+    /** Полностью скачанные паки: id участка -> хэш оси и размер. */
+    private val packs = MutableStateFlow<Map<String, OfflineTilePacks>>(emptyMap())
     private val downloading = MutableStateFlow<Set<String>>(emptySet())
+    /** Любое скачивание, обновление или удаление выполняется строго по одному. */
+    private val operationMutex = Mutex()
     /** Решения по шторке мобильной сети: id участка -> «Скачать» (true) / «Отмена» (false). */
     private val tileDecisions = java.util.concurrent.ConcurrentHashMap<String, CompletableDeferred<Boolean>>()
     /** Отмена кнопкой в прогрессе - для сообщения «Скачивание отменено» вместо ошибки. */
@@ -105,13 +109,40 @@ class OfflineSectionsViewModel(
     /** Скачивание целиком: данные участка и карта (тайлы) вместе. Одновременно - одна загрузка. */
     fun download(id: String) {
         viewModelScope.launch {
-            if (_state.value.tilePrompt != null || _state.value.tileProgress != null) {
+            if (!operationMutex.tryLock()) {
                 _state.update { it.copy(message = "Дождитесь завершения текущего скачивания.") }
                 return@launch
             }
-            withBusy(id) {
-                if (downloadOne(id) == OfflineDownloadResult.OK) afterData(id)
+            try {
+                withBusy(id) { downloadAtomically(id) }
+            } finally {
+                operationMutex.unlock()
             }
+        }
+    }
+
+    /** Профиль и карта заменяют прежнюю рабочую копию только вместе. */
+    private suspend fun downloadAtomically(id: String): Boolean {
+        repo.beginOfflineReplace(id)
+        var committed = false
+        try {
+            if (downloadOne(id) != OfflineDownloadResult.OK) return false
+            if (!afterData(id)) return false
+            val axisHash = repo.cached(id)?.axisHash ?: return false
+            repo.commitOfflineReplace(id)
+            withContext(Dispatchers.Default) { runCatching { MapTilePrefetch.commit(app, id, axisHash) } }
+            committed = true
+            offline.value = withContext(Dispatchers.Default) { repo.offlineSections() }
+            packs.value = withContext(Dispatchers.Default) {
+                runCatching { MapTilePrefetch.downloadedPacks(app) }.getOrDefault(packs.value)
+            }
+            return true
+        } finally {
+            if (!committed) {
+                repo.rollbackOfflineReplace(id)
+                offline.value = withContext(Dispatchers.Default) { repo.offlineSections() }
+            }
+            publish()
         }
     }
 
@@ -130,12 +161,11 @@ class OfflineSectionsViewModel(
     /**
      * Данные сохранены - докачать тайлы подложки вдоль оси: по Wi-Fi молча, по мобильной сети - вопрос с оценкой
      * размера (размер считается по числу тайлов в полосе). Данные и карта только вместе: отказ, отмена или сбой
-     * тайлов убирает и данные ([rollback]). true - участок целиком на телефоне.
+     * тайлов откатывает новую версию профиля, сохраняя прежнюю рабочую копию. true - участок целиком на телефоне.
      */
     private suspend fun afterData(id: String): Boolean {
         val section = withContext(Dispatchers.Default) { repo.cached(id) }
         if (section == null) {
-            rollback(id)
             _state.update { it.copy(message = "Не удалось сохранить участок. Попробуйте позже.") }
             return false
         }
@@ -150,16 +180,16 @@ class OfflineSectionsViewModel(
                 decision.await()
             } finally {
                 tileDecisions.remove(id)
+                _state.update { state ->
+                    if (state.tilePrompt?.sectionId == id) state.copy(tilePrompt = null) else state
+                }
             }
         }
         if (!accepted) {
-            rollback(id)
             _state.update { it.copy(message = "Скачивание отменено") }
             return false
         }
-        val ok = startTiles(section)
-        if (!ok) rollback(id)
-        return ok
+        return startTiles(section)
     }
 
     /** Пользователь согласился качать карту по мобильной сети (данные уже сохранены - вместе с картой). */
@@ -197,8 +227,8 @@ class OfflineSectionsViewModel(
             _state.update {
                 it.copy(
                     tileProgress = null,
-                    message = if (byUser != null) "Скачивание отменено"
-                    else "Не удалось скачать карту. Участок не сохранён - нажмите «Скачать», чтобы попробовать снова",
+                    message = if (byUser) "Скачивание отменено"
+                    else "Не удалось скачать карту. Прежняя версия участка сохранена; нажмите «Скачать», чтобы попробовать снова",
                 )
             }
         }
@@ -206,7 +236,7 @@ class OfflineSectionsViewModel(
         return ok
     }
 
-    /** Отмена скачивания карты (кнопка в диалоге прогресса): данные и карта вместе - участок откатывается. */
+    /** Отмена новой карты: staging удаляется, прежняя рабочая версия остаётся. */
     fun cancelTiles() {
         val p = _state.value.tileProgress ?: return
         cancelRequested.add(p.sectionId)
@@ -214,48 +244,54 @@ class OfflineSectionsViewModel(
         _state.update { it.copy(tileProgress = null) }
     }
 
-    /**
-     * Откат данных и карты: после отказа, отмены или сбоя тайлов профиля без карты не остаётся -
-     * участок скачивается заново целиком.
-     */
-    private suspend fun rollback(id: String) {
-        withContext(Dispatchers.Default) {
-            runCatching { repo.removeOffline(id) }
-            runCatching { MapTilePrefetch.delete(app, id) }
-        }
-        offline.value = withContext(Dispatchers.Default) { repo.offlineSections() }
-        packs.value = packs.value - id
-    }
-
     /** Обновить все скачанные, что изменились на сервере. Останавливается на первом лимите/отказе. */
     fun updateOutdated() {
         viewModelScope.launch {
-            _state.update { it.copy(busy = true) }
-            val ids = _state.value.items.filter { it.status == OfflineStatus.OUTDATED }.map { it.id }
-            var done = 0
-            for (id in ids) {
-                var stop = false
-                withBusy(id) {
-                    when (downloadOne(id)) {
-                        OfflineDownloadResult.OK -> if (afterData(id)) done++ else stop = true
-                        OfflineDownloadResult.FAILED -> Unit // сбой сети - пробуем следующий
-                        else -> stop = true // предел или отказ устройства
-                    }
-                }
-                if (stop) break
+            if (!operationMutex.tryLock()) {
+                _state.update { it.copy(message = "Дождитесь завершения текущего скачивания.") }
+                return@launch
             }
-            _state.update { it.copy(busy = false, message = if (done > 0) "Обновлено участков: $done" else it.message) }
+            _state.update { it.copy(busy = true) }
+            try {
+                val ids = _state.value.items.filter { it.status == OfflineStatus.OUTDATED }.map { it.id }
+                var done = 0
+                for (id in ids) {
+                    var stop = false
+                    withBusy(id) {
+                        if (downloadAtomically(id)) done++ else stop = true
+                    }
+                    if (stop) break
+                }
+                _state.update { it.copy(message = if (done > 0) "Обновлено участков: $done" else it.message) }
+            } finally {
+                _state.update { it.copy(busy = false) }
+                operationMutex.unlock()
+            }
         }
     }
 
     fun remove(id: String) {
         viewModelScope.launch {
-            withContext(Dispatchers.Default) { repo.removeOffline(id) }
-            withContext(Dispatchers.Default) { runCatching { MapTilePrefetch.delete(app, id) } }
-            offline.value = withContext(Dispatchers.Default) { repo.offlineSections() }
-            packs.value = packs.value - id
-            publish()
+            if (!operationMutex.tryLock()) {
+                _state.update { it.copy(message = "Дождитесь завершения текущей операции.") }
+                return@launch
+            }
+            try {
+                withContext(Dispatchers.Default) { repo.removeOffline(id) }
+                withContext(Dispatchers.Default) { runCatching { MapTilePrefetch.delete(app, id) } }
+                offline.value = withContext(Dispatchers.Default) { repo.offlineSections() }
+                packs.value = packs.value - id
+                publish()
+            } finally {
+                operationMutex.unlock()
+            }
         }
+    }
+
+    override fun onCleared() {
+        tileDecisions.values.forEach { it.complete(false) }
+        _state.value.tileProgress?.let { MapTilePrefetch.cancel(app, it.sectionId) }
+        super.onCleared()
     }
 
     fun messageShown() = _state.update { it.copy(message = null) }
@@ -281,15 +317,16 @@ class OfflineSectionsViewModel(
         val all = summaries.value.filter { it.hasProfile || have.containsKey(it.id) }.map { s ->
             val info = have[s.id]
             val pack = tiles[s.id]
-            // Скачанным считается только участок с картой: профиль без пака тайлов - не скачан.
+            val matchingPackBytes = info?.let { pack?.bytesFor(it.axisHash) }
             val status = when {
                 s.id in busyIds -> OfflineStatus.DOWNLOADING
-                pack == null -> OfflineStatus.NOT_DOWNLOADED
                 info == null -> OfflineStatus.NOT_DOWNLOADED
+                pack == null -> OfflineStatus.NOT_DOWNLOADED
+                matchingPackBytes == null -> OfflineStatus.OUTDATED
                 s.updatedAt > info.updatedAt.toLong() -> OfflineStatus.OUTDATED
                 else -> OfflineStatus.READY
             }
-            OfflineSectionItem(s.id, s.name, s.lengthKm, status, (info?.bytes ?: 0L) + (pack ?: 0L))
+            OfflineSectionItem(s.id, s.name, s.lengthKm, status, (info?.bytes ?: 0L) + (pack?.totalBytes ?: 0L))
         }
         val q = _state.value.query.trim().lowercase()
         val only = _state.value.onlyDownloaded
