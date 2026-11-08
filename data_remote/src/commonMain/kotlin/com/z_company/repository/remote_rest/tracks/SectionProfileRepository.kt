@@ -314,7 +314,7 @@ class SectionProfileRepository(
     var rateLimited: Boolean = false
         private set
 
-    /** Устройство не прошло проверку подлинности (403: root, эмулятор, чужая сборка): профили с сервера не придут, пока не изменится. */
+    /** Сервер отказал в регистрации ключа устройства (403): профили не придут, пока не изменится состояние ключа/сервера. */
     @kotlin.concurrent.Volatile
     var deviceRejected: Boolean = false
         private set
@@ -326,7 +326,7 @@ class SectionProfileRepository(
         val res = runCatching { api.section(id) }
         val error = res.exceptionOrNull()
         rateLimited = error?.message?.contains("429") == true
-        // Отказ устройства (аттестация) постоянный: без паузы карта опрашивает сервер каждые 30 с. 403 с другим смыслом
+        // Отказ регистрации ключа постоянный: без паузы карта опрашивает сервер каждые 30 с. 403 с другим смыслом
         // (device_required: токен не принят) клиент уже повторил внутри api.section, здесь это тоже сбой, но не «устройство плохое».
         val rejected = error is AdvisorApiException && error.status == 403
         deviceRejected = rejected

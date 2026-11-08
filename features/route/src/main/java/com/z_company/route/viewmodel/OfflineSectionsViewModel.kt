@@ -302,7 +302,7 @@ class OfflineSectionsViewModel(
         val text = when (result) {
             OfflineDownloadResult.OK -> null // успех объявляется после карты: данные и карта скачиваются вместе
             OfflineDownloadResult.RATE_LIMITED -> "Достигнут суточный предел загрузки участков. Продолжите позже."
-            OfflineDownloadResult.DEVICE_REJECTED -> "Устройство не прошло проверку подлинности: загрузка участков недоступна."
+            OfflineDownloadResult.DEVICE_REJECTED -> "Не удалось зарегистрировать защищённый ключ устройства: загрузка участков недоступна."
             OfflineDownloadResult.NOT_AVAILABLE -> "У этого участка пока нет данных для загрузки."
             OfflineDownloadResult.FAILED -> "Не удалось скачать участок. Проверьте соединение с сервером."
         }
