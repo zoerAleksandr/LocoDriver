@@ -818,7 +818,7 @@ internal class ProfileModel(
     /** Сервер отклонил загрузку профиля по лимиту (429): сообщения «проверьте интернет» были бы неверными. */
     val rateLimited: Boolean get() = repo.rateLimited
 
-    /** Устройство не прошло проверку подлинности (403): профили с сервера не придут, «проверьте интернет» было бы неверным. */
+    /** Сервер отказал в регистрации ключа (403): профили не придут, «проверьте интернет» было бы неверным. */
     val deviceRejected: Boolean get() = repo.deviceRejected
 
     private fun merge(list: List<SectionProfile>) {
@@ -883,7 +883,7 @@ internal class ProfileModel(
         scope.launch {
             val loadedSection = runCatching { withContext(Dispatchers.Default) { repo.section(id, refresh = false) } }.getOrNull()
             if (loadedSection == null) {
-                chooseError = if (repo.deviceRejected) "Устройство не прошло проверку подлинности: загрузка профилей недоступна."
+                chooseError = if (repo.deviceRejected) "Не удалось зарегистрировать защищённый ключ устройства: загрузка новых профилей недоступна."
                 else if (repo.rateLimited) "Сервер временно ограничил загрузку профилей путей. Повторите через несколько минут."
                 else "Не удалось загрузить участок. Проверьте интернет."
             } else {

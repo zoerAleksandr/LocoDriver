@@ -2,6 +2,7 @@ package com.z_company.repository.remote_rest.tracks
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.security.keystore.StrongBoxUnavailableException
@@ -15,7 +16,8 @@ import javax.crypto.spec.PSource
 
 /**
  * [DeviceKeys] на Android Keystore: RSA-2048 для расшифровки (OAEP SHA-256), закрытая часть в TEE/StrongBox и не извлекается.
- * Ключ создаётся с `setAttestationChallenge` - цепочка сертификатов доказывает серверу, что ключ в железе и создан нашим приложением.
+ * Google Key Attestation намеренно не запрашивается: на части устройств в РФ она даёт ложные отказы.
+ * Сертификат используется только для передачи серверу открытого RSA-ключа; закрытая часть остаётся в Keystore.
  * Псевдоним привязан к аккаунту: смена аккаунта на том же телефоне даёт отдельный ключ.
  */
 class AndroidDeviceKeys(context: Context) : DeviceKeys {
@@ -25,29 +27,30 @@ class AndroidDeviceKeys(context: Context) : DeviceKeys {
 
     private fun store(): KeyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
 
-    override suspend fun attest(accountId: String, challenge: ByteArray, forceNew: Boolean): List<ByteArray>? = runCatching {
+    override suspend fun certificateChain(accountId: String, forceNew: Boolean): List<ByteArray>? = runCatching {
         val ks = store()
         val alias = alias(accountId)
         if (forceNew || !ks.containsAlias(alias)) {
             if (ks.containsAlias(alias)) ks.deleteEntry(alias)
-            generate(alias, challenge, strongBox = true)
+            generate(alias, strongBox = true)
         }
-        ks.getCertificateChain(alias)?.map { it.encoded }?.takeIf { it.size >= 2 }
+        ks.getCertificateChain(alias)?.map { it.encoded }?.takeIf { it.isNotEmpty() }
     }.getOrNull()
 
-    private fun generate(alias: String, challenge: ByteArray, strongBox: Boolean) {
-        val spec = KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_DECRYPT)
+    private fun generate(alias: String, strongBox: Boolean) {
+        val useStrongBox = strongBox && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+        val builder = KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_DECRYPT)
             .setKeySize(2048)
             .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA1)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
-            .setAttestationChallenge(challenge)
-            .setIsStrongBoxBacked(strongBox)
-            .build()
+        if (useStrongBox) builder.setIsStrongBoxBacked(true)
         try {
-            KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore").apply { initialize(spec) }.generateKeyPair()
+            KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore")
+                .apply { initialize(builder.build()) }
+                .generateKeyPair()
         } catch (e: StrongBoxUnavailableException) {
             // Нет отдельного чипа StrongBox - обычное железо (TEE) тоже принимается сервером.
-            if (strongBox) generate(alias, challenge, strongBox = false) else throw e
+            if (useStrongBox) generate(alias, strongBox = false) else throw e
         }
     }
 

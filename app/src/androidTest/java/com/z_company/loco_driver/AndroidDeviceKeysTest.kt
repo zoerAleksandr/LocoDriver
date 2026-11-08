@@ -18,7 +18,7 @@ import javax.crypto.Cipher
 import javax.crypto.spec.OAEPParameterSpec
 import javax.crypto.spec.PSource
 
-/** Ключ устройства в настоящем Keystore: цепочка аттестации с нашим challenge и расшифровка конверта, завёрнутого как на сервере. */
+/** Ключ устройства в настоящем Keystore: сертификат открытого ключа и расшифровка конверта, завёрнутого как на сервере. */
 @RunWith(AndroidJUnit4::class)
 class AndroidDeviceKeysTest {
     private val keys = AndroidDeviceKeys(InstrumentationRegistry.getInstrumentation().targetContext)
@@ -26,17 +26,14 @@ class AndroidDeviceKeysTest {
     private fun leaf(der: ByteArray) = CertificateFactory.getInstance("X.509").generateCertificate(der.inputStream()) as X509Certificate
 
     @Test
-    fun attestationChainCarriesChallengeAndKeyUnwrapsServerStyleEnvelope() = runBlocking {
+    fun certificateKeyUnwrapsServerStyleEnvelope() = runBlocking {
         val account = "instrumented-" + System.nanoTime()
-        val challenge = ByteArray(16) { (it * 7 + 1).toByte() }
-        val chain = keys.attest(account, challenge, forceNew = true)
-        assertNotNull("устройство должно уметь аттестацию", chain)
-        assertTrue(chain!!.size >= 2)
+        val chain = keys.certificateChain(account, forceNew = true)
+        assertNotNull("устройство должно создать ключ в Keystore", chain)
+        assertTrue(chain!!.isNotEmpty())
         val cert = leaf(chain[0])
         val ext = cert.getExtensionValue("1.3.6.1.4.1.11129.2.1.17")
-        assertNotNull("в листе нет расширения аттестации", ext)
-        // challenge лежит в расширении открытым текстом
-        assertTrue(String(ext!!, Charsets.ISO_8859_1).contains(String(challenge, Charsets.ISO_8859_1)))
+        assertNull("Google Key Attestation не должна запрашиваться", ext)
 
         // Заворачиваем 32 байта так же, как сервер (RSA-OAEP SHA-256, MGF1-SHA-1), и открываем закрытым ключом из Keystore.
         val secret = ByteArray(32) { (it + 3).toByte() }

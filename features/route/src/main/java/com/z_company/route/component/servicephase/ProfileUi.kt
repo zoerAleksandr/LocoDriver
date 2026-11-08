@@ -99,7 +99,7 @@ internal fun gradeText(live: LiveProfile, e: ProfileElement?): String? {
     }
 }
 
-private const val DEVICE_REJECTED_TEXT = "Это устройство не прошло проверку подлинности, поэтому профили путей с сервера не загружаются. Ранее сохранённые участки доступны."
+private const val DEVICE_REJECTED_TEXT = "Не удалось зарегистрировать защищённый ключ устройства, поэтому новые профили путей не загружаются. Ранее сохранённые участки доступны."
 private const val RATE_LIMITED_TEXT = "Сервер временно ограничил загрузку профилей путей. Повторите через несколько минут."
 
 private fun emptyText(model: ProfileModel): String = emptyBase(model)

@@ -45,7 +45,7 @@ class KtorAdvisorApi(
     private val bearerToken: suspend () -> String? = { null },
     /** Стабильный идентификатор аккаунта на устройстве (ключ Keystore и токен устройства привязаны к нему). */
     private val accountId: suspend () -> String? = { null },
-    /** Ключ устройства (аттестация); null - платформа не поддерживает (участки не открываются). */
+    /** Ключ устройства в Keystore; null - платформа не поддерживает LD3. */
     private val deviceKeys: () -> DeviceKeys? = { null },
 ) : AdvisorApi {
     private suspend fun authorization(): String =
@@ -79,14 +79,14 @@ class KtorAdvisorApi(
             if (keys == null) throw AdvisorApiException(403, "device_unsupported")
             var b = fetchSection(id, auth, keys, account, deviceToken(auth, keys, account, forceRegister = false))
             if (b == null) {
-                // Токен устройства просрочен/не принят: пройти аттестацию заново и повторить один раз.
+                // Токен устройства просрочен/не принят: зарегистрировать ключ заново и повторить один раз.
                 b = fetchSection(id, auth, keys, account, deviceToken(auth, keys, account, forceRegister = true))
                     ?: throw AdvisorApiException(403, "device_required")
             }
             b
         } catch (e: AdvisorApiException) {
-            // Аттестация отклонена (root, нет Google-аттестации): слабый режим сервера - конверт LD2 с водяным знаком под жёстким
-            // лимитом. Если сервер его не включил, остаётся исходный отказ (и пауза выше по стеку).
+            // Старый сервер со строгой аттестацией или устройство без пригодного Keystore-ключа:
+            // слабый режим LD2 остаётся для обратной совместимости.
             if (e.status != 403) throw e
             fetchFallback(id, auth) ?: throw e
         }
@@ -103,7 +103,7 @@ class KtorAdvisorApi(
         return RemoteRestClient.appJson.decodeFromString(AdvisorSectionDto.serializer(), text)
     }
 
-    /** Слабый режим: без токена устройства, с пометкой «аттестация отклонена». null - сервер его не отдаёт (403). */
+    /** Слабый режим: без токена устройства, когда регистрация Keystore-ключа не удалась. null - сервер его не отдаёт (403). */
     private suspend fun fetchFallback(id: String, auth: String): ByteArray? = try {
         call { client.get("v1/advisor/sections/$id") { header("Authorization", auth); header("X-Device-Fallback", "1") }.readRawBytes() }
     } catch (e: AdvisorApiException) {
@@ -118,15 +118,15 @@ class KtorAdvisorApi(
     }
 
     /**
-     * Регистрация устройства идёт строго по одной и с памятью об отказе. Отказ аттестации (403: root, эмулятор, чужая цепочка)
+     * Регистрация ключа устройства идёт строго по одной и с памятью об отказе. Отказ регистрации (403)
      * постоянный: без паузы каждая загрузка участка заново делала challenge+регистрацию, а карта тянет до 8 участков и повторяет
-     * каждые 30 с - лимиты на аттестацию уходили за минуты. Пауза - на аккаунт (смена аккаунта её не наследует); сбой сети паузу
-     * не получает. Замок не даёт параллельным запросам пройти аттестацию одновременно, пока первый ещё не получил отказ.
+     * каждые 30 с - лимиты регистрации уходили за минуты. Пауза - на аккаунт (смена аккаунта её не наследует); сбой сети паузу
+     * не получает. Замок не даёт параллельным запросам регистрировать ключ одновременно, пока первый запрос не завершён.
      */
     private val registerLock = Mutex()
     private val registerBlockedUntil = HashMap<String, Long>()
 
-    /** Токен устройства: из хранилища, пока не истёк, иначе challenge -> аттестация ключа в Keystore -> регистрация на сервере. */
+    /** Токен устройства: из хранилища, пока не истёк, иначе сертификат ключа Keystore -> регистрация на сервере. */
     private suspend fun deviceToken(auth: String, keys: DeviceKeys, account: String, forceRegister: Boolean): String {
         fun stored(): String? {
             val now = kotlin.time.Clock.System.now().toEpochMilliseconds()
@@ -141,7 +141,7 @@ class KtorAdvisorApi(
             try {
                 register(auth, keys, account, forceRegister)
             } catch (e: AdvisorApiException) {
-                // Постоянный отказ устройства (403) и лимит аттестации (429) - пауза; остальное (сеть, 5xx) повторяем как раньше.
+                // Постоянный отказ регистрации (403) и её лимит (429) - пауза; остальное (сеть, 5xx) повторяем как раньше.
                 val pause = when (e.status) { 403 -> REGISTER_FAIL_PAUSE_MS; 429 -> REGISTER_LIMIT_PAUSE_MS; else -> 0L }
                 if (pause > 0) registerBlockedUntil[account] = kotlin.time.Clock.System.now().toEpochMilliseconds() + pause
                 throw e
@@ -152,8 +152,7 @@ class KtorAdvisorApi(
     private suspend fun register(auth: String, keys: DeviceKeys, account: String, forceRegister: Boolean): String {
         var forceNew = forceRegister
         repeat(2) { attempt ->
-            val challenge = call { client.get("v1/advisor/device/challenge") { header("Authorization", auth) }.body<DeviceChallengeDto>() }
-            val chain = keys.attest(account, decodeBase64(challenge.challenge), forceNew) ?: throw AdvisorApiException(403, "device_unsupported")
+            val chain = keys.certificateChain(account, forceNew) ?: throw AdvisorApiException(403, "device_unsupported")
             try {
                 val reg = call {
                     client.post("v1/advisor/device") {
@@ -165,7 +164,7 @@ class KtorAdvisorApi(
                 keys.saveToken(account, reg.deviceToken, reg.expiresAt.toLong())
                 return reg.deviceToken
             } catch (e: AdvisorApiException) {
-                // Ключ выпущен под другой challenge (сменили секрет сервера / аккаунт) - один раз перевыпустить.
+                // Совместимость со старым строгим сервером: один раз перевыпустить ключ.
                 if (attempt == 0 && e.status == 403 && e.code == "challenge_mismatch") forceNew = true else throw e
             }
         }
@@ -195,16 +194,10 @@ class KtorAdvisorApi(
 }
 
 @Serializable
-internal data class DeviceChallengeDto(val challenge: String)
-
-@Serializable
 internal data class DeviceRegisterRequest(val chain: List<String>)
 
 @Serializable
 internal data class DeviceRegisterResponse(val deviceToken: String, val expiresAt: Double)
-
-@OptIn(ExperimentalEncodingApi::class)
-internal fun decodeBase64(s: String): ByteArray = Base64.decode(s)
 
 @OptIn(ExperimentalEncodingApi::class)
 internal fun encodeBase64(b: ByteArray): String = Base64.encode(b)

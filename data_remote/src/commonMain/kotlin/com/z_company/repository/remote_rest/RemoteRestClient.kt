@@ -131,7 +131,7 @@ object RemoteRestClient {
     /** Идентификатор аккаунта на устройстве (ключ Keystore и токен устройства участков привязаны к нему); задаёт приложение. */
     var advisorAccountId: suspend () -> String? = { null }
 
-    /** Ключ устройства для участков (Keystore/аттестация); задаёт платформа. null - не поддерживается. */
+    /** Ключ устройства для участков (Android Keystore); задаёт платформа. null - не поддерживается. */
     var advisorDeviceKeys: com.z_company.repository.remote_rest.tracks.DeviceKeys? = null
 
     /** Участки советника и вклад высот (согласие №2, SCREEN_SPECS §6.9/§17.7). */
