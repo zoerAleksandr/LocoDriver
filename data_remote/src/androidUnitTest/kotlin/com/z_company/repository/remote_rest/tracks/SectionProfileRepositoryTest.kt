@@ -61,6 +61,10 @@ private class ProfileApi : AdvisorApi {
         )
     }
 
+    override suspend fun graph() = AdvisorGraphDto()
+
+    override suspend fun graphPath(fromStation: String, toStation: String) = AdvisorGraphPathDto()
+
     override suspend fun postAltitudeContrib(token: String, body: AltitudeContribRequest) = error("not used")
 }
 
