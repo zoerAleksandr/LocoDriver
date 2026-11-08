@@ -14,21 +14,13 @@ import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.UtilsForEntities.filterByConsiderFutureRoute
 import com.z_company.domain.entities.route.UtilsForEntities.findCurrentRoute
 import com.z_company.domain.entities.route.UtilsForEntities.findNextFutureRoute
-import com.z_company.domain.entities.route.UtilsForEntities.getBreakDuration
 import com.z_company.domain.entities.route.UtilsForEntities.getNightTime
 import com.z_company.domain.entities.route.UtilsForEntities.getPassengerTime
 import com.z_company.domain.entities.route.UtilsForEntities.getSingleLocomotiveTime
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
-import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeInMonth
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTimeWithoutHoliday
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkingTimeOnAHoliday
-import com.z_company.domain.entities.route.UtilsForEntities.isExtendedServicePhaseTrains
-import com.z_company.domain.entities.route.UtilsForEntities.isFuture
-import com.z_company.domain.entities.route.UtilsForEntities.isHeavyTrains
-import com.z_company.domain.entities.route.UtilsForEntities.isHolidayTimeInRoute
-import com.z_company.domain.entities.route.UtilsForEntities.isLongCompositionTrain
 import com.z_company.domain.entities.route.UtilsForEntities.isTimeWorkValid
-import com.z_company.domain.entities.route.UtilsForEntities.isTransition
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.ServicePhase
 import com.z_company.domain.entities.setting.UserSettings
@@ -612,75 +604,8 @@ class HomeScreenIosViewModel(
     ): List<HomeIosRouteCard> {
         val routes = monthRoutes ?: return emptyList()
         val count = routes.size
-        val ctx = TimeCalculationContext.from(us)
-        val offsetMs = us.timeZone
         return routes.take(2).mapIndexed { index, route ->
-            val start = route.basicData.timeStartWork
-            val end = route.basicData.timeEndWork
-            val isDifferenceDate = start != null && end != null &&
-                localDate(start, displayTz) != localDate(end, displayTz)
-            val endText = when {
-                end == null -> ""
-                isDifferenceDate || start == null -> fmtDateMiniTime(end, displayTz)
-                else -> fmtTime(end, displayTz)
-            }
-            val workInMonth = runCatching { route.getWorkTimeInMonth(month, ctx) }.getOrNull()
-            val workTime = route.getWorkTime()
-            val icons = buildList {
-                if (runCatching { isHolidayTimeInRoute(month, us, route) }.getOrDefault(false)) add("holiday")
-                if (route.getBreakDuration() > 0L) add("break")
-                if (runCatching { isLongCompositionTrain(ss, route) }.getOrDefault(false)) add("length")
-                if (runCatching { isHeavyTrains(ss, route) }.getOrDefault(false)) add("weight")
-                if (runCatching { isExtendedServicePhaseTrains(ss, route) }.getOrDefault(false)) add("shoulder")
-                if (route.basicData.isOnePersonOperation) add("solo")
-                if ((route.getPassengerTime() ?: 0L) > 0L) add("passenger")
-                if (workTime != null && workTime > 12 * HOUR) add("over12")
-                if (route.trains.any { it.pusher != null }) add("pusher")
-                if (route.trains.any { it.doubleTraction != null }) add("double")
-                if (route.trains.any { it.doubledTrain != null }) add("coupled")
-            }
-            HomeIosRouteCard(
-                basicId = route.basicData.id,
-                startText = start?.let { fmtDateMiniTime(it, displayTz) } ?: "",
-                endText = endText,
-                endTextWithDate = end?.let { fmtDateMiniTime(it, displayTz) } ?: "",
-                durationText = fmtDuration(workInMonth, us.isDecimalTime),
-                summary = routeSummary(route),
-                numberText = "#${count - index}",
-                // BUG-16 (паритет с Android): isFuture прибавляет к now смещение пояса
-                // пользователя от Москвы (UserSettings.timeZone).
-                isFuture = route.isFuture(offsetMs),
-                isTransition = route.isTransition(offsetMs),
-                icons = icons,
-                isSynchronized = route.basicData.isSynchronized,
-                isFavorite = route.basicData.isFavorite,
-            )
-        }
-    }
-
-    /** Свёрнутая строка карточки: поезд с самым поздним отправлением с первой станции, иначе первая прочая работа. */
-    private fun routeSummary(route: Route): String {
-        val sortedTrains = route.trains
-            .filter { it.stations.firstOrNull()?.timeDeparture != null }
-            .sortedByDescending { it.stations.firstOrNull()?.timeDeparture } +
-            route.trains.filter { it.stations.firstOrNull()?.timeDeparture == null }
-        val train = sortedTrains.firstOrNull()
-        if (train != null) {
-            val tn = if (!train.number.isNullOrBlank()) "№${train.number} " else ""
-            val first = train.stations.firstOrNull()?.stationName?.takeIf { it.isNotBlank() }
-            val last = if (train.stations.size > 1) train.stations.last().stationName?.takeIf { it.isNotBlank() } else null
-            val path = when {
-                first != null && last != null -> "$first — $last"
-                else -> first ?: last ?: ""
-            }
-            return "$tn$path".trim()
-        }
-        val otherWork = route.otherWorks.firstOrNull() ?: return ""
-        val type = otherWork.workType?.takeIf { it.isNotBlank() }
-        val station = otherWork.station?.takeIf { it.isNotBlank() }
-        return when {
-            type != null && station != null -> "$type — $station"
-            else -> type ?: station ?: ""
+            HomeRouteCardBuilder.build(route, index, count, us, ss, month, displayTz)
         }
     }
 
@@ -1489,9 +1414,6 @@ class HomeScreenIosViewModel(
 
     private fun ratio(value: Long, base: Long): Float =
         (value.toFloat() / base.coerceAtLeast(1L).toFloat()).coerceIn(0f, 1f)
-
-    private fun localDate(ms: Long, tz: TimeZone) =
-        Instant.fromEpochMilliseconds(ms).toLocalDateTime(tz).date
 
     private fun two(n: Int): String = if (n < 10) "0$n" else n.toString()
 

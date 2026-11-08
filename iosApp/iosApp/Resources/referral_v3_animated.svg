@@ -1,0 +1,128 @@
+<!-- Не используется напрямую в PWA (см. src/components/ReferralHeroIllustration.vue —
+     та же разметка, инлайнена в Vue-шаблон, чтобы var() резолвился из
+     живых CSS-токенов main.css). Этот файл — asset для Android WebView
+     (features/route/src/main/assets/, копия 1:1); держите оба в синхроне. -->
+<svg viewBox="0 0 360 334" xmlns="http://www.w3.org/2000/svg" font-family="Roboto, 'Segoe UI', Inter, DejaVu Sans, sans-serif">
+  <defs>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="var(--shadow-color, rgba(43,111,168,0.12))"/>
+    </filter>
+    <filter id="blurSoft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.5"/>
+    </filter>
+    <clipPath id="clipL"><rect x="30" y="246" width="130" height="13" rx="6.5"/></clipPath>
+    <clipPath id="clipR"><rect x="200" y="246" width="130" height="13" rx="6.5"/></clipPath>
+    <clipPath id="clipBonusL"><rect x="117" y="246" width="43" height="13" rx="6.5"/></clipPath>
+    <clipPath id="clipBonusR"><rect x="287" y="246" width="43" height="13" rx="6.5"/></clipPath>
+    <g id="star"><path d="M0 -5.5 L1.4 -1.4 L5.5 0 L1.4 1.4 L0 5.5 L-1.4 1.4 L-5.5 0 L-1.4 -1.4 Z"/></g>
+  </defs>
+
+  <style>
+    .flow { animation: flow 1.1s linear infinite; }
+    @keyframes flow { to { stroke-dashoffset: -26; } }
+
+    .tip { animation: tip 1.6s ease-in-out infinite; }
+    @keyframes tip { 0%,100% { transform: translateY(0); opacity:.75 } 50% { transform: translateY(3px); opacity:1 } }
+
+    .badge { transform-box: fill-box; transform-origin: center; animation: badge 5s ease-in-out infinite; }
+    .badge.b { animation-delay: .12s }
+    @keyframes badge { 0%,8% { transform: scale(1) } 16% { transform: scale(1.09) } 26%,100% { transform: scale(1) } }
+
+    .pill { transform-box: fill-box; transform-origin: center; animation: float 4.2s ease-in-out infinite; }
+    @keyframes float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-2.5px) } }
+
+    .ava { transform-box: fill-box; transform-origin: center bottom; animation: lift 5s ease-out infinite; }
+    .ava.b { animation-delay: .18s }
+    @keyframes lift { 0%,28% { transform: translateY(0) } 36% { transform: translateY(-5px) } 48%,100% { transform: translateY(0) } }
+
+    .num { transform-box: fill-box; transform-origin: center; animation: pulse 5s ease-out infinite; }
+    .num.b { animation-delay: .18s }
+    @keyframes pulse { 0%,30% { transform: scale(1) } 44% { transform: scale(1.13) } 58%,100% { transform: scale(1) } }
+
+    .shimmer { transform-box: fill-box; animation: shimmer 1.4s ease-in-out infinite; }
+    .shimmer.b { animation-delay: .18s }
+    @keyframes shimmer { 0% { transform: translateX(-8px) } 100% { transform: translateX(44px) } }
+
+    .tw { animation: tw 2.4s ease-in-out infinite; }
+    .tw2 { animation: tw 2.4s ease-in-out infinite; animation-delay: 1.1s }
+    @keyframes tw { 0%,100% { opacity: .2 } 50% { opacity: 1 } }
+
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important } }
+  </style>
+  <rect width="360" height="334" rx="26" fill="var(--accent-soft, #EDF5FF)"/>
+
+  <use class="tw" href="#star" x="22" y="64" fill="#FFC24D"/>
+  <use class="tw2" href="#star" x="338" y="74" fill="#7FD8F0"/>
+
+  <!-- top pill -->
+  <g class="pill">
+  <g filter="url(#soft)">
+    <rect x="27" y="14" width="306" height="44" rx="22" fill="var(--surface, #FFFFFF)"/>
+  </g>
+  <g transform="translate(42,25)">
+    <rect x="0" y="6" width="22" height="14" rx="3" fill="#FFB65C"/>
+    <rect x="-1" y="3.5" width="24" height="5.5" rx="2.5" fill="#FF9F3D"/>
+    <rect x="9" y="3.5" width="4" height="16.5" fill="#FFF3DC"/>
+    <circle cx="8" cy="2.5" r="3.4" fill="#FF9F3D"/>
+    <circle cx="14" cy="2.5" r="3.4" fill="#FFB65C"/>
+  </g>
+  <text x="204" y="41" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text, #22323F)">Друг оплачивает 1 год подписки</text>
+  </g>
+
+  <!-- split: линии и бейджи «Бонус» окрашены в зелёный — тот же цвет, что и
+       анимированная бонусная часть прогресса ниже, чтобы визуально читалось
+       как один и тот же поток. -->
+  <path class="flow" id="pathL" d="M180 66 H120 Q106 66 106 80 V94" fill="none" stroke="var(--success, #00B341)" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="6 7"/>
+  <path class="flow" id="pathR" d="M180 66 H240 Q254 66 254 80 V94" fill="none" stroke="var(--success, #00B341)" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="6 7"/>
+  <path class="tip" d="M99.5 94 L112.5 94 L106 102 Z" fill="var(--success, #00B341)"/>
+  <path class="tip" d="M247.5 94 L260.5 94 L254 102 Z" fill="var(--success, #00B341)"/>
+  <g id="badgeL" class="badge">
+    <rect x="111" y="53" width="60" height="26" rx="13" fill="var(--surface, #FFFFFF)" stroke="var(--success, #00B341)" stroke-opacity="0.35" stroke-width="1.6"/>
+    <text x="141" y="70" text-anchor="middle" font-size="12" font-weight="700" fill="var(--success, #00B341)">Бонус</text>
+  </g>
+  <g id="badgeR" class="badge b">
+    <rect x="189" y="53" width="60" height="26" rx="13" fill="var(--surface, #FFFFFF)" stroke="var(--success, #00B341)" stroke-opacity="0.35" stroke-width="1.6"/>
+    <text x="219" y="70" text-anchor="middle" font-size="12" font-weight="700" fill="var(--success, #00B341)">Бонус</text>
+  </g>
+
+  <!-- left card -->
+  <g filter="url(#soft)"><rect x="14" y="110" width="162" height="174" rx="24" fill="var(--surface, #FFFFFF)"/></g>
+  <g id="avaL" class="ava">
+    <circle cx="95" cy="142" r="22" fill="#D9EAF9"/>
+    <circle cx="95" cy="136.5" r="6.2" fill="#2E86D6"/>
+    <path d="M85 152.5 q0 -9.5 10 -9.5 q10 0 10 9.5 z" fill="#2E86D6"/>
+  </g>
+  <text x="95" y="182" text-anchor="middle" font-size="14" font-weight="700" fill="var(--text, #22323F)">Вам</text>
+  <text id="numL" class="num" x="95" y="217" text-anchor="middle" font-size="34" font-weight="800" fill="var(--success, #00B341)">+6</text>
+  <text x="95" y="234" text-anchor="middle" font-size="12" font-weight="500" fill="var(--text-muted, #6B7C8A)">месяцев</text>
+  <!-- прогресс: полоса статична — синий «ваш срок» + зелёный «бонус», оба
+       сразу полностью видны. По зелёной части бежит только узкий блик. -->
+  <g clip-path="url(#clipL)"><rect x="30" y="246" width="87" height="13" fill="var(--accent, #3DA5F5)"/></g>
+  <g clip-path="url(#clipL)"><rect x="117" y="246" width="43" height="13" fill="var(--success, #00B341)"/></g>
+  <g clip-path="url(#clipBonusL)">
+    <rect class="shimmer" x="117" y="246" width="7" height="13" fill="#ffffff" opacity="0.6" filter="url(#blurSoft)"/>
+  </g>
+  <text x="72" y="274" text-anchor="middle" font-size="10.5" font-weight="500" fill="var(--text-faint, #93A3B0)">ваш срок</text>
+  <text x="138" y="274" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--success, #00B341)">бонус</text>
+
+  <!-- right card -->
+  <g filter="url(#soft)"><rect x="184" y="110" width="162" height="174" rx="24" fill="var(--surface, #FFFFFF)"/></g>
+  <g id="avaR" class="ava b">
+    <circle cx="265" cy="142" r="22" fill="#FCE8CE"/>
+    <circle cx="265" cy="136.5" r="6.2" fill="#D3882F"/>
+    <path d="M255 152.5 q0 -9.5 10 -9.5 q10 0 10 9.5 z" fill="#D3882F"/>
+  </g>
+  <text x="265" y="182" text-anchor="middle" font-size="14" font-weight="700" fill="var(--text, #22323F)">Другу</text>
+  <text id="numR" class="num b" x="265" y="217" text-anchor="middle" font-size="34" font-weight="800" fill="var(--success, #00B341)">+6</text>
+  <text x="265" y="234" text-anchor="middle" font-size="12" font-weight="500" fill="var(--text-muted, #6B7C8A)">месяцев</text>
+  <g clip-path="url(#clipR)"><rect x="200" y="246" width="87" height="13" fill="var(--accent, #3DA5F5)"/></g>
+  <g clip-path="url(#clipR)"><rect x="287" y="246" width="43" height="13" fill="var(--success, #00B341)"/></g>
+  <g clip-path="url(#clipBonusR)">
+    <rect class="shimmer b" x="287" y="246" width="7" height="13" fill="#ffffff" opacity="0.6" filter="url(#blurSoft)"/>
+  </g>
+  <text x="242" y="274" text-anchor="middle" font-size="10.5" font-weight="500" fill="var(--text-faint, #93A3B0)">12 месяцев</text>
+  <text x="308" y="274" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--success, #00B341)">бонус</text>
+
+  <text x="180" y="300" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text-muted, #7A8B98)">Пример.</text>
+  <text x="180" y="317" text-anchor="middle" font-size="10.5" font-weight="500" fill="var(--text-muted, #7A8B98)">Бонусы начисляются при оплате любого срока подписки</text>
+</svg>
