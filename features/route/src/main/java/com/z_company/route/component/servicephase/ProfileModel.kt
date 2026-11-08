@@ -1014,6 +1014,8 @@ internal class ProfileModel(
     fun toggleDirection() {
         // Вид зеркалится сам (reversed): поезд идёт к +x вида, хвост слева - переворачивать хвост ещё раз нельзя (он вернётся на прежнюю сторону оси).
         manualReversed = !reversed
+        // Поворот карты - новое направление: кнопка 1П/2П принимает стандартное для него состояние.
+        manualSignalTrack = null
         rebuild()
     }
 
@@ -1023,11 +1025,13 @@ internal class ProfileModel(
         val dir = SignalRules.axisDir(s.signals, signalsKm, target) ?: return
         val wantReversed = dir < 0
         manualReversed = wantReversed
+        manualSignalTrack = null
         rebuild()
     }
 
     /** Вернуть автоматическое направление (по плечу поезда, а без плеча - по движению). */
     fun useAutoDirection() {
+        manualSignalTrack = null
         if (manualReversed == null) return
         manualReversed = null
         motionReversed = null
@@ -1250,7 +1254,9 @@ internal class ProfileModel(
         val rev = reversedNow(s)
         val cur = live
         if (cur == null || cur.section.id != s.id || cur.reversed != rev || cur.section !== s) {
-            if (cur?.section?.id != s.id) manualSignalTrack = null
+            // Поворот карты или смена участка: кнопки (путь светофоров, чётность) принимают стандартное для
+            // нового направления состояние - путь по умолчанию (поезда/направления), чётность самого направления.
+            if (cur?.section?.id != s.id || cur?.reversed != rev) manualSignalTrack = null
             val keep = cur?.takeIf { it.section.id == s.id }?.position
             live = LiveProfile(s, rev).also { it.applyCalibration(calibrations.get(s.id, s.axisHash)) }
             position = keep ?: live?.position

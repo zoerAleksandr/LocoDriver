@@ -55,7 +55,6 @@ import java.util.Locale
 @Composable
 fun OfflineSectionsScreen(viewModel: OfflineSectionsViewModel, onBack: () -> Unit) {
     val ui by viewModel.state.collectAsState()
-    val context = androidx.compose.ui.platform.LocalContext.current
     ui.tileProgress?.let { p ->
         val pct = if (p.total > 0) (p.done * 100 / p.total).toInt() else 0
         com.z_company.route.component.AppAlertDialog(
@@ -63,17 +62,17 @@ fun OfflineSectionsScreen(viewModel: OfflineSectionsViewModel, onBack: () -> Uni
             title = "Скачиваем карту",
             text = "Участок «${p.name}»: тайлы подложки… " + (if (p.total > 0) "$pct%" else "подготовка"),
             confirmText = "Отмена",
-            onConfirm = { viewModel.cancelTiles(context) },
+            onConfirm = { viewModel.cancelTiles() },
         )
     }
     ui.tilePrompt?.let { p ->
         com.z_company.route.component.AppAlertDialog(
-            onDismissRequest = { viewModel.declineTiles() },
-            title = "Скачать карту?",
-            text = "Участок «${p.name}» займёт около ${"%.1f".format(p.mb)} МБ с картой. Скачать по мобильной сети?",
+            onDismissRequest = { viewModel.cancelDownload() },
+            title = "Скачать участок с картой?",
+            text = "Участок «${p.name}» займёт около ${"%.1f".format(p.mb)} МБ с картой. Данные и карта скачиваются вместе. Скачать по мобильной сети?",
             confirmText = "Скачать",
-            onConfirm = { viewModel.acceptTiles(context) },
-            dismissText = "Не сейчас",
+            onConfirm = { viewModel.acceptTiles() },
+            dismissText = "Отмена",
         )
     }
     val snackbar = remember { SnackbarHostState() }
@@ -93,7 +92,7 @@ fun OfflineSectionsScreen(viewModel: OfflineSectionsViewModel, onBack: () -> Uni
             text = "«${item.title}» будет удалён с этого устройства. Его можно скачать снова, пока есть интернет.",
             confirmText = "Удалить",
             isDestructive = true,
-            onConfirm = { viewModel.remove(item.id, context); confirmRemove = null },
+            onConfirm = { viewModel.remove(item.id); confirmRemove = null },
             dismissText = "Отмена",
         )
     }
@@ -110,7 +109,7 @@ fun OfflineSectionsScreen(viewModel: OfflineSectionsViewModel, onBack: () -> Uni
                     CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 2.dp)
                 }
                 else -> {
-                    Summary(ui.downloadedCount, ui.totalBytes, ui.outdatedCount, ui.busy, { viewModel.updateOutdated(context) })
+                    Summary(ui.downloadedCount, ui.totalBytes, ui.outdatedCount, ui.busy, { viewModel.updateOutdated() })
                     OutlinedTextField(
                         value = ui.query,
                         onValueChange = viewModel::setQuery,
@@ -135,7 +134,7 @@ fun OfflineSectionsScreen(viewModel: OfflineSectionsViewModel, onBack: () -> Uni
                     } else {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
                             items(ui.items, key = { it.id }) { item ->
-                                SectionRow(item, onDownload = { viewModel.download(item.id, context) }, onRemove = { confirmRemove = item })
+                                SectionRow(item, onDownload = { viewModel.download(item.id) }, onRemove = { confirmRemove = item })
                             }
                             item {
                                 Text(
