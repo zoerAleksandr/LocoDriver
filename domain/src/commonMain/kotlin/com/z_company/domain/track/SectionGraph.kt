@@ -282,5 +282,9 @@ object Branches {
             val dist = stations.firstOrNull()?.let { abs(it.km - junction.km) } ?: e.lengthKm
             Branch(e.id, e, title, dist, farId)
         }.sortedBy { it.distanceKm }
+            // Параллельные рёбра одной развилки могут вести к одной и той же первой
+            // станции. Для чипов это один вариант: одинаковые подписи не должны
+            // дублироваться, а первым остаётся ближайшее ребро.
+            .distinctBy { it.title.trim().lowercase().replace(Regex("\\s+"), " ") }
     }
 }

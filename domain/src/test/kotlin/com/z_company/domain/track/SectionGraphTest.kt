@@ -177,8 +177,9 @@ class BranchesTest {
     private val nD = GraphNode("D", 55.1, 30.3, "Данилово")
     private val e1 = GraphEdge("e1", "s1", 0.0, 10.0, "A", "B", 10.0)
     private val e2 = GraphEdge("e2", "s2", 0.0, 10.0, "B", "C", 10.0)
+    private val e2Parallel = GraphEdge("e2-parallel", "s2b", 0.0, 10.0, "B", "C", 10.0)
     private val e3 = GraphEdge("e3", "s3", 0.0, 4.0, "D", "B", 4.0)
-    private val graph = SectionGraph("v1", listOf(nA, nB, nC, nD), listOf(e1, e2, e3))
+    private val graph = SectionGraph("v1", listOf(nA, nB, nC, nD), listOf(e1, e2, e2Parallel, e3))
 
     @Test
     fun branches_exclude_incoming_edge_and_carry_titles() {
@@ -191,6 +192,7 @@ class BranchesTest {
         assertEquals(setOf("e2", "e3"), branches.map { it.edgeId }.toSet())
         // входящее ребро e1 (узел A позади) в ветки не попадает
         assertTrue(branches.none { it.edgeId == "e1" })
+        assertEquals(1, branches.count { it.title == "Ветка" })
         assertEquals("Данилово", branches.first { it.edgeId == "e3" }.title)
     }
 
