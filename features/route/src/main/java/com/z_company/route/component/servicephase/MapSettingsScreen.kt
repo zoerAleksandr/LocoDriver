@@ -67,11 +67,13 @@ internal object TrainMapPrefs {
     private const val KEY_PROFILE = "profile_visible"
     private const val KEY_SPEED = "speed_visible"
     private const val KEY_TRAIN_LINE = "train_as_line"
+    private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
 
     private val _sensitivity = MutableStateFlow(LocationSensitivity.DEFAULT)
     private val _profileVisible = MutableStateFlow(true)
     private val _speedVisible = MutableStateFlow(true)
     private val _trainAsLine = MutableStateFlow(false)  // по умолчанию точка (решение владельца 07.11)
+    private val _keepScreenOn = MutableStateFlow(true)
     private var loaded = false
 
     fun sensitivity(context: Context): StateFlow<Int> {
@@ -122,6 +124,18 @@ internal object TrainMapPrefs {
         _trainAsLine.value = value
     }
 
+    /** Не давать экрану гаснуть на карте и при открытом полноэкранном профиле пути. */
+    fun keepScreenOn(context: Context): StateFlow<Boolean> {
+        ensureLoaded(context)
+        return _keepScreenOn.asStateFlow()
+    }
+
+    fun setKeepScreenOn(context: Context, value: Boolean) {
+        ensureLoaded(context)
+        runCatching { prefs(context).edit().putBoolean(KEY_KEEP_SCREEN_ON, value).apply() }
+        _keepScreenOn.value = value
+    }
+
     private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     @Synchronized
@@ -134,6 +148,7 @@ internal object TrainMapPrefs {
             _profileVisible.value = p.getBoolean(KEY_PROFILE, true)
             _speedVisible.value = p.getBoolean(KEY_SPEED, true)
             _trainAsLine.value = p.getBoolean(KEY_TRAIN_LINE, false)
+            _keepScreenOn.value = p.getBoolean(KEY_KEEP_SCREEN_ON, true)
         }
     }
 }
@@ -153,6 +168,8 @@ internal fun MapSettingsScreen(
     onPositionIcon: (PositionIcon) -> Unit,
     sensitivity: Int,
     onSensitivity: (Int) -> Unit,
+    keepScreenOn: Boolean,
+    onKeepScreenOn: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     Dialog(
@@ -185,6 +202,27 @@ internal fun MapSettingsScreen(
                         Switch(
                             checked = gnssOn,
                             onCheckedChange = onGnssChange,
+                            colors = SwitchDefaults.colors(checkedTrackColor = Pst.accent),
+                        )
+                    }
+                }
+                SettingsCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = "Экран не гаснет при включённой карте",
+                                style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
+                                color = Pst.text,
+                            )
+                            Text(
+                                text = "Экран остаётся включённым на карте и при открытом профиле пути.",
+                                style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp),
+                                color = Pst.textMuted,
+                            )
+                        }
+                        Switch(
+                            checked = keepScreenOn,
+                            onCheckedChange = onKeepScreenOn,
                             colors = SwitchDefaults.colors(checkedTrackColor = Pst.accent),
                         )
                     }

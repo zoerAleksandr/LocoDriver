@@ -357,6 +357,7 @@ internal fun TrainMapScreen(
         val profileVisible by TrainMapPrefs.profileVisible(context).collectAsState()
         val speedVisible by TrainMapPrefs.speedVisible(context).collectAsState()
         val trainAsLine by TrainMapPrefs.trainAsLine(context).collectAsState()
+        val keepScreenOn by TrainMapPrefs.keepScreenOn(context).collectAsState()
         // Порог «едем» (км/ч) зависит от чувствительности локации: выше чувствительность - раньше считаем ход.
         val moveThresholdKmh = LocationSensitivity.stillSpeedKmh(sensitivity)
         // Поворот карты (градусы, 0 = север сверху): для кнопки-компаса.
@@ -1614,7 +1615,11 @@ internal fun TrainMapScreen(
         }
 
         BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Pst.bg)) {
-            AndroidView(modifier = Modifier.fillMaxSize(), factory = { mapView })
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { mapView.also { it.keepScreenOn = keepScreenOn } },
+                update = { it.keepScreenOn = keepScreenOn },
+            )
 
             Row(
                 modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(start = 12.dp, end = 12.dp, top = 8.dp),
@@ -2014,6 +2019,8 @@ internal fun TrainMapScreen(
                     onPositionIcon = { PositionIconStore.set(context, it) },
                     sensitivity = sensitivity,
                     onSensitivity = { TrainMapPrefs.setSensitivity(context, it) },
+                    keepScreenOn = keepScreenOn,
+                    onKeepScreenOn = { TrainMapPrefs.setKeepScreenOn(context, it) },
                     onDismiss = { showSettings = false },
                 )
             }
