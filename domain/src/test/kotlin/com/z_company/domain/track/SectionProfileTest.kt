@@ -91,6 +91,13 @@ class SectionProfileTest {
     }
 
     @Test
+    fun station_abbreviation_matches_full_railway_name() {
+        assertTrue(SectionPicker.sameStation("Гатчина ТБ", "Гатчина-Товарная-Балтийская"))
+        assertTrue(SectionPicker.sameStation("Гатчина-Товарная-Балтийская", "Гатчина ТБ"))
+        assertTrue(!SectionPicker.sameStation("Гатчина ТБ", "Гатчина-Варшавская"))
+    }
+
+    @Test
     fun ticks_increasing_numbering() {
         val marks = listOf(KmMark(0.0, 142.0, 1))
         val t = KmGrid.ticks(marks, 0.25, 0.75)

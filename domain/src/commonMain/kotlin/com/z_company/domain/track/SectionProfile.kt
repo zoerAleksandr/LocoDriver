@@ -199,13 +199,53 @@ object SectionPicker {
             .toList()
     }
 
-    /** Одно ли название станции (без регистра, ё=е, пробелов, кавычек и знаков) - для сверки с полем «Плечо». */
-    fun sameStation(a: String, b: String): Boolean = norm(a).let { it.isNotEmpty() && it == norm(b) }
+    /**
+     * Одно ли название станции для сверки с полем «Плечо».
+     * Кроме точного совпадения понимает дорожные сокращения слов: «Гатчина ТБ» =
+     * «Гатчина-Товарная-Балтийская». Сопоставление локальное, без сетевого запроса.
+     */
+    fun sameStation(a: String, b: String): Boolean {
+        val left = norm(a)
+        val right = norm(b)
+        if (left.isEmpty() || right.isEmpty()) return false
+        if (left == right) return true
+        val leftWords = words(a)
+        val rightWords = words(b)
+        return matchesAbbreviation(leftWords, rightWords) || matchesAbbreviation(rightWords, leftWords)
+    }
 
     /** Упоминается ли [name] в тексте [text] (без регистра, ё=е, пробелов и знаков): «Белогорск — Завитая — Архара» упоминает «Завитая». */
     fun mentions(text: String, name: String): Boolean = norm(name).let { it.isNotEmpty() && norm(text).contains(it) }
 
     private fun norm(s: String) = s.lowercase().replace('ё', 'е').filter { it.isLetterOrDigit() }
+
+    private fun words(s: String): List<String> =
+        s.lowercase().replace('ё', 'е')
+            .split(Regex("[^\\p{L}\\p{N}]+"))
+            .filter { it.isNotEmpty() }
+
+    /** Короткое имя — последовательность полных слов или их инициалов. */
+    private fun matchesAbbreviation(short: List<String>, full: List<String>): Boolean {
+        if (short.isEmpty() || short.size > full.size) return false
+        var fullIndex = 0
+        for (part in short) {
+            if (part.length > 2) {
+                if (fullIndex >= full.size || full[fullIndex] != part) return false
+                fullIndex++
+                continue
+            }
+            if (part.length == 1) {
+                if (fullIndex >= full.size || full[fullIndex].firstOrNull() != part[0]) return false
+                fullIndex++
+                continue
+            }
+            if (fullIndex + part.length > full.size) return false
+            val initials = full.subList(fullIndex, fullIndex + part.length).joinToString("") { it.first().toString() }
+            if (initials != part) return false
+            fullIndex += part.length
+        }
+        return fullIndex == full.size
+    }
 }
 
 /** Габарит оси участка (прямоугольник, в который она вписана); приходит в списке участков, ось для него не нужна. */
