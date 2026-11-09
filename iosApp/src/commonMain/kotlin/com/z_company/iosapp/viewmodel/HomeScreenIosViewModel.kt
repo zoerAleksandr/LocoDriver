@@ -416,7 +416,7 @@ class HomeScreenIosViewModel(
         // ── «ОТРАБОТАНО» ──
         val totalTime = metrics.timeWithoutHoliday
         val totalWithHoliday = metrics.totalTimeWithHoliday
-        val normaMonth = normaHours ?: month.getPersonalNormaHours()
+        val normaMonth = normaHours ?: month.getPersonalNormaHours(sharedPrefs.getWorkScheduleProfile())
         val chip = if (normaMonth > 0 && totalWithHoliday.value != null) {
             val diff = totalTime - normaMonth.toLong() * HOUR
             val text = fmtDuration(abs(diff), isDecimal)
@@ -473,7 +473,7 @@ class HomeScreenIosViewModel(
         val isDecimal = us.isDecimalTime
         val totalTime = metrics.timeWithoutHoliday
         val normaMonthMs = normaMonth.toLong() * HOUR
-        val normaToday = month.getNormaHoursInDate(now)
+        val normaToday = month.getNormaHoursInDate(now, sharedPrefs.getWorkScheduleProfile())
         val normaTodayMs = normaToday.toLong() * HOUR
         val todayText = fmtDate(now, displayTz)
 

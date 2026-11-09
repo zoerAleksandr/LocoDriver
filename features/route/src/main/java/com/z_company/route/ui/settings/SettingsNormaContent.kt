@@ -121,6 +121,7 @@ fun SettingsNormaContent(
      * Если null — отображаем значение из selectMonthOfYear как fallback.
      */
     normaHours: Int? = null,
+    workScheduleProfile: WorkScheduleProfile = WorkScheduleProfile.standard(),
     /** Открыть экран нормы по месяцам («Изменить норму»). */
     onOpenNormMonth: () -> Unit = {},
 ) {
@@ -353,7 +354,7 @@ fun SettingsNormaContent(
             // normaHours из NormaUseCase (актуальный, с региональным календарём);
             // fallback — getPersonalNormaHours() до загрузки данных.
             val effectiveNorma = normaHours
-                ?: currentSettings.selectMonthOfYear.getPersonalNormaHours()
+                ?: currentSettings.selectMonthOfYear.getPersonalNormaHours(workScheduleProfile)
             val personalNormaText = ConverterLongToTime.getTimeInStringFormat(
                 effectiveNorma.toLong().times(3_600_000)
             )

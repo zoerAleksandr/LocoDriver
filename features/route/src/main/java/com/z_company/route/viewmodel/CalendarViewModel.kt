@@ -852,13 +852,6 @@ class CalendarViewModel : ViewModel(), KoinComponent {
         if (type == ReleaseType.DayOff || type == ReleaseType.TechnicalStudy) {
             // Техзанятия — часы задаёт пользователь (Day.hours), норма-часы не считаем.
             0
-        } else if (type == ReleaseType.ChildCare) {
-            when (tag) {
-                TagForDay.WORKING_DAY -> 8
-                TagForDay.SHORTENED_DAY -> 7
-                TagForDay.NON_WORKING_DAY -> 8
-                TagForDay.HOLIDAY -> 8
-            }
         } else sharedPrefs.getWorkScheduleProfile().effectiveHours(date, tag)
 
     private fun todayIfCurrentMonth(month: MonthOfYear, conv: DateAndTimeConverter): Int? {

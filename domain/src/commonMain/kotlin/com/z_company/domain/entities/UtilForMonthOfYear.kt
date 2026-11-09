@@ -106,16 +106,17 @@ object UtilForMonthOfYear {
     }
 
     // расчет количества часов в отвлечении без учета выходных (для оплаты по уходу за ребенком-инвалидом)
-    fun MonthOfYear.getDayoffHoursExcludingWeekends(): Int {
+    fun MonthOfYear.getDayoffHoursExcludingWeekends(): Int =
+        getDayoffHoursExcludingWeekends(WorkScheduleProfile.standard())
+
+    fun MonthOfYear.getDayoffHoursExcludingWeekends(profile: WorkScheduleProfile): Int {
         var totalRelease = 0
+        val year = this.year
+        val month = this.month
         this.days.forEach { day ->
             if (day.isReleaseDay && day.releaseType == ReleaseType.ChildCare) {
-                totalRelease += when (day.tag) {
-                    TagForDay.WORKING_DAY -> 8
-                    TagForDay.SHORTENED_DAY -> 7
-                    TagForDay.NON_WORKING_DAY -> 8
-                    TagForDay.HOLIDAY -> 8
-                }
+                val date = dateOfDayOrNull(year, month, day.dayOfMonth) ?: return@forEach
+                totalRelease += profile.effectiveHours(date, day.tag)
             }
         }
         return totalRelease

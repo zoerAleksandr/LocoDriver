@@ -158,12 +158,7 @@ class AbsenceViewModel : ViewModel(), KoinComponent {
         // производственного календаря. Это справочное значение:
         // оплата командировочных маршрутов идёт отдельно по среднему часу.
         if (type == ReleaseType.TechnicalStudy) 0
-        else if (type == ReleaseType.ChildCare) when (tag) {
-            TagForDay.WORKING_DAY -> 8
-            TagForDay.SHORTENED_DAY -> 7
-            TagForDay.NON_WORKING_DAY -> 8
-            TagForDay.HOLIDAY -> 8
-        } else sharedPrefs.getWorkScheduleProfile().effectiveHours(date, tag)
+        else sharedPrefs.getWorkScheduleProfile().effectiveHours(date, tag)
 
     fun toggleTypePicker() = _uiState.update { it.copy(typePickerOpen = !it.typePickerOpen) }
 

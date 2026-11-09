@@ -1406,7 +1406,7 @@ class HomeViewModel : ViewModel(), KoinComponent {
                 // Берём норму из NormaUseCase (актуальная, с регионом) если доступна,
                 // иначе fallback на getPersonalNormaHours() из MonthOfYear
                 val normaHoursInt = _uiState.value.normaHours
-                    ?: monthOfYear?.getPersonalNormaHours()
+                    ?: monthOfYear?.getPersonalNormaHours(sharedPreferenceStorage.getWorkScheduleProfile())
                     ?: 0
                 val normHours = if (normaHoursInt > 0) "${normaHoursInt}ч" else ""
 

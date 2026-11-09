@@ -513,6 +513,7 @@ fun SettingsScreen(
                                 regionLoadingState = settingsUiState.regionLoadingState,
                                 onDismissRegionDialog = viewModel::clearRegionLoadingState,
                                 normaHours = settingsUiState.normaHours,
+                                workScheduleProfile = settingsUiState.workScheduleProfile,
                                 onOpenNormMonth = { currentSubScreen = SettingsSubScreen.NORMA_MONTH },
                             )
                         }

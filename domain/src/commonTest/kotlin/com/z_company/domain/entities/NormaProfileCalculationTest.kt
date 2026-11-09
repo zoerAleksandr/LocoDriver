@@ -2,6 +2,7 @@ package com.z_company.domain.entities
 
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHoursInPeriod
+import com.z_company.domain.entities.UtilForMonthOfYear.getDayoffHoursExcludingWeekends
 import kotlinx.datetime.DayOfWeek
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -46,5 +47,24 @@ class NormaProfileCalculationTest {
         )
 
         assertEquals(fullMonth, oldPeriod + newPeriod)
+    }
+
+    @Test
+    fun childCareHoursUsePersonalWorkSchedule() {
+        val childCareMonth = MonthOfYear(
+            year = 2025,
+            month = 0,
+            days = listOf(
+                Day(6, TagForDay.WORKING_DAY, isReleaseDay = true, releaseType = ReleaseType.ChildCare),
+                Day(11, TagForDay.NON_WORKING_DAY, isReleaseDay = true, releaseType = ReleaseType.ChildCare),
+                Day(12, TagForDay.NON_WORKING_DAY, isReleaseDay = true, releaseType = ReleaseType.ChildCare),
+            ),
+        )
+
+        assertEquals(8, childCareMonth.getDayoffHoursExcludingWeekends())
+        assertEquals(
+            12,
+            childCareMonth.getDayoffHoursExcludingWeekends(WorkScheduleProfile.sixDaySevenFive()),
+        )
     }
 }

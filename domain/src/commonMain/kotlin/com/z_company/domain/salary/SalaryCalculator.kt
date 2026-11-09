@@ -1313,7 +1313,7 @@ class SalaryCalculationHelper(
 
     fun getHoursCaringForDisableChildren(): Flow<Long> {
         return flow {
-            val hours = currentMonthOfYear.getDayoffHoursExcludingWeekends()
+            val hours = currentMonthOfYear.getDayoffHoursExcludingWeekends(workScheduleProfile)
             val hoursInLong: Long = hours.times(3_600_000).toLong()
             emit(hoursInLong)
         }
