@@ -715,7 +715,10 @@ internal class ProfileModel(
             return when {
                 l.section.id.startsWith("virtual:") -> l.section.name
                 names.size >= 2 && LegMatch.axisRange(l.section, names) != null -> "Плечо: ${names.first()} — ${names.last()}"
-                names.size < 2 && factAxisRange(l.section, l.reversed) != null -> "Маршрут по факту"
+                // Без плеча имя автоматически найденного участка не должно выглядеть как
+                // сохранённое плечо (например, «СПб через Верево»). Чипы ниже отдельно
+                // показывают направления после ближайшей развилки.
+                names.size < 2 && manualId == null -> "Маршрут по факту"
                 else -> null
             }
         }
