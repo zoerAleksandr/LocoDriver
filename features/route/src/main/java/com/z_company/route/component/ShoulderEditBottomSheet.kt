@@ -43,7 +43,7 @@ import com.z_company.route.component.servicephase.PhaseRouteMap
 import com.z_company.domain.entities.setting.ServicePhaseStationSource
 import com.z_company.domain.entities.setting.ServicePhasePoint
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.Dialog
@@ -1070,7 +1070,7 @@ fun ShoulderEditBottomSheet(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Pst.bg)
-                .systemBarsPadding()
+                .navigationBarsPadding()
                 .imePadding()
         ) {
             EditorTopBar(
@@ -1705,62 +1705,37 @@ private fun EditorTopBar(
     onBack: () -> Unit,
     onMap: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // «Готово» — закрыть (изменения уже сохраняются автоматически), как в карточке станции.
-        Box(
-            modifier = Modifier
-                .coachAnchor(anchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.DONE))
-                .heightIn(min = 40.dp)
-                .clickable(onClickLabel = "Готово", onClick = onBack)
-                .padding(horizontal = 12.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "Готово",
-                style = Pst.sans.copy(fontSize = 17.sp, fontWeight = FontWeight.SemiBold),
-                color = Pst.accent,
+    ScreenHeader(
+        title = title,
+        modifier = Modifier.heightIn(min = 64.dp),
+        navigation = {
+            HeaderBackTile(
+                onClick = onBack,
+                modifier = Modifier.coachAnchor(
+                    anchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.DONE),
+                ),
             )
-        }
-        Text(
-            text = title,
-            style = Pst.sans.copy(fontSize = 17.sp, fontWeight = FontWeight.SemiBold),
-            color = Pst.text,
-            textAlign = TextAlign.Center,
-            // Одна строка: при крупном системном шрифте иначе рвалось посреди слова.
-            maxLines = 1,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        Box(
-            modifier = Modifier
-                .coachAnchor(anchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.HELP))
-                .size(40.dp)
-                .clickable(onClickLabel = "Подсказки", onClick = onHelp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("?", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted)
-        }
-        // Всё плечо на карте: крайние и промежуточные станции с координатами.
-        Row(
-            modifier = Modifier
-                .coachAnchor(anchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.MAP))
-                .heightIn(min = 40.dp)
-                .clickable(onClickLabel = "Плечо на карте", onClick = onMap)
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            PstIcon(PstIcons.MapPin, 18.dp, Pst.accent)
-            Text(
+        },
+        actions = {
+            HeaderTile(
+                onClick = onHelp,
+                description = "Подсказки",
+                modifier = Modifier.coachAnchor(
+                    anchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.HELP),
+                ),
+            ) {
+                Text("?", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted)
+            }
+            HeaderTextTile(
                 text = "Карта",
-                style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
+                onClick = onMap,
                 color = Pst.accent,
+                modifier = Modifier.coachAnchor(
+                    anchors.getValue(com.z_company.domain.onboarding.ShoulderTourStep.MAP),
+                ),
             )
-        }
-    }
+        },
+    )
 }
 
 /** Расстояние, измеренное по карте, и координаты станций, по которым его измерили. */
