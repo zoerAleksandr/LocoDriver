@@ -3,9 +3,11 @@ package com.z_company.route.viewmodel
 import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.z_company.domain.brake.BrakeHolding
 import com.z_company.domain.brake.BrakeLocoCatalog
 import com.z_company.domain.brake.BrakePrefill
+import com.z_company.domain.brake.storage.BrakeCertificateUseCase
 import com.z_company.domain.brake.HoldingInput
 import com.z_company.domain.brake.HoldingRadioData
 import com.z_company.domain.brake.HoldingLoad
@@ -14,6 +16,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 /** Состояние инструмента «Закрепление поезда» (SCREEN_SPECS §27). Поля - текст, как ввёл пользователь. */
 data class BrakeHoldingUiState(
@@ -27,6 +33,11 @@ data class BrakeHoldingUiState(
     val locoSeries: String = "",
     /** Поезд подставлен из раздела «Поезд» (для подписи). */
     val fromTrain: Boolean = false,
+    val routeId: String? = null,
+    val trainId: String? = null,
+    val fillPick: FillPick? = null,
+    val fillDialog: String? = null,
+    val filling: Boolean = false,
     /** Момент остановки (мс, «Остановились» на вкладке «Порядок действий»); null - таймер не запущен. Хранится в SharedPreferences. */
     val stopStartMs: Long? = null,
     /** Номера отмеченных шагов порядка действий. */
@@ -55,7 +66,10 @@ fun BrakeHoldingUiState.toInput(): HoldingInput? {
     )
 }
 
-class BrakeHoldingViewModel(application: Application) : AndroidViewModel(application) {
+class BrakeHoldingViewModel(application: Application) : AndroidViewModel(application), KoinComponent {
+    private val routeUseCase: com.z_company.domain.use_cases.RouteUseCase by inject()
+    private val settingsUseCase: com.z_company.domain.use_cases.SettingsUseCase by inject()
+    private val certificateUseCase: BrakeCertificateUseCase by inject()
     private val prefs = application.getSharedPreferences("brake_holding_prefs", Context.MODE_PRIVATE)
     private val _state = MutableStateFlow(
         BrakeHoldingUiState(
@@ -74,6 +88,7 @@ class BrakeHoldingViewModel(application: Application) : AndroidViewModel(applica
     )
     val state: StateFlow<BrakeHoldingUiState> = _state.asStateFlow()
     private var prefilled = false
+    private var pendingRoute: com.z_company.domain.entities.route.Route? = null
 
     /** Подстановка данных поезда (один раз за открытие экрана): вес, оси, локомотив (вес - из справочника серий, если серия есть). */
     fun prefill(p: BrakePrefill?) {
@@ -88,6 +103,8 @@ class BrakeHoldingViewModel(application: Application) : AndroidViewModel(applica
                 locoSeries = s.locoSeries.orEmpty(),
                 locoWeightText = loco?.weight?.let(::fmt) ?: it.locoWeightText,
                 fromTrain = s.weight != null || s.axles != null,
+                routeId = s.routeId,
+                trainId = s.trainId,
                 // реквизиты радиосообщений: из поезда и локомотива маршрута (при запущенной остановке не затираем)
                 radio = if (it.stopStartMs != null) it.radio else it.radio.copy(
                     trainNumber = s.trainNumber ?: it.radio.trainNumber,
@@ -104,6 +121,69 @@ class BrakeHoldingViewModel(application: Application) : AndroidViewModel(applica
     fun setSlope(v: String) = _state.update { it.copy(slopeText = v) }
     fun setShoes(v: String) = _state.update { it.copy(shoesText = v) }
     fun setLoad(v: HoldingLoad?) = _state.update { it.copy(loadManual = v) }
+
+    /** Заполняет расчёт актуальными данными текущего маршрута. */
+    fun onFillClicked() {
+        viewModelScope.launch {
+            _state.update { it.copy(filling = true, fillDialog = null, fillPick = null) }
+            val route = _state.value.routeId?.let { id ->
+                routeUseCase.getListRoutesAsFlow().first().firstOrNull { it.basicData.id == id }
+            } ?: runCatching {
+                val routes = routeUseCase.getListRoutesAsFlow().first()
+                val settings = settingsUseCase.getUserSettingFlow().first()
+                with(com.z_company.domain.entities.route.UtilsForEntities) { routes.findCurrentRoute(System.currentTimeMillis(), settings) }
+            }.getOrNull()
+            if (route == null) {
+                _state.update { it.copy(filling = false, fillDialog = "Нет текущего маршрута") }
+                return@launch
+            }
+            when {
+                route.trains.isEmpty() -> _state.update { it.copy(filling = false, fillDialog = "В текущем маршруте нет поезда") }
+                route.trains.size > 1 && _state.value.routeId == null -> {
+                    pendingRoute = route
+                    _state.update { it.copy(filling = false, fillPick = FillPick(FillPick.Kind.TRAIN, trains = route.trains)) }
+                }
+                else -> fillFrom(route, route.trains.firstOrNull { it.trainId == _state.value.trainId } ?: route.trains.first())
+            }
+        }
+    }
+
+    fun pickTrain(train: com.z_company.domain.entities.route.Train) {
+        val route = pendingRoute ?: return
+        _state.update { it.copy(fillPick = null, filling = true) }
+        viewModelScope.launch { fillFrom(route, train) }
+    }
+
+    fun dismissFillPick() { pendingRoute = null; _state.update { it.copy(fillPick = null, filling = false) } }
+    fun dismissFillDialog() = _state.update { it.copy(fillDialog = null) }
+
+    private fun fillFrom(route: com.z_company.domain.entities.route.Route, train: com.z_company.domain.entities.route.Train) {
+        viewModelScope.launch {
+            val loco = route.locomotives.lastOrNull()
+            val cert = certificateUseCase.loadForTrain(train.trainId)
+            val slope = cert?.slope?.let { it.slopeText.filter { c -> c.isDigit() }.toIntOrNull()?.toString() }
+            val locoWeight = BrakeLocoCatalog.find(loco?.series)?.weight?.let(::fmt)
+            _state.update {
+                it.copy(
+                    weightText = train.weight?.takeIf { v -> v.toDoubleOrNull()?.let { n -> n > 0 } == true } ?: it.weightText,
+                    axlesText = train.axle?.takeIf { v -> v.toIntOrNull()?.let { n -> n > 0 } == true } ?: it.axlesText,
+                    locoSeries = loco?.series.orEmpty().ifBlank { it.locoSeries },
+                    locoWeightText = locoWeight ?: it.locoWeightText,
+                    slopeText = slope ?: it.slopeText,
+                    routeId = route.basicData.id,
+                    trainId = train.trainId,
+                    fromTrain = true,
+                    radio = if (it.stopStartMs != null) it.radio else it.radio.copy(
+                        trainNumber = train.number ?: it.radio.trainNumber,
+                        locoSeries = loco?.series ?: it.radio.locoSeries,
+                        locoNumber = loco?.number ?: it.radio.locoNumber,
+                    ),
+                    filling = false,
+                )
+            }
+            pendingRoute = null
+        }
+    }
 
     /** «Остановились»: запуск таймера от текущего момента (повторное нажатие не перезапускает). */
     fun startStop(nowMs: Long = System.currentTimeMillis()) {

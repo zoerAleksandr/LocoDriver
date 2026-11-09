@@ -88,6 +88,7 @@ private fun HoldingCalcTab(state: BrakeHoldingUiState, vm: BrakeHoldingViewModel
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        HoldingFillFromRoute(state, vm)
         if (state.fromTrain) {
             VuHint("Данные поезда подставлены из раздела «Поезд»: проверьте и при необходимости поправьте.")
         }
@@ -152,13 +153,20 @@ private fun HoldingResultCard(result: HoldingResult?, state: BrakeHoldingUiState
             return@VuBlock
         }
         Text(
-            "Башмаков: ${result.shoesRequired}",
+            "Требуется башмаков: ${result.shoesRequired}",
             fontFamily = VuMono, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = t.text,
         )
+        val fastening = if (result.shoesUsed >= result.shoesRequired) {
+            "Как закрепить: ${result.shoesRequired} башмаков."
+        } else {
+            "Как закрепить: ${result.shoesUsed} башмаков, ${result.manualBrakesSplit ?: 0} ручных тормоза " +
+                "(${result.manualWagons ?: 0} вагон${if ((result.manualWagons ?: 0) == 1) "" else "ов"})."
+        }
+        Text(fastening, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = t.accent, lineHeight = 24.sp)
         VuHint(
             "Масса с локомотивом ${fmtHold(result.totalMass, 0)} т; уклон ${fmtSlope(result.slopeStepPermille)}" +
                 (if (result.slopeRoundedUp) " (округлён вверх от введённого)" else "") +
-                ": на 100 тс веса ${fmtHold(result.shoesPer100, 1)} башмака" +
+                ": норма на 100 тс веса - ${fmtHold(result.shoesPer100, 1)} башмака" +
                 (result.manualAxlesPer100?.let { " или ${fmtHold(it, 1)} ручной оси" } ?: ", ручными тормозами не закрепляется"),
         )
         if (result.shoesUsed >= result.shoesRequired) {
@@ -167,16 +175,8 @@ private fun HoldingResultCard(result: HoldingResult?, state: BrakeHoldingUiState
             val missing = result.shoesRequired - result.shoesUsed
             VuWarnVerdict("Башмаков не хватает: $missing. Закрепляется ${fmtHold(result.coveredMass, 0)} т из ${fmtHold(result.totalMass, 0)} т")
             if (result.manualAxles != null) {
-                Text(
-                    "Ручных тормозных осей: ${result.manualAxles}",
-                    fontFamily = VuMono, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = t.text,
-                )
-                Text(
-                    "Вагонов с ручным тормозом: ${result.manualWagons}",
-                    fontFamily = VuMono, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = t.text,
-                )
                 VuHint(
-                    "Пересчёт на вагоны: остаток ${fmtHold(result.remainingMass, 0)} т = ${result.manualAxles} осей; ручной тормоз вагона действует на 4 оси, " +
+                    "Остаток веса для ручных тормозов: ${fmtHold(result.remainingMass, 0)} т = ${result.manualAxles} осей; ручной тормоз вагона действует на 4 оси, " +
                         "то есть ${result.manualAxles} / 4 → ${result.manualWagons} вагонов.",
                 )
                 VuWarnVerdict(
@@ -189,6 +189,33 @@ private fun HoldingResultCard(result: HoldingResult?, state: BrakeHoldingUiState
         result.warnings.forEach { VuVerdict(false, it, size = 14) }
         VuHint("Башмаки укладывают со стороны уклона. Нельзя: между колёсными парами одной тележки, перед стыком, перед крестовиной, на рамный рельс стрелки, на наружный рельс кривой.")
     }
+}
+
+@Composable
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+private fun HoldingFillFromRoute(state: BrakeHoldingUiState, vm: BrakeHoldingViewModel) {
+    val t = vuColors()
+    state.fillPick?.let { pick ->
+        androidx.compose.material3.ModalBottomSheet(
+            onDismissRequest = vm::dismissFillPick,
+            sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = androidx.compose.material3.MaterialTheme.colorScheme.background,
+        ) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Поезда · ${pick.trains.size}", style = androidx.compose.material3.MaterialTheme.typography.headlineMedium, color = t.accent, modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
+                pick.trains.forEach { train ->
+                    val routeName = train.number?.takeIf { it.isNotBlank() }?.let { "Поезд №$it" } ?: "Поезд без номера"
+                    VuCard(Modifier.fillMaxWidth().clickable { vm.pickTrain(train) }) {
+                        Text(routeName, Modifier.padding(16.dp), fontSize = 17.sp, color = t.text)
+                    }
+                }
+            }
+        }
+    }
+    state.fillDialog?.let { msg ->
+        com.z_company.route.component.AppAlertDialog(onDismissRequest = vm::dismissFillDialog, title = "Заполнить из маршрута", text = msg, confirmText = "Понятно", onConfirm = vm::dismissFillDialog)
+    }
+    VuBtn(if (state.filling) "Заполняю…" else "Заполнить из маршрута", vm::onFillClicked, Modifier.fillMaxWidth(), kind = VuBtnKind.Tonal, enabled = !state.filling)
 }
 
 /** Пункт шага: [who] - исполнитель по технологической карте ЦТ-162/р, если он отличается от исполнителя шага. */
@@ -235,8 +262,13 @@ private val HOLDING_STEPS = listOf(
         bullets = listOf(
             HBullet("Объявить остановку и причину машинистам поездов, следующих по перегону, и ДСП, ограничивающим перегон (текст - ниже, «Сообщения по радио»)."),
             HBullet("Получить подтверждение от встречных и вслед идущих поездов, ДСП, ДНЦ."),
-            HBullet("Зафиксировать время передачи сообщения, а также время и фамилии подтвердивших - на обороте бланка ДУ-61.", POM),
-            HBullet("Контролировать отсчёт времени от остановки и докладывать машинисту.", POM),
+        ),
+    ),
+    HStep(
+        "Радиосвязь об остановке: фиксация", POM,
+        bullets = listOf(
+            HBullet("Зафиксировать время передачи сообщения, а также время и фамилии подтвердивших - на обороте бланка ДУ-61."),
+            HBullet("Контролировать отсчёт времени от остановки и докладывать машинисту."),
         ),
     ),
     HStep(
@@ -262,7 +294,7 @@ private val HOLDING_STEPS = listOf(
         ),
     ),
     HStep(
-        "Закрепление", POM, phase = "Закрепление и устранение неисправности",
+        "Закрепление поезда", MASH, phase = "Закрепление и устранение неисправности",
         bullets = listOf(
             HBullet("Башмаки укладывать под колёса вагонов со стороны уклона; носок полоза башмака должен касаться обода колеса."),
             HBullet("Разнородный состав (груженые и порожние вагоны): по натурному листу определить груженые вагоны и их номера."),
@@ -270,8 +302,6 @@ private val HOLDING_STEPS = listOf(
             HBullet("Если башмаки под вагоны с нагрузкой на ось более 10 т уложить нельзя - число башмаков считать по вагонам с нагрузкой менее 10 т."),
             HBullet("Поезд на переломном профиле: закреплять со стороны предполагаемого ухода, пропорционально весу частей поезда и величине уклона."),
             HBullet("Если башмаков на локомотиве не хватает - дополнительно затормозить ручные тормоза вагонов (число - во вкладке «Расчёт»)."),
-            HBullet("Доложить ДСП, ограничивающему перегон (ДНЦ): сколько башмаков уложено и на скольких вагонах заторможены ручные тормоза.", MASH),
-            HBullet("Записать в журнал формы ТУ-152: число башмаков и вагонов с ручными тормозами."),
         ),
         forbiddenTitle = "Башмаки нельзя укладывать",
         forbidden = listOf(
@@ -280,6 +310,13 @@ private val HOLDING_STEPS = listOf(
             "перед крестовиной стрелочного перевода;",
             "на рамный рельс стрелочного перевода;",
             "на наружный рельс кривой.",
+        ),
+    ),
+    HStep(
+        "Доклад и запись о закреплении", POM,
+        bullets = listOf(
+            HBullet("Доложить ДСП, ограничивающему перегон (ДНЦ): сколько башмаков уложено и на скольких вагонах заторможены ручные тормоза."),
+            HBullet("Записать в журнал формы ТУ-152: число башмаков и вагонов с ручными тормозами."),
         ),
     ),
     HStep(
