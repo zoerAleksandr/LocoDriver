@@ -296,18 +296,14 @@ struct HomeView: View {
     private var toolsSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             DSSectionHeader("Инструменты")
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    HomeToolTile(systemImage: DSIcon.calendar.rawValue, title: "Календарь") { router.showCalendar() }
-                    HomeToolTile(systemImage: "chart.bar", title: "Статистика") { router.showStatistics() }
-                    // PDF (§21): формирование PDF на iOS ещё не реализовано — карточка всегда активна.
-                    HomeToolTile(systemImage: DSIcon.pdf.rawValue, title: "PDF") { router.present(.pdfContent) }
-                    HomeToolTile(systemImage: DSIcon.search.rawValue, title: "Поиск") { router.showSearch() }
-                }
-                .padding(.horizontal, DSMetrics.screenPadX)
-                .padding(.vertical, 4)
+            VStack(spacing: DSSpacing.sm) {
+                HomeToolTile(systemImage: DSIcon.calendar.rawValue, title: "Календарь") { router.showCalendar() }
+                HomeToolTile(systemImage: "chart.bar", title: "Статистика") { router.showStatistics() }
+                // PDF (§21): формирование PDF на iOS ещё не реализовано — карточка всегда активна.
+                HomeToolTile(systemImage: DSIcon.pdf.rawValue, title: "PDF") { router.present(.pdfContent) }
+                HomeToolTile(systemImage: DSIcon.search.rawValue, title: "Поиск") { router.showSearch() }
             }
-            .padding(.horizontal, -DSMetrics.screenPadX)
+            .padding(.top, DSSpacing.sm)
         }
     }
 
@@ -390,19 +386,19 @@ struct HomeToolTile: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: DSSpacing.md) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 34, weight: .regular))
+                    .font(.system(size: 20, weight: .regular))
                     .foregroundColor(DSColor.text.opacity(0.85))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(width: 32)
                 Text(title)
                     .font(DSFont.sans(13, .medium))
                     .foregroundColor(DSColor.text)
                     .lineLimit(1)
-                    .padding(.horizontal, DSSpacing.lg)
-                    .padding(.bottom, 14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(width: 120, height: 120)
+            .padding(.horizontal, DSMetrics.rowPadX)
+            .frame(maxWidth: .infinity, minHeight: 65, alignment: .leading)
             .background(DSColor.surface)
             .clipShape(RoundedRectangle(cornerRadius: DSRadius.card, style: .continuous))
             .dsShadow(.sm)

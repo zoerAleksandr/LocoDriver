@@ -1148,7 +1148,7 @@ fun HomeScreen(
                             }
                             AsyncDataValue(resultState = totalTimeWithHoliday) { time ->
                                 val chipText: String? = currentMonthOfYear?.let { month ->
-                                    val normaHoursInMonth = normaHours ?: month.getPersonalNormaHours()
+                        val normaHoursInMonth = normaHours ?: month.getPersonalNormaHours(workScheduleProfile)
                                     if (normaHoursInMonth > 0) {
                                         val normaMillis = normaHoursInMonth.toLong() * 3_600_000L
                                         val diff = totalTime - normaMillis
@@ -1466,7 +1466,7 @@ fun HomeScreen(
                             // Единая карточка по референсу: «ДО ЯВКИ ОСТАЛОСЬ» + счётчик + явка
                             Card(
                                 modifier = Modifier
-                                    .padding(horizontal = 8.dp, vertical = 12.dp)
+                                    .padding(start = 8.dp, end = 8.dp, top = 12.dp)
                                     .fillMaxWidth()
                                     .clickable { onRouteClick(nextFutureRoute.basicData.id) },
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
@@ -1685,36 +1685,26 @@ fun HomeScreen(
                             text = "ИНСТРУМЕНТЫ",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        LazyRow(
+                        Column(
                             modifier = Modifier
-                                .padding(top = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                .fillMaxWidth()
+                                .padding(start = 8.dp, end = 8.dp, top = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             // Все карточки используют единый компонент ActionCard
                             // для консистентного стиля (layout, шрифт, цвета).
                             // Единая плашка «Календарь» — заменяет прежние
                             // «График» и «Отвлечения» (теперь один экран).
-                            item {
-                                ActionCard(
-                                    modifier = Modifier.padding(start = 8.dp),
+                            ActionCard(
                                     title = "Календарь",
                                     iconRes = R.drawable.ic_card_calendar,
                                     iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
-                                    widthScreen = widthScreen,
                                     interactionSource = interactionSource,
-                                    onSizeChanged = { size ->
-                                        if (size.height > maxHeightBox) {
-                                            maxHeightBox = size.height
-                                        }
-                                    },
-                                    minHeightDp = maxHeightBox.toDp(),
                                     onClick = { onCalendar() }
-                                )
-                            }
+                            )
                             // Плитка «Карта» (после «Календаря», §4): поезд текущего маршрута -> экран «Поезд» с картой;
                             // иначе только карта с текущим положением (без записи данных).
-                            item {
-                                if (homeSeenBefore && !showBareMap) {
+                            if (homeSeenBefore && !showBareMap) {
                                     com.z_company.route.component.OnceCoachMark(
                                         id = com.z_company.domain.onboarding.HintId.HOME_MAP_TILE,
                                         anchor = mapTileAnchor,
@@ -1723,19 +1713,12 @@ fun HomeScreen(
                                         store = onboardingHints,
                                     )
                                 }
-                                ActionCard(
+                            ActionCard(
                                     modifier = Modifier.coachAnchor(mapTileAnchor),
                                     title = "Карта",
                                     iconRes = R.drawable.ic_map_pin_color,
                                     iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
-                                    widthScreen = widthScreen,
                                     interactionSource = interactionSource,
-                                    onSizeChanged = { size ->
-                                        if (size.height > maxHeightBox) {
-                                            maxHeightBox = size.height
-                                        }
-                                    },
-                                    minHeightDp = maxHeightBox.toDp(),
                                     onClick = {
                                         onboardingHints.markShown(com.z_company.domain.onboarding.HintId.HOME_MAP_TILE)
                                         val routeTrains = currentRoute?.trains
@@ -1755,103 +1738,56 @@ fun HomeScreen(
                                             } else showBareMap = true
                                         }
                                     }
-                                )
-                            }
+                            )
                             // Карточка «ВУ-45» — расчёт справки о тормозах (SCREEN_SPECS §26); данные берутся
                             // из поезда текущего маршрута (правило «АВТО»), если он есть.
-                            item {
-                                ActionCard(
+                            ActionCard(
                                     title = "ВУ-45",
                                     iconRes = R.drawable.ic_card_brake,
                                     iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
-                                    iconContent = { com.z_company.route.component.Vu45BlankIcon(size = 62.dp, tint = MaterialTheme.colorScheme.surfaceContainerLow) },
-                                    widthScreen = widthScreen,
+                                    iconContent = { com.z_company.route.component.Vu45BlankIcon(size = 36.dp, tint = MaterialTheme.colorScheme.surfaceContainerLow) },
                                     interactionSource = interactionSource,
-                                    onSizeChanged = { size ->
-                                        if (size.height > maxHeightBox) {
-                                            maxHeightBox = size.height
-                                        }
-                                    },
-                                    minHeightDp = maxHeightBox.toDp(),
                                     onClick = {
                                         // справка из «Инструментов» открывается пустой; данные подставляет «Заполнить из маршрута»
                                         onBrakeCertificate(null)
                                     }
-                                )
-                            }
+                            )
                             // Карточка «Закрепление» - башмаки и ручные тормоза при вынужденной остановке (SCREEN_SPECS §27)
-                            item {
-                                ActionCard(
+                            ActionCard(
                                     title = "Закрепление",
                                     iconRes = R.drawable.ic_card_brake,
                                     iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
-                                    iconContent = { com.z_company.route.component.HoldingIcon(size = 62.dp, tint = MaterialTheme.colorScheme.surfaceContainerLow) },
-                                    widthScreen = widthScreen,
+                                    iconContent = { com.z_company.route.component.HoldingIcon(size = 36.dp, tint = MaterialTheme.colorScheme.surfaceContainerLow) },
                                     interactionSource = interactionSource,
-                                    onSizeChanged = { size ->
-                                        if (size.height > maxHeightBox) {
-                                            maxHeightBox = size.height
-                                        }
-                                    },
-                                    minHeightDp = maxHeightBox.toDp(),
                                     onClick = { onBrakeHolding(null) }
-                                )
-                            }
+                            )
                             // Плашка «Статистика» — экран сводной статистики
-                            item {
-                                ActionCard(
+                            ActionCard(
                                     title = "Статистика",
                                     iconRes = R.drawable.ic_card_statistics,
                                     iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
-                                    widthScreen = widthScreen,
                                     interactionSource = interactionSource,
-                                    onSizeChanged = { size ->
-                                        if (size.height > maxHeightBox) {
-                                            maxHeightBox = size.height
-                                        }
-                                    },
-                                    minHeightDp = maxHeightBox.toDp(),
                                     onClick = { onStatistics() }
-                                )
-                            }
+                            )
                             // Карточка "PDF" — открывает диалог формирования PDF
                             // (логика перенесена из иконки в TopAppBar)
-                            item {
-                                ActionCard(
+                            ActionCard(
                                     title = "PDF",
                                     iconRes = R.drawable.ic_card_pdf,
                                     iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
-                                    widthScreen = widthScreen,
                                     interactionSource = interactionSource,
-                                    onSizeChanged = { size ->
-                                        if (size.height > maxHeightBox) {
-                                            maxHeightBox = size.height
-                                        }
-                                    },
-                                    minHeightDp = maxHeightBox.toDp(),
                                     enabled = !isPdfGenerating,
                                     onClick = { showPdfDialog = true }
-                                )
-                            }
+                            )
                             // Карточка "Поиск" — открывает экран поиска маршрутов
                             // (логика перенесена из иконки в TopAppBar)
-                            item {
-                                ActionCard(
-                                    modifier = Modifier.padding(end = 12.dp),
+                            ActionCard(
                                     title = "Поиск",
                                     iconRes = R.drawable.ic_card_search,
                                     iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
-                                    widthScreen = widthScreen,
                                     interactionSource = interactionSource,
-                                    onSizeChanged = { size ->
-                                        if (size.height > maxHeightBox) {
-                                            maxHeightBox = size.height
-                                        }
-                                    },
-                                    minHeightDp = maxHeightBox.toDp(),
                                     onClick = { onSearchClick() }
-                                )
-                            }
+                            )
                         }
                     }
                 }
@@ -2349,9 +2285,8 @@ private fun StackedTile(
 }
 
 /**
- * Карточка действия в LazyRow «Действия» на HomeScreen (PDF, Поиск, и т.д.).
- * Унифицированная по стилю с карточками "График" и "Отвлечения" — тот же размер,
- * фон и тень, но иконка — vector drawable с tint вместо webp Image.
+ * Строка инструмента на HomeScreen (PDF, Поиск и т.д.).
+ * По размеру и скруглению совпадает со свёрнутой карточкой маршрута.
  */
 @Composable
 private fun ActionCard(
@@ -2359,10 +2294,7 @@ private fun ActionCard(
     title: String,
     iconRes: Int,
     iconTint: Color,
-    widthScreen: Int,
     interactionSource: MutableInteractionSource,
-    onSizeChanged: (androidx.compose.ui.unit.IntSize) -> Unit,
-    minHeightDp: androidx.compose.ui.unit.Dp,
     enabled: Boolean = true,
     // вместо иконки-ресурса: произвольное содержимое (например, текстовая иконка «ВУ-45»)
     iconContent: (@Composable () -> Unit)? = null,
@@ -2370,11 +2302,8 @@ private fun ActionCard(
 ) {
     Card(
         modifier = modifier
-            .onSizeChanged(onSizeChanged)
-            .defaultMinSize(
-                minWidth = (widthScreen / 3).dp,
-                minHeight = (widthScreen / 3).dp
-            )
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = 65.dp)
             .indication(
                 interactionSource = interactionSource,
                 indication = ripple(
@@ -2391,37 +2320,34 @@ private fun ActionCard(
             contentColor = MaterialTheme.colorScheme.primary
         ),
     ) {
-        // Column: верхняя зона (Box weight=1f) — иконка по центру оставшегося места.
-        // Нижняя зона — текст в левом нижнем углу. Иконка визуально по центру
-        // верхней части карточки, не пересекается с текстом.
-        Column(
+        Row(
             modifier = Modifier
-                .defaultMinSize(
-                    minWidth = (widthScreen / 3).dp,
-                    minHeight = minHeightDp,
-                )
-                .padding(vertical = 8.dp, horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
+                    .size(40.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 if (iconContent != null) iconContent() else Icon(
-                    modifier = Modifier.size(72.dp),
+                    modifier = Modifier.size(36.dp),
                     painter = painterResource(iconRes),
                     contentDescription = title,
                     tint = iconTint,
                 )
             }
             Text(
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Start,
+                modifier = Modifier.weight(1f),
                 color = MaterialTheme.colorScheme.primary,
                 maxLines = 1,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontFamily = com.z_company.core.ui.theme.MonoFont,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 18.sp,
+                ),
                 overflow = TextOverflow.Ellipsis,
                 text = title,
             )
@@ -2458,7 +2384,7 @@ fun MainInfo(
                 Column(modifier = Modifier.padding(20.dp)) {
                 currentMonthOfYear?.let { month ->
                     val normaHoursInMonth =
-                        normaHours ?: month.getPersonalNormaHours()
+                        normaHours ?: month.getPersonalNormaHours(workScheduleProfile)
                     Column(
                         modifier = Modifier
                             .fillMaxWidth(),
