@@ -18,6 +18,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import com.z_company.domain.track.OfflineLeg
+import com.z_company.domain.track.OfflineLegResult
+import com.z_company.domain.track.OfflineLegStation
+import com.z_company.repository.remote_rest.tracks.SectionProfileRepository
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +50,8 @@ internal class LegContext(
     val title: String?,
     val phase: ServicePhase?,
     val country: String,
+    /** Концы плеча по названиям (отправление, прибытие) - есть даже у плеча без геоданных; null - плеча нет. */
+    val endNames: Pair<String, String>? = null,
     val onSelect: () -> Unit,
     val onUpdate: (ServicePhase) -> Unit,
     val onAddNames: (List<String>) -> Unit,
@@ -94,6 +100,8 @@ internal fun LegDetermineRow(ctx: LegContext, phase: ServicePhase, wideButtonTex
         }
     }
     val directory: StationDirectoryUseCase = koinInject()
+    val repo: SectionProfileRepository = koinInject()
+    var offlineNote by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(state, running) {
         if (!running) return@LaunchedEffect
         when (val st = state) {
@@ -118,8 +126,19 @@ internal fun LegDetermineRow(ctx: LegContext, phase: ServicePhase, wideButtonTex
                         refine = "Станция ${st.name?.let { "«$it» " }.orEmpty()}не найдена на карте: у неё нет координат, их нужно указать."
                     AutoFillFailure.NO_PATH ->
                         refine = "Между станциями плеча не удалось проложить путь по рельсам: станция может стоять не на той ветке, а маршрут быть слишком сложным."
-                    // Сеть, лимит, занятость сервера: уточнять нечего - просто повторить позже.
-                    else -> message = st.failure.message()
+                    // Сеть, лимит, занятость сервера: считаем плечо по скачанным участкам (без интернета); нет - просто повторить позже.
+                    else -> {
+                        val offline = OfflineLeg.determine(repo.cachedSections(), phase.departureStation, phase.arrivalStation)
+                        if (offline != null) {
+                            val found = offline.stations.map { it.toPhaseStation() }
+                            ctx.onAddNames(found.map { it.name })
+                            ctx.onUpdate(withSignature(directory.resolve(offlinePhase(phase, offline))))
+                            applying = true
+                            offlineNote = "Нет связи с сервером: плечо определено по скачанному участку «${offline.sectionName}»."
+                        } else {
+                            message = st.failure.message() + ". Скачайте нужные участки заранее: Профиль → Скачанные участки."
+                        }
+                    }
                 }
             }
             else -> Unit
@@ -186,8 +205,27 @@ internal fun LegDetermineRow(ctx: LegContext, phase: ServicePhase, wideButtonTex
             }
         }
         message?.let { Text(it, style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.danger) }
+        offlineNote?.let { Text(it, style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted) }
     }
 }
+
+/** Плечо, определённое по скачанному участку (без сети): та же сборка, что у [determinedPhase], источник станций - карта участка. */
+private fun offlinePhase(phase: ServicePhase, r: OfflineLegResult): ServicePhase {
+    val found = r.stations.map { it.toPhaseStation() }
+    val (merged, _) = ServicePhaseStationsMerge.merge(phase.intermediateStations, found, found.map { it.id }.toSet())
+    fun point(s: OfflineLegStation) = if (s.lat != null && s.lon != null) ServicePhasePoint(s.lat!!, s.lon!!) else null
+    return phase.copy(
+        distance = kotlin.math.round(r.lengthKm).toInt(),
+        intermediateStations = merged,
+        departurePoint = phase.departurePoint ?: point(r.departure),
+        arrivalPoint = phase.arrivalPoint ?: point(r.arrival),
+    )
+}
+
+private fun OfflineLegStation.toPhaseStation() = ServicePhaseStation(
+    name = name, latitude = lat, longitude = lon, kmFromStart = kmFromStart,
+    kind = ServicePhaseStationKind.STATION, source = ServicePhaseStationSource.MAP,
+)
 
 /** Результат автоподбора, применённый целиком (все найденные станции, расстояние по карте, координаты крайних станций): «проверено». */
 private fun determinedPhase(phase: ServicePhase, ready: AutoFillState.Ready): ServicePhase {

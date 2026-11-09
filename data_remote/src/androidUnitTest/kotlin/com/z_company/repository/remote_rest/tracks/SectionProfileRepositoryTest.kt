@@ -16,6 +16,9 @@ private class MemProfileCache : SectionProfileCache {
     override fun load(sectionId: String) = sections[sectionId]
     override fun save(sectionId: String, text: String) { sections[sectionId] = text }
     override fun retain(keepIds: Set<String>) { sections.keys.retainAll(keepIds) }
+    override fun cachedIds(): Set<String> = sections.keys.toSet()
+    override fun remove(sectionId: String) { sections.remove(sectionId) }
+    override fun sizeBytes(sectionId: String): Long = sections[sectionId]?.length?.toLong() ?: 0L
 }
 
 private class ProfileApi : AdvisorApi {
@@ -26,9 +29,13 @@ private class ProfileApi : AdvisorApi {
     var withBox = false
     var withEmptySection = false
     var rateLimit = false
+    var deviceReject = false
+    var failNetwork = false
+    var sectionsCalls = 0
     var sectionCallsById = mutableMapOf<String, Int>()
 
     override suspend fun sections(): List<AdvisorSectionSummaryDto> {
+        sectionsCalls++
         if (offline) throw IOException("no network")
         val near = if (withBox) listOf(55.0, 37.0, 55.02, 37.0) else null
         val far = if (withBox) listOf(10.0, 10.0, 10.1, 10.0) else null
@@ -41,6 +48,8 @@ private class ProfileApi : AdvisorApi {
     override suspend fun section(id: String): AdvisorSectionDto {
         if (offline) throw IOException("no network")
         if (rateLimit) throw IOException("advisor api: 429 rate_limited")
+        if (deviceReject) { sectionCalls++; throw AdvisorApiException(403, "root_untrusted") }
+        if (failNetwork) { sectionCalls++; throw IOException("timeout") }
         sectionCalls++
         sectionCallsById[id] = (sectionCallsById[id] ?: 0) + 1
         return AdvisorSectionDto(
@@ -51,6 +60,10 @@ private class ProfileApi : AdvisorApi {
             kmMarks = listOf(AdvisorKmMarkDto(0.0, 100.0, 1)),
         )
     }
+
+    override suspend fun graph() = AdvisorGraphDto()
+
+    override suspend fun graphPath(fromStation: String, toStation: String) = AdvisorGraphPathDto()
 
     override suspend fun postAltitudeContrib(token: String, body: AltitudeContribRequest) = error("not used")
 }
@@ -172,5 +185,78 @@ class SectionProfileRepositoryTest {
 
         api.offline = true
         assertEquals(false, SectionProfileRepository(api, cache).syncAll())
+    }
+
+    @Test
+    fun device_rejection_pauses_downloads_and_sets_flag() = runBlocking {
+        val api = ProfileApi().apply { deviceReject = true }
+        val repo = SectionProfileRepository(api, MemProfileCache())
+        assertNull(repo.section("s1"))
+        assertTrue(repo.deviceRejected)
+        assertNull(repo.section("s2"))
+        // Вторая загрузка (другой участок) сеть уже не трогает: пауза на отказ устройства.
+        assertEquals(1, api.sectionCalls)
+    }
+
+    @Test
+    fun network_failure_backs_off_per_section() = runBlocking {
+        val api = ProfileApi().apply { failNetwork = true }
+        val repo = SectionProfileRepository(api, MemProfileCache())
+        repeat(5) { assertNull(repo.section("s1")) }
+        assertEquals(1, api.sectionCalls)
+        // Другой участок не заблокирован сбоем первого.
+        assertNull(repo.section("s2"))
+        assertEquals(2, api.sectionCalls)
+    }
+
+    @Test
+    fun index_refresh_is_throttled() = runBlocking {
+        val api = ProfileApi()
+        val repo = SectionProfileRepository(api, MemProfileCache())
+        repo.summaries(refresh = true)
+        repo.summaries(refresh = true)
+        repo.summaries(refresh = true)
+        assertEquals(1, api.sectionsCalls)
+    }
+
+    @Test
+    fun offline_download_saves_reports_and_removes() = runBlocking {
+        val api = ProfileApi()
+        val cache = MemProfileCache()
+        val repo = SectionProfileRepository(api, cache)
+        repo.summaries(refresh = true)
+        assertTrue(repo.offlineSections().isEmpty())
+        assertEquals(OfflineDownloadResult.OK, repo.downloadForOffline("s1"))
+        val info = repo.offlineSections()["s1"]
+        assertNotNull(info)
+        assertEquals(1000.0, info.updatedAt)
+        assertTrue(info.bytes > 0)
+        // Повторная явная загрузка уже сохранённого участка сеть не трогает (версия та же).
+        assertEquals(OfflineDownloadResult.OK, repo.downloadForOffline("s1"))
+        assertEquals(1, api.sectionCalls)
+        repo.removeOffline("s1")
+        assertTrue(repo.offlineSections().isEmpty())
+    }
+
+    @Test
+    fun offline_download_ignores_previous_backoff_and_reports_device_rejection() = runBlocking {
+        val api = ProfileApi().apply { failNetwork = true }
+        val repo = SectionProfileRepository(api, MemProfileCache())
+        repo.summaries(refresh = true)
+        assertEquals(OfflineDownloadResult.FAILED, repo.downloadForOffline("s1"))
+        // Обычная загрузка теперь в задержке, а явная - нет: пользователь нажал сам.
+        assertNull(repo.section("s1"))
+        api.failNetwork = false
+        assertEquals(OfflineDownloadResult.OK, repo.downloadForOffline("s1"))
+        api.deviceReject = true
+        assertEquals(OfflineDownloadResult.DEVICE_REJECTED, repo.downloadForOffline("s2"))
+    }
+
+    @Test
+    fun offline_download_reports_rate_limit() = runBlocking {
+        val api = ProfileApi().apply { rateLimit = true }
+        val repo = SectionProfileRepository(api, MemProfileCache())
+        repo.summaries(refresh = true)
+        assertEquals(OfflineDownloadResult.RATE_LIMITED, repo.downloadForOffline("s1"))
     }
 }

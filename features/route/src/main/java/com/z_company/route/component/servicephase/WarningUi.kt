@@ -167,7 +167,24 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
     val checkedNow = pastChecked.filter { it in pastIds }.toSet()
     val placements by rememberPlacements(active, model.stopPoints)
     var added by remember { mutableStateOf(0) }
-    val places = remember(section.id, live.reversed, model.stopPoints) { warningPlaces(section, live.reversed, model.stopPoints) }
+    val allPlaces = remember(section.id, live.reversed, model.stopPoints) { warningPlaces(section, live.reversed, model.stopPoints) }
+    // Ограничения добавляются только до ближайшей развилки (решение владельца 07.11): дальше маршрут
+    // не определён, места за развилкой из списка убираем. Нет графа/положения или список пуст - весь список.
+    val junction = model.junctionAhead(section, live.reversed)
+    val posKm = model.position?.takeIf { !it.offRoute }?.kmAxis
+    val places = remember(allPlaces, junction?.km, posKm) {
+        // С выбранной веткой показываем профиль до конца ветки - ограничения доступны и за развилкой.
+        val farBound = if (model.branchPreviewActive) null else junction
+        val f = allPlaces.filter { pl ->
+            // До развилки (верхняя граница) и не раньше поезда (прошедшие станции не показываем).
+            val beforeJunction = farBound == null ||
+                if (live.reversed) pl.startKm >= farBound.km - 0.05 else pl.endKm <= farBound.km + 0.05
+            val afterPos = posKm == null ||
+                if (live.reversed) pl.startKm <= posKm + 0.05 else pl.endKm >= posKm - 0.05
+            beforeJunction && afterPos
+        }
+        if (f.isEmpty()) allPlaces else f
+    }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         FollowDeviceOrientation()
         val portrait = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
@@ -252,7 +269,10 @@ internal fun WarningsDialog(model: ProfileModel, onVoice: () -> Unit, onDismiss:
             WhereSheet(
                 leg = leg,
                 places = places.map { WhereItem(it.title, it.isStation) },
-                hint = "Выберите станцию или перегон участка.",
+                hint = if (junction != null) {
+                    "Выберите станцию или перегон до ближайшей развилки" +
+                        (junction.name.takeIf { it.isNotEmpty() }?.let { " (до ст. $it)" } ?: "") + "."
+                } else "Выберите станцию или перегон участка.",
                 onPick = { place = places[it]; showWhere = false },
                 onOther = null,
                 onClose = { showWhere = false },

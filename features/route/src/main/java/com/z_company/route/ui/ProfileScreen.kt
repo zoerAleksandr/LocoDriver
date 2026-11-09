@@ -210,6 +210,7 @@ fun ProfileScreen(
     trashViewModel: TrashViewModel,
     onBillingClick: () -> Unit,
     onOpenTrackHistory: () -> Unit = {},
+    onOpenOfflineSections: () -> Unit = {},
     onOpenMyCertificates: () -> Unit = {},
     onOpenDataPrivacy: () -> Unit = {},
     isPullRefreshing: Boolean = false,
@@ -1415,6 +1416,16 @@ fun ProfileScreen(
                                         subtitleStyle = styleHint,
                                         titleColor = primaryColor,
                                         onClick = onOpenMyCertificates,
+                                    )
+                                    ProfileDataDivider()
+                                    ProfileDataRow(
+                                        iconRes = R.drawable.ic_offline_24px,
+                                        title = "Скачанные участки",
+                                        subtitle = "Профиль пути, станции и светофоры на телефоне",
+                                        titleStyle = styleData,
+                                        subtitleStyle = styleHint,
+                                        titleColor = primaryColor,
+                                        onClick = onOpenOfflineSections,
                                     )
                                     ProfileDataDivider()
                                     ProfileDataRow(

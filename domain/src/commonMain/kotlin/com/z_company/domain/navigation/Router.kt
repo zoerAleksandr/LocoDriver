@@ -20,6 +20,7 @@ interface Router {
     fun showSettingsTrain() { showSettings() }
     fun showDataPrivacy() { showSettings() }
     fun showTrackHistory() { showSettings() }
+    fun showOfflineSections() { showSettings() }
     fun showMyCertificates() { showSettings() }
     fun showSettingsRest() { showSettings() }
     fun showSettingsSeriesList() { showSettings() }

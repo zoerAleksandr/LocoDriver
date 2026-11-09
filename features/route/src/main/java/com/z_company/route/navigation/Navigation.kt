@@ -56,6 +56,13 @@ fun NavGraphBuilder.homeGraph(
             )
         }
 
+        composableScreen(OfflineSectionsRoute.route) {
+            com.z_company.route.ui.OfflineSectionsScreen(
+                viewModel = org.koin.androidx.compose.koinViewModel(),
+                onBack = { router.back() },
+            )
+        }
+
         composableScreen(TrackHistoryRoute.route) {
             val showPurchases = rememberShowPurchasesScreen(router)
             com.z_company.route.ui.TrackHistoryScreen(

@@ -195,6 +195,7 @@ object SelectReleaseDaysScreenRoute: AppRoutes("SelectReleaseDaysScreen")
 object ProfileRoute: AppRoutes("ProfileRoute")
 object DataPrivacyRoute: AppRoutes("DataPrivacyRoute")
 object TrackHistoryRoute: AppRoutes("TrackHistoryRoute")
+object OfflineSectionsRoute: AppRoutes("OfflineSectionsRoute")
 object MyCertificatesRoute: AppRoutes("MyCertificatesRoute")
 object StatisticsRoute: AppRoutes("StatisticsRoute")
 object BrakeCertificateRoute: AppRoutes("BrakeCertificateRoute") {

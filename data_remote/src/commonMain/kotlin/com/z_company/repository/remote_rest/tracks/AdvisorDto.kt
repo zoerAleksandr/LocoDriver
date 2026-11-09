@@ -54,6 +54,51 @@ data class AdvisorStationDto(
     val lon: Double? = null,
 )
 
+/** `GET /v1/advisor/graph`: узел графа участков (стык, развилка или тупик). */
+@Serializable
+data class AdvisorGraphNodeDto(
+    val id: String,
+    val lat: Double = 0.0,
+    val lon: Double = 0.0,
+    val name: String = "",
+)
+
+/** Ребро графа: отрезок оси участка-владельца [sectionId] между узлами, км — по его оси. */
+@Serializable
+data class AdvisorGraphEdgeDto(
+    val id: String,
+    val sectionId: String,
+    val fromKm: Double = 0.0,
+    val toKm: Double = 0.0,
+    val fromNode: String = "",
+    val toNode: String = "",
+    val lengthKm: Double = 0.0,
+)
+
+/** Граф оцифрованных участков; `version` меняется при правке участка или кабинета «Стыки». */
+@Serializable
+data class AdvisorGraphDto(
+    val version: String = "",
+    val nodes: List<AdvisorGraphNodeDto> = emptyList(),
+    val edges: List<AdvisorGraphEdgeDto> = emptyList(),
+)
+
+/** Проезд ребра по ходу поезда (`GET /v1/advisor/graph/path`): диапазон км реального участка-владельца. */
+@Serializable
+data class AdvisorGraphTraversalDto(
+    val edge: AdvisorGraphEdgeDto,
+    val startKm: Double = 0.0,
+    val endKm: Double = 0.0,
+)
+
+/** Путь плеча по графу стыков; сервер ищет по всем опубликованным участкам. */
+@Serializable
+data class AdvisorGraphPathDto(
+    val version: String = "",
+    val lengthKm: Double = 0.0,
+    val traversals: List<AdvisorGraphTraversalDto> = emptyList(),
+)
+
 /**
  * Светофор на оси участка. `track` - литер: "E" (Ч, чётное направление) или "O" (Н, нечётное); `kind` - "pass" | "station" |
  * "shunt" | "distant"; `facing` - в какую сторону оси виден лицом (+1 по возрастанию км, −1 против). Поле необязательное:
@@ -66,6 +111,20 @@ data class AdvisorSignalDto(
     val track: String = "E",
     val kind: String = "pass",
     val facing: Int = 0,
+)
+
+@Serializable
+data class AdvisorCrossingDto(
+    val km: Double,
+    val label: String = "",
+    val kind: String = "crossing",
+)
+
+@Serializable
+data class AdvisorBrakeTestDto(
+    val km: Double,
+    val label: String = "",
+    val kind: String = "brake_test",
 )
 
 /** Точка оси участка: `km` - от начала оси, высота клиенту не нужна. */
@@ -88,6 +147,8 @@ data class AdvisorSectionDto(
     val kmMarks: List<AdvisorKmMarkDto> = emptyList(),
     val stations: List<AdvisorStationDto> = emptyList(),
     val signals: List<AdvisorSignalDto> = emptyList(),
+    val crossings: List<AdvisorCrossingDto> = emptyList(),
+    val brakeTests: List<AdvisorBrakeTestDto> = emptyList(),
 )
 
 /**

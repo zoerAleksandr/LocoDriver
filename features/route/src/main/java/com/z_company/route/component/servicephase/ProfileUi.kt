@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -98,19 +99,17 @@ internal fun gradeText(live: LiveProfile, e: ProfileElement?): String? {
     }
 }
 
+private const val DEVICE_REJECTED_TEXT = "Не удалось зарегистрировать защищённый ключ устройства, поэтому новые профили путей не загружаются. Ранее сохранённые участки доступны."
 private const val RATE_LIMITED_TEXT = "Сервер временно ограничил загрузку профилей путей. Повторите через несколько минут."
 
-private fun emptyText(model: ProfileModel): String = emptyBase(model) + legHint(model)
-
-/** Плечо не проверено на карте: профиль без него подбирается хуже - скажем об этом, чтобы пустой профиль не выглядел нормой. */
-private fun legHint(model: ProfileModel): String =
-    if (model.legUnverified && model.emptyReason != null) " Плечо не проверено на карте: определите его в разделе «Поезд» → ДУ-61 (кнопка «Определить») — с проверенным плечом профиль подбирается точнее." else ""
+private fun emptyText(model: ProfileModel): String = emptyBase(model)
 
 private fun emptyBase(model: ProfileModel): String = when (model.emptyReason) {
     ProfileEmpty.LOADING -> "Загружаем профили участков…"
     ProfileEmpty.NO_LOCATION -> "Поиск спутников… Определяем местоположение."
     ProfileEmpty.NO_SECTIONS, ProfileEmpty.NO_NEARBY ->
-        if (model.rateLimited) RATE_LIMITED_TEXT
+        if (model.deviceRejected) DEVICE_REJECTED_TEXT
+        else if (model.rateLimited) RATE_LIMITED_TEXT
         else if (model.emptyReason == ProfileEmpty.NO_SECTIONS) "Профили участков не загружены. Проверьте интернет — после загрузки профиль появится."
         else "Для этого места профиль пока не собран. Данные профиля собираются — скоро он появится."
     ProfileEmpty.NEED_LOGIN -> "Профиль пути доступен после входа в аккаунт. Войдите в приложение (Профиль) — участки загрузятся."
@@ -119,6 +118,30 @@ private fun emptyBase(model: ProfileModel): String = when (model.emptyReason) {
     null -> ""
 }
 
+/** Чипы веток за ближайшей развилкой («→ Колпино · 12 км») над лентой профиля; нажатие выбирает ветку. */
+@Composable
+internal fun BranchChipsRow(model: ProfileModel, modifier: Modifier = Modifier) {
+    val chips = model.branchChips
+    if (chips.isEmpty()) return
+    Row(
+        modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        chips.forEach { c ->
+            val on = c.edgeId == model.selectedBranchId
+            Text(
+                "далее на ${c.title}",
+                style = Pst.sans.copy(fontSize = 13.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal),
+                color = if (on) Pst.onAccent else Pst.text,
+                modifier = Modifier
+                    .background(if (on) Pst.accent else Pst.bgSubtle, RoundedCornerShape(12.dp))
+                    .clickable { model.selectBranch(c.edgeId) }
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                maxLines = 1,
+            )
+        }
+    }
+}
 /**
  * Полоса «Профиль пути»: слева над графиком километр и уклон, мини-профиль впереди по ходу; справа кнопки по вертикали:
  * «Развернуть на весь экран» вверху, «Скрыть» внизу. Нет данных - пояснение вместо графика.
@@ -216,6 +239,7 @@ internal fun ProfileChart(
     val oddColor = Pst.cta
     val onEven = Pst.onAccent
     val onOdd = Pst.ctaInk
+    val crossingSign = androidx.compose.ui.graphics.ImageBitmap.imageResource(com.z_company.route.R.drawable.level_crossing_sign)
     val signalStyle: TextStyle = Pst.mono.copy(fontSize = if (detailed) 10.sp else 8.sp, fontWeight = FontWeight.Bold)
     val hasCurves = remember(section) { section.elements.any { it.curveRadiusM > 0 } }
     // Лямбда меняется при каждой перерисовке: ключом жеста берём только «жесты включены», иначе жест рвётся посреди движения.
@@ -486,36 +510,81 @@ internal fun ProfileChart(
             }
         }
 
-        // Светофоры: чип с литерой и номером на полосе вверху графика, тонкий стебель вниз до линии профиля. Литер Ч - акцентный,
-        // Н - тёмный; светофор, стоящий к поезду спиной (неправильный путь), - контуром без заливки. Тесные чипы пропускаются.
-        if (signals.isNotEmpty()) {
-            val chipH = (if (detailed) 15f else 12f) * dp
-            val lastEnd = floatArrayOf(-1e9f, -1e9f)
-            signals.map { it to px(live.toView(it.km)) }
-                .filter { it.second in (-20f * dp)..(w + 20f * dp) }
-                .sortedBy { it.second }
-                .forEach { (sg, xx) ->
-                    val back = sg.facing != 0 && sg.facing != travelDir
-                    val even = sg.track == SignalTrack.EVEN
-                    val color = if (even) evenColor else oddColor
-                    val tl = measurer.measure(sg.title, signalStyle.copy(color = if (back) color else if (even) onEven else onOdd), maxLines = 1)
-                    val cw = tl.size.width + 6f * dp
-                    val left = xx - cw / 2
-                    val level = (0..1).firstOrNull { left > lastEnd[it] + 2f * dp } ?: return@forEach
-                    val top = topPad + 2f * dp + level * (chipH + 2f * dp)
+        // Значки на ножках вверху графика: светофоры (кружок с табличкой), переезды (дорожный знак «Железнодорожный
+        // переезд без шлагбаума», section.crossings) и места торможения («НТ», section.brakeTests) - каждый на
+        // тонком стебле вниз до линии профиля, как светофор. Литер Ч - акцентный, Н - тёмный; светофор, стоящий
+        // к поезду спиной (неправильный путь), - контуром без заливки. Яруса два, тесные значки пропускаются.
+        val chipH = (if (detailed) 15f else 12f) * dp
+        val rad = (if (detailed) 8f else 5.5f) * dp
+        val signH = (if (detailed) 26f else 18f) * dp
+        val signW = signH * crossingSign.width / crossingSign.height
+        val boxW = (if (detailed) 26f else 20f) * dp
+        val boxH = (if (detailed) 20f else 15f) * dp
+        val levelH = maxOf(rad * 2f + 2f * dp + chipH, signH, boxH) + 4f * dp
+        // Значки: (x, ширина, рисунок от верха своего яруса).
+        val marks = ArrayList<Triple<Float, Float, (Float) -> Unit>>()
+        signals.map { it to px(live.toView(it.km)) }
+            .filter { it.second in (-20f * dp)..(w + 20f * dp) }
+            .forEach { (sg, xx) ->
+                val back = sg.facing != 0 && sg.facing != travelDir
+                val even = sg.track == SignalTrack.EVEN
+                val color = if (even) evenColor else oddColor
+                val tl = measurer.measure(sg.title, signalStyle.copy(color = if (back) color else if (even) onEven else onOdd), maxLines = 1)
+                val cw = tl.size.width + 6f * dp
+                marks += Triple(xx, cw, { top ->
+                    val plateTop = top + rad * 2f + 2f * dp
                     val lineY = py(line.heightAt(sg.km))
-                    if (lineY > top + chipH) drawLine(color.copy(alpha = 0.8f), Offset(xx, top + chipH), Offset(xx, lineY), strokeWidth = 1f * dp)
+                    if (lineY > plateTop + chipH) drawLine(color.copy(alpha = 0.8f), Offset(xx, plateTop + chipH), Offset(xx, lineY), strokeWidth = 1f * dp)
                     val radius = androidx.compose.ui.geometry.CornerRadius(3f * dp, 3f * dp)
                     val chipSize = androidx.compose.ui.geometry.Size(cw, chipH)
+                    val center = Offset(xx, top + rad)
                     if (back) {
-                        drawRoundRect(color.copy(alpha = 0.12f), Offset(left, top), chipSize, radius)
-                        drawRoundRect(color, Offset(left, top), chipSize, radius, style = Stroke(width = 1.2f * dp))
+                        drawCircle(color.copy(alpha = 0.12f), rad, center)
+                        drawCircle(color, rad, center, style = Stroke(width = 1.2f * dp))
+                        drawRoundRect(color.copy(alpha = 0.12f), Offset(xx - cw / 2, plateTop), chipSize, radius)
+                        drawRoundRect(color, Offset(xx - cw / 2, plateTop), chipSize, radius, style = Stroke(width = 1.2f * dp))
                     } else {
-                        drawRoundRect(color, Offset(left, top), chipSize, radius)
+                        drawCircle(color, rad, center)
+                        drawRoundRect(color, Offset(xx - cw / 2, plateTop), chipSize, radius)
                     }
-                    drawText(tl, topLeft = Offset(left + 3f * dp, top + (chipH - tl.size.height) / 2f))
-                    lastEnd[level] = left + cw
-                }
+                    drawText(tl, topLeft = Offset(xx - cw / 2 + 3f * dp, plateTop + (chipH - tl.size.height) / 2f))
+                })
+            }
+        section.crossings.forEach { c ->
+            val vx = live.toView(c.km)
+            if (vx < window.fromX || vx > window.toX) return@forEach
+            val xx = px(vx)
+            marks += Triple(xx, signW, { top ->
+                val lineY = py(line.heightAt(c.km))
+                if (lineY > top + signH) drawLine(ink.copy(alpha = 0.6f), Offset(xx, top + signH), Offset(xx, lineY), strokeWidth = 1f * dp)
+                drawImage(
+                    crossingSign,
+                    dstOffset = androidx.compose.ui.unit.IntOffset((xx - signW / 2).roundToInt(), top.roundToInt()),
+                    dstSize = androidx.compose.ui.unit.IntSize(signW.roundToInt(), signH.roundToInt()),
+                    filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
+                )
+            })
+        }
+        val brakeRed = Color(0xFFD62828)
+        section.brakeTests.forEach { b ->
+            val vx = live.toView(b.km)
+            if (vx < window.fromX || vx > window.toX) return@forEach
+            val xx = px(vx)
+            marks += Triple(xx, boxW, { top ->
+                val lineY = py(line.heightAt(b.km))
+                if (lineY > top + boxH) drawLine(brakeRed.copy(alpha = 0.8f), Offset(xx, top + boxH), Offset(xx, lineY), strokeWidth = 1f * dp)
+                drawRect(Color.White, Offset(xx - boxW / 2, top), androidx.compose.ui.geometry.Size(boxW, boxH))
+                drawRect(brakeRed, Offset(xx - boxW / 2, top), androidx.compose.ui.geometry.Size(boxW, boxH), style = Stroke(width = 1.6f * dp))
+                val tl = measurer.measure("НТ", signalStyle.copy(color = brakeRed), maxLines = 1)
+                drawText(tl, topLeft = Offset(xx - tl.size.width / 2f, top + (boxH - tl.size.height) / 2f))
+            })
+        }
+        val lastEnd = floatArrayOf(-1e9f, -1e9f)
+        marks.sortedBy { it.first }.forEach { (xx, mw, drawMark) ->
+            val left = xx - mw / 2
+            val level = (0..1).firstOrNull { left > lastEnd[it] + 2f * dp } ?: return@forEach
+            lastEnd[level] = left + mw
+            drawMark(topPad + 2f * dp + level * levelH)
         }
 
         // Линия поезда: от головы (положение) назад по ходу на длину поезда, вдоль линии профиля.
@@ -596,7 +665,6 @@ internal enum class ProfileScale(val label: String, val spanKm: Double) {
 @Composable
 internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: LegContext? = null, gnss: com.z_company.domain.gnss.GnssQuality? = null) {
     var showPicker by rememberSaveable { mutableStateOf(false) }
-    var showSettings by rememberSaveable { mutableStateOf(false) }
     var spanKm by rememberSaveable { mutableStateOf(6f) }
     var follow by rememberSaveable { mutableStateOf(true) }
     var manualFrom by rememberSaveable { mutableStateOf(0f) }
@@ -624,7 +692,7 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
                 MapButton(onClick = onDismiss, description = "Назад", size = 38.dp) { PstIcon(PstIcons.ChevronLeft, 22.dp, Pst.text) }
                 SectionHeader(model, Modifier.weight(1f)) { showPicker = true }
                 if (reason == null && live != null) {
-                    val length = live.lengthKm
+                    val length = live.viewSpanKm
                     ProfileScale.values().forEach { sc ->
                         val target = if (sc == ProfileScale.ALL) length.toFloat() else sc.spanKm.toFloat()
                         val on = abs(spanKm - target) < 0.05f * target.coerceAtLeast(1f)
@@ -654,9 +722,9 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
                     MeasureButton(model)
                     StripButton("Сменить направление", { model.toggleDirection() }) { PstIcon(PstIcons.Swap, 20.dp, Pst.text) }
                     if (model.hasSignals) {
-                        StripButton("Настройки профиля", { showSettings = true }) { PstIcon(PstIcons.Settings, 20.dp, Pst.text) }
-                    }
-                }
+                        SignalTrackSwitch(model)
+                        ParitySwitch(model)
+                    }                }
                 // «ДУ-61» (предупреждения): видна всегда; без выбранного участка - пояснение вместо окна.
                 val canWarn = model.canEditWarnings
                 Box(
@@ -696,12 +764,13 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
                 )
             }
             if (reason == null && live != null) {
-                val length = live.lengthKm
+                val length = live.viewSpanKm
+                val vFrom = live.viewFrom
                 val span = spanKm.toDouble().coerceIn(MIN_SPAN_KM.coerceAtMost(length), length)
                 val followKm = model.position?.kmAxis // подписка на положение: окно сдвигается за поездом при каждом новом фиксе
                 val window = if (follow) {
                     if (span >= length) {
-                        ProfileWindow(0.0, length)
+                        ProfileWindow(vFrom, vFrom + length)
                     } else {
                         // Позади головы - не меньше длины поезда с запасом: поезд виден целиком при любом масштабе.
                         val room = ((model.trainLengthKm ?: 0.0) + TRAIN_MARGIN_KM).coerceAtMost(span * 0.8)
@@ -709,7 +778,7 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
                         else live.window(max(span / 6, room), span - max(span / 6, room))
                     }
                 } else {
-                    val from = manualFrom.toDouble().coerceIn(0.0, (length - span).coerceAtLeast(0.0))
+                    val from = manualFrom.toDouble().coerceIn(vFrom, vFrom + (length - span).coerceAtLeast(0.0))
                     ProfileWindow(from, from + span)
                 }
                 // Жест: масштаб вокруг точки между пальцами, сдвиг пальцем. Чистый зум не отключает слежение за поездом.
@@ -719,11 +788,12 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
                     if (movedPan || !follow) {
                         val anchor = window.fromX + cFrac * span
                         val from = anchor - cFrac * newSpan - panFrac * newSpan
-                        manualFrom = from.coerceIn(0.0, (length - newSpan).coerceAtLeast(0.0)).toFloat()
+                        manualFrom = from.coerceIn(vFrom, vFrom + (length - newSpan).coerceAtLeast(0.0)).toFloat()
                         follow = false
                     }
                     spanKm = newSpan.toFloat()
                 }
+                BranchChipsRow(model)
                 ProfileChart(
                     model, window, detailed = true,
                     modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
@@ -753,64 +823,58 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
     if (showWarnings) WarningsDialog(model, onVoice = { showVoice = true }, onDismiss = { showWarnings = false }, leg = leg)
     if (showVoice) WarningVoiceDialog(model, onDismiss = { showVoice = false })
     WarningEditDialog(model)
-    if (showSettings && model.hasSignals) ProfileSettingsDialog(model, onDismiss = { showSettings = false })
 }
 
 /**
- * «Настройки профиля» (шестерёнка в шапке; есть, только если у участка есть светофоры): направление движения по чётности и путь,
- * по которому едем, - от них зависит, светофоры какого литера показываются на профиле. «Авто» - направление по плечу поезда или
- * по движению (как у кнопки «⇄»); «Чётное»/«Нечётное» - выбор вручную. «Неправильный» - едем по пути противоположного литера:
- * показываются его светофоры, они стоят к поезду спиной.
+ * Переключатель пути светофоров одной кнопкой: текст - текущий путь (1П - нечётные, литер Н; 2П - чётные,
+ * литер Ч), нажатие меняет его на другой. Положение по умолчанию - по чётности поезда (номер), иначе по
+ * направлению; по неправильному пути машинист включает светофоры того пути, по которому едет.
  */
 @Composable
-private fun ProfileSettingsDialog(model: ProfileModel, onDismiss: () -> Unit) {
-    val parity = model.parity
+private fun SignalTrackSwitch(model: ProfileModel) {
+    val current = model.signalTrack
+    HeaderToggle(if (current == SignalTrack.ODD) "1П" else "2П") {
+        model.chooseSignalTrack(if (current == SignalTrack.ODD) SignalTrack.EVEN else SignalTrack.ODD)
+    }
+}
+
+/**
+ * Чётность направления одной кнопкой (вместо отдельной настройки в диалоге): «Авто» - направление по плечу
+ * поезда или по движению, «Чётное»/«Нечётное» - выбор вручную. Нажатие переводит в следующее состояние.
+ * При повороте карты кнопка принимает стандартное для нового направления состояние - его чётность.
+ */
+@Composable
+private fun ParitySwitch(model: ProfileModel) {
     val manual = model.directionIsManual
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Column(
-            modifier = Modifier.fillMaxWidth(0.7f).background(Pst.bg, RoundedCornerShape(20.dp)).padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Text("Настройки профиля", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("НАПРАВЛЕНИЕ", style = Pst.mono.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    ChoiceChip("Авто" + if (!manual && parity != null) " · ${parity.title.lowercase()}" else "", on = !manual) { model.useAutoDirection() }
-                    TravelParity.values().forEach { p ->
-                        ChoiceChip(p.title, on = manual && parity == p) { model.chooseParity(p) }
-                    }
-                }
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("ПУТЬ", style = Pst.mono.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold), color = Pst.textMuted)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    ChoiceChip("Правильный", on = !model.wrongTrack) { model.chooseWrongTrack(false) }
-                    ChoiceChip("Неправильный", on = model.wrongTrack) { model.chooseWrongTrack(true) }
-                }
-                Text(
-                    text = "Неправильный — едете по пути другого направления: показываются его светофоры, они стоят к вам спиной.",
-                    style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted,
-                )
-            }
-            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                PstButton("Готово", onDismiss, kind = PstButtonKind.FILLED, height = 40.dp, fontSize = 14)
-            }
+    val parity = model.parity
+    val text = if (manual && parity != null) parity.title else "Авто"
+    HeaderToggle(text) {
+        when {
+            !manual -> model.chooseParity(TravelParity.EVEN)
+            parity == TravelParity.EVEN -> model.chooseParity(TravelParity.ODD)
+            else -> model.useAutoDirection()
         }
     }
 }
 
+/** Кнопка-переключатель в шапке профиля: размер и вид как у соседних кнопок строки. */
 @Composable
-private fun ChoiceChip(text: String, on: Boolean, onClick: () -> Unit) {
-    Text(
-        text = text,
-        style = Pst.sans.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
-        color = if (on) Pst.onAccent else Pst.text,
+private fun HeaderToggle(text: String, onClick: () -> Unit) {
+    Box(
         modifier = Modifier
-            .background(if (on) Pst.accent else Pst.bgSubtle, RoundedCornerShape(12.dp))
+            .height(38.dp)
+            .background(Pst.bgSubtle, RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
-        maxLines = 1,
-    )
+            .padding(horizontal = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            style = Pst.sans.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
+            color = Pst.text,
+            maxLines = 1,
+        )
+    }
 }
 
 /** «А — Б — В» в обратном направлении: «В — Б — А» (участок хранит ось в одну сторону, график разворачивается). */
@@ -835,7 +899,8 @@ private fun SectionHeader(model: ProfileModel, modifier: Modifier = Modifier, on
     ) {
         Column(Modifier.weight(1f)) {
             Text(
-                text = s?.let { sectionTitle(it.name, live.reversed) } ?: "Выбрать участок",
+                text = model.profileTitle
+                    ?: (s?.let { sectionTitle(it.name, live.reversed) } ?: "Выбрать участок"),
                 style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
                 color = Pst.text, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
@@ -884,8 +949,13 @@ private fun NowRow(model: ProfileModel, live: LiveProfile) {
                     gradeText(live, pos.element)?.let {
                         Text(it, style = Pst.mono.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text, maxLines = 1)
                     }
+                    val junction = model.junctionAhead(live.section, live.reversed)
+                    val junctionKm = model.junctionDistanceKm(pos.kmAxis, live.reversed)
                     val tail = buildList {
-                        ahead?.let { add("До «${it.first}» — ${pstKm(it.second)}") }
+                        junction?.name?.takeIf { it.isNotEmpty() }?.let {
+                            add("до ст. $it — ${pstKm(junctionKm ?: 0.0)}")
+                        }
+                        ahead?.let { add("до ст. ${it.first} — ${pstKm(it.second)}") }
                         model.signalsAhead(1).firstOrNull()?.let {
                             add("Светофор ${it.signal.title} — ${pstKm(it.distanceKm)}" + if (it.backToTrain) " (спиной)" else "")
                         }
@@ -1186,7 +1256,7 @@ internal fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
             } else if (rows.isEmpty()) {
                 Box(Modifier.weight(1f).fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                     Text(
-                        text = if (model.needLogin) "Профиль пути доступен после входа в аккаунт." else if (model.rateLimited) RATE_LIMITED_TEXT else if (model.summaries.isEmpty()) "Участки не загружены. Проверьте интернет." else "Ничего не найдено. Данные профилей собираются — список пополняется.",
+                        text = if (model.needLogin) "Профиль пути доступен после входа в аккаунт." else if (model.deviceRejected) DEVICE_REJECTED_TEXT else if (model.rateLimited) RATE_LIMITED_TEXT else if (model.summaries.isEmpty()) "Участки не загружены. Проверьте интернет." else "Ничего не найдено. Данные профилей собираются — список пополняется.",
                         style = Pst.sans.copy(fontSize = 14.sp),
                         color = Pst.textMuted,
                         textAlign = TextAlign.Center,

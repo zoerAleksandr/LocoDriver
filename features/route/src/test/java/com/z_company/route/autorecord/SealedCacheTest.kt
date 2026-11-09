@@ -54,4 +54,47 @@ class SealedCacheTest {
         assertEquals("ax-1", cache.load("ax-1")!!.sectionId)
         dir.deleteRecursively()
     }
+
+    @Test
+    fun offline_replace_rollback_restores_previous_profile() {
+        val dir = createTempDir("sections-rollback")
+        val cache = FileSectionProfileCache(dir, seal())
+        cache.save("s1", "old")
+        cache.beginOfflineReplace("s1")
+        cache.save("s1", "new")
+        cache.rollbackOfflineReplace("s1")
+        assertEquals("old", cache.load("s1"))
+        assertFalse(File(dir, "s1.offline-txn").exists())
+        assertFalse(File(dir, "s1.offline-backup").exists())
+        dir.deleteRecursively()
+    }
+
+    @Test
+    fun offline_replace_rollback_removes_new_profile_when_there_was_no_old_one() {
+        val dir = createTempDir("sections-new")
+        val cache = FileSectionProfileCache(dir, seal())
+        cache.beginOfflineReplace("s1")
+        cache.save("s1", "new")
+        cache.rollbackOfflineReplace("s1")
+        assertNull(cache.load("s1"))
+        dir.deleteRecursively()
+    }
+
+    @Test
+    fun offline_replace_recovers_after_process_restart_and_commit_keeps_new_profile() {
+        val dir = createTempDir("sections-recovery")
+        val seal = seal()
+        val first = FileSectionProfileCache(dir, seal)
+        first.save("s1", "old")
+        first.beginOfflineReplace("s1")
+        first.save("s1", "interrupted")
+
+        val recovered = FileSectionProfileCache(dir, seal)
+        assertEquals("old", recovered.load("s1"))
+        recovered.beginOfflineReplace("s1")
+        recovered.save("s1", "new")
+        recovered.commitOfflineReplace("s1")
+        assertEquals("new", FileSectionProfileCache(dir, seal).load("s1"))
+        dir.deleteRecursively()
+    }
 }

@@ -282,7 +282,10 @@ internal fun TrainMapScreen(
             chartPick = null
         }
         // Профиль пути: живое положение на профиле участка (выбор по местоположению и плечу, SCREEN_SPECS §6.9).
-        val profileModel = rememberProfileModel(liveFix, liveSpeed, liveAtMs, stops, profileTrains, profileTrainId)
+        val profileModel = rememberProfileModel(
+            liveFix, liveSpeed, liveAtMs, stops, profileTrains, profileTrainId,
+            legEnds = leg?.endNames,
+        )
         profileModel.notice?.let { notice ->
             com.z_company.route.component.AppAlertDialog(
                 onDismissRequest = { profileModel.notice = null },
@@ -292,7 +295,6 @@ internal fun TrainMapScreen(
                 onConfirm = { profileModel.notice = null },
             )
         }
-        androidx.compose.runtime.SideEffect { profileModel.legUnverified = leg != null && leg.title != null && leg.phase?.isMapVerified == false }
         var showChart by rememberSaveable { mutableStateOf(false) }
         // Метки первого открытия карты + кнопка «?» для повтора (ONBOARDING_MATERIALS §2): один раз, не во время записи.
         val onboardingHints = com.z_company.route.component.rememberOnboardingHints()
@@ -415,12 +417,25 @@ internal fun TrainMapScreen(
         val scope = rememberCoroutineScope()
 
         // Маркер положения: выбранный значок всегда; повёрнут по курсу (на стоянке - последний известный, пока курса нет - «вверх»).
-        fun setMe(m: MapLibreMap, lat: Double, lon: Double, bearing: Double?) {
+        // Значок притягивается к рельсам, как трек: на стоянке сырой GPS «гуляет» и маркер отваливается от путей при живом
+        // индикаторе GPS. Дальше допуска значок остаётся на сыром фиксе - на съезде/в депо рельсов рядом может не быть.
+        // Привязка с гистерезисом: уже «на рельсе» - отпускаем только дальше допуска + запас, иначе на границе значок прыгает.
+        val meSnapped = remember { booleanArrayOf(false) }
+        // Возвращает точку, где нарисован значок (проекция на рельс или сырой фикс): по ней же ведём камеру.
+        fun setMe(m: MapLibreMap, lat: Double, lon: Double, bearing: Double?): Pair<Double, Double> {
+            val routeLine = (railState as? ServicePhaseAutoFillViewModel.RailLineResult.Ok)?.line
+            val pr = ActualRails.project(listOfNotNull(routeLine) + factLines, lat, lon)?.projection
+            val limit = TrainMapRoute.SNAP_TOLERANCE_M + if (meSnapped[0]) 10.0 else 0.0
+            val snap = if (pr != null && pr.offsetM <= limit) pr else null
+            meSnapped[0] = snap != null
+            val shownLat = snap?.latitude ?: lat
+            val shownLon = snap?.longitude ?: lon
             m.style?.getSourceAs<GeoJsonSource>(TRAIN_ME_SOURCE)?.setGeoJson(
-                Feature.fromGeometry(Point.fromLngLat(lon, lat)).apply {
+                Feature.fromGeometry(Point.fromLngLat(shownLon, shownLat)).apply {
                     addNumberProperty("bearing", bearing ?: 0.0)
                 }
             )
+            return shownLat to shownLon
         }
 
         fun showMyLocation(center: Boolean = true) {
@@ -962,12 +977,12 @@ internal fun TrainMapScreen(
                 liveAtMs = System.currentTimeMillis()
                 val h = heading.update(f.latitude, f.longitude, f.speedKmh, f.bearing)
                 headingDeg = h
-                setMe(m, f.latitude, f.longitude, h)
+                val shown = setMe(m, f.latitude, f.longitude, h)
                 if (follow && (moving || (ride && h != null))) {
                     // Масштаб — выбранный пользователем (кнопки «+»/«−»), иначе не меньше 14; в режиме «еду по карте»
                     // карта поворачивается по ходу движения.
                     val zoom = userZoom ?: maxOf(m.cameraPosition.zoom, 14.0)
-                    val cam = CameraPosition.Builder().target(LatLng(f.latitude, f.longitude)).zoom(zoom)
+                    val cam = CameraPosition.Builder().target(LatLng(shown.first, shown.second)).zoom(zoom)
                         .bearing(if (ride && h != null) h else m.cameraPosition.bearing).tilt(0.0).build()
                     m.easeCamera(CameraUpdateFactory.newCameraPosition(cam), 900)
                 }
@@ -1932,6 +1947,7 @@ internal fun TrainMapScreen(
                     }
                 } else {
                     if (profileVisible) {
+                        BranchChipsRow(profileModel)
                         ProfileStrip(
                             model = profileModel,
                             height = stripH,

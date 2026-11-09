@@ -832,8 +832,12 @@ class TrainFormViewModel(
         viewModelScope.launch {
             settingsMutex.withLock {
                 val settings = settingsUseCase.getUserSettingFlow().first()
-                val updatedList = settings.servicePhases.map {
-                    if (it.id == newPhase.id) newPhase else it
+                // Upsert: «Новое плечо» приходит с новым id - без добавления оно терялось
+                // (жило только в памяти экрана и пропадало после перезапуска).
+                val updatedList = if (settings.servicePhases.any { it.id == newPhase.id }) {
+                    settings.servicePhases.map { if (it.id == newPhase.id) newPhase else it }
+                } else {
+                    settings.servicePhases + newPhase
                 }
                 settingsUseCase.saveSetting(settings.copy(servicePhases = updatedList)).first()
             }

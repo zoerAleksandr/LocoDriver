@@ -58,6 +58,26 @@ object LegMatch {
         return a > b
     }
 
+    /**
+     * Диапазон оси участка, занимаемый плечом: от первой до последней станции плеча ([stopNames]). Нужен, чтобы при плече ВНУТРИ участка
+     * показывать профиль плеча, а не всего участка. null - плеча нет, станций нет на оси или плечо занимает весь участок.
+     */
+    fun axisRange(section: SectionProfile, stopNames: List<String>): ClosedFloatingPointRange<Double>? {
+        if (stopNames.size < 2) return null
+        val a = kmOf(section, stopNames.first()) ?: return null
+        val b = kmOf(section, stopNames.last()) ?: return null
+        val lo = minOf(a, b)
+        val hi = maxOf(a, b)
+        if (hi - lo < MIN_LEG_RANGE_KM) return null
+        val full = section.axis.locator.lengthKm.takeIf { it > 0 } ?: section.lengthKm
+        // Плечо почти совпадает с участком (концы в пределах допуска) - режем нечего.
+        if (lo <= EDGE_TOLERANCE_KM && hi >= full - EDGE_TOLERANCE_KM) return null
+        return lo.coerceAtLeast(0.0)..hi.coerceAtMost(full)
+    }
+
+    private const val MIN_LEG_RANGE_KM = 0.3
+    private const val EDGE_TOLERANCE_KM = 0.3
+
     private fun kmOf(section: SectionProfile, name: String): Double? =
         section.stations.firstOrNull { SectionPicker.sameStation(it.name, name) }?.km
 }
@@ -102,6 +122,19 @@ class LiveProfile(val section: SectionProfile, val reversed: Boolean) {
 
     /** Длина участка, км (по оси). */
     val lengthKm: Double get() = section.axis.locator.lengthKm.takeIf { it > 0 } ?: section.lengthKm
+
+    /**
+     * Показываемая часть участка по оси (плечо внутри участка); null - весь участок. Положение, километраж и разворот считаются
+     * по всему участку, меняется только то, что можно показать в окне.
+     */
+    var legAxisRange: ClosedFloatingPointRange<Double>? = null
+
+    /** Границы показа в координатах вида (при развороте - от конца оси). */
+    val viewFrom: Double get() = legAxisRange?.let { minOf(toView(it.start), toView(it.endInclusive)) } ?: 0.0
+    val viewTo: Double get() = legAxisRange?.let { maxOf(toView(it.start), toView(it.endInclusive)) } ?: lengthKm
+
+    /** Ширина показываемой части, км. */
+    val viewSpanKm: Double get() = viewTo - viewFrom
 
     /** Ось -> вид: при развороте идём от конца к началу. */
     fun toView(kmAxis: Double): Double = if (reversed) lengthKm - kmAxis else kmAxis
@@ -154,9 +187,9 @@ class LiveProfile(val section: SectionProfile, val reversed: Boolean) {
      * прижато к краям участка, ширина сохраняется. Без положения - начало участка.
      */
     fun window(behindKm: Double, aheadKm: Double): ProfileWindow {
-        val width = (behindKm + aheadKm).coerceAtMost(lengthKm)
-        val center = last?.let { toView(it.kmAxis) } ?: behindKm
-        val from = (center - behindKm).coerceIn(0.0, (lengthKm - width).coerceAtLeast(0.0))
+        val width = (behindKm + aheadKm).coerceAtMost(viewSpanKm)
+        val center = last?.let { toView(it.kmAxis) } ?: (viewFrom + behindKm)
+        val from = (center - behindKm).coerceIn(viewFrom, (viewTo - width).coerceAtLeast(viewFrom))
         return ProfileWindow(from, from + width)
     }
 
@@ -236,6 +269,10 @@ object AxisSlice {
             0.5 * ((2 * b) + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3)
         return cr(p0.lat, p1.lat, p2.lat, p3.lat) to cr(p0.lon, p1.lon, p2.lon, p3.lon)
     }
+
+    /** Точка `(lat, lon)` оси на километре [km] (интерполяция; за пределами оси - её конец); null - ось короче двух точек. */
+    fun pointAt(points: List<AxisPoint>, km: Double): Pair<Double, Double>? =
+        if (points.size < 2) null else at(points, km.coerceIn(points.first().km, points.last().km))
 
     private fun at(points: List<AxisPoint>, km: Double): Pair<Double, Double> {
         var l = 0
