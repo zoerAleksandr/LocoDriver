@@ -3,6 +3,7 @@ package com.z_company.repository.remote_rest
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ProductionCalendarDay
 import com.z_company.domain.entities.ReleaseDay
+import com.z_company.domain.entities.WorkScheduleMonth
 import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.norma_time.LocomotiveSeriesTombstone
@@ -229,6 +230,23 @@ class KtorRemoteRestApi(private val client: HttpClient) : RemoteRestApi {
         client.get("v1/work_schedule/") {
             header("Authorization", token)
         }.body()
+
+    @kotlinx.serialization.Serializable
+    private data class WorkScheduleMonthsBody(val months: List<WorkScheduleMonth>)
+
+    override suspend fun getWorkScheduleMonths(token: String): List<WorkScheduleMonth> =
+        client.get("v1/work_schedule/days/") {
+            header("Authorization", token)
+        }.body<WorkScheduleMonthsBody>().months
+
+    override suspend fun saveWorkScheduleMonths(
+        token: String,
+        months: List<WorkScheduleMonth>,
+    ): List<WorkScheduleMonth> = client.put("v1/work_schedule/days/") {
+        contentType(ContentType.Application.Json)
+        header("Authorization", token)
+        setBody(WorkScheduleMonthsBody(months))
+    }.body<WorkScheduleMonthsBody>().months
 
     override suspend fun saveNormaTimeLocomotives(
         token: String,

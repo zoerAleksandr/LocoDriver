@@ -191,7 +191,6 @@ object SettingsScreenRoute : AppRoutes("SettingsScreen") {
     fun buildRoute(subScreen: String? = null): String =
         if (subScreen != null) "$basicRoute?$paramSubScreen=$subScreen" else basicRoute
 }
-object SelectReleaseDaysScreenRoute: AppRoutes("SelectReleaseDaysScreen")
 object ProfileRoute: AppRoutes("ProfileRoute")
 object DataPrivacyRoute: AppRoutes("DataPrivacyRoute")
 object TrackHistoryRoute: AppRoutes("TrackHistoryRoute")
@@ -233,6 +232,13 @@ object BrakeCertificateRoute: AppRoutes("BrakeCertificateRoute") {
         val parts = pairs.mapNotNull { (k, v) -> v?.takeIf { it.isNotBlank() }?.let { "$k=${android.net.Uri.encode(it)}" } }
         return if (parts.isEmpty()) basicRoute else "$basicRoute?${parts.joinToString("&")}"
     }
+}
+/** «Закрепление поезда»: те же параметры предзаполнения, что у справки ВУ-45 (вес, оси, локомотив). */
+object BrakeHoldingRoute: AppRoutes("BrakeHoldingRoute") {
+    override val route: String = BrakeCertificateRoute.route.replace("BrakeCertificateRoute", basicRoute)
+    val navArguments = BrakeCertificateRoute.navArguments
+    fun getPrefill(backStackEntry: NavBackStackEntry) = BrakeCertificateRoute.getPrefill(backStackEntry)
+    fun buildRoute(p: com.z_company.domain.brake.BrakePrefill?): String = BrakeCertificateRoute.buildRoute(p).replaceFirst(BrakeCertificateRoute.basicRoute, basicRoute)
 }
 object CalendarRoute: AppRoutes("CalendarRoute")
 object ScheduleWizardRoute: AppRoutes("ScheduleWizardRoute")

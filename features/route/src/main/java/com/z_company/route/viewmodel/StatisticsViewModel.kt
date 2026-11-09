@@ -347,7 +347,7 @@ class StatisticsViewModel : ViewModel(), KoinComponent {
                 if (routes.isEmpty()) {
                     Triple(0f, "—", "")
                 } else {
-                    (routes.getWorkTime(month, ctx) - month.getPersonalNormaHours() * 3_600_000L)
+                    (routes.getWorkTime(month, ctx) - month.getPersonalNormaHours(sharedPreferences.getWorkScheduleProfile()) * 3_600_000L)
                         .coerceAtLeast(0L)
                         .let { Triple(it / 3_600_000f, StatFormat.hm(it), "") }
                 }

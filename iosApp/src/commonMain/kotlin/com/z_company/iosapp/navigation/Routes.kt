@@ -54,4 +54,3 @@ internal object PurchasesRoute { const val route = "PurchasesRoute" }
 internal object SettingsScreenRoute { const val route = "SettingsScreen" }
 internal object ProfileRoute { const val route = "ProfileRoute" }
 internal object AllRouteScreenRoute { const val route = "AllRouteScreenRoute" }
-internal object SelectReleaseDaysScreenRoute { const val route = "SelectReleaseDaysScreen" }

@@ -132,6 +132,7 @@ import com.z_company.core.util.ConverterLongToTime
 import com.z_company.core.util.DateAndTimeConverter
 import com.z_company.core.util.MonthFullText.getMonthFullText
 import com.z_company.domain.entities.MonthOfYear
+import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.UtilForMonthOfYear.getNormaHoursInDate
 import com.z_company.domain.entities.UtilForMonthOfYear.getPersonalNormaHours
 import com.z_company.domain.entities.route.UtilsForEntities.getWorkTime
@@ -251,7 +252,9 @@ fun HomeScreen(
     onConsentSettings: () -> Unit = {},
     onStatistics: () -> Unit = {},
     onBrakeCertificate: (com.z_company.domain.brake.BrakePrefill?) -> Unit = {},
+    onBrakeHolding: (com.z_company.domain.brake.BrakePrefill?) -> Unit = {},
     normaHours: Int? = null,
+    workScheduleProfile: WorkScheduleProfile = WorkScheduleProfile.standard(),
     unsyncedRoutesCount: Int = 0,
     hasActiveSubscription: Boolean = false,
     subscriptionEndTime: Long = 0L,
@@ -1193,6 +1196,7 @@ fun HomeScreen(
                                         dateAndTimeConverter = dateAndTimeConverter,
                                         brush = brushMain,
                                         normaHours = normaHours,
+                                        workScheduleProfile = workScheduleProfile,
                                     )
                                 }
 
@@ -1773,6 +1777,24 @@ fun HomeScreen(
                                         // справка из «Инструментов» открывается пустой; данные подставляет «Заполнить из маршрута»
                                         onBrakeCertificate(null)
                                     }
+                                )
+                            }
+                            // Карточка «Закрепление» - башмаки и ручные тормоза при вынужденной остановке (SCREEN_SPECS §27)
+                            item {
+                                ActionCard(
+                                    title = "Закрепление",
+                                    iconRes = R.drawable.ic_card_brake,
+                                    iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    iconContent = { com.z_company.route.component.HoldingIcon(size = 62.dp, tint = MaterialTheme.colorScheme.surfaceContainerLow) },
+                                    widthScreen = widthScreen,
+                                    interactionSource = interactionSource,
+                                    onSizeChanged = { size ->
+                                        if (size.height > maxHeightBox) {
+                                            maxHeightBox = size.height
+                                        }
+                                    },
+                                    minHeightDp = maxHeightBox.toDp(),
+                                    onClick = { onBrakeHolding(null) }
                                 )
                             }
                             // Плашка «Статистика» — экран сводной статистики
@@ -2419,6 +2441,7 @@ fun MainInfo(
     dateAndTimeConverter: DateAndTimeConverter?,
     brush: Brush,
     normaHours: Int? = null,
+    workScheduleProfile: WorkScheduleProfile = WorkScheduleProfile.standard(),
 ) {
     Column(
         modifier = Modifier
@@ -2486,7 +2509,7 @@ fun MainInfo(
                     ) {
                         val currentTime = Calendar.getInstance()
                         val normaHoursToday =
-                            month.getNormaHoursInDate(currentTime.timeInMillis)
+                            month.getNormaHoursInDate(currentTime.timeInMillis, workScheduleProfile)
                         val percent =
                             ((totalTime * 100).toFloat() / (normaHoursToday * 3_600_000L).toFloat()) / 100f
 
@@ -2534,7 +2557,7 @@ fun MainInfo(
                     ) {
                         if (isConsiderFutureRoute) {
                             val currentTime = Calendar.getInstance()
-                            val normaHoursToday = month.getNormaHoursInDate(currentTime.timeInMillis)
+                            val normaHoursToday = month.getNormaHoursInDate(currentTime.timeInMillis, workScheduleProfile)
                             val percentTodayWorked = (todayWorkTime.toFloat() / (normaHoursToday * 3_600_000L).coerceAtLeast(1).toFloat()).coerceIn(0f, 1f)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),

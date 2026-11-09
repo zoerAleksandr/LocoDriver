@@ -82,7 +82,7 @@ class BrakeCertificateCalculatorTest {
 
     @Test
     fun table2_consistency_minNormGivesTable2Speeds() {
-        // На допускаемом минимуме п. 35 должен давать скорости табл. III.2 (проверка переноса таблиц).
+        // На допускаемом минимуме п. 4.4 прил. 2 должен давать скорости табл. 2 (проверка переноса таблиц).
         // Известное расхождение в самих Нормах: рефрижераторный (REEFER), спуск круче 0,010: формула 80, табл. 2 - 90.
         for (c in BrakeNorms.categories) {
             val min = c.minNorm ?: continue
@@ -95,10 +95,16 @@ class BrakeCertificateCalculatorTest {
                     ),
                 )
                 val s = r.speed
-                // Расхождение в самих Правилах для «локомотивы в голове и хвосте» (табл. III.2: 50 при спуске круче 0,006, формула п. 35: 65 / 55):
+                // Расхождение в самих Правилах для «локомотивы в голове и хвосте» (табл. 2: 50 при спуске круче 0,006, формула п. 35: 65 / 55):
                 // в точке минимума принимается меньшая из двух скоростей, поэтому результат равен таблице.
                 if (c.id == "REEFER" && g == GradeClass.OVER_010_TO_015) {
                     assertEquals(80, (s as SpeedLimit.Allowed).kmh)
+                    continue
+                }
+                // Расхождение в самих Правилах: строка 15.7 табл. 1 - 60 при спуске круче 0,010, формула п. 4.4 в точке минимума даёт 50, табл. 2 (стр. 18) - (55);
+                // принимается меньшая из двух (50).
+                if (c.id == "JOINED_EMPTY_800" && g == GradeClass.OVER_010_TO_015) {
+                    assertEquals(50, (s as SpeedLimit.Allowed).kmh)
                     continue
                 }
                 assertTrue(s is SpeedLimit.Allowed, "${c.id}/$g: $s")
@@ -241,16 +247,17 @@ class InstructionRefTest {
     @Test
     fun annotateAddsDocumentAfterFirstRef() {
         val g = InstructionRef.GENITIVE
-        assertEquals("п. 35 прил. 2 $g: снижение", InstructionRef.annotate("п. 35: снижение"))
-        assertEquals("(п. 48, 50 прил. 2 $g)", InstructionRef.annotate("(п. 48, 50)"))
-        assertEquals("по табл. III.4 прил. 2 $g для уклона", InstructionRef.annotate("по табл. III.4 для уклона"))
-        assertEquals("п. 133 $g", InstructionRef.annotate("п. 133"))
+        assertEquals("п. 4.4 прил. 2 $g: снижение", InstructionRef.annotate("п. 4.4 прил. 2: снижение"))
+        assertEquals("(п. 9.3.3, 9.3.5 $g)", InstructionRef.annotate("(п. 9.3.3, 9.3.5)"))
+        assertEquals("по табл. 4 прил. 2 $g для уклона", InstructionRef.annotate("по табл. 4 прил. 2 для уклона"))
+        assertEquals("п. 10.1.19 $g", InstructionRef.annotate("п. 10.1.19"))
         assertEquals("без ссылок", InstructionRef.annotate("без ссылок"))
-        val already = "п. 35 прил. 2 $g"
+        val already = "п. 4.4 прил. 2 $g"
         assertEquals(already, InstructionRef.annotate(already))
-        assertEquals("п. 35 прил. 2 $g", InstructionRef.p("35"))
-        assertEquals("табл. III.1 прил. 2 $g", InstructionRef.table("III.1"))
-        assertEquals("п. 133 $g", InstructionRef.main("133"))
+        assertEquals("п. 4.4 прил. 2 $g", InstructionRef.p("4.4"))
+        assertEquals("табл. 1 прил. 2 $g", InstructionRef.table("1"))
+        assertEquals("п. 9.3.3 $g", InstructionRef.main("9.3.3"))
+        assertEquals("табл. 4 п. 9.3.3 $g", InstructionRef.DENSITY_TABLE)
     }
 }
 
@@ -278,16 +285,16 @@ class SpeedBranchesTest {
         val steps = s.steps!!
         assertTrue(steps.contains("80 - 2×4 = 72"), steps)
         assertTrue(steps.contains("до кратного 5"), steps)
-        assertTrue(steps.contains("п. 35 прил. 2 Правил ТО тормозного оборудования"), steps)
-        assertTrue(s.condition!!.contains("п. 33-34 прил. 2 Правил ТО тормозного оборудования"))
+        assertTrue(steps.contains("п. 4.4 прил. 2 Правил ТО тормозного оборудования"), steps)
+        assertTrue(s.condition!!.contains("п. 4.2-4.3 прил. 2 Правил ТО тормозного оборудования"))
     }
 
     @Test
-    fun belowMinimum_notAllowedByTables_citesP37() {
+    fun belowMinimum_notAllowedByTables_cites_p5_1() {
         val s = r("FREIGHT_LOADED", 1000.0, 270.0) as SpeedLimit.NotDetermined // 27 < 28
         assertEquals(SpeedLimit.Kind.BELOW_MIN, s.kind)
-        assertTrue(s.reason.contains("п. 37 прил. 2 Правил ТО тормозного оборудования"), s.reason)
-        assertTrue(s.reason.contains("начальник железной дороги"), s.reason)
+        assertTrue(s.reason.contains("п. 5.1 прил. 2 Правил ТО тормозного оборудования"), s.reason)
+        assertTrue(s.reason.contains("владелец инфраструктуры"), s.reason)
         assertTrue(s.reason.contains("20 %"), s.reason)
     }
 
@@ -304,7 +311,7 @@ class SpeedBranchesTest {
         assertEquals(SpeedLimit.Kind.NO_NORM_STEEP, a.kind)
         val b = r("FREIGHT_LOADED", 1000.0, 400.0, GradeClass.OVER_015) as SpeedLimit.NotDetermined
         assertEquals(SpeedLimit.Kind.NO_NORM_STEEP, b.kind)
-        assertTrue(b.reason.contains("п. 38 прил. 2 Правил ТО тормозного оборудования"))
+        assertTrue(b.reason.contains("п. 5.2 прил. 2 Правил ТО тормозного оборудования"))
     }
 
     @Test
@@ -371,7 +378,7 @@ class HeadTailMinimumPointTest {
     }
 
     @Test fun atMinimum_takesSmallerOfFormulaAndTable() {
-        // 28 тс: формула 75 - 2*5 = 65 (до 0,006: таблица 65 - равны), 0,006-0,010: формула 65, табл. III.2 - 50 -> 50
+        // 28 тс: формула 75 - 2*5 = 65 (до 0,006: таблица 65 - равны), 0,006-0,010: формула 65, табл. 2 - 50 -> 50
         assertEquals(65, speedAt(28.0, GradeClass.UP_TO_006).kmh)
         val mid = speedAt(28.0, GradeClass.OVER_006_TO_010)
         assertEquals(50, mid.kmh)

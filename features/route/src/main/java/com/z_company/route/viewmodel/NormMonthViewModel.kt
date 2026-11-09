@@ -167,7 +167,8 @@ class NormMonthViewModel : ViewModel(), KoinComponent {
         _weekPattern.value = DayOfWeek.entries.map { WeekPatternDay(template.hoursFor(it)) }
         val current = sharedPrefs.getWorkScheduleProfile()
         saveProfile(
-            template.copy(customDays = current.customDays).withoutCustomDaysOfMonth(y, m + 1)
+            template.copy(customDays = current.customDays, customMonthStamps = current.customMonthStamps)
+                .withoutCustomDaysOfMonth(y, m + 1)
         )
     }
 
@@ -254,7 +255,10 @@ class NormMonthViewModel : ViewModel(), KoinComponent {
     }
 
     private fun saveProfile(profile: WorkScheduleProfile) {
-        sharedPrefs.setWorkScheduleProfile(profile.copy(updatedAt = System.currentTimeMillis()))
+        val now = System.currentTimeMillis()
+        sharedPrefs.setWorkScheduleProfile(
+            profile.copy(updatedAt = now).stampChangedMonths(sharedPrefs.getWorkScheduleProfile(), now)
+        )
         autoPushSettings()
     }
 

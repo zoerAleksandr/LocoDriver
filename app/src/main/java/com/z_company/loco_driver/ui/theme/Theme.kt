@@ -56,6 +56,7 @@ private val DarkColorScheme = darkColorScheme(
     error = DarkDanger,
     onError = OnError,
     tertiary = DarkAccent,
+    onTertiary = DarkBg,               // без явного значения M3 даёт бордовый (головка свитча, иконки на акценте)
     surfaceBright = DarkBgSubtle,
     surfaceDim = DarkChipBgActive, // opaque тёмно-голубой для переходных маршрутов
     surfaceContainerLow = DarkAccent,

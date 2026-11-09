@@ -1067,6 +1067,7 @@ class PdfGenerator(private val context: Context) {
             workScheduleProfile.effectiveHours(
                 kotlinx.datetime.LocalDate(year, month + 1, day.dayOfMonth),
                 day.tag,
+                day.isReleaseDay && day.releaseType == ReleaseType.DayOff,
             )
         }
         // Норму уменьшают не все отвлечения: «Выходной» — перенос выходного дня,
@@ -1075,6 +1076,7 @@ class PdfGenerator(private val context: Context) {
         val detachmentHours = calendarDaysValid.filter {
             it.isReleaseDay &&
                 it.releaseType != ReleaseType.DayOff &&
+                it.releaseType != ReleaseType.BusinessTrip &&
                 it.releaseType != ReleaseType.TechnicalStudy
         }.sumOf { day ->
             workScheduleProfile.effectiveHours(

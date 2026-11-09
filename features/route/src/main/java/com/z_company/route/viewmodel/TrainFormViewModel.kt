@@ -252,10 +252,12 @@ class TrainFormViewModel(
                             }
                             com.z_company.core.ui.perf.ScreenPerf.section("train.settingsLists") {
                                 // Подсказки станций: настройки + справочник станций.
+                                val dirStations = stationDirectory.stations()
+                                stationPointsCache = StationDirectory.points(dirStations)
                                 stationNameList.addAllOrSkip(
                                     com.z_company.route.util.mergeStationSuggestions(
                                         settings.stationList,
-                                        stationDirectory.stations().map { it.name },
+                                        dirStations.map { it.name },
                                     )
                                 )
                                 mutableStationList.addAllOrSkip(sortSuggestions(stationNameList.distinct()))
@@ -781,13 +783,21 @@ class TrainFormViewModel(
         return ServicePhaseOrder.sort(phases, here, phaseUsage, phaseLastUsed)
     }
 
-    private fun sortSuggestions(names: List<String>): List<String> =
-        StationSuggestionOrder.sort(
+    /** Координаты станций для порядка подсказок: кеш, чтобы не опрашивать БД на каждый символ ввода. */
+    @Volatile
+    private var stationPointsCache: Map<String, Pair<Double, Double>> = emptyMap()
+
+    private fun sortSuggestions(names: List<String>): List<String> {
+        if (stationPointsCache.isEmpty()) {
+            stationPointsCache = runCatching { StationDirectory.points(stationDirectory.stations()) }.getOrDefault(emptyMap())
+        }
+        return StationSuggestionOrder.sort(
             names,
             stationUsage,
-            StationDirectory.points(stationDirectory.stations()) + ServicePhaseStationPicker.knownPoints(servicePhaseList),
+            stationPointsCache + ServicePhaseStationPicker.knownPoints(servicePhaseList),
             suggestFix,
         )
+    }
 
     // Правки плеч и справочника станций — read-modify-write одних настроек: по очереди.
     private val settingsMutex = Mutex()
@@ -1221,15 +1231,13 @@ class TrainFormViewModel(
         if (content.isEmpty()) {
             mutableFilteredSeriesList.addAllOrSkip(locomotiveSeriesList)
         } else {
-            mutableFilteredSeriesList.clear()
             val filtered = locomotiveSeriesList
                 .filter { it.startsWith(prefix = content, ignoreCase = true) }
                 .filterNot { it == content }
-                .toMutableStateList()
-            filtered.forEach { ser ->
-                mutableFilteredSeriesList.add(ser)
-                changeSeriesMenuExpanded(sectionId, true)
-            }
+            // Один батч-апдейт списка и одно раскрытие меню (см. onChangedDropDownContent).
+            mutableFilteredSeriesList.clear()
+            mutableFilteredSeriesList.addAll(filtered)
+            if (filtered.isNotEmpty()) changeSeriesMenuExpanded(sectionId, true)
         }
     }
 
@@ -1709,18 +1717,18 @@ class TrainFormViewModel(
             mutableStationList.clear()
             mutableStationList.addAll(sortSuggestions(stationNameList.distinct()))
         } else {
-            mutableStationList.clear()
             val newStationList =
                 sortSuggestions(
                     stationNameList
                         .filter { com.z_company.route.util.stationNameMatches(it, value) }
                         .filterNot { it == value }
                         .distinct()
-                ).toMutableStateList()
-            newStationList.forEach { st ->
-                mutableStationList.add(st)
-                changeExpandedMenu(index, true)
-            }
+                )
+            // Список - одним батчем и одно раскрытие меню: пообновлению на каждый элемент
+            // ввод станции давал шторм рекомпозиций.
+            mutableStationList.clear()
+            mutableStationList.addAll(newStationList)
+            if (newStationList.isNotEmpty()) changeExpandedMenu(index, true)
         }
     }
 }

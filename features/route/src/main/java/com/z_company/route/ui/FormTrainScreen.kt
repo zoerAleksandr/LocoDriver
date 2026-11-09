@@ -1,5 +1,9 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.HeaderBackTile
+import com.z_company.route.component.HeaderTile
+import com.z_company.route.component.HeaderTextTile
+import com.z_company.route.component.ScreenHeader
 import com.z_company.route.util.DeviceLocation
 import androidx.compose.ui.platform.LocalContext
 import androidx.activity.result.contract.ActivityResultContracts
@@ -186,6 +190,7 @@ fun FormTrainScreen(
     onDeleteServicePhase: (ServicePhase) -> Unit = {},
     dateAndTimeConverter: DateAndTimeConverter?,
     onBrakeCertificateClick: () -> Unit = {},
+    onBrakeHoldingClick: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -222,40 +227,23 @@ fun FormTrainScreen(
             }
         },
         topBar = {
-            CenterAlignedTopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                ),
-                title = {
-                    Text(
-                        text = "Поезд",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
-                        ),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                },
-                navigationIcon = {
-                    TextButton(
+            ScreenHeader(
+                title = "Поезд",
+                navigation = {
+                    HeaderBackTile(
                         onClick = {
                             keyboardController?.hide()
                             focusManager.clearFocus()
                             onTrainSaved()
                         },
-                    ) {
-                        Text(
-                            text = "Готово",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.tertiary,
-                        )
-                    }
+                    )
                 },
                 actions = {
-                    IconButton(onClick = onSettingClick) {
+                    HeaderTile(onClick = onSettingClick, description = "Настройки") {
                         Icon(
                             painter = painterResource(com.z_company.route.R.drawable.settings_24px),
-                            contentDescription = "Настройки",
-                            tint = MaterialTheme.colorScheme.primary
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
                         )
                     }
                 },
@@ -2289,6 +2277,7 @@ fun FormTrainScreen(
                     onboardingHints.markShown(com.z_company.domain.onboarding.HintId.TRAIN_VU45)
                     onBrakeCertificateClick()
                 },
+                onBrakeHoldingClick = onBrakeHoldingClick,
                 vuAnchor = vuAnchor,
                 restrictionsAnchor = restrictionsAnchor,
                 onRestrictionsClick = {
@@ -2373,13 +2362,14 @@ private fun TrainBottomAppBar(
     onRestrictionsClick: () -> Unit,
     restrictionsCount: Int = 0,
     onBrakeCertificateClick: () -> Unit,
+    onBrakeHoldingClick: () -> Unit = {},
     mapAnchor: com.z_company.route.component.CoachAnchor? = null,
     vuAnchor: com.z_company.route.component.CoachAnchor? = null,
     restrictionsAnchor: com.z_company.route.component.CoachAnchor? = null,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
-        // Шесть равных по ширине слотов (weight 1): центры кнопок равноудалены (шаг = ширина/5),
+        // Семь равных по ширине слотов (weight 1): центры кнопок равноудалены (шаг = ширина/6),
         // большая «+» (самая правая) не нарушает шаг, т.к. центрируется в своём слоте.
         Row(
             modifier = Modifier
@@ -2434,6 +2424,16 @@ private fun TrainBottomAppBar(
                     contentDescription = "Справка ВУ-45",
                     active = false,
                     onClick = onBrakeCertificateClick,
+                )
+            }
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                TrainBottomIconButton(
+                    modifier = Modifier.width(48.dp),
+                    iconRes = com.z_company.route.R.drawable.ic_card_brake,
+                    iconContent = { com.z_company.route.component.HoldingIcon(size = 28.dp, tint = MaterialTheme.colorScheme.primary) },
+                    contentDescription = "Закрепление поезда",
+                    active = false,
+                    onClick = onBrakeHoldingClick,
                 )
             }
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {

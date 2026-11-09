@@ -1,5 +1,8 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.HeaderTextTile
+import com.z_company.route.component.HeaderBackTile
+import com.z_company.route.component.ScreenHeader
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -68,38 +71,17 @@ fun MyCertificatesScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            CenterAlignedTopAppBar(
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.background),
-                navigationIcon = {
+            ScreenHeader(
+                title = if (isSelectionMode) "Выбрано: ${selectedIds.size}" else "Мои справки ВУ-45",
+                navigation = {
                     if (isSelectionMode) {
-                        TextButton(onClick = { if (isAllSelected) viewModel.clearSelection() else viewModel.selectAll() }) {
-                            Text(
-                                text = if (isAllSelected) "Снять" else "Все",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                            )
-                        }
+                        HeaderTextTile(if (isAllSelected) "Снять" else "Все", { if (isAllSelected) viewModel.clearSelection() else viewModel.selectAll() }, color = MaterialTheme.colorScheme.surfaceContainerLow)
                     } else {
-                        IconButton(onClick = onBack) {
-                            Text("‹", style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary)
-                        }
+                        HeaderBackTile(onBack)
                     }
-                },
-                title = {
-                    Text(
-                        text = if (isSelectionMode) "Выбрано: ${selectedIds.size}" else "Мои справки ВУ-45",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
                 },
                 actions = {
-                    TextButton(onClick = viewModel::toggleSelectionMode) {
-                        Text(
-                            text = if (isSelectionMode) "Готово" else "Выбрать",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        )
-                    }
+                    HeaderTextTile(if (isSelectionMode) "Готово" else "Выбрать", viewModel::toggleSelectionMode, color = MaterialTheme.colorScheme.surfaceContainerLow)
                 },
             )
         },

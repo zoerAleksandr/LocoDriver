@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -37,6 +38,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import com.z_company.route.component.HeaderBackTile
+import com.z_company.route.component.HeaderTile
+import com.z_company.route.component.ScreenHeader
+import com.z_company.route.component.servicephase.Pst
+import com.z_company.route.component.servicephase.PstIcon
+import com.z_company.route.component.servicephase.PstIcons
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -89,6 +96,7 @@ import com.z_company.domain.brake.DensityLocoGroup
 import com.z_company.domain.brake.AxleCheck
 import com.z_company.domain.brake.AxleRow
 import com.z_company.domain.brake.BrakeTable
+import com.z_company.domain.brake.LocoBrakeInput
 import com.z_company.domain.onboarding.Vu45TourStep
 import com.z_company.route.component.coachAnchor
 import com.z_company.domain.brake.AxleSumCheck
@@ -114,6 +122,7 @@ import com.z_company.route.ui.settings.SettingsPickerOption
 import com.z_company.route.ui.settings.SettingsPickerSheet
 import com.z_company.route.viewmodel.BrakeCertificateUiState
 import com.z_company.route.viewmodel.BrakeCertificateViewModel
+import com.z_company.route.viewmodel.BrakeRowUi
 import com.z_company.route.viewmodel.FillPick
 import com.z_company.route.viewmodel.PressureField
 import com.z_company.route.viewmodel.effectiveDensityGroup
@@ -124,8 +133,6 @@ import com.z_company.route.viewmodel.effectiveRows
 import com.z_company.route.viewmodel.grade
 import com.z_company.route.viewmodel.manualInfo
 import com.z_company.route.viewmodel.toInput
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 
 private sealed interface BrakeSheet {
@@ -141,7 +148,7 @@ private sealed interface BrakeSheet {
 }
 
 private val TABS = listOf("Бланк", "Расчёт", "Замеры", "Справочник")
-/** Строки «Тормозное нажатие на ось, тс» по образцу формы ВУ-45 (808-2022 ПКБ ЦВ, прил. М): 27 значений. */
+/** Строки «Тормозное нажатие на ось, тс» по образцу формы ВУ-45 (прил. 1 Правил ТО тормозного оборудования): 26 значений. */
 private val PRINTED = BrakeNorms.blankAxlePressures
 private val OTHER_VALUES = listOf(1.25, 2.5, 3.5, 5.0, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 18.0, 21.0)
 
@@ -161,7 +168,18 @@ private fun formatTimer(ms: Long): String {
     return "%d,%d".format(tenths / 10, tenths % 10)
 }
 
-private fun hhmm(ms: Long): String = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(ms))
+// DateTimeFormatter потокобезопасен; часовой пояс берётся при каждом вызове (смена пояса на ходу),
+// форматтер пересоздаётся только при смене локали.
+private var hhmmFormatter: Pair<Locale, java.time.format.DateTimeFormatter>? = null
+
+private fun hhmmFormatter(): java.time.format.DateTimeFormatter {
+    val locale = Locale.getDefault()
+    hhmmFormatter?.let { if (it.first == locale) return it.second }
+    return java.time.format.DateTimeFormatter.ofPattern("HH:mm", locale).also { hhmmFormatter = locale to it }
+}
+
+private fun hhmm(ms: Long): String =
+    java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneId.systemDefault()).format(hhmmFormatter())
 
 private fun axlesForNorm(state: BrakeCertificateUiState): Int =
     state.totalAxlesText.trim().toIntOrNull() ?: state.effectiveRows().sumOf { it.axlesText.trim().toIntOrNull() ?: 0 }
@@ -202,7 +220,6 @@ fun BrakeCertificateScreen(
         }
     }
     var openCustomVolume by remember { mutableStateOf(false) }
-    val now by viewModel.nowMs.collectAsState()
     val t = vuColors()
 
     val category = BrakeNorms.category(state.categoryId) ?: BrakeNorms.categories.first()
@@ -245,23 +262,19 @@ fun BrakeCertificateScreen(
         containerColor = t.bg,
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text("Справка ВУ-45", style = MaterialTheme.typography.titleMedium, color = t.text) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back), contentDescription = "Назад", tint = t.text)
-                    }
-                },
+            ScreenHeader(
+                title = "Справка ВУ-45",
+                navigation = { HeaderBackTile(onBack) },
                 actions = {
-                    Box(
-                        Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.Vu45TourStep.HELP)).size(48.dp).clickable(onClickLabel = "Подсказки") { tourOpen = true },
-                        contentAlignment = Alignment.Center,
-                    ) { Text("?", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = t.muted) }
-                    IconButton(modifier = Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.Vu45TourStep.DELETE)), onClick = { confirmDelete = true }) {
-                        Icon(painter = painterResource(com.z_company.route.R.drawable.delete_24px), contentDescription = "Удалить справку", tint = t.text)
+                    Box(Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.Vu45TourStep.HELP))) {
+                        HeaderTile(onClick = { tourOpen = true }, description = "Подсказки") {
+                            Text("?", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = Pst.textMuted)
+                        }
+                    }
+                    Box(Modifier.coachAnchor(tourAnchors.getValue(com.z_company.domain.onboarding.Vu45TourStep.DELETE))) {
+                        HeaderTile(onClick = { confirmDelete = true }, description = "Удалить справку") { PstIcon(PstIcons.Trash, 22.dp, Pst.text) }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
         },
     ) { padding ->
@@ -276,14 +289,14 @@ fun BrakeCertificateScreen(
                     anchors = tourAnchors,
                 )
                 0 -> BlankTab(
-                    state, category, result, viewModel, now, side, turnaroundApplies,
+                    state, category, result, viewModel, side, turnaroundApplies,
                     onSide = { side = it },
                     onSheet = { sheet = it },
                     onOpenMeasure = { tab = 2 },
                     anchors = tourAnchors,
                 )
                 2 -> MeasureTab(
-                    state, category, viewModel, now,
+                    state, category, viewModel,
                     kind = TimerKind.valueOf(measureKind), onKind = { measureKind = it.name },
                     onGroupClick = { sheet = BrakeSheet.DensityGroup },
                     onHelp = { sheet = BrakeSheet.Help(it) },
@@ -325,7 +338,7 @@ fun BrakeCertificateScreen(
             options = BrakeNorms.categories.map { c ->
                 SettingsPickerOption(
                     label = c.title,
-                    sub = "табл. III.1 прил. 2 Правил ТО тормозного оборудования, строка ${c.tableRow}: ${c.norm} тс на 100 тс веса, до ${c.vFlat} км/ч",
+                    sub = "табл. 1 прил. 2 Правил ТО тормозного оборудования, строка ${c.tableRow}: ${c.norm} тс на 100 тс веса, до ${c.vFlat} км/ч",
                     selected = c.id == state.categoryId,
                     onSelect = { viewModel.setCategory(c.id) },
                 )
@@ -333,7 +346,7 @@ fun BrakeCertificateScreen(
         )
         BrakeSheet.ManualNorm -> SettingsPickerSheet(
             title = "Ручные тормозные оси на 100 тс веса",
-            hint = InstructionRef.annotate("«Авто» берёт значение из табл. III.4 по руководящему уклону, но не менее единого наименьшего 0,6 (п. 45). Ручное значение запоминается и от уклона не зависит."),
+            hint = InstructionRef.annotate("«Авто» берёт значение из табл. 4 прил. 2 по руководящему уклону, но не менее единого наименьшего 0,6 (п. 7.2 прил. 2). Ручное значение запоминается и от уклона не зависит."),
             onDismiss = { sheet = null },
             options = buildList {
                 add(SettingsPickerOption(label = "Авто (по уклону)", sub = InstructionRef.annotate(BrakeNorms.manualInfo(state.slope, null).text), selected = state.manualOverride == null, onSelect = { viewModel.setManualOverride(null) }))
@@ -344,7 +357,7 @@ fun BrakeCertificateScreen(
         )
         BrakeSheet.DensityGroup -> SettingsPickerSheet(
             title = "Объём ГР",
-            hint = "Строка табл. IV.1 по общему объёму главных резервуаров локомотива",
+            hint = "Строка табл. 4 п. 9.3.3 Правил ТО тормозного оборудования по общему объёму главных резервуаров локомотива",
             onDismiss = { sheet = if (openCustomVolume) BrakeSheet.CustomVolume else null; openCustomVolume = false },
             options = buildList {
                 DensityLocoGroup.values().forEach { g ->
@@ -494,7 +507,7 @@ private fun CalcTab(
 
 /** Блок «Расчёта»: заголовок моно-капслоком над карточкой (стиль групп «Настроек»), поля внутри карточки. */
 @Composable
-private fun VuBlock(title: String, content: @Composable ColumnScope.() -> Unit) {
+internal fun VuBlock(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         VuTag(title, Modifier.padding(horizontal = 4.dp))
         VuCard {
@@ -503,7 +516,7 @@ private fun VuBlock(title: String, content: @Composable ColumnScope.() -> Unit) 
     }
 }
 
-/** Доля вагонов с композиционными колодками (п. 31 прил. 2 Правил): то же состояние, что и в «Бланк» - «Другие данные». */
+/** Доля вагонов с композиционными колодками (п. 3.4 прил. 2 Правил): то же состояние, что и в «Бланк» - «Другие данные». */
 @Composable
 private fun CompositeRow(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, onHelp: () -> Unit) {
     val t = vuColors()
@@ -521,7 +534,7 @@ private fun CompositeRow(state: BrakeCertificateUiState, vm: BrakeCertificateVie
     }
 }
 
-/** Автоблокировка с 3-значной сигнализацией: отдельный переключатель (вне ряда уклонов); приглушён там, где значения в скобках табл. III.1 нет. */
+/** Автоблокировка с 3-значной сигнализацией: отдельный переключатель (вне ряда уклонов); приглушён там, где значения в скобках табл. 1 нет. */
 @Composable
 private fun AutoblockRow(state: BrakeCertificateUiState, applicable: Boolean, onChange: (Boolean) -> Unit, onHelp: () -> Unit) {
     val t = vuColors()
@@ -541,11 +554,11 @@ private fun AutoblockRow(state: BrakeCertificateUiState, applicable: Boolean, on
                 ),
             )
         }
-        if (!applicable) VuHint("Для этой категории и уклона значения в скобках табл. III.1 нет - переключатель не влияет на скорость.", Modifier.padding(start = 2.dp, bottom = 4.dp))
+        if (!applicable) VuHint("Для этой категории и уклона значения в скобках табл. 1 нет - переключатель не влияет на скорость.", Modifier.padding(start = 2.dp, bottom = 4.dp))
     }
 }
 
-/** Шторка «Свой объём ГР, л»: группа определяется по прим. 3 к табл. IV.1 (ближайший наименьший объём). */
+/** Шторка «Свой объём ГР, л»: группа определяется по прим. 4 к табл. 4 п. 9.3.3 (ближайший наименьший объём). */
 @Composable
 private fun CustomVolumeSheet(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf(state.customVolumeText) }
@@ -678,7 +691,7 @@ private fun ResultCard(result: BrakeCertificateResult?, state: BrakeCertificateU
     }
 }
 
-/** Пояснение скорости: одна короткая красная строка + «Подробнее» (шаги расчёта по п. 35 / условия / причина). */
+/** Пояснение скорости: одна короткая красная строка + «Подробнее» (шаги расчёта по п. 4.4 / условия / причина). */
 @Composable
 private fun SpeedExplanation(sp: SpeedLimit?, warn: Boolean = false) {
     val t = vuColors()
@@ -688,7 +701,7 @@ private fun SpeedExplanation(sp: SpeedLimit?, warn: Boolean = false) {
             val steps = sp.steps
             if (steps != null) {
                 Column(Modifier.padding(top = 8.dp).fillMaxWidth().background(t.danger.copy(alpha = 0.12f), RoundedCornerShape(12.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Нажатие ниже нормы: скорость снижена до ${sp.kmh} км/ч, ${InstructionRef.p("35")}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = t.danger, lineHeight = 20.sp)
+                    Text("Нажатие ниже нормы: скорость снижена до ${sp.kmh} км/ч, ${InstructionRef.p("4.4")}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = t.danger, lineHeight = 20.sp)
                     Text(if (open) "Свернуть ▴" else "Подробнее ▾", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, modifier = Modifier.clickable { open = !open }.padding(vertical = 4.dp))
                     if (open) {
                         VuTag("Расчёт скорости")
@@ -698,17 +711,17 @@ private fun SpeedExplanation(sp: SpeedLimit?, warn: Boolean = false) {
                 }
             } else if (warn) {
                 Column(Modifier.padding(top = 8.dp).fillMaxWidth().background(t.warning.copy(alpha = 0.18f), RoundedCornerShape(12.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Скорость табл. III.1 сохранена: нажатия не хватает, но условие ${InstructionRef.p("31")} выполнено", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = t.text, lineHeight = 20.sp)
+                    Text("Скорость табл. 1 сохранена: нажатия не хватает, но условие ${InstructionRef.p("3.4")} выполнено", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = t.text, lineHeight = 20.sp)
                     Text(if (open) "Свернуть ▴" else "Подробнее ▾", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = t.accent, modifier = Modifier.clickable { open = !open }.padding(vertical = 4.dp))
-                    if (open) Text(InstructionRef.annotate(sp.note) + (sp.reducedFrom?.let { " Было бы по табл. III.1: $it км/ч." } ?: ""), fontSize = 14.sp, lineHeight = 20.sp, color = t.text)
+                    if (open) Text(InstructionRef.annotate(sp.note) + (sp.reducedFrom?.let { " Было бы по табл. 1: $it км/ч." } ?: ""), fontSize = 14.sp, lineHeight = 20.sp, color = t.text)
                 }
-            } else VuHint(sp.note + (sp.reducedFrom?.let { " Было бы по табл. III.1: $it км/ч." } ?: ""), Modifier.padding(top = 8.dp))
+            } else VuHint(sp.note + (sp.reducedFrom?.let { " Было бы по табл. 1: $it км/ч." } ?: ""), Modifier.padding(top = 8.dp))
         }
         is SpeedLimit.NotDetermined -> {
             Column(Modifier.padding(top = 8.dp).fillMaxWidth().background(t.danger.copy(alpha = 0.14f), RoundedCornerShape(12.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (sp.kind == SpeedLimit.Kind.BELOW_MIN) {
                     Text("Нажатие ниже минимального", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = t.danger)
-                    Text("Нажатие ниже минимального (${InstructionRef.table("III.2")}). Скорость по таблицам не определена.", fontSize = 14.sp, lineHeight = 20.sp, color = t.text)
+                    Text("Нажатие ниже минимального (${InstructionRef.table("2")}). Скорость по таблицам не определена.", fontSize = 14.sp, lineHeight = 20.sp, color = t.text)
                 } else {
                     Text("Скорость по таблицам не определена", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = t.danger)
                 }
@@ -809,7 +822,6 @@ private fun BlankTab(
     category: BrakeCategory,
     result: BrakeCertificateResult?,
     vm: BrakeCertificateViewModel,
-    now: Long,
     side: Int,
     turnaroundApplies: Boolean,
     onSide: (Int) -> Unit,
@@ -1010,18 +1022,42 @@ private fun FrontBody(
     Spacer(Modifier.height(10.dp))
 }
 
+/** Производные величины таблицы нажатий: считаются один раз на изменение состояния, а не на каждую рекомпозицию. */
+private data class AxleTableCalc(
+    val rows: List<BrakeRowUi>,
+    val byPressure: Map<Double?, BrakeRowUi>,
+    val extra: List<BrakeRowUi>,
+    val locoIn: LocoBrakeInput?,
+    val locoRowInfo: com.z_company.domain.brake.LocoTableRow,
+    val low: Boolean,
+)
+
 @Composable
 private fun AxleTable(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, onSheet: (BrakeSheet) -> Unit) {
     val t = vuColors()
-    val rows = state.effectiveRows()
-    val byPressure = rows.associateBy { it.pressureText.toFiniteDoubleOrNull() }
-    val extra = rows.filter { r -> val p = r.pressureText.toFiniteDoubleOrNull(); p != null && p !in PRINTED }
-    val locoIn = state.toInput()?.loco
-    val axleRowsForTable = rows.mapNotNull { r -> val p = r.pressureText.toFiniteDoubleOrNull(); val n = r.axlesText.trim().toIntOrNull(); if (p != null && n != null && n > 0) AxleRow(p, n) else null }
-    val locoRowInfo = BrakeTable.locoRow(axleRowsForTable, locoIn, PRINTED)
+    val calc = remember(state) {
+        val rows = state.effectiveRows()
+        val byPressure = rows.associateBy { it.pressureText.toFiniteDoubleOrNull() }
+        val extra = rows.filter { r -> val p = r.pressureText.toFiniteDoubleOrNull(); p != null && p !in PRINTED }
+        val locoIn = state.toInput()?.loco
+        val axleRowsForTable = rows.mapNotNull { r -> val p = r.pressureText.toFiniteDoubleOrNull(); val n = r.axlesText.trim().toIntOrNull(); if (p != null && n != null && n > 0) AxleRow(p, n) else null }
+        AxleTableCalc(
+            rows = rows,
+            byPressure = byPressure,
+            extra = extra,
+            locoIn = locoIn,
+            locoRowInfo = BrakeTable.locoRow(axleRowsForTable, locoIn, PRINTED),
+            low = state.toInput()?.let { BrakeCertificateCalculator.calculate(it) }?.let { it.actualPressure > 0 && !it.enough } == true,
+        )
+    }
+    val rows = calc.rows
+    val byPressure = calc.byPressure
+    val extra = calc.extra
+    val locoIn = calc.locoIn
+    val locoRowInfo = calc.locoRowInfo
     val totalAxles = locoRowInfo.totalAxles
     val totalPressure = locoRowInfo.totalPressure
-    val low = state.toInput()?.let { BrakeCertificateCalculator.calculate(it) }?.let { it.actualPressure > 0 && !it.enough } == true
+    val low = calc.low
     val lineColor = t.borderStrong
     val head: @Composable (String, Boolean) -> Unit = { text, right ->
         Box(Modifier.fillMaxSize().vuCellBorders(lineColor, right = right, bottom = true).padding(horizontal = 2.dp), contentAlignment = Alignment.Center) {
@@ -1092,8 +1128,10 @@ private fun AxleTable(state: BrakeCertificateUiState, vm: BrakeCertificateViewMo
 @Composable
 private fun AxleSumWarning(state: BrakeCertificateUiState, vm: BrakeCertificateViewModel, modifier: Modifier = Modifier) {
     val t = vuColors()
-    val sum = state.effectiveRows().sumOf { it.axlesText.trim().toIntOrNull() ?: 0 }
-    val check = AxleCheck.compareWithLoco(state.totalAxlesText.trim().toIntOrNull(), sum, state.toInput()?.loco?.axles ?: 0)
+    val check = remember(state) {
+        val sum = state.effectiveRows().sumOf { it.axlesText.trim().toIntOrNull() ?: 0 }
+        AxleCheck.compareWithLoco(state.totalAxlesText.trim().toIntOrNull(), sum, state.toInput()?.loco?.axles ?: 0)
+    }
     if (!state.rowsMode) return
     when (check) {
         is AxleSumCheck.Equal -> Unit
@@ -1204,7 +1242,7 @@ private fun LocoCard(state: BrakeCertificateUiState, category: BrakeCategory, vm
                     VuHelp({ onHelp("loco_brake") }, touch = 32.dp)
                 }
                 Text(
-                    if (category.group == TrainGroup.FREIGHT) InstructionRef.annotate("В грузовых поездах не учитывается (п. 41)") else "Вес и нажатие - по данным владельца инфраструктуры (п. 40 прил. 2 Правил)",
+                    if (category.group == TrainGroup.FREIGHT) InstructionRef.annotate("В грузовых поездах не учитывается (п. 6.4 прил. 2)") else "Вес и нажатие - по данным владельца инфраструктуры (п. 6.3 прил. 2 Правил)",
                     fontSize = 13.sp, color = t.muted, modifier = Modifier.padding(top = 2.dp),
                 )
             }
@@ -1224,7 +1262,7 @@ private fun LocoCard(state: BrakeCertificateUiState, category: BrakeCategory, vm
                     VuInput("Нажатие, тс/ось", state.locoPressureText, Modifier.weight(1f), onChange = vm::setLocoPressure, sunk = true)
                 }
                 VuHint(
-                    if (state.locoAuto) "Справочник серий (прежняя Инструкция 277; по Правилам данные локомотивов утверждает владелец инфраструктуры) для серии «${state.locoSeriesText}»" + (state.locoNote?.let { ": $it" } ?: "") + ". Можно править."
+                    if (state.locoAuto) "Справочник серий (прежняя Инструкция 277; по Правилам (п. 8.2) данные локомотивов утверждает владелец инфраструктуры) для серии «${state.locoSeriesText}»" + (state.locoNote?.let { ": $it" } ?: "") + ". Можно править."
                     else if (state.locoSeriesText.isNotBlank()) "Серии «${state.locoSeriesText}» нет в справочнике - введите вручную."
                     else "Серия локомотива - в «Реквизитах» бланка; значения можно ввести вручную.",
                 )
@@ -1366,7 +1404,7 @@ private fun TurnaroundSheet(
                     r.verdict == TurnaroundDensityCheck.Verdict.OK -> VuVerdict(true, "В норме: ${formatDeviation(r.deviationPct ?: 0.0)} ${ref.label}; $range")
                     else -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         VuVerdict(false, "Отклонение более 20 % (${formatDeviation(r.deviationPct ?: 0.0)}) ${ref.label}; $range")
-                        VuHint("По прил. 3, п. 1 ${InstructionRef.GENITIVE}: при изменении плотности более чем на 20 % от указанной в справке проводится сокращённое опробование тормозов - отметьте «СП».")
+                        VuHint("По п. 10.1.19 ${InstructionRef.GENITIVE}: при изменении плотности более чем на 20 % от указанной в справке проводится сокращённое опробование тормозов - отметьте «СП».")
                     }
                 }
             }
@@ -1428,7 +1466,7 @@ VuTimeField(e.readinessTime, { v -> vm.updateTurnaround(entryId) { it.copy(readi
                 } else if ((e.newWeight.isNotBlank() || e.newAxles.isNotBlank()) && e.newActual.isBlank()) {
                     VuHint("Введите фактическое нажатие или добавьте строки прицепленных/отцепленных вагонов.")
                 }
-                calc.requiredManualAxles?.let { m -> VuHint("Ручных тормозных осей потребно: $m" + (calc.manualAxlesBefore?.takeIf { it != m }?.let { " (было $it)" } ?: "") + " - по табл. III.4 на новый вес.") }
+                calc.requiredManualAxles?.let { m -> VuHint("Ручных тормозных осей потребно: $m" + (calc.manualAxlesBefore?.takeIf { it != m }?.let { " (было $it)" } ?: "") + " - по табл. 4 прил. 2 на новый вес.") }
                 val reqE = e.newRequired.toFiniteDoubleOrNull()
                 val actE = e.newActual.toFiniteDoubleOrNull()
                 val shownAct = actE ?: calc.actual
@@ -1495,7 +1533,7 @@ private fun OtherSheet(state: BrakeCertificateUiState, category: BrakeCategory, 
                 val dpv = state.dpvText.toFiniteDoubleOrNull()
                 when {
                     min == null -> VuHint("Норма ДПВ: укажите зарядное давление локомотива (поле выше или вкладка «Расчёт», 4,8-5,8) и число осей.")
-                    dpv == null -> VuHint("Норма в хвосте: не менее ${fmt(min)} кгс/см² (п. 48 прил. 2 Правил ТО тормозного оборудования)")
+                    dpv == null -> VuHint("Норма в хвосте: не менее ${fmt(min)} кгс/см² (п. 9.3.3 Правил ТО тормозного оборудования)")
                     else -> VuVerdict(dpv + 1e-9 >= min, if (dpv + 1e-9 >= min) "ДПВ в норме (не менее ${fmt(min)})" else "ДПВ ниже нормы: нужно не менее ${fmt(min)} кгс/см²", 14)
                 }
             }
@@ -1543,7 +1581,7 @@ private fun RowSheet(state: BrakeCertificateUiState, vm: BrakeCertificateViewMod
 private fun HelpSheet(key: String, state: BrakeCertificateUiState, category: BrakeCategory, result: BrakeCertificateResult?, onDismiss: () -> Unit) {
     val t = vuColors()
     val hint = brakeHints[key] ?: if (key == "deficit") BrakeHint(
-        "Недостаток нажатия", "Если нажатие ниже нормы (табл. III.1), но не ниже минимума (табл. III.2), скорость снижается за каждую недостающую тонну нажатия на 100 т веса поезда: на 2 км/ч - в грузовых, рефрижераторных и хозяйственных; на 1 км/ч - в пассажирских, грузопассажирских и рефрижераторных (свыше 90 км/ч) на спусках до 0,006, на более крутых - на 2 км/ч; результат округляется в меньшую сторону до кратного 5 (п. 35). Ниже минимума - скорость по таблицам не определяется (п. 37). Нормы и минимумы - «Справочник → Недостаток нажатия».", "Правила ТО тормозного оборудования, прил. 2, п. 33-35, 37",
+        "Недостаток нажатия", "Если нажатие ниже нормы (табл. 1 прил. 2), но не ниже минимума (табл. 2 прил. 2), скорость снижается за каждую недостающую тонну нажатия на 100 т веса поезда: на 2 км/ч - в грузовых, рефрижераторных и хозяйственных; на 1 км/ч - в пассажирских, грузопассажирских и рефрижераторных (свыше 90 км/ч) на спусках до 0,006, на более крутых - на 2 км/ч; результат округляется в меньшую сторону до кратного 5 (п. 4.4 прил. 2). Ниже минимума - скорость по таблицам не определяется (п. 5.1 прил. 2). Нормы и минимумы - «Справочник → Недостаток нажатия».", "Правила ТО тормозного оборудования, прил. 2, п. 4.2-4.4, 5.1",
     ) else null
     if (hint == null) { onDismiss(); return }
     val calc = when (key) {
@@ -1572,7 +1610,6 @@ private fun MeasureTab(
     state: BrakeCertificateUiState,
     category: BrakeCategory,
     vm: BrakeCertificateViewModel,
-    now: Long,
     kind: TimerKind,
     onKind: (TimerKind) -> Unit,
     onGroupClick: () -> Unit,
@@ -1581,6 +1618,8 @@ private fun MeasureTab(
     anchors: Map<Vu45TourStep, com.z_company.route.component.CoachAnchor>,
 ) {
     val t = vuColors()
+    // Таймер читается только здесь: тик 100 мс не должен пересобирать весь бланк.
+    val now by vm.nowMs.collectAsState()
     val passenger = category.group == TrainGroup.PASSENGER
     val kinds = if (passenger) listOf(TimerKind.II, TimerKind.ROUTE) else TimerKind.values().toList()
     val active = if (kind in kinds) kind else TimerKind.II
@@ -1660,7 +1699,7 @@ private fun MeasureTab(
             },
             normText = when (active) {
                 TimerKind.II -> if (!passenger && minTime != null) "Норма плотности во II-м: не менее ${BrakeDensity.formatNormSeconds(minTime)} сек"
-                    else if (passenger) "Норма: падение давления в ТМ не более 0,2 кгс/см² за 1 мин (п. 50 прил. 2)" else null
+                    else if (passenger) "Норма: падение давления в ТМ не более 0,2 кгс/см² за 1 мин (п. 9.3.5 Правил ТО тормозного оборудования)" else null
                 TimerKind.IV -> state.timerII.recordedSec?.let { "Норма плотности в IV-м: не менее ${BrakeDensity.formatNormSeconds(BrakeDensity.normIvSeconds(it))} сек (90 % от замера II)" }
                     ?: minTime?.let { "Норма плотности в IV-м: не менее ${BrakeDensity.formatNormSeconds(BrakeDensity.normIvSeconds(it))} сек" }
                 TimerKind.ROUTE -> state.timerII.recordedSec?.let { "Допуск ±20 % от замера II: ${fmt(it * 0.8)}–${fmt(it * 1.2)} с" }
@@ -1820,7 +1859,7 @@ private fun ReferenceTab(state: BrakeCertificateUiState, category: BrakeCategory
             }
         }
         VuHint(
-            "Расчёт по Правилам технического обслуживания тормозного оборудования и управления тормозами (СЖТ, протокол № 60 от 6-7.05.2014, с изменениями до 2017 г.), прил. 2. Форма ВУ-45 - Инструкция 808-2022 ПКБ ЦВ, прил. М. Справочный инструмент: официальной справкой ВУ-45 является документ, выданный осмотрщиком вагонов. Нормы могут меняться - сверяйте с действующими документами.",
+            "Расчёт по Правилам технического обслуживания тормозного оборудования и управления тормозами железнодорожного подвижного состава (редакция 2025 г., АО «ВНИИЖТ»), прил. 2. Форма ВУ-45 - прил. 1 тех же Правил, порядок заполнения - Инструкция 808-2022 ПКБ ЦВ, прил. М. Справочный инструмент: официальной справкой ВУ-45 является документ, выданный осмотрщиком вагонов. Нормы могут меняться - сверяйте с действующими документами.",
             Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
         )
     }
@@ -1864,10 +1903,10 @@ private fun CompositionHelpSheet(onDismiss: () -> Unit) {
     VuSheet(title = "Как считается", sub = "Графы 3-6 оборота при изменении состава", onDismiss = onDismiss, footer = { VuBtn("Понятно", onDismiss, Modifier.fillMaxWidth(), h = 56.dp) }) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Потребное нажатие = N × Q / 100, дробное значение округляется до ближайшего большего целого (п. 8 прил. М Инструкции 808-2022). Q - новый вес поезда, который вводите вы (с учётом локомотива, если он учитывается), N - норма на 100 тс веса.", fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
-            Text("N берётся заново по категории поезда (табл. III.1 прил. 2 Правил ТО тормозного оборудования). У порожних поездов категория зависит от числа осей: до 350 осей - 55, от 350 до 400 включительно - 44, более 400 до 520 - 33 тс на 100 тс веса. Поэтому после прицепки или отцепки вагонов норма может измениться - тогда это показано отдельной строкой.", fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
-            Text("Фактическое нажатие считается по осям (табл. III.3 прил. 2: нажатие на ось × число осей): фактическое лицевой стороны + прицеплено (оси × нажатие) − отцеплено (оси × нажатие). Число осей: оси лицевой ± оси строк. Для каждой группы вагонов добавьте строку: «Отцеплено»/«Прицеплено», нажатие на ось и число осей. Если отцепленного нажатия нет на лицевой, расчёт всё равно идёт по введённому, но показывается предупреждение.", fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
+            Text("N берётся заново по категории поезда (табл. 1 прил. 2 Правил ТО тормозного оборудования). У порожних поездов категория зависит от числа осей: до 350 осей - 55, от 350 до 400 включительно - 44, более 400 до 520 - 33 тс на 100 тс веса. Поэтому после прицепки или отцепки вагонов норма может измениться - тогда это показано отдельной строкой.", fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
+            Text("Фактическое нажатие считается по осям (табл. 3 прил. 2: нажатие на ось × число осей): фактическое лицевой стороны + прицеплено (оси × нажатие) − отцеплено (оси × нажатие). Число осей: оси лицевой ± оси строк. Для каждой группы вагонов добавьте строку: «Отцеплено»/«Прицеплено», нажатие на ось и число осей. Если отцепленного нажатия нет на лицевой, расчёт всё равно идёт по введённому, но показывается предупреждение.", fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
             Text("Если строк нет, фактическое вводится вручную. Ручная правка помечается «правка», «Пересчитать» возвращает расчёт по строкам.", fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
-            Text("Ручные тормозные оси: вес × норма по табл. III.4 (не менее 0,6 оси на 100 тс веса, п. 45), округление вверх - пересчитывается по новому весу.", fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
+            Text("Ручные тормозные оси: вес × норма по табл. 4 прил. 2 (не менее 0,6 оси на 100 тс веса, п. 7.2), округление вверх - пересчитывается по новому весу.", fontSize = 14.sp, color = t.text, lineHeight = 20.sp)
             Text("Пример. На лицевой 220 осей, фактическое 1500 тс. Отцепили 20 осей по 7 тс/ось: −140 тс, осталось 200 осей. Прицепили 10 осей по 5 тс/ось: +50 тс, стало 210 осей. Итого фактическое = 1500 − 140 + 50 = 1410 тс. Для порожнего поезда на 360 осей (N = 44) отцепка 20 осей даёт 340 осей и N = 55 - норма выросла. Расчёт справочный; окончательно - по Правилам и Инструкции.", fontSize = 14.sp, color = t.muted, lineHeight = 20.sp)
         }
     }

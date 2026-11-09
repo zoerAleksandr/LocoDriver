@@ -1,5 +1,7 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.HeaderBackTile
+import com.z_company.route.component.ScreenHeader
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -76,26 +78,9 @@ fun PartnerEditScreen(
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                ),
-                title = {
-                    Text(
-                        text = "Напарник",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = saveAndExit) {
-                        Icon(
-                            painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back),
-                            contentDescription = "Назад",
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                },
+            ScreenHeader(
+                title = "Напарник",
+                navigation = { HeaderBackTile(saveAndExit) },
             )
         }
     ) { paddingValues ->

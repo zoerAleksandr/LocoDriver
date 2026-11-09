@@ -43,7 +43,6 @@ interface Router {
     fun showEmptyPassengerForm(basicId: String)
     fun showChangeOtherWorkForm(otherWork: OtherWork)
     fun showEmptyOtherWorkForm(basicId: String)
-    fun showSelectReleaseDayScreen()
     fun showPurchasesScreen()
 
     /**
@@ -66,4 +65,10 @@ interface Router {
      * локомотива маршрута (строки как в `Train`/`Locomotive`). По умолчанию no-op для платформ без этого экрана.
      */
     fun showBrakeCertificate(prefill: com.z_company.domain.brake.BrakePrefill? = null) {}
+
+    /**
+     * Инструмент «Закрепление поезда» (башмаки и ручные тормоза при вынужденной остановке на перегоне). [prefill] - поезд и локомотив маршрута
+     * (используются вес, оси, серия локомотива). По умолчанию no-op для платформ без этого экрана.
+     */
+    fun showBrakeHolding(prefill: com.z_company.domain.brake.BrakePrefill? = null) {}
 }

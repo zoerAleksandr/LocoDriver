@@ -89,7 +89,7 @@ data class BrakeCertificateUiState(
     val categoryId: String = "FREIGHT_LOADED",
     val slope: SlopeStep = SlopeStep.S006,
     val autoblock3: Boolean = false,
-    /** Ручное переопределение нормы ручных осей (запоминается); null - «Авто» по уклону (табл. III.4, не менее 0,6). */
+    /** Ручное переопределение нормы ручных осей (запоминается); null - «Авто» по уклону (табл. 4 прил. 2, не менее 0,6). */
     val manualOverride: BrakeNorms.ManualBrakeNorm? = null,
     // Шапка бланка
     val stationText: String = "",
@@ -205,6 +205,9 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     /** Справка удалена пользователем: автосохранение отключено (иначе при выходе она сохранилась бы заново). */
     private var deleted = false
     private val prefs = application.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    /** Кеш справочника серий: подстановка данных при вводе серии не должна ходить в БД на каждый символ. */
+    @Volatile
+    private var seriesRecordsCache: List<com.z_company.domain.entities.norma_time.LocomotiveSeries> = emptyList()
 
     private val _state = MutableStateFlow(
         BrakeCertificateUiState(
@@ -220,6 +223,12 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
     val state: StateFlow<BrakeCertificateUiState> = _state.asStateFlow()
 
     init {
+        // Кеш серий грузим сразу: пока подписка ниже не пришла, ввод серии всё равно должен подставлять данные.
+        viewModelScope.launch(Dispatchers.IO) {
+            if (seriesRecordsCache.isEmpty()) {
+                seriesRecordsCache = runCatching { seriesRepository.getAll() }.getOrDefault(emptyList())
+            }
+        }
         // станции пользователя для подсказок: список из настроек (то, что вводилось в формах), справочник станций и станции всех маршрутов (история).
         // Подписка на потоки, а не разовое чтение: первое значение настроек/маршрутов может прийти пустым и затем обновиться.
         viewModelScope.launch {
@@ -231,15 +240,21 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
                 .collect { (savedLists, routes) ->
                     val saved = savedLists.first
                     val series = withContext(Dispatchers.Default) {
-                        val dir = runCatching { seriesRepository.getAll().map { it.name } }.getOrDefault(emptyList())
-                        (dir + savedLists.second).map { it.trim() }.filter { it.isNotEmpty() }.distinctBy { it.lowercase() }.sortedBy { it.lowercase() }
+                        val dir = runCatching { seriesRepository.getAll() }.getOrDefault(emptyList())
+                        seriesRecordsCache = dir
+                        (dir.map { it.name } + savedLists.second).map { it.trim() }.filter { it.isNotEmpty() }.distinctBy { it.lowercase() }.sortedBy { it.lowercase() }
                     }
                     val names = withContext(Dispatchers.Default) {
                         val dir = runCatching { stationDirectory.stations().map { it.name } }.getOrDefault(emptyList())
                         val history = routes.flatMap { r -> r.trains.flatMap { t -> t.stations.mapNotNull { it.stationName } } }
                         saved + dir + history
                     }
-                    _state.update { it.copy(knownStationNames = names, knownSeriesNames = series) }
+                    // Списки не изменились - не эмитим новый state и не пересобираем экран (сохранение справки
+                    // помечает маршрут несинхронизированным и триггерит этот поток во время ввода).
+                    val cur = _state.value
+                    if (cur.knownStationNames != names || cur.knownSeriesNames != series) {
+                        _state.update { it.copy(knownStationNames = names, knownSeriesNames = series) }
+                    }
                 }
         }
     }
@@ -460,7 +475,8 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
         if (persistStarted) return
         persistStarted = true
         viewModelScope.launch {
-            _state.map { it.toData().copy(id = "", updatedAt = 0L) }.debounce(1000).collect { persist(it) }
+            // debounce до map: toData() собирает весь бланк и не должно выполняться на каждый символ ввода.
+            _state.debounce(1000).map { it.toData().copy(id = "", updatedAt = 0L) }.collect { persist(it) }
         }
     }
 
@@ -662,7 +678,11 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
      * серий пользователя -> каталог (табл. 4-5, группы ГР) -> пусто. Введённое вручную не затирается.
      */
     fun setLocoSeries(v: String) {
-        val userRecord = seriesRepository.getAll().firstOrNull { it.name.trim().equals(v.trim(), ignoreCase = true) }
+        // Поиск по кешу справочника серий: запрос БД на каждый символ ввода недопустим (фризы ввода).
+        val records = seriesRecordsCache.ifEmpty {
+            seriesRepository.getAll().also { seriesRecordsCache = it }
+        }
+        val userRecord = records.firstOrNull { it.name.trim().equals(v.trim(), ignoreCase = true) }
         val data = LocoSeriesDefaults.passportFor(v, userRecord)
         val hasData = data.weightT != null || data.axleCount != null || data.axleLoadTf != null
         _state.update {
@@ -845,10 +865,10 @@ class BrakeCertificateViewModel(application: Application) : AndroidViewModel(app
 
     // ── Плотность ──
     fun setChargePressure(v: String) = _state.update { it.copy(chargePressureText = v) }
-    /** Выбор группы по табл. IV.1 вручную сбрасывает свой объём. */
+    /** Выбор группы по табл. 4 п. 9.3.3 вручную сбрасывает свой объём. */
     fun setDensityGroup(g: DensityLocoGroup?) = _state.update { it.copy(densityGroup = g, customVolumeText = "", volumeAuto = false) }
 
-    /** Свой объём ГР, л: группа определяется по прим. 3 к табл. IV.1 (ближайший наименьший объём). Пусто - свой объём не задан. */
+    /** Свой объём ГР, л: группа определяется по прим. 4 к табл. 4 п. 9.3.3 (ближайший наименьший объём). Пусто - свой объём не задан. */
     fun setCustomVolume(v: String) {
         _state.update { it.copy(customVolumeText = v, volumeAuto = false, densityGroup = if (v.isBlank()) it.densityGroup else null) }
         scheduleSeriesWriteBack(SeriesPassportField.VOLUME)
@@ -1136,7 +1156,7 @@ fun BrakeCertificateData.toUiState(base: BrakeCertificateUiState): BrakeCertific
     )
 }
 
-/** Итоговая группа плотности: свой объём ГР (прим. 3 к табл. IV.1) > выбранная вручную > автоподбор по серии и номеру локомотива из маршрута. */
+/** Итоговая группа плотности: свой объём ГР (прим. 4 к табл. 4 п. 9.3.3) > выбранная вручную > автоподбор по серии и номеру локомотива из маршрута. */
 fun BrakeCertificateUiState.effectiveDensityGroup(): DensityLocoGroup? =
     if (customVolumeText.isNotBlank()) (BrakeDensity.groupByVolume(customVolumeText) as? BrakeDensity.VolumeGroup.Found)?.group
     else densityGroup ?: BrakeDensity.groupForLoco(locoSeriesText, locoNumberText)

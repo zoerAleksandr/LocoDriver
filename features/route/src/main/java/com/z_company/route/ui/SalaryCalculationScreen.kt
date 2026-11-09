@@ -1,8 +1,12 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.HeaderTile
+import com.z_company.route.component.HeaderBackTile
+import com.z_company.route.component.ScreenHeader
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -130,12 +134,13 @@ fun SalaryCalculationScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
+            ScreenHeader(
+                navigation = { HeaderBackTile(onBack) },
+                actions = {
+                    HeaderTile(onClick = onSettingsSalaryClick, description = "Настройки зарплаты") {
                         Icon(
-                            painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back),
-                            contentDescription = "Назад",
+                            painter = painterResource(com.z_company.route.R.drawable.settings_24px),
+                            contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     }
@@ -143,15 +148,14 @@ fun SalaryCalculationScreen(
                 title = {
                     Surface(
                         onClick = { isCodeSearchActive = true },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(end = 12.dp),
-                        shape = RoundedCornerShape(12.dp),
+                        // Высота как у плиток шапки (44 dp).
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        shape = RoundedCornerShape(14.dp),
                         color = Color.Transparent,
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(
@@ -169,19 +173,6 @@ fun SalaryCalculationScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                actions = {
-                    IconButton(
-                        modifier = Modifier.padding(end = 16.dp),
-                        onClick = onSettingsSalaryClick
-                    ) {
-                        Icon(
-                            painter = painterResource(com.z_company.route.R.drawable.settings_24px),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
             )
         },
     ) { paddingValues ->
@@ -310,59 +301,68 @@ private fun PayrollCodeSearchScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
+            ScreenHeader(
+                navigation = { HeaderBackTile(onBack, description = "Назад к расчётному листу") },
+                actions = {
+                    HeaderTile(onClick = onSettingsSalaryClick, description = "Настройки зарплаты") {
                         Icon(
-                            painter = painterResource(com.z_company.core.R.drawable.ic_arrow_back),
-                            contentDescription = "Назад к расчётному листу",
+                            painter = painterResource(com.z_company.route.R.drawable.settings_24px),
+                            contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     }
                 },
                 title = {
-                    OutlinedTextField(
+                    // Поле той же высоты, что плитки шапки (44 dp): OutlinedTextField ниже 56 dp не бывает.
+                    androidx.compose.foundation.text.BasicTextField(
                         value = query,
                         onValueChange = onQueryChange,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .height(44.dp)
                             .focusRequester(focusRequester)
                             .testTag("payroll_code_search_field"),
-                        placeholder = { Text("Расшифровать код") },
-                        leadingIcon = {
-                            Icon(
-                                painter = painterResource(com.z_company.route.R.drawable.search_24px),
-                                contentDescription = null,
-                            )
-                        },
-                        trailingIcon = if (query.isNotEmpty()) {
-                            {
-                                IconButton(onClick = { onQueryChange("") }) {
-                                    Icon(
-                                        painter = painterResource(com.z_company.route.R.drawable.ic_close_24px),
-                                        contentDescription = "Очистить поиск",
-                                    )
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.primary),
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.tertiary),
+                        decorationBox = { inner ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outline), RoundedCornerShape(14.dp))
+                                    .padding(start = 12.dp, end = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    painter = painterResource(com.z_company.route.R.drawable.search_24px),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                                    if (query.isEmpty()) {
+                                        Text(
+                                            text = "Расшифровать код",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                    inner()
+                                }
+                                if (query.isNotEmpty()) {
+                                    IconButton(onClick = { onQueryChange("") }) {
+                                        Icon(
+                                            painter = painterResource(com.z_company.route.R.drawable.ic_close_24px),
+                                            contentDescription = "Очистить поиск",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
                             }
-                        } else null,
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        textStyle = MaterialTheme.typography.bodyLarge,
+                        },
                     )
                 },
-                actions = {
-                    IconButton(
-                        modifier = Modifier.padding(end = 16.dp),
-                        onClick = onSettingsSalaryClick,
-                    ) {
-                        Icon(
-                            painter = painterResource(com.z_company.route.R.drawable.settings_24px),
-                            contentDescription = "Настройки зарплаты",
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
         },
     ) { paddingValues ->
@@ -732,7 +732,8 @@ private fun PayCard(content: @Composable () -> Unit) {
 // ===========================================
 private enum class ColType { NAME, VALUE, MONEY }
 
-private data class CellVal(val text: String, val faint: Boolean = false)
+/** [note] - справочная строка под группой начислений: мельче, курсивом, без разделителя сверху и не считается выплатой. */
+private data class CellVal(val text: String, val faint: Boolean = false, val note: Boolean = false)
 
 private data class PayColumn(
     val header: String,
@@ -874,14 +875,15 @@ private fun PayScrollTable(columns: List<PayColumn>, rows: List<List<CellVal>>) 
 
             // Строки данных
             rows.forEachIndexed { r, row ->
+                val nextIsNote = rows.getOrNull(r + 1)?.firstOrNull()?.note == true
                 Row(modifier = Modifier.horizontalScroll(scroll)) {
                     Spacer(modifier = Modifier.width(leadInset))
                     columns.forEachIndexed { c, col ->
-                        DataCell(cell = row[c], width = display[c], type = col.type, alignStart = col.alignStart)
+                        DataCell(cell = row[c], width = display[c], type = col.type, alignStart = col.alignStart, tightBottom = nextIsNote)
                     }
                     Spacer(modifier = Modifier.width(trailInset))
                 }
-                if (r < rows.lastIndex) {
+                if (r < rows.lastIndex && !nextIsNote) {
                     HorizontalDivider(
                         modifier = Modifier.padding(start = 20.dp),
                         color = MaterialTheme.colorScheme.outlineVariant,
@@ -909,7 +911,7 @@ private fun HeaderCell(text: String, width: Dp, alignStart: Boolean) {
 }
 
 @Composable
-private fun DataCell(cell: CellVal, width: Dp, type: ColType, alignStart: Boolean) {
+private fun DataCell(cell: CellVal, width: Dp, type: ColType, alignStart: Boolean, tightBottom: Boolean = false) {
     val style = when (type) {
         ColType.NAME -> MaterialTheme.typography.bodyMedium
         ColType.VALUE -> MaterialTheme.typography.bodyMedium.copy(
@@ -925,13 +927,20 @@ private fun DataCell(cell: CellVal, width: Dp, type: ColType, alignStart: Boolea
         else MaterialTheme.colorScheme.onSurfaceVariant
     }
     Box(
-        modifier = Modifier.width(width).padding(horizontal = 4.dp, vertical = 13.dp),
+        modifier = Modifier.width(width).padding(
+            start = 4.dp,
+            end = 4.dp,
+            top = if (cell.note) 0.dp else 13.dp,
+            bottom = if (cell.note) (if (tightBottom) 2.dp else 9.dp) else if (tightBottom) 3.dp else 13.dp,
+        ),
         contentAlignment = if (alignStart) Alignment.CenterStart else Alignment.CenterEnd,
     ) {
         Text(
             text = cell.text,
-            style = style,
-            color = color,
+            style = if (cell.note) style.copy(
+                fontSize = 12.sp, fontWeight = FontWeight.Normal, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+            ) else style,
+            color = if (cell.note) MaterialTheme.colorScheme.onSurfaceVariant else color,
             // Имя выплаты может занять до 3 строк — при крупном шрифте длинные
             // названия («Надбавка за класс квалификации») не обрезаются многоточием.
             maxLines = if (type == ColType.NAME) 3 else 1,
@@ -988,14 +997,37 @@ private fun AccrualsCard(
         PayColumn("%", ColType.VALUE),
         PayColumn("СУММА", ColType.MONEY),
     )
-    val rows = buildAccrualRows(uiState).map { row ->
-        listOf(
-            CellVal(PayrollPaymentCatalog[row.paymentId].codeLabel, faint = PayrollPaymentCatalog[row.paymentId].codes.isEmpty()),
-            CellVal(row.title),
-            CellVal(row.hours?.let { convertTimeToStringFormat(it) } ?: "—", faint = row.hours == null),
-            CellVal(row.percent?.let { formatPercent(it) } ?: "—", faint = row.percent == null),
-            CellVal(formatMoney(row.money)),
+    val accrualRows = buildAccrualRows(uiState)
+    val mileage = accrualRows.filter { it.paymentId == SalaryPaymentId.LINEAR_MILEAGE }
+    val mileagePrefix = "Доплата за пробег: "
+    val rows = accrualRows.flatMapIndexed { index, row ->
+        fun main(r: AccrualRow, title: String = r.title) = listOf(
+            CellVal(PayrollPaymentCatalog[r.paymentId].codeLabel, faint = PayrollPaymentCatalog[r.paymentId].codes.isEmpty()),
+            CellVal(title),
+            CellVal(r.hours?.let { convertTimeToStringFormat(it) } ?: "—", faint = r.hours == null),
+            CellVal(r.percent?.let { formatPercent(it) } ?: "—", faint = r.percent == null),
+            CellVal(formatMoney(r.money)),
         )
+        when {
+            // Несколько плеч с 011L: одна строка с общей суммой, ниже мелко - сумма по каждому плечу.
+            row.paymentId == SalaryPaymentId.LINEAR_MILEAGE && mileage.size > 1 -> {
+                if (accrualRows.take(index).any { it.paymentId == SalaryPaymentId.LINEAR_MILEAGE }) {
+                    emptyList()
+                } else {
+                    listOf(main(row.copy(title = "Доплата за пробег", money = mileage.sumOf { it.money ?: 0.0 }))) +
+                        mileage.map { leg ->
+                            listOf(
+                                CellVal("", note = true),
+                                CellVal(leg.title.removePrefix(mileagePrefix), note = true),
+                                CellVal("", note = true),
+                                CellVal("", note = true),
+                                CellVal(formatMoney(leg.money), note = true),
+                            )
+                        }
+                }
+            }
+            else -> listOf(main(row))
+        }
     }
 
     PayCard {

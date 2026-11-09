@@ -14,7 +14,7 @@ class DeficitCardTest {
         val lines = deficitReferenceLines()
         assertTrue(lines.count { it.startsWith("#") } == 2) // жёлтая и красная; зелёной (норма) нет
         assertTrue(lines.none { it.startsWith("#G") })
-        assertTrue(lines.any { it.contains("норма 33, минимум 28") }) // груженый: табл. III.1/III.2
+        assertTrue(lines.any { it.contains("норма 33, минимум 28") }) // груженый: табл. 1/2 прил. 2
         assertTrue(lines.any { it.contains("норма 55, минимум 50") }) // порожний до 350 осей
         assertTrue(lines.none { it.contains("Что можно сделать") })
     }

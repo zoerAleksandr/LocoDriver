@@ -159,19 +159,11 @@ internal fun MapSettingsScreen(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
-        Column(modifier = Modifier.fillMaxSize().background(Pst.bg).statusBarsPadding().navigationBarsPadding()) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                MapButton(onClick = onDismiss, description = "Назад") { PstIcon(PstIcons.ChevronLeft, 22.dp, Pst.text) }
-                Text(
-                    text = "Настройки карты",
-                    style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
-                    color = Pst.text,
-                )
-            }
+        Column(modifier = Modifier.fillMaxSize().background(Pst.bg).navigationBarsPadding()) {
+            com.z_company.route.component.ScreenHeader(
+                title = "Настройки карты",
+                navigation = { com.z_company.route.component.HeaderBackTile(onDismiss) },
+            )
             Column(
                 modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),

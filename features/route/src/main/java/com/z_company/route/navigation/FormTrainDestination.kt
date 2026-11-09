@@ -50,5 +50,6 @@ fun FormTrainDestination(
         onDeleteServicePhase = viewModel::deleteServicePhase,
         dateAndTimeConverter = formUiState.dateAndTimeConverter,
         onBrakeCertificateClick = { router.showBrakeCertificate(viewModel.brakePrefill()) },
+        onBrakeHoldingClick = { router.showBrakeHolding(viewModel.brakePrefill()) },
     )
 }

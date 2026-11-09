@@ -21,6 +21,7 @@ import com.z_company.core.ResultState
 import com.z_company.core.sendToSentry
 import com.z_company.core.ui.snackbar.ISnackbarManager
 import com.z_company.core.util.DateAndTimeConverter
+import com.z_company.core.util.isEmailValid
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.setting.SalarySetting
 import com.z_company.domain.entities.setting.UserSettings
@@ -1166,9 +1167,19 @@ class ProfileViewModel : ViewModel(), KoinComponent {
         // Локальный кулдаун ещё активен — не шлём повторный запрос.
         if (_forgotCooldownSeconds.value > 0) return
 
+        val cleanEmail = email.filterNot { it.isWhitespace() }
+        if (cleanEmail.isEmpty()) {
+            snackbarManager.show("Введите email, на который отправить ссылку")
+            return
+        }
+        if (!cleanEmail.isEmailValid()) {
+            snackbarManager.show("Проверьте email: адрес введён неверно")
+            return
+        }
+
         forgotJob?.cancel()
         forgotJob = viewModelScope.launch {
-            authManager.forgotPassword(email.filterNot { it.isWhitespace() }).collect { state ->
+            authManager.forgotPassword(cleanEmail).collect { state ->
                 _responseState.value = state
                 // 200 и 429 — оба завершают попытку, запускаем кулдаун.
                 if (state is ForgotPasswordState.Success || state is ForgotPasswordState.RateLimited) {

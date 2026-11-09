@@ -5,10 +5,10 @@ enum class StatusLevel {
     /** Данных ещё нет. */
     NONE,
 
-    /** Нажатие не ниже нормы табл. III.1. */
+    /** Нажатие не ниже нормы табл. 1 прил. 2. */
     OK,
 
-    /** Нажатия не хватает, но скорость табл. III.1 не снижается (например, п. 31: композиционные колодки). */
+    /** Нажатия не хватает, но скорость табл. 1 прил. 2 не снижается (например, п. 3.4 прил. 2: композиционные колодки). */
     WARNING,
 
     /** Скорость снижена (п. 35), нажатие ниже минимума или скорость по таблицам не определена. */
@@ -41,13 +41,13 @@ object BrakeStatusResolver {
         return when (val sp = result.speed) {
             is SpeedLimit.Allowed ->
                 if (sp.reducedFrom == null) {
-                    BrakeStatus(StatusLevel.WARNING, "$lack; скорость не снижена (${InstructionRef.p("31")})")
+                    BrakeStatus(StatusLevel.WARNING, "$lack; скорость не снижена (${InstructionRef.p("3.4")})")
                 } else {
-                    BrakeStatus(StatusLevel.DANGER, "$lack; скорость снижена (${InstructionRef.p(if (sp.steps != null) "35" else "31")})")
+                    BrakeStatus(StatusLevel.DANGER, "$lack; скорость снижена (${InstructionRef.p(if (sp.steps != null) "4.4" else "3.4")})")
                 }
             is SpeedLimit.NotDetermined ->
                 if (sp.kind == SpeedLimit.Kind.BELOW_MIN) {
-                    BrakeStatus(StatusLevel.DANGER, "Нажатие ниже минимального (${InstructionRef.table("III.2")}). Скорость по таблицам не определена")
+                    BrakeStatus(StatusLevel.DANGER, "Нажатие ниже минимального (${InstructionRef.table("2")}). Скорость по таблицам не определена")
                 } else {
                     BrakeStatus(StatusLevel.DANGER, "$lack; скорость по таблицам не определена")
                 }

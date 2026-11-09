@@ -120,6 +120,7 @@ fun HomeDestination(
         onConsentSettings = router::showDataPrivacy,
         onStatistics = router::showStatistics,
         onBrakeCertificate = router::showBrakeCertificate,
+        onBrakeHolding = router::showBrakeHolding,
         unsyncedRoutesCount = uiState.unsyncedRoutesCount,
         hasActiveSubscription = uiState.hasActiveSubscription,
         subscriptionEndTime = uiState.subscriptionEndTime,
@@ -144,6 +145,7 @@ fun HomeDestination(
         onResetSyncState = homeViewModel::resetSyncState,
         onCancelSync = homeViewModel::cancelSync,
         normaHours = uiState.normaHours,
+        workScheduleProfile = uiState.workScheduleProfile,
         isBackgroundSyncing = uiState.isBackgroundSyncing,
         isOffline = uiState.isOffline,
     )

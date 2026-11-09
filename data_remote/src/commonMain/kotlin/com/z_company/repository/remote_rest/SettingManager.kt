@@ -5,6 +5,7 @@ import com.z_company.core.ResultState
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.ProductionCalendarDay
 import com.z_company.domain.entities.ReleaseDay
+import com.z_company.domain.entities.WorkScheduleMonth
 import com.z_company.domain.entities.WorkScheduleProfile
 import com.z_company.domain.entities.norma_time.LocomotiveSeries
 import com.z_company.domain.entities.norma_time.LocomotiveSeriesTombstone
@@ -146,6 +147,25 @@ class SettingManager(
     ): Flow<ResultState<WorkScheduleProfile>> = flow {
         emit(ResultState.Loading())
         emit(ResultState.Success(remoteRestApi.getWorkScheduleProfile(bearerToken)))
+    }.catch { e ->
+        emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
+    }
+
+    fun getWorkScheduleMonthsFromRemote(
+        bearerToken: String,
+    ): Flow<ResultState<List<WorkScheduleMonth>>> = flow {
+        emit(ResultState.Loading())
+        emit(ResultState.Success(remoteRestApi.getWorkScheduleMonths(bearerToken)))
+    }.catch { e ->
+        emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
+    }
+
+    fun saveWorkScheduleMonthsInRemote(
+        months: List<WorkScheduleMonth>,
+        bearerToken: String,
+    ): Flow<ResultState<List<WorkScheduleMonth>>> = flow {
+        emit(ResultState.Loading())
+        emit(ResultState.Success(remoteRestApi.saveWorkScheduleMonths(bearerToken, months)))
     }.catch { e ->
         emit(ResultState.Error(ErrorEntity(message = NetworkErrorMapper.humanMessage(e), throwable = e)))
     }

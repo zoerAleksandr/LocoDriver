@@ -61,14 +61,13 @@ internal class IosRouterImpl : Router {
 
     override fun showEmptyOtherWorkForm(basicId: String) = showRouteForm(basicId)
 
-    override fun showSelectReleaseDayScreen() = navigate(SelectReleaseDaysScreenRoute.route)
     override fun showPurchasesScreen() = navigate(PurchasesRoute.route)
     override fun showSalaryCalculation() = navigate(SalaryCalculationRoute.route)
     override fun showSettingSalary() = navigate(SettingSalaryRoute.route)
     override fun showAllRoute() = navigate(AllRouteScreenRoute.route)
     override fun showCalendar() = navigate(HomeRoute.route)
     override fun showScheduleWizard() = navigate(HomeRoute.route)
-    override fun showAbsence() = navigate(SelectReleaseDaysScreenRoute.route)
+    override fun showAbsence() = navigate(HomeRoute.route)
     override fun showStatistics() = navigate(HomeRoute.route)
 
     private fun navigate(route: String) {

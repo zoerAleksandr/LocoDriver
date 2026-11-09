@@ -25,7 +25,6 @@ import com.z_company.route.navigation.ProfileRoute
 import com.z_company.route.navigation.PurchasesRoute
 import com.z_company.route.navigation.SalaryCalculationRoute
 import com.z_company.route.navigation.SearchRoute
-import com.z_company.route.navigation.SelectReleaseDaysScreenRoute
 import com.z_company.route.navigation.SettingSalaryRoute
 import com.z_company.route.navigation.SettingsScreenRoute
 import com.z_company.route.navigation.CalendarRoute
@@ -33,6 +32,7 @@ import com.z_company.route.navigation.ScheduleWizardRoute
 import com.z_company.route.navigation.AbsenceRoute
 import com.z_company.route.navigation.StatisticsRoute
 import com.z_company.route.navigation.BrakeCertificateRoute
+import com.z_company.route.navigation.BrakeHoldingRoute
 import com.z_company.route.navigation.login.LogInScreenRoute
 import com.z_company.route.navigation.login.SignInScreenRoute
 
@@ -152,12 +152,6 @@ class RouterImpl(
         requireNavController().navigate(PartnerEditRoute.buildRoute(partnerId))
     }
 
-    override fun showSelectReleaseDayScreen() {
-        requireNavController().navigate(
-            SelectReleaseDaysScreenRoute.route
-        )
-    }
-
     override fun showPurchasesScreen() {
         requireNavController().navigate(
             PurchasesRoute.route
@@ -208,6 +202,10 @@ class RouterImpl(
 
     override fun showAbsence() {
         requireNavController().navigate(AbsenceRoute.route)
+    }
+
+    override fun showBrakeHolding(prefill: com.z_company.domain.brake.BrakePrefill?) {
+        requireNavController().navigate(BrakeHoldingRoute.buildRoute(prefill))
     }
 
     override fun showBrakeCertificate(prefill: com.z_company.domain.brake.BrakePrefill?) {

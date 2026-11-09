@@ -1,5 +1,8 @@
 package com.z_company.route.ui
 
+import com.z_company.route.component.HeaderTile
+import com.z_company.route.component.HeaderBackTile
+import com.z_company.route.component.ScreenHeader
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -114,25 +117,12 @@ fun StatisticsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                ),
-                title = {
-                    Text(
-                        text = detail?.title ?: "Статистика",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { if (detail != null) onCloseDetail() else onBack() }) {
-                        Icon(StatIcons.ChevronLeft, "Назад", tint = MaterialTheme.colorScheme.primary)
-                    }
-                },
+            ScreenHeader(
+                title = detail?.title ?: "Статистика",
+                navigation = { HeaderBackTile({ if (detail != null) onCloseDetail() else onBack() }) },
                 actions = {
                     if (detail == null) {
-                        IconButton(onClick = onExportPdf, enabled = !isExportingPdf) {
+                        HeaderTile(onClick = onExportPdf, description = "Сохранить в PDF", enabled = !isExportingPdf) {
                             if (isExportingPdf) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(20.dp),
@@ -144,7 +134,7 @@ fun StatisticsScreen(
                             }
                         }
                     }
-                }
+                },
             )
         }
     ) { padding ->
