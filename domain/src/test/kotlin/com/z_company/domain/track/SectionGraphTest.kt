@@ -201,7 +201,7 @@ class BranchesTest {
         val current = section("s1", 10.0, emptyList())
         val branch = section(
             "s2", 10.0,
-            listOf(SectionStation(3.0, "Первая после"), SectionStation(9.0, "Дальняя станция")),
+            listOf(SectionStation(0.0, "Борисово"), SectionStation(3.0, "Первая после"), SectionStation(9.0, "Дальняя станция")),
         )
         val branches = Branches.ahead(
             graph, current, posKm = 3.0, reversed = false,

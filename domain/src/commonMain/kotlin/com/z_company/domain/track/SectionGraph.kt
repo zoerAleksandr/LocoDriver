@@ -262,6 +262,13 @@ object Branches {
         }
         fun behind(km: Double): Boolean = if (!reversed) km < posKm - 0.05 else km > posKm + 0.05
         val atNode = graph.edges.filter { it.fromNode == node.id || it.toNode == node.id }
+        // Профили соседних участков часто повторяют станцию стыка с небольшим сдвигом по км,
+        // а имя узла графа может быть сокращённым или пустым. Учитываем станцию текущего участка
+        // рядом с координатой развилки, чтобы не показывать её как направление после развилки.
+        val junctionStationNames = section.stations
+            .filter { abs(it.km - junction.km) <= 0.5 }
+            .map { it.name }
+            .let { names -> if (junction.name.isEmpty()) names else names + junction.name }
         // Входящее ребро - то, по которому поезд ЕДЕТ СЕЙЧАС (владелец - текущий участок, км внутри ребра).
         // «Позади по оси» не годится: параллельные линии чужих участков проецируются туда же и
         // съедали ветки (оставался один чип).
@@ -276,6 +283,9 @@ object Branches {
             // Километры разных участков нельзя сравнивать: начало ветки задаётся концом ребра у узла.
             val stations = (owner?.stations ?: emptyList())
                 .filter { it.km >= minOf(e.fromKm, e.toKm) - 0.05 && it.km <= maxOf(e.fromKm, e.toKm) + 0.05 }
+                // Станция узла может присутствовать и в профиле следующего участка. Это
+                // станция самой развилки, а не первый пункт направления после неё.
+                .filter { station -> junctionStationNames.none { SectionPicker.sameStation(station.name, it) } }
                 .mapNotNull { station ->
                     val distance = if (e.fromNode == node.id) station.km - e.fromKm else e.toKm - station.km
                     station.takeIf { distance > 0.5 }?.let { it to distance }

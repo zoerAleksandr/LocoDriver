@@ -1390,8 +1390,24 @@ internal class ProfileModel(
         if (key != junctionCacheKey) {
             val computed = withContext(Dispatchers.Default) {
                 val ahead = FactRoute.nextJunction(g, base, pos, rev)
+                val sectionById = HashMap(sections.associateBy { it.id })
+                // Подпись ветки должна строиться по станциям самого ребра после развилки.
+                // В [sections] обычно есть только текущий участок, поэтому без дозагрузки
+                // владельцев рёбер Branches.ahead вынужден использовать имя дальнейшего узла
+                // и несколько веток получают одинаковое «через» название развилки.
+                if (ahead != null) {
+                    val edgeSectionIds = g.edges
+                        .filter { it.fromNode == ahead.nodeId || it.toNode == ahead.nodeId }
+                        .map { it.sectionId }
+                        .distinct()
+                    for (sectionId in edgeSectionIds) {
+                        if (sectionById.containsKey(sectionId)) continue
+                        val owner = runCatching { repo.section(sectionId, refresh = false) }.getOrNull()
+                        if (owner != null) sectionById[owner.id] = owner
+                    }
+                }
                 val branches = if (ahead == null) emptyList()
-                else Branches.ahead(g, base, pos, rev, sections.associateBy { it.id })
+                else Branches.ahead(g, base, pos, rev, sectionById)
                 ahead to branches
             }
             junctionCache = computed.first
