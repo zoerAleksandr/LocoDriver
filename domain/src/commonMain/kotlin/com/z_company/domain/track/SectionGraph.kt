@@ -269,6 +269,9 @@ object Branches {
             .filter { abs(it.km - junction.km) <= 0.5 }
             .map { it.name }
             .let { names -> if (junction.name.isEmpty()) names else names + junction.name }
+        fun isJunctionName(name: String): Boolean = junctionStationNames.any {
+            SectionPicker.sameStation(name, it) || SectionPicker.mentions(name, it) || SectionPicker.mentions(it, name)
+        }
         // Входящее ребро - то, по которому поезд ЕДЕТ СЕЙЧАС (владелец - текущий участок, км внутри ребра).
         // «Позади по оси» не годится: параллельные линии чужих участков проецируются туда же и
         // съедали ветки (оставался один чип).
@@ -292,7 +295,9 @@ object Branches {
                 }
                 .sortedBy { it.second }
                 .map { it.first }
-            val title = stations.firstOrNull()?.name ?: farNode?.name?.takeIf { it.isNotEmpty() } ?: "Ветка"
+            val title = stations.firstOrNull()?.name
+                ?: farNode?.name?.takeIf { it.isNotEmpty() && !isJunctionName(it) }
+                ?: "Ветка"
             val dist = stations.firstOrNull()?.let { station ->
                 if (e.fromNode == node.id) station.km - e.fromKm else e.toKm - station.km
             } ?: e.lengthKm

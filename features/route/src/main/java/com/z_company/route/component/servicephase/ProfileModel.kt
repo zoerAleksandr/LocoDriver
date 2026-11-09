@@ -1366,6 +1366,8 @@ internal class ProfileModel(
         val pos = position?.takeIf { !it.offRoute }?.kmAxis
         val g = graphCache
         val base = sections.firstOrNull { it.id == factBaseId }
+        val directionKnown = manualReversed != null || motionReversed != null ||
+            (live?.section?.let { LegMatch.reversed(it, names) } != null)
         // Режим превью выбранной ветки: pos живёт в координатах превью - пересчёты графа выключены,
         // ловим только проход развилки (она в [previewJunctionKm] от начала превью).
         if (branchPreview != null) {
@@ -1382,7 +1384,7 @@ internal class ProfileModel(
             }
             return
         }
-        if (names.size >= 2 || pos == null || g == null || base == null) {
+        if (names.size >= 2 || !directionKnown || pos == null || g == null || base == null) {
             junctionCache = null
             junctionCacheKey = null
             branchChips = emptyList()
