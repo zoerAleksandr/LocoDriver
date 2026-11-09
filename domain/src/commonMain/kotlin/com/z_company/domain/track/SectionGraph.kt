@@ -272,14 +272,20 @@ object Branches {
             val farId = if (e.fromNode == node.id) e.toNode else e.fromNode
             val farNode = graph.nodes.firstOrNull { it.id == farId }
             val owner = sectionsById[e.sectionId] ?: section.takeIf { it.id == e.sectionId }
-            // Первая станция владельца ВДОЛЬ ветки от развилки (сама станция развилки - не подпись);
-            // если станций нет - узел в конце ветки, иначе просто «Ветка».
+            // Первая станция владельца ВДОЛЬ ветки от развилки (сама станция развилки - не подпись).
+            // Километры разных участков нельзя сравнивать: начало ветки задаётся концом ребра у узла.
             val stations = (owner?.stations ?: emptyList())
                 .filter { it.km >= minOf(e.fromKm, e.toKm) - 0.05 && it.km <= maxOf(e.fromKm, e.toKm) + 0.05 }
-                .filter { abs(it.km - junction.km) > 0.5 }
-                .sortedBy { abs(it.km - junction.km) }
+                .mapNotNull { station ->
+                    val distance = if (e.fromNode == node.id) station.km - e.fromKm else e.toKm - station.km
+                    station.takeIf { distance > 0.5 }?.let { it to distance }
+                }
+                .sortedBy { it.second }
+                .map { it.first }
             val title = stations.firstOrNull()?.name ?: farNode?.name?.takeIf { it.isNotEmpty() } ?: "Ветка"
-            val dist = stations.firstOrNull()?.let { abs(it.km - junction.km) } ?: e.lengthKm
+            val dist = stations.firstOrNull()?.let { station ->
+                if (e.fromNode == node.id) station.km - e.fromKm else e.toKm - station.km
+            } ?: e.lengthKm
             Branch(e.id, e, title, dist, farId)
         }.sortedBy { it.distanceKm }
             // Параллельные рёбра одной развилки могут вести к одной и той же первой

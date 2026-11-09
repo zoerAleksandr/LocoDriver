@@ -197,6 +197,21 @@ class BranchesTest {
     }
 
     @Test
+    fun branch_title_uses_first_station_after_junction_on_branch_axis() {
+        val current = section("s1", 10.0, emptyList())
+        val branch = section(
+            "s2", 10.0,
+            listOf(SectionStation(3.0, "Первая после"), SectionStation(9.0, "Дальняя станция")),
+        )
+        val branches = Branches.ahead(
+            graph, current, posKm = 3.0, reversed = false,
+            sectionsById = mapOf("s2" to branch),
+        )
+        assertEquals("Первая после", branches.first { it.edgeId == "e2" }.title)
+        assertEquals(3.0, branches.first { it.edgeId == "e2" }.distanceKm, 1e-9)
+    }
+
+    @Test
     fun no_branches_when_no_junction_ahead() {
         val s = SectionProfile(
             id = "x", name = "У", fromStation = "", toStation = "", lengthKm = 5.0, axisHash = "h",
