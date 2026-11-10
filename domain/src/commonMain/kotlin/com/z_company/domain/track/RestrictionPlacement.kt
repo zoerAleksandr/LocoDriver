@@ -60,16 +60,8 @@ object RestrictionPlacement {
         }
         val loaded = candidates.mapNotNull { cached[it.id] }
         if (loaded.size < candidates.size) return Placement.PENDING
-        val w = TrackWarning(
-            id = e.warningId, sectionId = "", startAbsKm = e.startAbsKm, endAbsKm = e.endAbsKm, startRelKm = 0.0, endRelKm = 0.0,
-            type = WarningType.entries.firstOrNull { RestrictionKind.of(it) == e.kind } ?: WarningType.OTHER,
-            speedKmh = e.limitKmh, note = e.note, place = e.place,
-        )
-        val placeable = loaded.any { s ->
-            if (s.kmMarks.isEmpty()) return@any false
-            val r = TrackWarnings.resolve(s, w.copy(sectionId = s.id), stops) ?: return@any false
-            TrackWarnings.placementIssue(s, r) == null
-        }
-        return if (placeable) Placement.PENDING else Placement.GRAY_ZONE
+        // Запись ещё не привязана к участку: профиль, попавший в кэш рядом со станцией,
+        // может относиться к другой ветке. Серую зону подтверждает только профиль выбранного плеча.
+        return Placement.PENDING
     }
 }

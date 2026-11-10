@@ -194,6 +194,11 @@ internal class ProfileModel(
     /** Станции плеча для сверки с участками: [stopNames] (с координатами), иначе просто концы [legEnds] — плечо без геоданных тоже работает. */
     fun legStopNames(): List<String> =
         if (stopNames.size >= 2) stopNames else legEnds?.toList() ?: emptyList()
+
+    /** ДУ-61 привязывается к явно выбранному плечу, а не к техническим GPS-остановкам карты. */
+    private fun restrictionLegNames(): List<String> =
+        legEnds?.toList()?.takeIf { it.size == 2 && it.all(String::isNotBlank) }
+            ?: stopNames
     private var lastFix: GeoFix? = null
     var hasFix by mutableStateOf(false)
         private set
@@ -236,12 +241,15 @@ internal class ProfileModel(
 
     /** Ключ записи истории: участок + направление + плечо (первая и последняя станции плеча); читается история всех ключей участка. */
     private val warningsKey: String?
-        get() {
-            val s = section ?: return null
-            fun norm(n: String) = n.lowercase().filter { it.isLetterOrDigit() }
-            val leg = if (stopNames.size >= 2) "${norm(stopNames.first())}>${norm(stopNames.last())}" else ""
-            return "${s.id}|${if (reversed) "-" else "+"}|$leg"
-        }
+        get() = section?.let(::warningsKeyFor)
+
+    private fun warningsKeyFor(s: SectionProfile): String {
+        fun norm(n: String) = n.lowercase().filter { it.isLetterOrDigit() }
+        val names = restrictionLegNames()
+        val leg = if (names.size >= 2) "${norm(names.first())}>${norm(names.last())}" else ""
+        val dir = LegMatch.reversed(s, names) ?: reversed
+        return "${s.id}|${if (dir) "-" else "+"}|$leg"
+    }
 
     private fun warningOf(e: RestrictionPass) = TrackWarning(
         id = e.warningId, sectionId = e.sectionId, startAbsKm = e.startAbsKm, endAbsKm = e.endAbsKm,
@@ -348,11 +356,13 @@ internal class ProfileModel(
         if (refreshing) return
         refreshing = true
         try {
-            val s = section
+            // GPS выбирает профиль для живого положения, но ДУ-61 всегда относится к выбранному плечу.
+            // Поэтому при положении вне плеча берём уже загруженный профиль самого плеча, а не профиль у GPS.
+            val s = restrictionSection()
             val result = withContext(Dispatchers.Default) { reconcile(s, t, j) }
             if (result.entries != journalEntries) journalEntries = result.entries
             loadWarningSections(result.entries)
-            if (result.history != null) history = result.history
+            if (result.history != null && s?.id == section?.id) history = result.history
             if (result.rejected.isNotEmpty()) notice = RejectNotice(result.rejected)
         } finally {
             refreshing = false
@@ -360,6 +370,18 @@ internal class ProfileModel(
     }
 
     private val requestedSections = HashSet<String>()
+
+    private fun restrictionSection(): SectionProfile? {
+        val names = restrictionLegNames()
+        if (names.size < 2) return null
+        val from = stopPoints.firstOrNull { com.z_company.domain.track.SectionPicker.sameStation(it.name, names.first()) }
+        val to = stopPoints.firstOrNull { com.z_company.domain.track.SectionPicker.sameStation(it.name, names.last()) }
+        val available = sections + listOfNotNull(virtualSection)
+        return LegMatch.candidates(
+            available, names.first(), names.last(),
+            from?.let { it.latitude to it.longitude }, to?.let { it.latitude to it.longitude },
+        ).firstOrNull()
+    }
 
     /** Участки ограничений поезда, которых ещё нет среди загруженных (другие участки плеча): подгружаются, чтобы карта показала все ограничения. */
     private fun loadWarningSections(entries: List<RestrictionPass>) {
@@ -380,13 +402,12 @@ internal class ProfileModel(
     private fun reconcile(s: SectionProfile?, t: ProfileTrain, j: com.z_company.domain.track.RestrictionJournalStore): Reconciled {
         var entries = runCatching { j.forTrain(t.id) }.getOrDefault(emptyList())
         if (s == null) return Reconciled(entries, null, emptyList())
-        val fitsLeg = stopNames.size < 2 || LegMatch.fits(s, stopNames) == true
         val rejected = mutableListOf<String>()
         val onSection = mutableListOf<TrackWarning>()
         var changed = false
         for (e in entries) {
             if (e.tracked && e.sectionId != s.id) continue
-            if (!e.tracked && (!fitsLeg || s.kmMarks.isEmpty() || e.startAbsKm == null || e.endAbsKm == null)) continue
+            if (!e.tracked && (s.kmMarks.isEmpty() || e.startAbsKm == null || e.endAbsKm == null)) continue
             val w = warningOf(e).copy(sectionId = s.id)
             val r = TrackWarnings.resolve(s, w, stopPoints)
             // Серая зона/за краем оси: километраж неизвестен - на профиль не ставим, остаётся в журнале без участка.
@@ -407,9 +428,9 @@ internal class ProfileModel(
         if (changed) entries = runCatching { j.forTrain(t.id) }.getOrDefault(entries)
         // Действующие на участке всегда есть в истории участка: правка/снятие с поезда не должны их терять.
         val store = warningStore
-        val key = warningsKey
+        val key = warningsKeyFor(s)
         var hist: List<TrackWarning>? = null
-        if (store != null && key != null) {
+        if (store != null) {
             val known = store.loadAll(s.id)
             val missing = onSection.filter { w -> known.none { it.id == w.id } }
             if (missing.isNotEmpty()) store.save(key, store.load(key, s.id) + missing)
@@ -1195,7 +1216,36 @@ internal class ProfileModel(
     }
 
     private var legPrefetchKey: String? = null
+    private var restrictionLoadKey: String? = null
     private val LEG_PREFETCH_MAX_POINTS = 16
+
+    /** Загружает профиль выбранного плеча независимо от того, какой участок GPS показывает на карте. */
+    fun ensureRestrictionLeg() {
+        if (!loaded || needLogin || restrictionSection() != null) return
+        val names = restrictionLegNames()
+        if (names.size < 2) return
+        val from = stopPoints.firstOrNull { com.z_company.domain.track.SectionPicker.sameStation(it.name, names.first()) }
+        val to = stopPoints.firstOrNull { com.z_company.domain.track.SectionPicker.sameStation(it.name, names.last()) }
+        if (from == null || to == null) return
+        val key = "${names.first()}|${names.last()}|${from.latitude},${from.longitude}|${to.latitude},${to.longitude}"
+        if (key == restrictionLoadKey) return
+        restrictionLoadKey = key
+        scope.launch {
+            for (p in listOf(from, to)) {
+                if (repo.deviceRejected || repo.rateLimited) break
+                val cached = runCatching { withContext(Dispatchers.Default) {
+                    repo.sectionsNear(p.latitude, p.longitude, cacheOnly = true)
+                } }.getOrDefault(emptyList())
+                merge(cached)
+                val found = runCatching { withContext(Dispatchers.Default) {
+                    repo.sectionsNear(p.latitude, p.longitude)
+                } }.getOrDefault(emptyList())
+                merge(found)
+                if (restrictionSection() != null) break
+            }
+            refreshJournal()
+        }
+    }
 
     /**
      * Заранее кэширует участки вдоль плеча (точки по ходу каждые 25 км): пока интернет есть, профили ложатся на диск,
@@ -1577,6 +1627,7 @@ internal fun rememberProfileModel(
         }
     }
     LaunchedEffect(model.loaded, model.stopNames, model.legEnds) { model.ensureLeg() }
+    LaunchedEffect(model.loaded, model.stopPoints, model.legEnds) { model.ensureRestrictionLeg() }
     LaunchedEffect(model.loaded, model.stopNames) { model.prefetchLeg() }
     LaunchedEffect(fix, fixAtMs, model.loaded) { model.onFix(fix, speedKmh, if (fixAtMs > 0) fixAtMs else System.currentTimeMillis()) }
     return model
