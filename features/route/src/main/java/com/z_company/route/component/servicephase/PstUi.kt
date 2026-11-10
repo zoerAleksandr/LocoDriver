@@ -134,6 +134,7 @@ internal object PstIcons {
         "M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13",
     )
     val Check = strokeIcon("check", "M5 12l5 5L20 7")
+    val Download = strokeIcon("download", "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4", "M7 10l5 5 5-5", "M12 15V3")
     val Info = strokeIcon("info", circle(12f, 12f, 9f), "M12 11v5", filledDots = listOf(Triple(12f, 7.7f, 0.9f)))
     val CloudOff = strokeIcon("cloudOff", "M7 18a4 4 0 0 1-1.5-7.7 5 5 0 0 1 8.5-2.8 4 4 0 0 1 3 6.3", "M3 3l18 18")
     val Shoulder = strokeIcon(

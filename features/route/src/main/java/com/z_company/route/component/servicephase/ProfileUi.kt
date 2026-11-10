@@ -21,8 +21,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.CircularProgressIndicator
 import android.content.pm.ActivityInfo
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -67,6 +70,10 @@ import com.z_company.domain.track.LiveProfile
 import com.z_company.domain.track.ProfileElement
 import com.z_company.domain.track.SignalTrack
 import com.z_company.domain.track.TravelParity
+import com.z_company.route.ui.OfflineSectionDownloadDialogs
+import com.z_company.route.viewmodel.OfflineSectionsViewModel
+import com.z_company.route.viewmodel.OfflineStatus
+import org.koin.androidx.compose.koinViewModel
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -1206,6 +1213,9 @@ private const val FAR_KM = 2.0
 /** Список участков: ближайшие по положению сверху (плечо поезда — выше всех), поиск по названию и станциям. */
 @Composable
 internal fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
+    val downloadViewModel: OfflineSectionsViewModel = koinViewModel()
+    val downloadState by downloadViewModel.state.collectAsState()
+    OfflineSectionDownloadDialogs(downloadViewModel)
     var query by remember { mutableStateOf(TextFieldValue("")) }
     val rows = remember(query.text, model.summaries, model.sections, model.manualId, model.hasFix) { model.rows(query.text) }
     // Сначала ждём положение (до 1 с) и показываем уже отсортированный список; пока ждём - индикатор загрузки. Положения нет -
@@ -1267,6 +1277,7 @@ internal fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
                     items(shown, key = { it.summary.id }) { row ->
                         val s = row.summary
                         val chosen = s.id == model.section?.id
+                        val offlineStatus = downloadState.items.firstOrNull { it.id == s.id }?.status ?: OfflineStatus.NOT_DOWNLOADED
                         Row(
                             modifier = Modifier.fillMaxWidth()
                                 .clickable { model.choose(s.id); onDismiss() }
@@ -1284,7 +1295,19 @@ internal fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
                                 }
                                 Text(tags.joinToString(" · "), style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted, maxLines = 2)
                             }
-                            if (chosen) PstIcon(PstIcons.Check, 20.dp, Pst.accent)
+                            if (s.hasProfile || offlineStatus == OfflineStatus.READY || offlineStatus == OfflineStatus.OUTDATED) {
+                                when (offlineStatus) {
+                                    OfflineStatus.DOWNLOADING -> CircularProgressIndicator(Modifier.size(22.dp), color = Pst.accent, strokeWidth = 2.dp)
+                                    OfflineStatus.READY -> PstIcon(PstIcons.Check, 20.dp, Pst.accent)
+                                    OfflineStatus.NOT_DOWNLOADED, OfflineStatus.OUTDATED -> IconButton(
+                                        onClick = { downloadViewModel.download(s.id) },
+                                        enabled = !downloadState.busy,
+                                    ) {
+                                        PstIcon(PstIcons.Download, 20.dp, Pst.accent, description = if (offlineStatus == OfflineStatus.OUTDATED) "Обновить участок" else "Скачать участок")
+                                    }
+                                }
+                            }
+                            if (chosen && offlineStatus != OfflineStatus.READY) PstIcon(PstIcons.Check, 20.dp, Pst.accent)
                         }
                         Box(Modifier.fillMaxWidth().height(1.dp).background(Pst.border))
                     }

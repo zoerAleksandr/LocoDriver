@@ -332,7 +332,10 @@ class OfflineSectionsViewModel(
         val only = _state.value.onlyDownloaded
         // Порядок только по названию: скачанный участок не «убегает» из-под пальца в другую часть списка.
         val shown = all
-            .filter { (q.isEmpty() || it.title.lowercase().contains(q)) && (!only || it.status != OfflineStatus.NOT_DOWNLOADED) }
+            .filter {
+                (q.isEmpty() || it.title.lowercase().contains(q)) &&
+                    (!only || it.status == OfflineStatus.READY || it.status == OfflineStatus.OUTDATED)
+            }
             .sortedBy { it.title }
         _state.update {
             it.copy(

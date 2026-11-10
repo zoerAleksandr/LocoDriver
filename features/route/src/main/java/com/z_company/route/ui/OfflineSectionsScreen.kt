@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -55,26 +56,7 @@ import java.util.Locale
 @Composable
 fun OfflineSectionsScreen(viewModel: OfflineSectionsViewModel, onBack: () -> Unit) {
     val ui by viewModel.state.collectAsState()
-    ui.tileProgress?.let { p ->
-        val pct = if (p.total > 0) (p.done * 100 / p.total).toInt() else 0
-        com.z_company.route.component.AppAlertDialog(
-            onDismissRequest = {},
-            title = "Скачиваем карту",
-            text = "Участок «${p.name}»: тайлы подложки… " + (if (p.total > 0) "$pct%" else "подготовка"),
-            confirmText = "Отмена",
-            onConfirm = { viewModel.cancelTiles() },
-        )
-    }
-    ui.tilePrompt?.let { p ->
-        com.z_company.route.component.AppAlertDialog(
-            onDismissRequest = { viewModel.cancelDownload() },
-            title = "Скачать участок с картой?",
-            text = "Участок «${p.name}» займёт около ${"%.1f".format(p.mb)} МБ с картой. Данные и карта скачиваются вместе. Скачать по мобильной сети?",
-            confirmText = "Скачать",
-            onConfirm = { viewModel.acceptTiles() },
-            dismissText = "Отмена",
-        )
-    }
+    OfflineSectionDownloadDialogs(viewModel)
     val snackbar = remember { SnackbarHostState() }
     var confirmRemove by remember { mutableStateOf<OfflineSectionItem?>(null) }
     LaunchedEffect(ui.message) {
@@ -150,6 +132,40 @@ fun OfflineSectionsScreen(viewModel: OfflineSectionsViewModel, onBack: () -> Uni
                 }
             }
         }
+    }
+}
+
+/** Общие диалоги загрузки участка: используются и в списке, и в выборе участка профиля. */
+@Composable
+internal fun OfflineSectionDownloadDialogs(viewModel: OfflineSectionsViewModel) {
+    val ui by viewModel.state.collectAsState()
+    ui.tileProgress?.let { p ->
+        val pct = if (p.total > 0) (p.done * 100 / p.total).toInt() else 0
+        com.z_company.route.component.AppAlertDialog(
+            onDismissRequest = {},
+            title = p.name,
+            confirmText = "Отмена",
+            onConfirm = { viewModel.cancelTiles() },
+            content = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("$pct%", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                    LinearProgressIndicator(
+                        progress = { if (p.total > 0) (p.done.toFloat() / p.total).coerceIn(0f, 1f) else 0f },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+        )
+    }
+    ui.tilePrompt?.let { p ->
+        com.z_company.route.component.AppAlertDialog(
+            onDismissRequest = { viewModel.cancelDownload() },
+            title = "Скачать участок с картой?",
+            text = "Участок «${p.name}» займёт около ${"%.1f".format(p.mb)} МБ. Скачать по мобильной сети?",
+            confirmText = "Скачать",
+            onConfirm = { viewModel.acceptTiles() },
+            dismissText = "Отмена",
+        )
     }
 }
 

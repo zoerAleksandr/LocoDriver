@@ -918,11 +918,25 @@ internal fun TrainMapScreen(
             val listener = MapLibreMap.OnCameraIdleListener { refreshStopSources(REFRESH_CAMERA_IDLE) }
             // Подписи базовой карты подгружаются после остановки камеры (тайлы) - пересчитываем и по «карта в покое».
             val idle = MapView.OnDidBecomeIdleListener { refreshStopSources(REFRESH_MAP_IDLE) }
+            // style-loaded приходит раньше первого кадра. Вызов queryRenderedFeatures до первого завершённого кадра
+            // может упасть внутри MapLibre (MapRenderer::actor == null) при первом открытии карты.
+            val firstFrame = MapView.OnDidFinishRenderingFrameListener { _, _, _ ->
+                if (!stopsState.rendererReady && map != null) {
+                    stopsState.rendererReady = true
+                    mapView.post {
+                        if (alive.get() && visible.get()) {
+                            refreshStopSources(REFRESH_MAP_IDLE)
+                        }
+                    }
+                }
+            }
             m?.addOnCameraIdleListener(listener)
             mapView.addOnDidBecomeIdleListener(idle)
+            mapView.addOnDidFinishRenderingFrameListener(firstFrame)
             onDispose {
                 m?.removeOnCameraIdleListener(listener)
                 mapView.removeOnDidBecomeIdleListener(idle)
+                mapView.removeOnDidFinishRenderingFrameListener(firstFrame)
                 stopsState.pending?.let { mapView.removeCallbacks(it) }
                 stopsState.pending = null
             }
@@ -2667,6 +2681,7 @@ private const val MIN_REFRESH_GAP_MS = 1_000L
 /** Состояние пересчёта подписей станций: прошлая подпись источника, признаки камеры и отложенный запуск. */
 private class StopRefreshState {
     var value = ""
+    var rendererReady = false
     var rowsSig = ""
     var camKey = ""
     var centerLat = Double.NaN
@@ -2683,6 +2698,7 @@ private class StopRefreshState {
  * Слои приложения (`train-map-*`) не учитываются. Только точечные объекты с названием.
  */
 private fun baseMapLabels(m: MapLibreMap, width: Int, height: Int, cache: StopRefreshState, styleGen: Int): List<BaseMapLabel> {
+    if (!cache.rendererReady) return emptyList()
     val style = m.style ?: return emptyList()
     if (width <= 0 || height <= 0) return emptyList()
     return try {
