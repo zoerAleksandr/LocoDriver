@@ -67,25 +67,42 @@ data class KmPosition(val km: Int, val picket: Int, val plusM: Int) {
 }
 
 object KmMarks {
-    /** Километровая координата в месте [relKm] оси; null - отметок нет. Совпадает с `to_abs_km` сервера. */
+    /** Небольшая поправка соседней отметки — уточнение шкалы, а не смена нумерации. Как на сервере. */
+    private const val REFINE_TOLERANCE_KM = 0.5
+
+    private fun slope(current: KmMark, next: KmMark?): Double {
+        val direction = if (current.dir == 0) 1 else current.dir
+        if (next == null || next.km <= current.km || (if (next.dir == 0) 1 else next.dir) != direction) return direction.toDouble()
+        val span = next.km - current.km
+        val delta = next.kmAbs - current.kmAbs
+        val expected = direction * span
+        return if (delta * direction > 0 && kotlin.math.abs(delta - expected) < REFINE_TOLERANCE_KM) delta / span
+        else direction.toDouble()
+    }
+
+    /** Километровая координата в месте [relKm] оси; между близкими уточнениями интерполируется без разрыва. */
     fun toAbs(marks: List<KmMark>, relKm: Double): Double? {
         if (marks.isEmpty()) return null
         val sorted = marks.sortedBy { it.km }
-        var current = sorted[0]
-        for (m in sorted) {
-            if (m.km <= relKm + 1e-9) current = m else break
+        for (i in sorted.indices.reversed()) {
+            val current = sorted[i]
+            if (current.km <= relKm + 1e-9) {
+                return current.kmAbs + slope(current, sorted.getOrNull(i + 1)) * (relKm - current.km)
+            }
         }
-        return current.kmAbs + (if (current.dir == 0) 1 else current.dir) * (relKm - current.km)
+        val first = sorted[0]
+        return first.kmAbs + (if (first.dir == 0) 1 else first.dir) * (relKm - first.km)
     }
 
-    /** Место на оси по километровой координате (первое совпадение по ходу участка); null - не найдено. Как `to_rel_km`. */
+    /** Место на оси по километровой координате (первое совпадение по ходу участка); null - не найдено. */
     fun toRel(marks: List<KmMark>, absKm: Double): Double? {
         if (marks.isEmpty()) return null
         val sorted = marks.sortedBy { it.km }
         for (allowBeforeStart in listOf(false, true)) {
             for ((i, m) in sorted.withIndex()) {
-                val dir = if (m.dir == 0) 1 else m.dir
-                val rel = m.km + (absKm - m.kmAbs) / dir
+                val rate = if (i == 0 && allowBeforeStart) (if (m.dir == 0) 1 else m.dir).toDouble()
+                    else slope(m, sorted.getOrNull(i + 1))
+                val rel = m.km + (absKm - m.kmAbs) / rate
                 val lo = if (i > 0) m.km else if (allowBeforeStart) Double.NEGATIVE_INFINITY else minOf(0.0, m.km)
                 val hi = if (i + 1 < sorted.size) sorted[i + 1].km else Double.POSITIVE_INFINITY
                 if (rel >= lo - 1e-9 && rel < hi - 1e-9) return rel
@@ -100,8 +117,7 @@ object KmMarks {
         val sorted = marks.sortedBy { it.km }
         val out = ArrayList<Double>()
         for ((i, m) in sorted.withIndex()) {
-            val dir = if (m.dir == 0) 1 else m.dir
-            val rel = m.km + (absKm - m.kmAbs) / dir
+            val rel = m.km + (absKm - m.kmAbs) / slope(m, sorted.getOrNull(i + 1))
             val lo = if (i > 0) m.km else Double.NEGATIVE_INFINITY
             val hi = if (i + 1 < sorted.size) sorted[i + 1].km else Double.POSITIVE_INFINITY
             if (rel >= lo - 1e-9 && rel < hi - 1e-9) out += rel

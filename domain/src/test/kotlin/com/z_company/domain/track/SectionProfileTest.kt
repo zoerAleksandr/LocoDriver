@@ -44,6 +44,31 @@ class SectionProfileTest {
     }
 
     @Test
+    fun small_anchor_refinements_do_not_leave_unknown_kilometres() {
+        // Реальные отметки Вязьма—Смоленск: шаг оси 4,371 км, шаг километража 4,514 км.
+        // Старая обратная формула теряла последние 143 м перед каждой следующей отметкой.
+        val marks = listOf(
+            KmMark(90.686, 335.357, 1), KmMark(95.057, 339.871, 1),
+            KmMark(99.429, 344.386, 1), KmMark(103.8, 348.9, 1),
+        )
+        for (abs in listOf(339.8, 341.4, 348.0, 348.8)) {
+            val rel = KmMarks.toRel(marks, abs)
+            assertNotNull(rel, "не найден $abs км")
+            near(abs, KmMarks.toAbs(marks, rel), 1e-6)
+            assertTrue(rel in 90.686..103.8)
+        }
+        assertTrue(KmMarks.candidates(marks, 348.8).isNotEmpty())
+    }
+
+    @Test
+    fun real_renumbering_is_not_interpolated() {
+        val marks = listOf(KmMark(0.0, 100.0, 1), KmMark(5.0, 12.0, 1))
+        near(103.0, KmMarks.toAbs(marks, 3.0))
+        near(3.0, KmMarks.toRel(marks, 103.0))
+        near(12.0, KmMarks.toAbs(marks, 5.0))
+    }
+
+    @Test
     fun elevation_integrates_grades() {
         val line = ElevationLine.fromElements(
             listOf(ProfileElement(0.0, 2.0, 10.0), ProfileElement(2.0, 3.0, -5.0), ProfileElement(4.0, 5.0, 0.0)),
