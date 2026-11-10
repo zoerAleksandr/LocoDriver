@@ -103,7 +103,7 @@ internal fun PhaseStationSheet(
     var coords by remember { mutableStateOf<CoordState>(CoordState.Idle) }
     var picked by remember { mutableStateOf<PickedPoint?>(null) }
     var mapOpen by remember { mutableStateOf(false) }
-    /** Неточные варианты (сокращение) — шторка выбора. */
+    /** Несколько точных или любые неточные варианты — явный выбор станции. */
     var choosing by remember { mutableStateOf<List<OsmStationCandidate>?>(null) }
     /** Кандидаты последнего поиска — для «Не та станция» в карточке «Нашлось». */
     var lookupCandidates by remember { mutableStateOf<List<OsmStationCandidate>>(emptyList()) }
@@ -287,8 +287,8 @@ internal fun PhaseStationSheet(
                                     lookupCandidates = found.orEmpty()
                                     coords = when {
                                         found.isNullOrEmpty() -> CoordState.NotFound
-                                        // Сокращение — только выбор пользователя, без автоподстановки.
-                                        found.any { it.approximate } -> {
+                                        // Не выбирать автоматически при нескольких совпадениях или неточном совпадении.
+                                        found.size > 1 || found.any { it.approximate } -> {
                                             choosing = found
                                             CoordState.Idle
                                         }
