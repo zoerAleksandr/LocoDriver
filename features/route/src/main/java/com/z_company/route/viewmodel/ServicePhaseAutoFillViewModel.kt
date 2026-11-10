@@ -12,6 +12,7 @@ import com.z_company.repository.remote_rest.response.RouteLengthRequest
 import com.z_company.repository.remote_rest.response.RouteLengthResponse
 import com.z_company.repository.remote_rest.response.ServicePhaseLookupRequest
 import com.z_company.repository.remote_rest.response.ServicePhaseSuggestRequest
+import com.z_company.domain.track.StationNameMatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
@@ -248,8 +249,10 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
                     } else AutoFillState.Failed(AutoFillFailure.SERVICE)
                 }
                 "ambiguous" -> AutoFillState.Choose(
-                    end, result.name ?: "", result.candidates,
-                    approximate = result.approximate || result.candidates.any { it.approximate },
+                    end, result.name ?: "", markSimilarCandidates(result.name.orEmpty(), result.candidates),
+                    approximate = result.approximate || result.candidates.isNotEmpty() && result.candidates.all {
+                        it.approximate || isLocalSimilarName(result.name.orEmpty(), it.name)
+                    },
                 )
                 "not_found" -> AutoFillState.Failed(AutoFillFailure.STATION_NOT_FOUND, end, result.name)
                 "no_path" -> AutoFillState.Failed(AutoFillFailure.NO_PATH)
@@ -483,7 +486,7 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
                         near = near.map { (lat, lon) -> LatLon(lat, lon) },
                         limit = limit,
                     ),
-                ).candidates
+                ).candidates.let { markSimilarCandidates(name, it) }
             }
         } catch (e: RateLimitPauseException) {
             lastLookupFailure = AutoFillFailure.RATE_LIMITED
@@ -506,6 +509,18 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
             line = line,
             via = r.viaStations.map { RouteVia(it.name, it.km, it.osmId, it.esr, it.latitude, it.longitude) },
         )
+    }
+
+    /** Локально помечаем уже полученные варианты сокращения; отдельный поиск и второй список не создаём. */
+    private fun markSimilarCandidates(query: String, candidates: List<OsmStationCandidate>) =
+        candidates.map { candidate ->
+            if (candidate.approximate || isLocalSimilarName(query, candidate.name)) candidate.copy(approximate = true)
+            else candidate
+        }
+
+    private fun isLocalSimilarName(query: String, candidate: String): Boolean {
+        fun key(value: String) = value.lowercase().replace('ё', 'е').filter { it.isLetterOrDigit() }
+        return key(query) != key(candidate) && StationNameMatcher.sameStation(query, candidate)
     }
 
     private companion object {

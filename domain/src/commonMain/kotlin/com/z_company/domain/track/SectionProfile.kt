@@ -221,13 +221,7 @@ object SectionPicker {
      * «Гатчина-Товарная-Балтийская». Сопоставление локальное, без сетевого запроса.
      */
     fun sameStation(a: String, b: String): Boolean {
-        val left = norm(a)
-        val right = norm(b)
-        if (left.isEmpty() || right.isEmpty()) return false
-        if (left == right) return true
-        val leftWords = words(a)
-        val rightWords = words(b)
-        return matchesAbbreviation(leftWords, rightWords) || matchesAbbreviation(rightWords, leftWords)
+        return StationNameMatcher.sameStation(a, b)
     }
 
     /** Упоминается ли [name] в тексте [text] (без регистра, ё=е, пробелов и знаков): «Белогорск — Завитая — Архара» упоминает «Завитая». */
@@ -235,10 +229,32 @@ object SectionPicker {
 
     private fun norm(s: String) = s.lowercase().replace('ё', 'е').filter { it.isLetterOrDigit() }
 
-    private fun words(s: String): List<String> =
-        s.lowercase().replace('ё', 'е')
-            .split(Regex("[^\\p{L}\\p{N}]+"))
-            .filter { it.isNotEmpty() }
+}
+
+/** Локальное сопоставление названий станции и вариантов с сокращением/номером. */
+object StationNameMatcher {
+    fun sameStation(a: String, b: String): Boolean {
+        val left = words(a)
+        val right = words(b)
+        if (left.isEmpty() || right.isEmpty()) return false
+        if (norm(a) == norm(b)) return true
+        if (matchesAbbreviation(left, right) || matchesAbbreviation(right, left)) return true
+
+        // В поиске по короткому названию учитываем номерные варианты: «Узловая» → «Узловая I/II», «Узловая 1/2».
+        return hasStationPrefix(left, right) || hasStationPrefix(right, left)
+    }
+
+    private fun norm(s: String) = s.lowercase().replace('ё', 'е').filter { it.isLetterOrDigit() }
+
+    private fun words(s: String): List<String> = s.lowercase().replace('ё', 'е')
+        .split(Regex("[^\\p{L}\\p{N}]+"))
+        .filter { it.isNotEmpty() }
+
+    private fun hasStationPrefix(short: List<String>, full: List<String>): Boolean {
+        if (short.isEmpty() || full.size <= short.size || full.take(short.size) != short) return false
+        val suffix = full.drop(short.size)
+        return suffix.all { it in setOf("i", "ii", "iii", "iv", "v", "vi", "1", "2", "3", "4", "5", "6") }
+    }
 
     /** Короткое имя — последовательность полных слов или их инициалов. */
     private fun matchesAbbreviation(short: List<String>, full: List<String>): Boolean {

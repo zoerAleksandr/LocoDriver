@@ -430,7 +430,15 @@ private fun CoordinatesCard(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.End,
                     ) {
-                        PstButton(text = "Не та станция", onClick = onReject, kind = PstButtonKind.TEXT, height = 36.dp, fontSize = 14)
+                        PstButton(text = "Выбрать другую", onClick = onReject, kind = PstButtonKind.TEXT, height = 36.dp, fontSize = 14)
+                    }
+                    if (onFind != null) {
+                        PstButton(
+                            text = "Определить заново",
+                            onClick = onFind,
+                            kind = PstButtonKind.OUTLINED,
+                            modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
+                        )
                     }
                 }
                 CoordState.NotFound -> {
@@ -449,7 +457,7 @@ private fun CoordinatesCard(
                     }
                     if (onFind != null) {
                         PstButton(
-                            text = "Искать ещё раз",
+                            text = if (has) "Определить заново" else "Искать ещё раз",
                             onClick = onFind,
                             kind = PstButtonKind.OUTLINED,
                             modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
@@ -467,13 +475,13 @@ private fun CoordinatesCard(
                             else -> "Станция определится по GPS"
                         },
                     )
-                    if (!has && onFind != null) {
+                    if (onFind != null) {
                         PstButton(
-                            text = "Найти координаты",
+                            text = if (has) "Определить заново" else "Найти координаты",
                             onClick = onFind,
-                            kind = PstButtonKind.TONAL,
-                            icon = PstIcons.Search,
-                            iconSize = 17.dp,
+                            kind = if (has) PstButtonKind.OUTLINED else PstButtonKind.TONAL,
+                            icon = if (has) null else PstIcons.Search,
+                            iconSize = if (has) 0.dp else 17.dp,
                             modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
                         )
                     }

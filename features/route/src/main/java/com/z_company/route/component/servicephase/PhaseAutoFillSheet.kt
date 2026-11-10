@@ -907,6 +907,12 @@ internal fun CandidateList(
                             style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
                             color = Pst.text,
                         )
+                        Text(
+                            text = if (c.kind == "halt") "Остановочный пункт" else "Станция",
+                            style = Pst.sans.copy(fontSize = 12.sp),
+                            color = Pst.textMuted,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
                         c.esr?.let {
                             Text(
                                 text = "ЕСР $it",
@@ -915,14 +921,26 @@ internal fun CandidateList(
                                 modifier = Modifier.padding(top = 4.dp),
                             )
                         }
-                        listOfNotNull(c.railwayLabel() ?: c.operator, c.region).takeIf { it.isNotEmpty() }?.let {
-                            Text(text = it.joinToString(", "), style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted)
+                        c.railwayLabel()?.let {
+                            Text(text = it, style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted)
+                        }
+                        c.operator?.takeIf { c.railwayLabel() == null }?.let {
+                            Text(text = "Оператор: $it", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted)
+                        }
+                        c.region?.let {
+                            Text(text = "Регион: $it", style = Pst.sans.copy(fontSize = 12.sp), color = Pst.textMuted)
                         }
                         if (c.neighbours.isNotEmpty()) {
                             Text(
-                                text = "Соседние: " + c.neighbours.joinToString(" · "),
+                                text = "Рядом: " + c.neighbours.joinToString(" · "),
                                 style = Pst.sans.copy(fontSize = 12.sp),
                                 color = Pst.text,
+                            )
+                        } else if (c.region == null) {
+                            Text(
+                                text = "Координаты: ${"%.3f".format(java.util.Locale.US, c.latitude)}, ${"%.3f".format(java.util.Locale.US, c.longitude)}",
+                                style = Pst.mono.copy(fontSize = 11.sp),
+                                color = Pst.textMuted,
                             )
                         }
                     }
@@ -949,7 +967,8 @@ internal fun StationChoiceSheet(
     /** Свой заголовок (например, «Выберите станцию» для «Не та станция»); null — по умолчанию. */
     title: String? = null,
 ) {
-    val approximate = candidates.any { it.approximate }
+    val approximate = candidates.isNotEmpty() && candidates.all { it.approximate }
+    val hasApproximate = candidates.any { it.approximate }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var selected by remember(candidates) { mutableStateOf(current) }
     ModalBottomSheet(
@@ -971,6 +990,8 @@ internal fun StationChoiceSheet(
                             "Выберите нужную станцию или укажите точку на карте вручную."
                         } else if (approximate) {
                             "Станции с таким названием нет — возможно, это сокращение. Выберите свою станцию или укажите точку на карте."
+                        } else if (hasApproximate) {
+                            "Есть точные совпадения и похожие варианты. Сверьте тип станции и ориентиры."
                         } else {
                             "На карте несколько станций с таким названием."
                         },
