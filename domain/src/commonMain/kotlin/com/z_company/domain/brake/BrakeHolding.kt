@@ -53,8 +53,8 @@ data class HoldingResult(
     /** Вагонов, у которых надо затормозить ручной тормоз: ручной тормоз вагона действует на 4 оси; null - ручные не нужны/невозможны. */
     val manualWagons: Int?,
     /**
-     * Ручных тормозов, если у вагонов раздельное торможение (два тормозных цилиндра): у такого вагона ДВА ручных тормоза, каждый на 2 оси, - на каждом
-     * из [manualWagons] вагонов затормаживаются оба (всего столько ручных тормозов); null - ручные не нужны/невозможны.
+     * Ручных тормозов, если у вагонов раздельное торможение (два тормозных цилиндра): у каждого из [manualWagons] вагонов затормаживаются оба ручных тормоза.
+     * Поэтому значение равно 2 × [manualWagons]; null - ручные не нужны/невозможны.
      */
     val manualBrakesSplit: Int?,
     /** Закрепление невозможно имеющимися средствами (нет нормы для ручных или осей поезда не хватает). */
@@ -126,7 +126,9 @@ object BrakeHolding {
             } else {
                 axles = ceil(remaining / 100.0 * kAxle - EPS).toInt()
                 wagons = ceil(axles.toDouble() / AXLES_PER_MANUAL_WAGON - EPS).toInt()
-                brakesSplit = ceil(axles.toDouble() / AXLES_PER_MANUAL_BRAKE_SPLIT - EPS).toInt()
+                // При раздельном торможении на каждом выбранном вагоне затормаживаются оба ручных тормоза.
+                // Нельзя брать ceil(axles / 2): это может дать, например, 7 тормозов на 4 вагона.
+                brakesSplit = wagons * (AXLES_PER_MANUAL_WAGON / AXLES_PER_MANUAL_BRAKE_SPLIT)
                 input.trainAxles?.let {
                     if (axles > it) {
                         impossible = true

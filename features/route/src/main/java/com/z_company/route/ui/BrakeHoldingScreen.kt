@@ -35,6 +35,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -98,6 +99,7 @@ private fun HoldingCalcTab(state: BrakeHoldingUiState, vm: BrakeHoldingViewModel
                 VuInput("Вес локомотива, т", state.locoWeightText, Modifier.weight(1f), onChange = vm::setLocoWeight, unit = "т", sunk = true)
             }
             VuInput("Всего осей состава", state.axlesText, onChange = vm::setAxles, sunk = true, keyboard = KeyboardType.Number, maxLen = 4)
+            VuHint("Масса локомотива учитывается в общей массе расчёта. Оси локомотива отдельно не вводятся: ручной тормоз локомотива затормаживается отдельным действием, а норма ручных осей ниже относится к вагонам.")
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Состав", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = t.muted)
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -154,15 +156,21 @@ private fun HoldingResultCard(result: HoldingResult?, state: BrakeHoldingUiState
         }
         Text(
             "Требуется башмаков: ${result.shoesRequired}",
-            fontFamily = VuMono, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = t.text,
+            fontFamily = VuMono, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = t.text,
         )
         val fastening = if (result.shoesUsed >= result.shoesRequired) {
             "Как закрепить: ${result.shoesRequired} башмаков."
         } else {
-            "Как закрепить: ${result.shoesUsed} башмаков, ${result.manualBrakesSplit ?: 0} ручных тормоза " +
-                "(${result.manualWagons ?: 0} вагон${if ((result.manualWagons ?: 0) == 1) "" else "ов"})."
+            val shoesPart = if (result.shoesUsed == 0) "без башмаков" else "${result.shoesUsed} башмаков"
+            val manualPart = result.manualAxles?.let { axes ->
+                "$axes ручных осей (${result.manualWagons ?: 0} ${wagonWord(result.manualWagons ?: 0)})"
+            } ?: "ручными тормозами не закрепляется"
+            "Как закрепить: $shoesPart и $manualPart."
         }
         Text(fastening, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = t.accent, lineHeight = 24.sp)
+        if (result.shoesUsed == 0 && result.shoesRequired > 0) {
+            VuHint("Башмаки не учтены: поле «Башмаков на локомотиве» пустое или указано 0. Потребность по норме — ${result.shoesRequired}.")
+        }
         VuHint(
             "Масса с локомотивом ${fmtHold(result.totalMass, 0)} т; уклон ${fmtSlope(result.slopeStepPermille)}" +
                 (if (result.slopeRoundedUp) " (округлён вверх от введённого)" else "") +
@@ -215,7 +223,17 @@ private fun HoldingFillFromRoute(state: BrakeHoldingUiState, vm: BrakeHoldingVie
     state.fillDialog?.let { msg ->
         com.z_company.route.component.AppAlertDialog(onDismissRequest = vm::dismissFillDialog, title = "Заполнить из маршрута", text = msg, confirmText = "Понятно", onConfirm = vm::dismissFillDialog)
     }
-    VuBtn(if (state.filling) "Заполняю…" else "Заполнить из маршрута", vm::onFillClicked, Modifier.fillMaxWidth(), kind = VuBtnKind.Tonal, enabled = !state.filling)
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .background(if (state.filling) t.accentSoft.copy(alpha = 0.4f) else t.accentSoft, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(enabled = !state.filling, onClick = vm::onFillClicked),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(if (state.filling) "Заполняю…" else "Заполнить из маршрута", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (state.filling) t.accent.copy(alpha = 0.5f) else t.accent)
+    }
 }
 
 /** Пункт шага: [who] - исполнитель по технологической карте ЦТ-162/р, если он отличается от исполнителя шага. */
@@ -294,7 +312,7 @@ private val HOLDING_STEPS = listOf(
         ),
     ),
     HStep(
-        "Закрепление поезда", MASH, phase = "Закрепление и устранение неисправности",
+        "Закрепление поезда", POM, phase = "Закрепление и устранение неисправности",
         bullets = listOf(
             HBullet("Башмаки укладывать под колёса вагонов со стороны уклона; носок полоза башмака должен касаться обода колеса."),
             HBullet("Разнородный состав (груженые и порожние вагоны): по натурному листу определить груженые вагоны и их номера."),
@@ -507,3 +525,9 @@ private fun fmtHold(v: Double, digits: Int): String {
 }
 
 private fun fmtSlope(permille: Int): String = "0,${permille.toString().padStart(3, '0')}"
+
+private fun wagonWord(count: Int): String = when {
+    count % 10 == 1 && count % 100 != 11 -> "вагон"
+    count % 10 in 2..4 && count % 100 !in 12..14 -> "вагона"
+    else -> "вагонов"
+}
