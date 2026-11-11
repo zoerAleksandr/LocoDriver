@@ -800,7 +800,6 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
                     }
                     spanKm = newSpan.toFloat()
                 }
-                BranchChipsRow(model)
                 ProfileChart(
                     model, window, detailed = true,
                     modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
