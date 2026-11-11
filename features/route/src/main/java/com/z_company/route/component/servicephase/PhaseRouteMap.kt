@@ -126,6 +126,7 @@ internal fun PhaseRouteMap(
     ) {
         val context = LocalContext.current
         val darkMap = rememberMapThemeIsDark()
+        val morePathsAtLowZoom = rememberMorePathsAtLowZoom()
         remember { MapLibre.getInstance(context); true }
         val density = context.resources.displayMetrics.density
         var map by remember { mutableStateOf<MapLibreMap?>(null) }
@@ -254,7 +255,7 @@ internal fun PhaseRouteMap(
                         onTap(latLng)
                         true
                     }
-                    loadMapStyle(mv, m, darkMap) { style ->
+                    loadMapStyle(mv, m, darkMap, morePathsAtLowZoom) { style ->
                         addRailwayLayers(style, darkMap)
                         // Моё местоположение — синяя точка (заполняется по кнопке).
                         style.addSource(GeoJsonSource(ME_SOURCE, FeatureCollection.fromFeatures(emptyList())))

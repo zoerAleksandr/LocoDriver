@@ -130,6 +130,7 @@ internal fun PhaseRouteVariantsMap(
     ) {
         val context = LocalContext.current
         val darkMap = rememberMapThemeIsDark()
+        val morePathsAtLowZoom = rememberMorePathsAtLowZoom()
         remember { MapLibre.getInstance(context); true }
         val density = context.resources.displayMetrics.density
         var map by remember { mutableStateOf<MapLibreMap?>(null) }
@@ -188,7 +189,7 @@ internal fun PhaseRouteVariantsMap(
                     m.uiSettings.isLogoEnabled = false
                     m.uiSettings.isAttributionEnabled = true
                     m.cameraPosition = CameraPosition.Builder().target(LatLng(55.75, 37.62)).zoom(5.0).build()
-                    loadMapStyle(mv, m, darkMap) { style ->
+                    loadMapStyle(mv, m, darkMap, morePathsAtLowZoom) { style ->
                         addRailwayLayers(style, darkMap)
                         style.addSource(GeoJsonSource(ME_SOURCE, FeatureCollection.fromFeatures(emptyList())))
                         style.addLayer(

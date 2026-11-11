@@ -147,6 +147,7 @@ internal fun PhaseMapPicker(
     ) {
         val context = LocalContext.current
         val darkMap = rememberMapThemeIsDark()
+        val morePathsAtLowZoom = rememberMorePathsAtLowZoom()
         remember { MapLibre.getInstance(context); true }
         var map by remember { mutableStateOf<MapLibreMap?>(null) }
         var snapped by remember { mutableStateOf<String?>(null) }
@@ -170,7 +171,7 @@ internal fun PhaseMapPicker(
                         .target(initialTarget(start, neighbours))
                         .zoom(if (start != null) 15.0 else if (neighbours.isNotEmpty()) 12.0 else 5.0)
                         .build()
-                    loadMapStyle(mv, m, darkMap) { style ->
+                    loadMapStyle(mv, m, darkMap, morePathsAtLowZoom) { style ->
                         addRailwayLayers(style, darkMap)
                         val features = neighbours.map { (lat, lon) -> Feature.fromGeometry(Point.fromLngLat(lon, lat)) }
                         style.addSource(GeoJsonSource(NEIGHBOURS_SOURCE, FeatureCollection.fromFeatures(features)))

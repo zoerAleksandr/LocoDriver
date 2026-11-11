@@ -74,6 +74,7 @@ internal object TrainMapPrefs {
     private const val KEY_TRAIN_LINE = "train_as_line"
     private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
     private const val KEY_MAP_THEME = "map_theme"
+    private const val KEY_MORE_PATHS = "more_paths_at_low_zoom"
 
     private val _sensitivity = MutableStateFlow(LocationSensitivity.DEFAULT)
     private val _profileVisible = MutableStateFlow(true)
@@ -81,6 +82,7 @@ internal object TrainMapPrefs {
     private val _trainAsLine = MutableStateFlow(false)  // по умолчанию точка (решение владельца 07.11)
     private val _keepScreenOn = MutableStateFlow(true)
     private val _mapTheme = MutableStateFlow(MapTheme.APP)
+    private val _morePaths = MutableStateFlow(false)
     private var loaded = false
 
     fun sensitivity(context: Context): StateFlow<Int> {
@@ -154,6 +156,17 @@ internal object TrainMapPrefs {
         _mapTheme.value = value
     }
 
+    fun morePaths(context: Context): StateFlow<Boolean> {
+        ensureLoaded(context)
+        return _morePaths.asStateFlow()
+    }
+
+    fun setMorePaths(context: Context, value: Boolean) {
+        ensureLoaded(context)
+        runCatching { prefs(context).edit().putBoolean(KEY_MORE_PATHS, value).apply() }
+        _morePaths.value = value
+    }
+
     private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     @Synchronized
@@ -168,6 +181,7 @@ internal object TrainMapPrefs {
             _trainAsLine.value = p.getBoolean(KEY_TRAIN_LINE, false)
             _keepScreenOn.value = p.getBoolean(KEY_KEEP_SCREEN_ON, true)
             _mapTheme.value = p.getString(KEY_MAP_THEME, null)?.let { runCatching { MapTheme.valueOf(it) }.getOrNull() } ?: MapTheme.APP
+            _morePaths.value = p.getBoolean(KEY_MORE_PATHS, false)
         }
     }
 }
@@ -189,6 +203,12 @@ internal fun rememberMapThemeIsDark(): Boolean {
     }
 }
 
+@Composable
+internal fun rememberMorePathsAtLowZoom(): Boolean {
+    val context = LocalContext.current
+    return TrainMapPrefs.morePaths(context).collectAsState().value
+}
+
 /**
  * Экран «Настройки карты» (SCREEN_SPECS §6.9): значок положения, показ зон плохой связи, чувствительность локации.
  * В режиме просмотра записанного трека ([viewOnly]) доступны тема карты и зоны плохой связи.
@@ -208,6 +228,8 @@ internal fun MapSettingsScreen(
     onKeepScreenOn: (Boolean) -> Unit,
     mapTheme: MapTheme,
     onMapTheme: (MapTheme) -> Unit,
+    morePathsAtLowZoom: Boolean,
+    onMorePathsAtLowZoomChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     Dialog(
@@ -233,6 +255,15 @@ internal fun MapSettingsScreen(
                                     modifier = Modifier.weight(1f).background(if (selected) Pst.accent else Pst.bgSubtle, RoundedCornerShape(12.dp)).clickable { onMapTheme(theme) }.padding(vertical = 10.dp))
                             }
                         }
+                    }
+                }
+                SettingsCard {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text("Больше путей при отдалении", style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+                            Text("Показывать мелкие дороги и тропы на более дальнем масштабе. На карте может стать больше линий.", style = Pst.sans.copy(fontSize = 12.sp, lineHeight = 16.sp), color = Pst.textMuted)
+                        }
+                        Switch(checked = morePathsAtLowZoom, onCheckedChange = onMorePathsAtLowZoomChange, colors = SwitchDefaults.colors(checkedTrackColor = Pst.accent))
                     }
                 }
                 SettingsCard {

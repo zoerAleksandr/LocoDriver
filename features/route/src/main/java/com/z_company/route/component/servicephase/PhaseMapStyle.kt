@@ -5,6 +5,9 @@ import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
+import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.layers.LineLayer
+import org.maplibre.android.style.layers.PropertyFactory
 
 /** Запасная векторная подложка (в России без VPN бывает недоступна — тогда работает только свой прокси). */
 internal const val STYLE_URL_FALLBACK = "https://tiles.openfreemap.org/styles/liberty"
@@ -21,7 +24,13 @@ private const val DARK_STYLE_URL = "https://tiles.openfreemap.org/styles/dark"
  * 3) растр OSM. К следующему варианту переходим по ошибке загрузки карты или по таймауту.
  * [onLoaded] вызывается один раз — для первого загрузившегося стиля (слои добавляются в него).
  */
-internal fun loadMapStyle(mapView: MapView, map: MapLibreMap, dark: Boolean = false, onLoaded: (Style) -> Unit) {
+internal fun loadMapStyle(
+    mapView: MapView,
+    map: MapLibreMap,
+    dark: Boolean = false,
+    morePathsAtLowZoom: Boolean = false,
+    onLoaded: (Style) -> Unit,
+) {
     val builders = if (dark) listOf(
         { Style.Builder().fromUri(DARK_STYLE_URL) },
         { Style.Builder().fromUri(STYLE_URL_FALLBACK) },
@@ -42,6 +51,7 @@ internal fun loadMapStyle(mapView: MapView, map: MapLibreMap, dark: Boolean = fa
         map.setStyle(builders[index]()) { style ->
             if (!settled && mine == token) {
                 settled = true
+                if (morePathsAtLowZoom) makeMinorPathsVisibleEarlier(style)
                 onLoaded(style)
             }
         }
@@ -51,6 +61,27 @@ internal fun loadMapStyle(mapView: MapView, map: MapLibreMap, dark: Boolean = fa
 
     mapView.addOnDidFailLoadingMapListener { if (!settled) next(index) }
     next(-1)
+}
+
+/** Low-zoom visibility override for minor OSM/OpenMapTiles paths; the source may still omit generalized features. */
+private fun makeMinorPathsVisibleEarlier(style: Style) {
+    fun widenAtLowerZoom(layerId: String, minZoom: Float, startWidth: Float, midWidth: Float, fullWidth: Float) {
+        val layer = style.getLayerAs<LineLayer>(layerId) ?: return
+        layer.setMinZoom(minZoom)
+        layer.setProperties(
+            PropertyFactory.lineWidth(
+                Expression.interpolate(
+                    Expression.linear(), Expression.zoom(),
+                    Expression.stop(minZoom, startWidth),
+                    Expression.stop(minZoom + 1.5f, midWidth),
+                    Expression.stop(minZoom + 4.5f, fullWidth),
+                )
+            )
+        )
+    }
+    widenAtLowerZoom("road_minor", 10.5f, 0.3f, 0.65f, 1.6f)
+    widenAtLowerZoom("road_service_track", 11.5f, 0.25f, 0.55f, 1.25f)
+    widenAtLowerZoom("road_path_pedestrian", 12.5f, 0.35f, 0.7f, 1.5f)
 }
 
 /**

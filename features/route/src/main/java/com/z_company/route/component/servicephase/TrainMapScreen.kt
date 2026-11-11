@@ -362,8 +362,10 @@ internal fun TrainMapScreen(
         val keepScreenOn by TrainMapPrefs.keepScreenOn(context).collectAsState()
         val mapTheme by TrainMapPrefs.mapTheme(context).collectAsState()
         val darkMap = rememberMapThemeIsDark()
+        val morePathsAtLowZoom = rememberMorePathsAtLowZoom()
         val latestDarkMap = rememberUpdatedState(darkMap)
         var appliedDarkMap by remember { mutableStateOf<Boolean?>(null) }
+        var appliedMorePaths by remember { mutableStateOf<Boolean?>(null) }
         var installMapStyle by remember { mutableStateOf<((org.maplibre.android.maps.Style) -> Unit)?>(null) }
         // Порог «едем» (км/ч) зависит от чувствительности локации: выше чувствительность - раньше считаем ход.
         val moveThresholdKmh = LocationSensitivity.stillSpeedKmh(sensitivity)
@@ -786,7 +788,8 @@ internal fun TrainMapScreen(
                         m.style?.let { st -> if (st.isFullyLoaded) runCatching { install(st) } }
                     }
                     appliedDarkMap = darkMap
-                    loadMapStyle(mv, m, darkMap) { style -> install(style) }
+                    appliedMorePaths = morePathsAtLowZoom
+                    loadMapStyle(mv, m, darkMap, morePathsAtLowZoom) { style -> install(style) }
                 }
                 // Касания карты: палец на карте и момент последнего касания (возврат в слежение через 10 с без касаний).
                 mv.setOnTouchListener { _, ev ->
@@ -1651,13 +1654,14 @@ internal fun TrainMapScreen(
                 factory = { mapView.also { it.keepScreenOn = keepScreenOn } },
                 update = { mv ->
                     mv.keepScreenOn = keepScreenOn
-                    if (appliedDarkMap != null && appliedDarkMap != darkMap) {
+                    if (appliedDarkMap != null && (appliedDarkMap != darkMap || appliedMorePaths != morePathsAtLowZoom)) {
                         val currentMap = map
                         val installer = installMapStyle
                         if (currentMap != null && installer != null) {
                             appliedDarkMap = darkMap
+                            appliedMorePaths = morePathsAtLowZoom
                             styleReady = false
-                            loadMapStyle(mv, currentMap, darkMap) { style -> installer(style) }
+                            loadMapStyle(mv, currentMap, darkMap, morePathsAtLowZoom) { style -> installer(style) }
                         }
                     }
                 },
@@ -2064,6 +2068,8 @@ internal fun TrainMapScreen(
                     onKeepScreenOn = { TrainMapPrefs.setKeepScreenOn(context, it) },
                     mapTheme = mapTheme,
                     onMapTheme = { TrainMapPrefs.setMapTheme(context, it) },
+                    morePathsAtLowZoom = morePathsAtLowZoom,
+                    onMorePathsAtLowZoomChange = { TrainMapPrefs.setMorePaths(context, it) },
                     onDismiss = { showSettings = false },
                 )
             }
