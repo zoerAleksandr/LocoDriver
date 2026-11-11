@@ -26,6 +26,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,6 +38,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.asImageBitmap
@@ -59,6 +61,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlin.math.roundToInt
+import androidx.compose.foundation.isSystemInDarkTheme
+import com.z_company.core.theme.ThemeManager
+import org.koin.core.context.GlobalContext
 
 /** Личные настройки карты поезда: хранятся на устройстве (SharedPreferences), на сервер не уходят. */
 internal object TrainMapPrefs {
@@ -68,12 +73,14 @@ internal object TrainMapPrefs {
     private const val KEY_SPEED = "speed_visible"
     private const val KEY_TRAIN_LINE = "train_as_line"
     private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
+    private const val KEY_MAP_THEME = "map_theme"
 
     private val _sensitivity = MutableStateFlow(LocationSensitivity.DEFAULT)
     private val _profileVisible = MutableStateFlow(true)
     private val _speedVisible = MutableStateFlow(true)
     private val _trainAsLine = MutableStateFlow(false)  // по умолчанию точка (решение владельца 07.11)
     private val _keepScreenOn = MutableStateFlow(true)
+    private val _mapTheme = MutableStateFlow(MapTheme.APP)
     private var loaded = false
 
     fun sensitivity(context: Context): StateFlow<Int> {
@@ -136,6 +143,17 @@ internal object TrainMapPrefs {
         _keepScreenOn.value = value
     }
 
+    fun mapTheme(context: Context): StateFlow<MapTheme> {
+        ensureLoaded(context)
+        return _mapTheme.asStateFlow()
+    }
+
+    fun setMapTheme(context: Context, value: MapTheme) {
+        ensureLoaded(context)
+        runCatching { prefs(context).edit().putString(KEY_MAP_THEME, value.name).apply() }
+        _mapTheme.value = value
+    }
+
     private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     @Synchronized
@@ -149,13 +167,31 @@ internal object TrainMapPrefs {
             _speedVisible.value = p.getBoolean(KEY_SPEED, true)
             _trainAsLine.value = p.getBoolean(KEY_TRAIN_LINE, false)
             _keepScreenOn.value = p.getBoolean(KEY_KEEP_SCREEN_ON, true)
+            _mapTheme.value = p.getString(KEY_MAP_THEME, null)?.let { runCatching { MapTheme.valueOf(it) }.getOrNull() } ?: MapTheme.APP
         }
+    }
+}
+
+internal enum class MapTheme { APP, LIGHT, DARK }
+
+/** Тема подложки, общая для основной карты, карты редактора плеча и остальных MapLibre-экранов. */
+@Composable
+internal fun rememberMapThemeIsDark(): Boolean {
+    val context = LocalContext.current
+    val selected by TrainMapPrefs.mapTheme(context).collectAsState()
+    val themeManager = remember { GlobalContext.get().get<ThemeManager>() }
+    val appTheme by themeManager.themeMode.collectAsState()
+    val appDark = themeManager.isDark(appTheme) ?: isSystemInDarkTheme()
+    return when (selected) {
+        MapTheme.APP -> appDark
+        MapTheme.LIGHT -> false
+        MapTheme.DARK -> true
     }
 }
 
 /**
  * Экран «Настройки карты» (SCREEN_SPECS §6.9): значок положения, показ зон плохой связи, чувствительность локации.
- * В режиме просмотра записанного трека ([viewOnly]) остаются только зоны плохой связи.
+ * В режиме просмотра записанного трека ([viewOnly]) доступны тема карты и зоны плохой связи.
  */
 @Composable
 internal fun MapSettingsScreen(
@@ -170,6 +206,8 @@ internal fun MapSettingsScreen(
     onSensitivity: (Int) -> Unit,
     keepScreenOn: Boolean,
     onKeepScreenOn: (Boolean) -> Unit,
+    mapTheme: MapTheme,
+    onMapTheme: (MapTheme) -> Unit,
     onDismiss: () -> Unit,
 ) {
     Dialog(
@@ -185,6 +223,18 @@ internal fun MapSettingsScreen(
                 modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
+                SettingsCard {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Тема карты", style = Pst.sans.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Pst.text)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(MapTheme.APP to "Как в приложении", MapTheme.LIGHT to "Светлая", MapTheme.DARK to "Тёмная").forEach { (theme, label) ->
+                                val selected = theme == mapTheme
+                                Text(label, style = Pst.sans.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold), color = if (selected) Pst.onAccent else Pst.text, textAlign = TextAlign.Center,
+                                    modifier = Modifier.weight(1f).background(if (selected) Pst.accent else Pst.bgSubtle, RoundedCornerShape(12.dp)).clickable { onMapTheme(theme) }.padding(vertical = 10.dp))
+                            }
+                        }
+                    }
+                }
                 SettingsCard {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {

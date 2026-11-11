@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -91,7 +92,7 @@ private class PendingPick(val isStart: Boolean, val latitude: Double, val longit
 
 /**
  * Просмотр плеча на карте (SCREEN_SPECS §6.6): станции с координатами по порядку —
- * крайние (крупные тёмные точки), станции, о.п. (мелкие) — с подписями и линией пути.
+ * крайние (крупные точки), станции и о.п. (мелкие) — с подписями и линией пути; цвета подстраиваются под тему карты.
  * Линия — по рельсам ([loadRailLine], сервер); пока строится — индикатор, ошибка — понятное сообщение
  * (напрямик между станциями линию не рисуем: поезд по земле не ездит).
  * Камера охватывает всё плечо. Только просмотр; «назад» — закрыть.
@@ -124,6 +125,7 @@ internal fun PhaseRouteMap(
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         val context = LocalContext.current
+        val darkMap = rememberMapThemeIsDark()
         remember { MapLibre.getInstance(context); true }
         val density = context.resources.displayMetrics.density
         var map by remember { mutableStateOf<MapLibreMap?>(null) }
@@ -167,7 +169,7 @@ internal fun PhaseRouteMap(
             )
             style.addLayerBelow(
                 LineLayer(RAIL_LAYER, RAIL_SOURCE).withProperties(
-                    PropertyFactory.lineColor("#00A0F5"),
+                    PropertyFactory.lineColor(if (darkMap) "#59B5D8" else "#00A0F5"),
                     PropertyFactory.lineWidth(4f),
                     PropertyFactory.lineOpacity(0.85f),
                     PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
@@ -233,7 +235,7 @@ internal fun PhaseRouteMap(
             }
         }
         val pickActive by rememberUpdatedState(PhaseMapPick.target(pickFor, departureName, arrivalName) != null)
-        val mapBackground = Pst.bg.toArgb()
+        val mapBackground = PstMapColors.forMap(darkMap).bg.toArgb()
         val mapView = remember {
             newMapView(context, mapBackground).also { mv ->
                 mv.getMapAsync { m ->
@@ -252,15 +254,15 @@ internal fun PhaseRouteMap(
                         onTap(latLng)
                         true
                     }
-                    loadMapStyle(mv, m) { style ->
-                        addRailwayLayers(style)
+                    loadMapStyle(mv, m, darkMap) { style ->
+                        addRailwayLayers(style, darkMap)
                         // Моё местоположение — синяя точка (заполняется по кнопке).
                         style.addSource(GeoJsonSource(ME_SOURCE, FeatureCollection.fromFeatures(emptyList())))
                         style.addLayer(
                             CircleLayer("phase-route-me-layer", ME_SOURCE).withProperties(
                                 PropertyFactory.circleRadius(7f),
-                                PropertyFactory.circleColor("#00A0F5"),
-                                PropertyFactory.circleStrokeColor("#FFFFFF"),
+                                PropertyFactory.circleColor(if (darkMap) "#58B8DF" else "#00A0F5"),
+                                PropertyFactory.circleStrokeColor(if (darkMap) "#D6E3E8" else "#FFFFFF"),
                                 PropertyFactory.circleStrokeWidth(3f),
                             )
                         )
@@ -269,8 +271,8 @@ internal fun PhaseRouteMap(
                         style.addLayer(
                             CircleLayer(PICK_LAYER, PICK_SOURCE).withProperties(
                                 PropertyFactory.circleRadius(9f),
-                                PropertyFactory.circleColor("#E8590C"),
-                                PropertyFactory.circleStrokeColor("#FFFFFF"),
+                                PropertyFactory.circleColor(if (darkMap) "#C98D5B" else "#E8590C"),
+                                PropertyFactory.circleStrokeColor(if (darkMap) "#303A40" else "#FFFFFF"),
                                 PropertyFactory.circleStrokeWidth(3f),
                             )
                         )
@@ -284,10 +286,10 @@ internal fun PhaseRouteMap(
                                         Expression.stop("terminal", 8f), Expression.stop("halt", 4f))
                                 ),
                                 PropertyFactory.circleColor(
-                                    Expression.match(kind, Expression.literal("#FFFFFF"),
-                                        Expression.stop("terminal", "#0A0E14"))
+                                    Expression.match(kind, Expression.literal(if (darkMap) "#B9C5CB" else "#FFFFFF"),
+                                        Expression.stop("terminal", if (darkMap) "#D5BC86" else "#0A0E14"))
                                 ),
-                                PropertyFactory.circleStrokeColor("#0A0E14"),
+                                PropertyFactory.circleStrokeColor(if (darkMap) "#344047" else "#0A0E14"),
                                 PropertyFactory.circleStrokeWidth(
                                     Expression.match(kind, Expression.literal(2f), Expression.stop("halt", 1.5f))
                                 ),
@@ -302,8 +304,8 @@ internal fun PhaseRouteMap(
                                 ),
                                 PropertyFactory.textOffset(arrayOf(0f, 1.2f)),
                                 PropertyFactory.textAnchor("top"),
-                                PropertyFactory.textColor("#0A0E14"),
-                                PropertyFactory.textHaloColor("#FFFFFF"),
+                                PropertyFactory.textColor(if (darkMap) "#E0E5E8" else "#263238"),
+                                PropertyFactory.textHaloColor(if (darkMap) "#252A2E" else "#FFFFFF"),
                                 PropertyFactory.textHaloWidth(1.5f),
                                 PropertyFactory.textOptional(true),
                             )
@@ -329,6 +331,7 @@ internal fun PhaseRouteMap(
             }
         }
 
+        CompositionLocalProvider(LocalPstMapColors provides PstMapColors.forMap(darkMap)) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Pst.bg)) {
             AndroidView(modifier = Modifier.fillMaxSize(), factory = { mapView })
             Row(
@@ -591,6 +594,7 @@ internal fun PhaseRouteMap(
                     },
                 )
             }
+        }
         }
     }
 }

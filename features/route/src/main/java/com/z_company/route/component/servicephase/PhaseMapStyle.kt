@@ -14,14 +14,19 @@ private const val RASTER_STYLE_JSON = """{"version":8,"sources":{"osm":{"type":"
 
 /** Сколько ждём загрузки стиля, прежде чем перейти к следующему варианту (сеть «висит», ошибки нет). */
 private const val STYLE_TIMEOUT_MS = 10_000L
+private const val DARK_STYLE_URL = "https://tiles.openfreemap.org/styles/dark"
 
 /**
  * Загружает подложку цепочкой: 1) свой прокси [STYLE_URL]; 2) OpenFreeMap [STYLE_URL_FALLBACK];
  * 3) растр OSM. К следующему варианту переходим по ошибке загрузки карты или по таймауту.
  * [onLoaded] вызывается один раз — для первого загрузившегося стиля (слои добавляются в него).
  */
-internal fun loadMapStyle(mapView: MapView, map: MapLibreMap, onLoaded: (Style) -> Unit) {
-    val builders = listOf(
+internal fun loadMapStyle(mapView: MapView, map: MapLibreMap, dark: Boolean = false, onLoaded: (Style) -> Unit) {
+    val builders = if (dark) listOf(
+        { Style.Builder().fromUri(DARK_STYLE_URL) },
+        { Style.Builder().fromUri(STYLE_URL_FALLBACK) },
+        { Style.Builder().fromJson(RASTER_STYLE_JSON) },
+    ) else listOf(
         { Style.Builder().fromUri(STYLE_URL) },
         { Style.Builder().fromUri(STYLE_URL_FALLBACK) },
         { Style.Builder().fromJson(RASTER_STYLE_JSON) },

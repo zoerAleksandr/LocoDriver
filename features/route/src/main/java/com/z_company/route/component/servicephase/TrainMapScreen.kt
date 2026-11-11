@@ -39,6 +39,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -48,6 +49,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -358,6 +360,11 @@ internal fun TrainMapScreen(
         val speedVisible by TrainMapPrefs.speedVisible(context).collectAsState()
         val trainAsLine by TrainMapPrefs.trainAsLine(context).collectAsState()
         val keepScreenOn by TrainMapPrefs.keepScreenOn(context).collectAsState()
+        val mapTheme by TrainMapPrefs.mapTheme(context).collectAsState()
+        val darkMap = rememberMapThemeIsDark()
+        val latestDarkMap = rememberUpdatedState(darkMap)
+        var appliedDarkMap by remember { mutableStateOf<Boolean?>(null) }
+        var installMapStyle by remember { mutableStateOf<((org.maplibre.android.maps.Style) -> Unit)?>(null) }
         // Порог «едем» (км/ч) зависит от чувствительности локации: выше чувствительность - раньше считаем ход.
         val moveThresholdKmh = LocationSensitivity.stillSpeedKmh(sensitivity)
         // Поворот карты (градусы, 0 = север сверху): для кнопки-компаса.
@@ -477,7 +484,7 @@ internal fun TrainMapScreen(
             m.animateCamera(CameraUpdateFactory.zoomTo(z))
         }
 
-        val mapBackground = Pst.bg.toArgb()
+        val mapBackground = PstMapColors.forMap(darkMap).bg.toArgb()
         val mapView = remember {
             newMapView(context, mapBackground).also { mv ->
                 mv.getMapAsync { m ->
@@ -493,7 +500,14 @@ internal fun TrainMapScreen(
                     // OpenFreeMap -> растр, перезагрузка стиля): иначе пройденный путь и точки пропадали.
                     fun install(style: org.maplibre.android.maps.Style) {
                         if (style.getSource(TRAIN_ME_SOURCE) != null) return
-                        addRailwayLayers(style)
+                        val darkStyle = latestDarkMap.value
+                        val stopText = if (darkStyle) "#E0E5E8" else "#263238"
+                        val stopHalo = if (darkStyle) "#252A2E" else "#FFFFFF"
+                        val stopBase = if (darkStyle) "#B9C5CB" else "#FFFFFF"
+                        val stopBorder = if (darkStyle) "#344047" else "#0A0E14"
+                        val routeAccent = if (darkStyle) "#59B5D8" else "#00A0F5"
+                        val routeCasing = if (darkStyle) "#4D585E" else "#FFFFFF"
+                        addRailwayLayers(style, darkStyle)
                         style.addSource(GeoJsonSource(TRAIN_ME_SOURCE, FeatureCollection.fromFeatures(emptyList())))
                         style.addImage(ME_ICON_IMAGE, renderPositionIcon(context, positionIcon, (positionIcon.mapHeightDp * density).toInt()))
                         style.addLayer(
@@ -510,7 +524,7 @@ internal fun TrainMapScreen(
                         style.addSource(GeoJsonSource(TRAIN_STOPS_SOURCE, FeatureCollection.fromFeatures(emptyList())))
                         style.addLayerBelow(
                             LineLayer("train-map-route-layer", TRAIN_ROUTE_SOURCE).withProperties(
-                                PropertyFactory.lineColor("#00A0F5"),
+                                PropertyFactory.lineColor(routeAccent),
                                 PropertyFactory.lineWidth(2.5f),
                                 PropertyFactory.lineDasharray(arrayOf(2f, 2f)),
                                 PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
@@ -549,11 +563,11 @@ internal fun TrainMapScreen(
                                         Expression.stop("ahead", 9f), Expression.stop("terminal", 7f), Expression.stop("halt", 3.5f))
                                 ),
                                 PropertyFactory.circleColor(
-                                    Expression.match(role, Expression.literal("#FFFFFF"),
-                                        Expression.stop("ahead", "#00A0F5"), Expression.stop("terminal", "#0A0E14"))
+                                    Expression.match(role, Expression.literal(stopBase),
+                                        Expression.stop("ahead", routeAccent), Expression.stop("terminal", if (darkStyle) "#D5BC86" else "#0A0E14"))
                                 ),
                                 PropertyFactory.circleStrokeColor(
-                                    Expression.match(role, Expression.literal("#0A0E14"), Expression.stop("ahead", "#FFFFFF"))
+                                    Expression.match(role, Expression.literal(stopBorder), Expression.stop("ahead", if (darkStyle) "#D9E5EA" else "#FFFFFF"))
                                 ),
                                 PropertyFactory.circleStrokeWidth(
                                     Expression.match(role, Expression.literal(2f), Expression.stop("halt", 1.5f), Expression.stop("ahead", 3f))
@@ -572,9 +586,9 @@ internal fun TrainMapScreen(
                                 PropertyFactory.symbolSortKey(Expression.get("sort")),
                                 PropertyFactory.textOffset(arrayOf(0f, 1.2f)),
                                 PropertyFactory.textAnchor("top"),
-                                PropertyFactory.textColor("#0A0E14"),
-                                PropertyFactory.textHaloColor("#FFFFFF"),
-                                PropertyFactory.textHaloWidth(1.5f),
+                                PropertyFactory.textColor(stopText),
+                                PropertyFactory.textHaloColor(stopHalo),
+                                PropertyFactory.textHaloWidth(if (darkStyle) 1.8f else 1.5f),
                                 // Какие подписи помещаются — решает LabelPlacer (свойство show), см. refreshStopSources.
                                 PropertyFactory.textAllowOverlap(true),
                                 PropertyFactory.textIgnorePlacement(true),
@@ -614,8 +628,8 @@ internal fun TrainMapScreen(
                         val speedColor = speedColorExpression(SpeedProfile.FREIGHT)
                         style.addLayerBelow(
                             LineLayer("train-map-track-casing", TRAIN_TRACK_SOURCE).withProperties(
-                                PropertyFactory.lineColor("#FFFFFF"),
-                                PropertyFactory.lineOpacity(0.9f),
+                                PropertyFactory.lineColor(routeCasing),
+                                PropertyFactory.lineOpacity(if (darkStyle) 0.72f else 0.9f),
                                 PropertyFactory.lineWidth(casingWidth),
                                 PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
                                 PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
@@ -656,18 +670,18 @@ internal fun TrainMapScreen(
                         )
                         style.addLayerBelow(
                             LineLayer("train-map-off-layer", TRAIN_OFF_SOURCE).withProperties(
-                                PropertyFactory.lineColor("#0A0E14"),
+                                PropertyFactory.lineColor(if (darkStyle) "#A3AFB5" else "#0A0E14"),
                                 PropertyFactory.lineWidth(1.6f),
                                 PropertyFactory.lineDasharray(arrayOf(1.5f, 2f)),
                             ),
                             "train-map-stops-layer",
                         )
-                        // Состав: линия длиной с поезд от положения назад вдоль оси участка профиля (белая окантовка + синяя линия).
+                        // Состав: линия длиной с поезд от положения назад вдоль оси участка профиля (приглушённая окантовка + линия цвета темы).
                         style.addSource(GeoJsonSource(TRAIN_BODY_SOURCE, FeatureCollection.fromFeatures(emptyList())))
                         style.addLayerBelow(
                             LineLayer("train-map-body-casing", TRAIN_BODY_SOURCE).withProperties(
-                                PropertyFactory.lineColor("#FFFFFF"),
-                                PropertyFactory.lineOpacity(0.95f),
+                                PropertyFactory.lineColor(routeCasing),
+                                PropertyFactory.lineOpacity(if (darkStyle) 0.78f else 0.95f),
                                 PropertyFactory.lineWidth(casingWidth),
                                 PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
                                 PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
@@ -676,7 +690,7 @@ internal fun TrainMapScreen(
                         )
                         style.addLayerBelow(
                             LineLayer("train-map-body-layer", TRAIN_BODY_SOURCE).withProperties(
-                                PropertyFactory.lineColor("#0A84FF"),
+                                PropertyFactory.lineColor(if (darkStyle) "#5AB7D9" else "#0A84FF"),
                                 PropertyFactory.lineWidth(lineWidth),
                                 PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
                                 PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
@@ -699,8 +713,8 @@ internal fun TrainMapScreen(
                         style.addLayerBelow(
                             CircleLayer("train-map-marks-layer", TRAIN_MARKS_SOURCE).withProperties(
                                 PropertyFactory.circleRadius(7f),
-                                PropertyFactory.circleColor("#E65100"),
-                                PropertyFactory.circleStrokeColor("#FFFFFF"),
+                                PropertyFactory.circleColor(if (darkStyle) "#C98D5B" else "#D96024"),
+                                PropertyFactory.circleStrokeColor(if (darkStyle) "#303A40" else "#FFFFFF"),
                                 PropertyFactory.circleStrokeWidth(2.5f),
                             ),
                             "train-map-me-arrow",
@@ -712,9 +726,9 @@ internal fun TrainMapScreen(
                                 PropertyFactory.textSize(11f),
                                 PropertyFactory.textOffset(arrayOf(0f, 1.3f)),
                                 PropertyFactory.textAnchor("top"),
-                                PropertyFactory.textColor("#0A0E14"),
-                                PropertyFactory.textHaloColor("#FFFFFF"),
-                                PropertyFactory.textHaloWidth(1.5f),
+                                PropertyFactory.textColor(stopText),
+                                PropertyFactory.textHaloColor(stopHalo),
+                                PropertyFactory.textHaloWidth(if (darkStyle) 1.8f else 1.5f),
                                 PropertyFactory.textAllowOverlap(true),
                                 PropertyFactory.textIgnorePlacement(true),
                             ).also { it.setFilter(Expression.eq(Expression.get("show"), 1)) },
@@ -723,8 +737,8 @@ internal fun TrainMapScreen(
                         style.addLayerBelow(
                             CircleLayer("train-map-sel-layer", TRAIN_SEL_SOURCE).withProperties(
                                 PropertyFactory.circleRadius(9f),
-                                PropertyFactory.circleColor("#FFFFFF"),
-                                PropertyFactory.circleStrokeColor("#0A0E14"),
+                                PropertyFactory.circleColor(if (darkStyle) "#B8C5CB" else "#FFFFFF"),
+                                PropertyFactory.circleStrokeColor(if (darkStyle) "#303A40" else "#0A0E14"),
                                 PropertyFactory.circleStrokeWidth(3.5f),
                             ),
                             "train-map-me-arrow",
@@ -734,8 +748,8 @@ internal fun TrainMapScreen(
                         style.addLayerBelow(
                             CircleLayer("train-map-proposal-layer", TRAIN_PROPOSAL_SOURCE).withProperties(
                                 PropertyFactory.circleRadius(11f),
-                                PropertyFactory.circleColor("#0A84FF"),
-                                PropertyFactory.circleStrokeColor("#FFFFFF"),
+                                PropertyFactory.circleColor(if (darkStyle) "#58B8DF" else "#0A84FF"),
+                                PropertyFactory.circleStrokeColor(if (darkStyle) "#D6E3E8" else "#FFFFFF"),
                                 PropertyFactory.circleStrokeWidth(4f),
                             ),
                             "train-map-me-arrow",
@@ -767,10 +781,12 @@ internal fun TrainMapScreen(
                         styleReady = true
                         styleGen++
                     }
+                    installMapStyle = ::install
                     mv.addOnDidFinishLoadingStyleListener {
                         m.style?.let { st -> if (st.isFullyLoaded) runCatching { install(st) } }
                     }
-                    loadMapStyle(mv, m) { style -> install(style) }
+                    appliedDarkMap = darkMap
+                    loadMapStyle(mv, m, darkMap) { style -> install(style) }
                 }
                 // Касания карты: палец на карте и момент последнего касания (возврат в слежение через 10 с без касаний).
                 mv.setOnTouchListener { _, ev ->
@@ -1628,11 +1644,23 @@ internal fun TrainMapScreen(
             }
         }
 
+        CompositionLocalProvider(LocalPstMapColors provides PstMapColors.forMap(darkMap)) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Pst.bg)) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
                 factory = { mapView.also { it.keepScreenOn = keepScreenOn } },
-                update = { it.keepScreenOn = keepScreenOn },
+                update = { mv ->
+                    mv.keepScreenOn = keepScreenOn
+                    if (appliedDarkMap != null && appliedDarkMap != darkMap) {
+                        val currentMap = map
+                        val installer = installMapStyle
+                        if (currentMap != null && installer != null) {
+                            appliedDarkMap = darkMap
+                            styleReady = false
+                            loadMapStyle(mv, currentMap, darkMap) { style -> installer(style) }
+                        }
+                    }
+                },
             )
 
             Row(
@@ -2034,6 +2062,8 @@ internal fun TrainMapScreen(
                     onSensitivity = { TrainMapPrefs.setSensitivity(context, it) },
                     keepScreenOn = keepScreenOn,
                     onKeepScreenOn = { TrainMapPrefs.setKeepScreenOn(context, it) },
+                    mapTheme = mapTheme,
+                    onMapTheme = { TrainMapPrefs.setMapTheme(context, it) },
                     onDismiss = { showSettings = false },
                 )
             }
@@ -2460,6 +2490,7 @@ internal fun TrainMapScreen(
                     onPickOnMap = { choosing = null; pickingStation = true },
                 )
             }
+        }
         }
     }
     }

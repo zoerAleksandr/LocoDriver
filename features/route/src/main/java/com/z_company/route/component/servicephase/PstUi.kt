@@ -26,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -59,24 +60,52 @@ import com.z_company.core.ui.theme.MonoFont
  *   danger → error, chipBgActive → surfaceDim.
  * ══════════════════════════════════════════════════════════════════════ */
 
+internal data class PstMapColors(
+    val bg: Color, val surface: Color, val text: Color, val textMuted: Color, val textFaint: Color,
+    val border: Color, val borderStrong: Color, val bgSubtle: Color, val accent: Color, val accentSoft: Color,
+    val onAccent: Color, val cta: Color, val ctaInk: Color, val warning: Color, val success: Color,
+    val danger: Color, val chipActive: Color,
+) {
+    companion object {
+        fun forMap(dark: Boolean) = if (dark) PstMapColors(
+            bg = Color(0xFF151719), surface = Color(0xFF222629), text = Color(0xFFE2E6E9),
+            textMuted = Color(0xFFA9B0B5), textFaint = Color(0xFF778188), border = Color(0xFF353B40),
+            borderStrong = Color(0xFF4B5359), bgSubtle = Color(0xFF2B3034), accent = Color(0xFF68B9DF),
+            accentSoft = Color(0xFF253A45), onAccent = Color(0xFF10212A), cta = Color(0xFF68B9DF),
+            ctaInk = Color(0xFF10212A), warning = Color(0xFF393126), success = Color(0xFF76B994),
+            danger = Color(0xFFE77C77), chipActive = Color(0xFF343A3E),
+        ) else PstMapColors(
+            bg = Color(0xFFF4F6F7), surface = Color(0xFFFFFFFF), text = Color(0xFF20262A),
+            textMuted = Color(0xFF68747B), textFaint = Color(0xFF89939A), border = Color(0xFFDDE2E5),
+            borderStrong = Color(0xFFB6C0C6), bgSubtle = Color(0xFFE9EEF0), accent = Color(0xFF1686B5),
+            accentSoft = Color(0xFFDCEEF5), onAccent = Color(0xFFFFFFFF), cta = Color(0xFF176D91),
+            ctaInk = Color(0xFFFFFFFF), warning = Color(0xFFFFF2D8), success = Color(0xFF34865A),
+            danger = Color(0xFFB83D3D), chipActive = Color(0xFFDDE5E9),
+        )
+    }
+}
+
+internal val LocalPstMapColors = compositionLocalOf<PstMapColors?> { null }
+
 internal object Pst {
-    val bg: Color @Composable get() = MaterialTheme.colorScheme.background
-    val surface: Color @Composable get() = MaterialTheme.colorScheme.secondary
-    val text: Color @Composable get() = MaterialTheme.colorScheme.primary
-    val textMuted: Color @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
-    val textFaint: Color @Composable get() = MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
-    val border: Color @Composable get() = MaterialTheme.colorScheme.outlineVariant
-    val borderStrong: Color @Composable get() = MaterialTheme.colorScheme.outline
-    val bgSubtle: Color @Composable get() = MaterialTheme.colorScheme.surfaceBright
-    val accent: Color @Composable get() = MaterialTheme.colorScheme.tertiary
-    val accentSoft: Color @Composable get() = MaterialTheme.colorScheme.primaryContainer
-    val onAccent: Color @Composable get() = MaterialTheme.colorScheme.onPrimary
-    val cta: Color @Composable get() = MaterialTheme.colorScheme.primary
-    val ctaInk: Color @Composable get() = MaterialTheme.colorScheme.onPrimary
-    val warning: Color @Composable get() = MaterialTheme.colorScheme.surfaceContainerHigh
-    val success: Color @Composable get() = MaterialTheme.colorScheme.surfaceTint
-    val danger: Color @Composable get() = MaterialTheme.colorScheme.error
-    val chipActive: Color @Composable get() = MaterialTheme.colorScheme.surfaceDim
+    private val mapColors @Composable get() = LocalPstMapColors.current
+    val bg: Color @Composable get() = mapColors?.bg ?: MaterialTheme.colorScheme.background
+    val surface: Color @Composable get() = mapColors?.surface ?: MaterialTheme.colorScheme.secondary
+    val text: Color @Composable get() = mapColors?.text ?: MaterialTheme.colorScheme.primary
+    val textMuted: Color @Composable get() = mapColors?.textMuted ?: MaterialTheme.colorScheme.onSurfaceVariant
+    val textFaint: Color @Composable get() = mapColors?.textFaint ?: MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
+    val border: Color @Composable get() = mapColors?.border ?: MaterialTheme.colorScheme.outlineVariant
+    val borderStrong: Color @Composable get() = mapColors?.borderStrong ?: MaterialTheme.colorScheme.outline
+    val bgSubtle: Color @Composable get() = mapColors?.bgSubtle ?: MaterialTheme.colorScheme.surfaceBright
+    val accent: Color @Composable get() = mapColors?.accent ?: MaterialTheme.colorScheme.tertiary
+    val accentSoft: Color @Composable get() = mapColors?.accentSoft ?: MaterialTheme.colorScheme.primaryContainer
+    val onAccent: Color @Composable get() = mapColors?.onAccent ?: MaterialTheme.colorScheme.onPrimary
+    val cta: Color @Composable get() = mapColors?.cta ?: MaterialTheme.colorScheme.primary
+    val ctaInk: Color @Composable get() = mapColors?.ctaInk ?: MaterialTheme.colorScheme.onPrimary
+    val warning: Color @Composable get() = mapColors?.warning ?: MaterialTheme.colorScheme.surfaceContainerHigh
+    val success: Color @Composable get() = mapColors?.success ?: MaterialTheme.colorScheme.surfaceTint
+    val danger: Color @Composable get() = mapColors?.danger ?: MaterialTheme.colorScheme.error
+    val chipActive: Color @Composable get() = mapColors?.chipActive ?: MaterialTheme.colorScheme.surfaceDim
 
     val sans: TextStyle @Composable get() = MaterialTheme.typography.bodyLarge
     val mono = TextStyle(fontFamily = MonoFont)

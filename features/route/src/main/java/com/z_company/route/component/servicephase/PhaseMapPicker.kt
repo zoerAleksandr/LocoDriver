@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -80,12 +81,12 @@ private const val RAIL_STATION_LABEL = "phase-rail-station-label"
  * Ж/д линии и станции поверх подложки из того же векторного источника (OpenMapTiles):
  * в стиле Liberty пути бледные, а значков станций на среднем масштабе нет.
  */
-internal fun addRailwayLayers(style: org.maplibre.android.maps.Style) {
+internal fun addRailwayLayers(style: org.maplibre.android.maps.Style, dark: Boolean = false) {
     if (style.getSource(OMT_SOURCE) == null) return
     val isRail = Expression.eq(Expression.get("class"), "rail")
     style.addLayer(
         LineLayer(RAIL_LINE_LAYER, OMT_SOURCE).withSourceLayer("transportation").withFilter(isRail).withProperties(
-            PropertyFactory.lineColor("#5B6475"),
+            PropertyFactory.lineColor(if (dark) "#657178" else "#5B6475"),
             PropertyFactory.lineWidth(Expression.interpolate(Expression.linear(), Expression.zoom(),
                 Expression.stop(8, 1f), Expression.stop(14, 2.5f))),
         )
@@ -102,8 +103,8 @@ internal fun addRailwayLayers(style: org.maplibre.android.maps.Style) {
     style.addLayer(
         CircleLayer(RAIL_STATION_LAYER, OMT_SOURCE).withSourceLayer("poi").withFilter(isStation).withProperties(
             PropertyFactory.circleRadius(5f),
-            PropertyFactory.circleColor("#4A5A74"),
-            PropertyFactory.circleStrokeColor("#FFFFFF"),
+            PropertyFactory.circleColor(if (dark) "#AEBCC3" else "#4A5A74"),
+            PropertyFactory.circleStrokeColor(if (dark) "#303A40" else "#FFFFFF"),
             PropertyFactory.circleStrokeWidth(2f),
         )
     )
@@ -115,8 +116,8 @@ internal fun addRailwayLayers(style: org.maplibre.android.maps.Style) {
             PropertyFactory.textSize(12f),
             PropertyFactory.textOffset(arrayOf(0f, 1.1f)),
             PropertyFactory.textAnchor("top"),
-            PropertyFactory.textColor("#2A3140"),
-            PropertyFactory.textHaloColor("#FFFFFF"),
+            PropertyFactory.textColor(if (dark) "#DCE3E6" else "#2A3140"),
+            PropertyFactory.textHaloColor(if (dark) "#252A2E" else "#FFFFFF"),
             PropertyFactory.textHaloWidth(1.5f),
         )
     )
@@ -145,6 +146,7 @@ internal fun PhaseMapPicker(
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         val context = LocalContext.current
+        val darkMap = rememberMapThemeIsDark()
         remember { MapLibre.getInstance(context); true }
         var map by remember { mutableStateOf<MapLibreMap?>(null) }
         var snapped by remember { mutableStateOf<String?>(null) }
@@ -155,7 +157,7 @@ internal fun PhaseMapPicker(
         // нативно (SIGSEGV в MapRenderer::actor). Все обработчики проверяют этот флаг.
         val alive = remember { java.util.concurrent.atomic.AtomicBoolean(true) }
 
-        val mapBackground = Pst.bg.toArgb()
+        val mapBackground = PstMapColors.forMap(darkMap).bg.toArgb()
         val mapView = remember {
             newMapView(context, mapBackground).also { mv ->
                 mv.getMapAsync { m ->
@@ -168,15 +170,15 @@ internal fun PhaseMapPicker(
                         .target(initialTarget(start, neighbours))
                         .zoom(if (start != null) 15.0 else if (neighbours.isNotEmpty()) 12.0 else 5.0)
                         .build()
-                    loadMapStyle(mv, m) { style ->
-                        addRailwayLayers(style)
+                    loadMapStyle(mv, m, darkMap) { style ->
+                        addRailwayLayers(style, darkMap)
                         val features = neighbours.map { (lat, lon) -> Feature.fromGeometry(Point.fromLngLat(lon, lat)) }
                         style.addSource(GeoJsonSource(NEIGHBOURS_SOURCE, FeatureCollection.fromFeatures(features)))
                         style.addLayer(
                             CircleLayer(NEIGHBOURS_LAYER, NEIGHBOURS_SOURCE).withProperties(
                                 PropertyFactory.circleRadius(6f),
-                                PropertyFactory.circleColor("#FFFFFF"),
-                                PropertyFactory.circleStrokeColor("#8A96AA"),
+                                PropertyFactory.circleColor(if (darkMap) "#BCC8CE" else "#FFFFFF"),
+                                PropertyFactory.circleStrokeColor(if (darkMap) "#344047" else "#8A96AA"),
                                 PropertyFactory.circleStrokeWidth(2f),
                             )
                         )
@@ -221,6 +223,7 @@ internal fun PhaseMapPicker(
             if (granted.values.any { it }) moveToMyLocation(context, map, alive) else locationDenied = true
         }
 
+        CompositionLocalProvider(LocalPstMapColors provides PstMapColors.forMap(darkMap)) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Pst.bg)) {
             AndroidView(modifier = Modifier.fillMaxSize(), factory = { mapView })
 
@@ -334,6 +337,7 @@ internal fun PhaseMapPicker(
                     },
                 )
             }
+        }
         }
     }
 }

@@ -25,10 +25,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
@@ -129,6 +129,7 @@ internal fun PhaseRouteVariantsMap(
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         val context = LocalContext.current
+        val darkMap = rememberMapThemeIsDark()
         remember { MapLibre.getInstance(context); true }
         val density = context.resources.displayMetrics.density
         var map by remember { mutableStateOf<MapLibreMap?>(null) }
@@ -177,7 +178,7 @@ internal fun PhaseRouteVariantsMap(
                 .distinctBy { it.osmId ?: "${it.name}:${it.latitude}:${it.longitude}" }
         }
 
-        val mapBackground = Pst.bg.toArgb()
+        val mapBackground = PstMapColors.forMap(darkMap).bg.toArgb()
         val mapView = remember {
             newMapView(context, mapBackground).also { mv ->
                 mv.getMapAsync { m ->
@@ -187,14 +188,14 @@ internal fun PhaseRouteVariantsMap(
                     m.uiSettings.isLogoEnabled = false
                     m.uiSettings.isAttributionEnabled = true
                     m.cameraPosition = CameraPosition.Builder().target(LatLng(55.75, 37.62)).zoom(5.0).build()
-                    loadMapStyle(mv, m) { style ->
-                        addRailwayLayers(style)
+                    loadMapStyle(mv, m, darkMap) { style ->
+                        addRailwayLayers(style, darkMap)
                         style.addSource(GeoJsonSource(ME_SOURCE, FeatureCollection.fromFeatures(emptyList())))
                         style.addLayer(
                             CircleLayer("variants-me-layer", ME_SOURCE).withProperties(
                                 PropertyFactory.circleRadius(7f),
-                                PropertyFactory.circleColor("#00A0F5"),
-                                PropertyFactory.circleStrokeColor("#FFFFFF"),
+                                PropertyFactory.circleColor(if (darkMap) "#58B8DF" else "#00A0F5"),
+                                PropertyFactory.circleStrokeColor(if (darkMap) "#D6E3E8" else "#FFFFFF"),
                                 PropertyFactory.circleStrokeWidth(3f),
                             )
                         )
@@ -208,8 +209,8 @@ internal fun PhaseRouteVariantsMap(
                         style.addLayer(
                             CircleLayer(ENDS_LAYER, ENDS_SOURCE).withProperties(
                                 PropertyFactory.circleRadius(8f),
-                                PropertyFactory.circleColor("#0A0E14"),
-                                PropertyFactory.circleStrokeColor("#FFFFFF"),
+                                PropertyFactory.circleColor(if (darkMap) "#D5BC86" else "#0A0E14"),
+                                PropertyFactory.circleStrokeColor(if (darkMap) "#344047" else "#FFFFFF"),
                                 PropertyFactory.circleStrokeWidth(3f),
                             )
                         )
@@ -282,7 +283,8 @@ internal fun PhaseRouteVariantsMap(
 
         // Цвета по PWA (эталон внешнего вида, §6.6): шторка и верхняя карточка — «поверхность» панели,
         // поля/карточки внутри — чуть светлее (тёмная тема) или серее (светлая).
-        val dark = Pst.bg.luminance() < 0.5f
+        CompositionLocalProvider(LocalPstMapColors provides PstMapColors.forMap(darkMap)) {
+        val dark = darkMap
         val panel = if (dark) Pst.bgSubtle else Pst.surface
         val field = if (dark) Pst.surface else Pst.bg
         val panelShape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)
@@ -567,6 +569,7 @@ internal fun PhaseRouteVariantsMap(
                     }
                 }
             }
+        }
         }
     }
 }
