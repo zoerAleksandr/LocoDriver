@@ -141,7 +141,9 @@ private fun ColumnScope.ImageTitleTextBlock(
             AsyncImage(
                 model = imageUrl,
                 contentDescription = title,
-                contentScale = ContentScale.Fit,
+                // Заполняем карточку целиком: Fit оставляет видимые поля для
+                // вертикальных постеров на широком блоке.
+                contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
         }

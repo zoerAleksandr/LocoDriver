@@ -154,8 +154,8 @@ fun HomeDestination(
 
 sealed class NavigationItem(var route: AppRoutes, var icon: Int, var title: String) {
     data object Home : NavigationItem(HomeRoute, R.drawable.home_24px, "Главная")
-    data object Money : NavigationItem(SalaryCalculationRoute, R.drawable.wallet_24px, "Зарплата")
+    data object Money : NavigationItem(SalaryCalculationRoute, R.drawable.ic_nav_wallet, "Зарплата")
     data object Add : NavigationItem(FormRoute, R.drawable.add_circle_24px, "Добавить")
-    data object Setting : NavigationItem(SettingsScreenRoute, R.drawable.settings_24px, "Настройки")
+    data object Setting : NavigationItem(SettingsScreenRoute, R.drawable.ic_nav_settings, "Настройки")
     data object Profile : NavigationItem(ProfileRoute, R.drawable.account_circle_24px, "Профиль")
 }

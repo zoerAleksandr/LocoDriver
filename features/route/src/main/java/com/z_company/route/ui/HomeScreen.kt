@@ -1697,8 +1697,7 @@ fun HomeScreen(
                             // «График» и «Отвлечения» (теперь один экран).
                             ActionCard(
                                     title = "Календарь",
-                                    iconRes = R.drawable.ic_card_calendar,
-                                    iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    iconRes = R.drawable.ic_tool_calendar,
                                     interactionSource = interactionSource,
                                     onClick = { onCalendar() }
                             )
@@ -1716,8 +1715,7 @@ fun HomeScreen(
                             ActionCard(
                                     modifier = Modifier.coachAnchor(mapTileAnchor),
                                     title = "Карта",
-                                    iconRes = R.drawable.ic_map_pin_color,
-                                    iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    iconRes = R.drawable.ic_tool_map,
                                     interactionSource = interactionSource,
                                     onClick = {
                                         onboardingHints.markShown(com.z_company.domain.onboarding.HintId.HOME_MAP_TILE)
@@ -1743,9 +1741,7 @@ fun HomeScreen(
                             // из поезда текущего маршрута (правило «АВТО»), если он есть.
                             ActionCard(
                                     title = "ВУ-45",
-                                    iconRes = R.drawable.ic_card_brake,
-                                    iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
-                                    iconContent = { com.z_company.route.component.Vu45BlankIcon(size = 36.dp, tint = MaterialTheme.colorScheme.surfaceContainerLow) },
+                                    iconRes = R.drawable.ic_tool_vu45,
                                     interactionSource = interactionSource,
                                     onClick = {
                                         // справка из «Инструментов» открывается пустой; данные подставляет «Заполнить из маршрута»
@@ -1755,17 +1751,14 @@ fun HomeScreen(
                             // Карточка «Закрепление» - башмаки и ручные тормоза при вынужденной остановке (SCREEN_SPECS §27)
                             ActionCard(
                                     title = "Закрепление",
-                                    iconRes = R.drawable.ic_card_brake,
-                                    iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
-                                    iconContent = { com.z_company.route.component.HoldingIcon(size = 36.dp, tint = MaterialTheme.colorScheme.surfaceContainerLow) },
+                                    iconRes = R.drawable.ic_tool_holding,
                                     interactionSource = interactionSource,
                                     onClick = { onBrakeHolding(null) }
                             )
                             // Плашка «Статистика» — экран сводной статистики
                             ActionCard(
                                     title = "Статистика",
-                                    iconRes = R.drawable.ic_card_statistics,
-                                    iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    iconRes = R.drawable.ic_tool_stats,
                                     interactionSource = interactionSource,
                                     onClick = { onStatistics() }
                             )
@@ -1773,8 +1766,7 @@ fun HomeScreen(
                             // (логика перенесена из иконки в TopAppBar)
                             ActionCard(
                                     title = "PDF",
-                                    iconRes = R.drawable.ic_card_pdf,
-                                    iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    iconRes = R.drawable.ic_tool_pdf,
                                     interactionSource = interactionSource,
                                     enabled = !isPdfGenerating,
                                     onClick = { showPdfDialog = true }
@@ -1783,8 +1775,7 @@ fun HomeScreen(
                             // (логика перенесена из иконки в TopAppBar)
                             ActionCard(
                                     title = "Поиск",
-                                    iconRes = R.drawable.ic_card_search,
-                                    iconTint = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    iconRes = R.drawable.ic_tool_search,
                                     interactionSource = interactionSource,
                                     onClick = { onSearchClick() }
                             )
@@ -2293,11 +2284,10 @@ private fun ActionCard(
     modifier: Modifier = Modifier,
     title: String,
     iconRes: Int,
-    iconTint: Color,
     interactionSource: MutableInteractionSource,
     enabled: Boolean = true,
     // вместо иконки-ресурса: произвольное содержимое (например, текстовая иконка «ВУ-45»)
-    iconContent: (@Composable () -> Unit)? = null,
+    iconContent: (@Composable (Color) -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     Card(
@@ -2323,20 +2313,20 @@ private fun ActionCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp),
+                    .size(48.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                if (iconContent != null) iconContent() else Icon(
-                    modifier = Modifier.size(36.dp),
-                    painter = painterResource(iconRes),
-                    contentDescription = title,
-                    tint = iconTint,
+                com.z_company.route.component.RecessedToolIcon(
+                    iconRes = if (iconContent == null) iconRes else null,
+                    glyph = iconContent,
+                    showBackground = false,
+                    tint = com.z_company.loco_driver.ui.theme.LocalMashinistColors.current.accent,
                 )
             }
             Text(

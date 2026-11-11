@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp" android:height="36dp"
+    android:viewportWidth="100" android:viewportHeight="100">
+    <path android:fillColor="@android:color/transparent"
+        android:strokeColor="@color/mashinist_tool_map_accent" android:strokeWidth="3.7"
+        android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M13 40 L38 29 L62 40 L86 30 V76 L62 86 L38 75 L13 86 Z M38 29 V75 M62 40 V86" />
+    <group android:translateY="-10">
+    <path android:fillColor="@color/mashinist_tool_map_marker_bg"
+        android:strokeColor="@color/mashinist_tool_map_accent" android:strokeWidth="2.7"
+        android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M50 29 C40.3 29 34 36.2 34 44.8 C34 56.5 50 73 50 73 C50 73 66 56.5 66 44.8 C66 36.2 59.7 29 50 29 Z" />
+    <path android:fillColor="@color/mashinist_tool_map_accent"
+        android:pathData="M50,40.7 A4.3,4.3 0,1 1,50,49.3 A4.3,4.3 0,1 1,50,40.7 Z" />
+    </group>
+</vector>
