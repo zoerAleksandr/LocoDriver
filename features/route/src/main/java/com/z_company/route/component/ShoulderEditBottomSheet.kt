@@ -679,7 +679,25 @@ fun ShoulderEditBottomSheet(
             title = listOf(dep, arr).filter { it.isNotBlank() }.joinToString(" — ").ifBlank { "Плечо" },
             stops = stops,
             missing = (total - stops.size).coerceAtLeast(0),
-            loadRailLine = { autoVm.railLine(it) },
+            // Сначала используем геометрию скачанного участка: карта плеча доступна без сети.
+            // Если пары станций на одной сохранённой оси нет, сохраняем прежнее построение через сервер.
+            loadRailLine = { points ->
+                val offline = runCatching {
+                    com.z_company.domain.track.OfflineLeg.determine(
+                        sectionRepo.cachedSections(), dep, arr,
+                    )
+                }.getOrNull()
+                val offlineLine = offline?.line?.takeIf { it.size >= 2 }
+                if (offlineLine != null) {
+                    com.z_company.route.viewmodel.ServicePhaseAutoFillViewModel.RailLineResult.Ok(
+                        line = offlineLine,
+                        fromCache = true,
+                        fromOfflineSection = true,
+                    )
+                } else {
+                    autoVm.railLine(points)
+                }
+            },
             onDismiss = { showRouteMap = false },
             departureName = dep,
             arrivalName = arr,

@@ -17,6 +17,8 @@ data class OfflineLegResult(
     val departure: OfflineLegStation,
     val arrival: OfflineLegStation,
     val stations: List<OfflineLegStation>,
+    /** Геометрия оси между крайними станциями по порядку плеча. */
+    val line: List<Pair<Double, Double>>,
 )
 
 object OfflineLeg {
@@ -51,7 +53,9 @@ object OfflineLeg {
             // На оси бывают платформы/пути с одним названием подряд - в плече одна станция.
             .fold(emptyList<SectionStation>()) { acc, st -> if (acc.lastOrNull()?.let { SectionPicker.sameStation(it.name, st.name) } == true) acc else acc + st }
             .map(::station)
-        return OfflineLegResult(section.id, section.name, length, station(a), station(b), between)
+        val line = AxisSlice.smooth(section.axis.points, a.km, b.km)
+            .let { if (forward) it else it.asReversed() }
+        return OfflineLegResult(section.id, section.name, length, station(a), station(b), between, line)
     }
 }
 

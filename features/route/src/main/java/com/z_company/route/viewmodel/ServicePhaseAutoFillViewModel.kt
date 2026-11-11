@@ -384,7 +384,12 @@ class ServicePhaseAutoFillViewModel : ViewModel(), KoinComponent {
 
     /** Линия плеча по рельсам: [Ok] — точки линии; [NoPath] — путь не найден; [Failed] — сеть/сервер. */
     sealed interface RailLineResult {
-        data class Ok(val line: List<Pair<Double, Double>>, val fromCache: Boolean = false) : RailLineResult
+        data class Ok(
+            val line: List<Pair<Double, Double>>,
+            val fromCache: Boolean = false,
+            /** Линия построена по оси скачанного участка; не нужно повторять онлайн-запросы. */
+            val fromOfflineSection: Boolean = false,
+        ) : RailLineResult
         data object NoPath : RailLineResult
         data class Failed(val failure: AutoFillFailure) : RailLineResult
     }

@@ -1584,7 +1584,7 @@ internal fun TrainMapScreen(
         var wasOnline by remember { mutableStateOf(online) }
         LaunchedEffect(online) {
             val rs = railState
-            val cachedOrFailed = rs == null || (rs is ServicePhaseAutoFillViewModel.RailLineResult.Ok && rs.fromCache) ||
+            val cachedOrFailed = rs == null || (rs is ServicePhaseAutoFillViewModel.RailLineResult.Ok && rs.fromCache && !rs.fromOfflineSection) ||
                 rs is ServicePhaseAutoFillViewModel.RailLineResult.Failed
             if (hasRoute && RailRefetch.shouldRefetch(wasOnline, online, cachedOrFailed)) loadAttempt++
             wasOnline = online
@@ -1595,7 +1595,7 @@ internal fun TrainMapScreen(
         LaunchedEffect(railState, loadAttempt, hasRoute, online) {
             if (!hasRoute || !online || viewOnly) return@LaunchedEffect
             val rs = railState
-            val stale = (rs is ServicePhaseAutoFillViewModel.RailLineResult.Ok && rs.fromCache) ||
+            val stale = (rs is ServicePhaseAutoFillViewModel.RailLineResult.Ok && rs.fromCache && !rs.fromOfflineSection) ||
                 rs is ServicePhaseAutoFillViewModel.RailLineResult.Failed
             if (!stale) return@LaunchedEffect
             delay(RAIL_RETRY_MS)

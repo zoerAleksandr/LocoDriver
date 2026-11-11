@@ -79,6 +79,7 @@ internal fun HomeTrainMap(
         }
     }
     val railVm: ServicePhaseAutoFillViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val sectionRepo: com.z_company.repository.remote_rest.tracks.SectionProfileRepository = koinInject()
     var showLegPicker by remember { mutableStateOf(false) }
     if (showLegPicker) {
         com.z_company.route.component.servicephase.LegPickerDialog(
@@ -107,7 +108,23 @@ internal fun HomeTrainMap(
     TrainMapScreen(
         missingStation = { viewModel.trainMapMissingStation() },
         stops = remember(formUiState.selectedServicePhase, viewModel.fullSelectedPhaseOrNull()) { viewModel.trainMapStops() },
-        loadRailLine = { railVm.railLine(it) },
+        loadRailLine = { points ->
+            val phase = viewModel.fullSelectedPhaseOrNull()
+            val offlineLine = phase?.let {
+                runCatching {
+                    com.z_company.domain.track.OfflineLeg.determine(
+                        sectionRepo.cachedSections(), it.departureStation, it.arrivalStation,
+                    )?.line?.takeIf { line -> line.size >= 2 }
+                }.getOrNull()
+            }
+            if (offlineLine != null) {
+                ServicePhaseAutoFillViewModel.RailLineResult.Ok(
+                    offlineLine, fromCache = true, fromOfflineSection = true,
+                )
+            } else {
+                railVm.railLine(points)
+            }
+        },
         currentFix = { viewModel.trainMapCurrentFix() },
         loadTrack = { viewModel.trainMapTrack() },
         loadRecordingState = { viewModel.trainMapRecordingState() },
