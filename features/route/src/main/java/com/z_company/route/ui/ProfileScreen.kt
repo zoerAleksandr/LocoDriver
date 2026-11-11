@@ -263,7 +263,7 @@ fun ProfileScreen(
     val ctx = LocalContext.current
 
     val styleData = MaterialTheme.typography.bodyLarge
-    val styleHint = MaterialTheme.typography.bodyMedium
+    val styleHint = MaterialTheme.typography.bodySmall
     val styleTitle = MaterialTheme.typography.titleSmall
     val primaryColor = MaterialTheme.colorScheme.primary
 
@@ -1491,7 +1491,7 @@ fun ProfileScreen(
 
                         val paddingBetweenView = 12.dp
                         val dataStyle = MaterialTheme.typography.bodyLarge
-                        val hintStyle = MaterialTheme.typography.bodyMedium
+                        val hintStyle = MaterialTheme.typography.bodySmall
                         val buttonTextStyle = MaterialTheme.typography.bodySmall
 
                         Column(

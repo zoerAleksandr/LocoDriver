@@ -37,7 +37,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -382,7 +381,7 @@ fun PurchasesScreen(
     Scaffold(
         topBar = {
             ScreenHeader(
-                title = "",
+                title = "Подписка",
                 navigation = { HeaderCloseTile({ onBack() }) },
                 actions = {
                     if (showRestore) {
@@ -405,30 +404,13 @@ fun PurchasesScreen(
             modifier = Modifier.padding(padding),
         ) {
             Column(
-                modifier = Modifier.fillMaxSize(),
-            ) {
-            Column(
                 modifier = Modifier
-                    .weight(1f)
+                    .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .testTag("purchases_scroll_column")
                     .padding(horizontal = 16.dp),
             ) {
                 Spacer(modifier = Modifier.height(4.dp))
-
-                // Автопродление стоит над списком тарифов.
-                val autoRenewBlock: @Composable () -> Unit = {
-                    if (isSubscriptionLoaded && !tariffsLoading && selectedProduct != null) {
-                        AutoRenewSection(
-                            status = recurringStatus,
-                            terms = recurringTerms?.takeIf { it.tariffCode == selectedProduct?.code },
-                            checked = autoRenewChecked,
-                            onCheckedChange = viewModel::setAutoRenewChecked,
-                            formatDate = { converter?.getDate(it) ?: "" },
-                            onDisableClick = { showDisableRecurringDialog = true },
-                        )
-                    }
-                }
 
                 if (!isSubscriptionLoaded) {
                     // Статус подписки ещё грузится — нейтральная шапка + лоадер
@@ -437,8 +419,7 @@ fun PurchasesScreen(
                     TariffsLoading()
                 } else when (purchaseState) {
                     is PurchaseUi.Paywall -> {
-                        ProHeroWithFeatures()
-                        autoRenewBlock()
+                        ProHero()
                         SectionLabel("ВЫБЕРИТЕ ТАРИФ")
                         if (tariffsLoading) TariffsLoading() else PlanList(
                             plans = plans,
@@ -498,7 +479,6 @@ fun PurchasesScreen(
                             WarningBanner(daysLeft = purchaseState.daysLeft)
                         }
 
-                        autoRenewBlock()
                         SectionLabel("ПЕРИОД ПРОДЛЕНИЯ")
                         if (tariffsLoading) {
                             TariffsLoading()
@@ -557,7 +537,6 @@ fun PurchasesScreen(
                             )
                         }
 
-                        autoRenewBlock()
                         SectionLabel("ВЫБЕРИТЕ ТАРИФ")
                         if (tariffsLoading) TariffsLoading() else PlanList(
                             plans = plans,
@@ -589,100 +568,108 @@ fun PurchasesScreen(
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
-            }
 
-            // ── Закреплённая снизу CTA + подпись ────────────────────────────
-            // Пока грузятся статус/тарифы (нет выбранного тарифа) — CTA прячем.
+            // Полные условия автопродления идут сразу после списка тарифов.
             if (isSubscriptionLoaded && !tariffsLoading && selectedProduct != null) {
-            val ctaLabel: String
-            val ctaNote: String
-            val onCta: () -> Unit
-            when (purchaseState) {
-                is PurchaseUi.Paywall -> {
-                    ctaLabel = selectedProduct?.let {
-                        "Оформить за ${it.sum.toInt()} ₽${it.priceSuffix()}"
-                    } ?: "Оформить"
-                    ctaNote =
-                        "Первые 20 маршрутов — бесплатно. Дальше добавление маршрутов — только по подписке."
-                    onCta = { selectedProduct?.let(onProductClick) }
-                }
-
-                is PurchaseUi.Active -> {
-                    ctaLabel = selectedProduct?.let {
-                        "Продлить · ${it.sum.toInt()} ₽"
-                    } ?: "Продлить"
-                    ctaNote = "Новый период прибавится к текущему сроку."
-                    onCta = { selectedProduct?.let(onProductClick) }
-                }
-
-                is PurchaseUi.Expired -> {
-                    ctaLabel = "Возобновить подписку"
-                    ctaNote = "Возобновление начнётся с сегодняшнего дня."
-                    onCta = { selectedProduct?.let(onProductClick) }
-                }
-            }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(elevation = 8.dp)
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Button(
-                    onClick = onCta,
-                    // Пока сервер создаёт платёж — повторный тап игнорируем.
-                    enabled = !isStartingPayment,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                    ),
-                ) {
-                    Text(
-                        text = ctaLabel,
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontWeight = FontWeight.Bold
-                        ),
-                    )
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                OutlinedButton(
-                    onClick = { selectedProduct?.let(viewModel::onFallbackPaymentClick) },
-                    enabled = !isStartingPayment,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                    ),
-                ) {
-                    Text(
-                        text = "Оплатить резервным способом",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Medium
-                        ),
-                    )
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = ctaNote,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
+                AutoRenewSection(
+                    status = recurringStatus,
+                    terms = recurringTerms?.takeIf { it.tariffCode == selectedProduct?.code },
+                    checked = autoRenewChecked,
+                    onCheckedChange = viewModel::setAutoRenewChecked,
+                    formatDate = { converter?.getDate(it) ?: "" },
+                    onDisableClick = { showDisableRecurringDialog = true },
                 )
-                Spacer(modifier = Modifier.height(8.dp))
             }
+
+            // Кнопки оплаты находятся в общем прокручиваемом содержимом.
+            if (isSubscriptionLoaded && !tariffsLoading && selectedProduct != null) {
+                val ctaLabel: String
+                val ctaNote: String
+                val onCta: () -> Unit
+                when (purchaseState) {
+                    is PurchaseUi.Paywall -> {
+                        ctaLabel = selectedProduct?.let {
+                            "Оформить за ${it.sum.toInt()} ₽${it.priceSuffix()}"
+                        } ?: "Оформить"
+                        ctaNote =
+                            "Первые 20 маршрутов — бесплатно. Дальше добавление маршрутов — только по подписке."
+                        onCta = { selectedProduct?.let(onProductClick) }
+                    }
+
+                    is PurchaseUi.Active -> {
+                        ctaLabel = selectedProduct?.let {
+                            "Продлить · ${it.sum.toInt()} ₽"
+                        } ?: "Продлить"
+                        ctaNote = "Новый период прибавится к текущему сроку."
+                        onCta = { selectedProduct?.let(onProductClick) }
+                    }
+
+                    is PurchaseUi.Expired -> {
+                        ctaLabel = "Возобновить подписку"
+                        ctaNote = "Возобновление начнётся с сегодняшнего дня."
+                        onCta = { selectedProduct?.let(onProductClick) }
+                    }
+                }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp, bottom = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Button(
+                        onClick = onCta,
+                        // Пока сервер создаёт платёж — повторный тап игнорируем.
+                        enabled = !isStartingPayment,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
+                    ) {
+                        Text(
+                            text = ctaLabel,
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontWeight = FontWeight.Bold
+                            ),
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedButton(
+                        onClick = { selectedProduct?.let(viewModel::onFallbackPaymentClick) },
+                        enabled = !isStartingPayment,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                    ) {
+                        Text(
+                            text = "Оплатить резервным способом",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Medium
+                            ),
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = ctaNote,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    PaymentSafetyNote()
+                }
             }
         }
     }
-
 }
 }
 
@@ -803,105 +790,89 @@ fun PaymentDialog(
 
 // ── Hero «Машинист Pro» ────────────────────────────────────────────────────
 @Composable
-private fun ProHero(modifier: Modifier = Modifier, flush: Boolean = false) {
+private fun ProHero(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .then(if (flush) Modifier else Modifier.clip(Shapes.medium))
-            .background(MaterialTheme.colorScheme.primary)
-            .padding(horizontal = 20.dp, vertical = 22.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(horizontal = 12.dp, vertical = 26.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(13.dp))
-                    .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    modifier = Modifier.size(24.dp),
-                    painter = painterResource(R.drawable.ic_pro_crown),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                )
-            }
-            Column {
-                Text(
-                    text = "Машинист Pro",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                )
-                Text(
-                    text = "ПОЛНАЯ ВЕРСИЯ",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.55f),
-                )
-            }
-        }
-    }
-}
-
-/** Hero + список преимуществ в единой карточке (витрина). */
-@Composable
-private fun ProHeroWithFeatures() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(elevation = 1.dp, shape = Shapes.medium)
-            .clip(Shapes.medium)
-    ) {
-        ProHero(flush = true)
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(horizontal = 18.dp, vertical = 6.dp)
-        ) {
-            FeatureRow(
-                iconRes = com.z_company.core.R.drawable.rounded_cloud_upload_24,
-                label = "Облачная копия и синхронизация",
-            )
-            FeatureRow(
-                iconRes = R.drawable.notes_24px,
-                label = "Безлимит маршрутов и истории",
-            )
-        }
-    }
-}
-
-@Composable
-private fun FeatureRow(iconRes: Int, label: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 11.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
         Box(
             modifier = Modifier
-                .size(30.dp)
-                .clip(RoundedCornerShape(9.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer),
+                .size(72.dp)
+                .clip(RoundedCornerShape(22.dp))
+                .background(Color(0xFFFFD34F)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                modifier = Modifier.size(17.dp),
-                painter = painterResource(iconRes),
+                modifier = Modifier.size(38.dp),
+                painter = painterResource(R.drawable.ic_pro_crown),
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.tertiary,
+                tint = Color(0xFF493300),
             )
         }
+        Spacer(modifier = Modifier.height(20.dp))
         Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-            color = MaterialTheme.colorScheme.primary,
+            text = "МАШИНИСТ ПЛЮС",
+            style = MaterialTheme.typography.titleSmall.copy(
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+            ),
+            color = MaterialTheme.colorScheme.tertiary,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Вся работа под рукой",
+            style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = "Синхронизируйте данные и сохраняйте историю поездок без ограничений.",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
         )
     }
+}
+
+@Composable
+private fun PaymentSafetyNote() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text("🔒", fontSize = 18.sp)
+        Text(
+            text = "Безопасная оплата через Robokassa. Данные карты не сохраняются в приложении.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    Spacer(modifier = Modifier.height(12.dp))
+    val legalNote = buildAnnotatedString {
+        append("Нажимая кнопку оплаты, вы принимаете условия ")
+        withLink(LinkAnnotation.Url("https://locodriver.ru/offer.html")) {
+            withStyle(SpanStyle(color = MaterialTheme.colorScheme.tertiary, textDecoration = TextDecoration.Underline)) {
+                append("публичной оферты")
+            }
+        }
+        append(" и ")
+        withLink(LinkAnnotation.Url("https://locodriver.ru/privacy.html")) {
+            withStyle(SpanStyle(color = MaterialTheme.colorScheme.tertiary, textDecoration = TextDecoration.Underline)) {
+                append("политики обработки персональных данных")
+            }
+        }
+        append(". В оферте — стоимость подписки, порядок оплаты и возврата средств.")
+    }
+    Text(
+        text = legalNote,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 @Composable
@@ -1428,7 +1399,7 @@ private fun AutoRenewConsentCard(
                 shape = Shapes.medium,
             )
             .clickable(role = androidx.compose.ui.semantics.Role.Checkbox) { onCheckedChange(!checked) }
-            .padding(start = 4.dp, end = 16.dp, top = 4.dp, bottom = 14.dp)
+            .padding(start = 4.dp, top = 4.dp, end = 16.dp, bottom = 4.dp)
             .testTag("auto_renew_consent"),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1443,12 +1414,11 @@ private fun AutoRenewConsentCard(
                 fontWeight = FontWeight.Bold,
             )
         }
-        // Текст согласия — на всю ширину карточки, под чекбоксом.
         Text(
             text = consent,
             style = MaterialTheme.typography.bodySmall,
             color = muted,
-            modifier = Modifier.padding(start = 12.dp),
+            modifier = Modifier.padding(start = 12.dp, end = 4.dp),
         )
     }
 }
