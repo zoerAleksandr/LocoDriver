@@ -670,7 +670,7 @@ internal enum class ProfileScale(val label: String, val spanKm: Double) {
  * График масштабируется щипком и сдвигается пальцем; пока окно двигали вручную, оно не следует за поездом.
  */
 @Composable
-internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: LegContext? = null, gnss: com.z_company.domain.gnss.GnssQuality? = null) {
+internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: LegContext? = null, gnss: com.z_company.domain.gnss.GnssQuality? = null, speedKmh: Double? = null) {
     var showPicker by rememberSaveable { mutableStateOf(false) }
     var spanKm by rememberSaveable { mutableStateOf(6f) }
     var follow by rememberSaveable { mutableStateOf(true) }
@@ -678,6 +678,7 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
     var showWarnings by rememberSaveable { mutableStateOf(false) }
     var showVoice by rememberSaveable { mutableStateOf(false) }
     var warnHint by remember { mutableStateOf(false) }
+    var showSpeedHint by remember { mutableStateOf(false) }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
@@ -742,8 +743,27 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
                     contentAlignment = Alignment.Center,
                 ) { PstIcon(PstIcons.Warning, 20.dp, if (canWarn) Pst.text else Pst.textMuted) }
             }
-            // Связь со спутниками - под строкой участка/плеча: при плохой связи чип («Слабый GPS», «Нет GPS», «Помеха GPS»), иначе ничего.
-            if (gnss != null) com.z_company.route.autorecord.GnssBadChip(gnss, Modifier.padding(horizontal = 12.dp, vertical = 2.dp))
+            // Скорость и качество GPS занимают строку под шапкой; качество GPS показывается только при проблемах сигнала.
+            if (speedKmh != null || gnss != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    if (speedKmh != null) {
+                        Box(
+                            modifier = Modifier
+                                .background(Pst.bgSubtle, RoundedCornerShape(8.dp))
+                                .clickable(onClickLabel = "О скорости GPS") { showSpeedHint = true }
+                                .padding(horizontal = 10.dp, vertical = 5.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("${speedKmh.toInt()} км/ч", style = Pst.sans.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold), color = Pst.text, maxLines = 1)
+                        }
+                    }
+                    if (gnss != null) com.z_company.route.autorecord.GnssBadChip(gnss)
+                }
+            }
             if (warnHint && !model.canEditWarnings) {
                 Text(
                     text = "Чтобы добавить ДУ-61, выберите участок.",
@@ -822,6 +842,18 @@ internal fun ProfileFullScreen(model: ProfileModel, onDismiss: () -> Unit, leg: 
                         PstButton(text = "Выбрать участок", onClick = { showPicker = true }, kind = PstButtonKind.TONAL)
                     }
                 }
+            }
+        }
+    }
+    if (showSpeedHint) {
+        Dialog(onDismissRequest = { showSpeedHint = false }) {
+            Column(
+                modifier = Modifier.fillMaxWidth().background(Pst.bg, RoundedCornerShape(20.dp)).padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text("Скорость", style = Pst.sans.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold), color = Pst.text)
+                Text("Данные скорости получены от спутников и зависят от качества сигнала. Они могут отличаться от показаний на приборах безопасности.", style = Pst.sans.copy(fontSize = 15.sp, lineHeight = 21.sp), color = Pst.text)
+                PstButton(text = "Понятно", onClick = { showSpeedHint = false }, kind = PstButtonKind.TONAL, height = 42.dp)
             }
         }
     }

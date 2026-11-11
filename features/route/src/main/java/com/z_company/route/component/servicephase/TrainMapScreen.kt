@@ -2037,7 +2037,7 @@ internal fun TrainMapScreen(
                     onDismiss = { showSettings = false },
                 )
             }
-            if (showProfileFull) ProfileFullScreen(profileModel, onDismiss = { showProfileFull = false }, leg = leg, gnss = gnssNow)
+            if (showProfileFull) ProfileFullScreen(profileModel, onDismiss = { showProfileFull = false }, leg = leg, gnss = gnssNow, speedKmh = if (!viewOnly && liveFreshTop) liveSpeed else null)
             WarningOfferDialog(profileModel)
             if (!showProfileFull) WarningEditDialog(profileModel)
 
