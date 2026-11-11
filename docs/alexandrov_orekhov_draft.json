@@ -1,0 +1,73 @@
+{
+  "id": "mo_alexandrov_orekhov_photo_draft",
+  "name": "Александров — Киржач — Орехово",
+  "fromStation": "Александров",
+  "toStation": "Орехово",
+  "country": "RU",
+  "lengthKm": 79.7,
+  "kmOrigin": 113.3,
+  "status": "draft",
+  "source": "photos/20261109_202353.jpg, photos/20261109_202407.jpg, photos/20261109_202425.jpg, photos/20261109_202429.jpg",
+  "notes": "Черновая ручная расшифровка режимной карты. Километры событий сняты с фото приблизительно; перед публикацией проверить по оригиналу. Профиль уклонов пока оставлен noData, чтобы черновик не выдавал неподтверждённые значения как достоверные.",
+  "stations": [
+    {"km": 0.0, "kmAbs": 113.3, "name": "Александров"},
+    {"km": 15.8, "kmAbs": 129.1, "name": "Балакирево"},
+    {"km": 32.1, "kmAbs": 145.4, "name": "Киржач"},
+    {"km": 70.7, "kmAbs": 184.0, "name": "Потoчино"},
+    {"km": 78.5, "kmAbs": 191.8, "name": "Орехово-1"},
+    {"km": 79.7, "kmAbs": 193.0, "name": "Орехово"}
+  ],
+  "kmMarks": [
+    {"km": 0.0, "kmAbs": 113.3, "dir": 1, "note": "Начало участка; значение оценено по шкале фото"}
+  ],
+  "elements": [
+    {"startKm": 0.0, "endKm": 79.7, "gradePermille": 0.0, "curveRadiusM": 0.0, "speedLimitKmh": 0, "noData": true}
+  ],
+  "crossings": [
+    {"km": 2.7, "kmAbs": 116.0, "label": "116 км, переезд", "kind": "crossing", "confidence": "low"},
+    {"km": 14.8, "kmAbs": 128.1, "label": "128 км, переезд", "kind": "crossing", "confidence": "low"},
+    {"km": 40.7, "kmAbs": 154.0, "label": "154 км, переезд", "kind": "crossing", "confidence": "medium"},
+    {"km": 50.7, "kmAbs": 164.0, "label": "164 км, переезд", "kind": "crossing", "confidence": "medium"}
+  ],
+  "signals": [
+    {"km": 2.0, "kmAbs": 115.3, "label": "14", "track": "E", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 4.0, "kmAbs": 117.3, "label": "12", "track": "E", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 6.0, "kmAbs": 119.3, "label": "10", "track": "E", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 8.0, "kmAbs": 121.3, "label": "8", "track": "E", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 10.0, "kmAbs": 123.3, "label": "6", "track": "E", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 12.0, "kmAbs": 125.3, "label": "4", "track": "E", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 14.0, "kmAbs": 127.3, "label": "2", "track": "E", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 16.0, "kmAbs": 129.3, "label": "Ч2", "track": "E", "kind": "station", "facing": 0, "confidence": "medium"},
+    {"km": 18.0, "kmAbs": 131.3, "label": "15", "track": "O", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 20.0, "kmAbs": 133.3, "label": "13", "track": "O", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 22.0, "kmAbs": 135.3, "label": "11", "track": "O", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 31.5, "kmAbs": 144.8, "label": "Н", "track": "O", "kind": "station", "facing": 0, "confidence": "medium"},
+    {"km": 32.1, "kmAbs": 145.4, "label": "Н1", "track": "O", "kind": "station", "facing": 0, "confidence": "medium"},
+    {"km": 34.1, "kmAbs": 147.4, "label": "13", "track": "E", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 36.1, "kmAbs": 149.4, "label": "11", "track": "E", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 38.1, "kmAbs": 151.4, "label": "9", "track": "E", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 40.1, "kmAbs": 153.4, "label": "7", "track": "E", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 42.1, "kmAbs": 155.4, "label": "5", "track": "E", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 44.1, "kmAbs": 157.4, "label": "3", "track": "E", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 46.1, "kmAbs": 159.4, "label": "1", "track": "E", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 48.1, "kmAbs": 161.4, "label": "Н", "track": "O", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 52.1, "kmAbs": 165.4, "label": "21", "track": "O", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 54.1, "kmAbs": 167.4, "label": "23", "track": "O", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 56.1, "kmAbs": 169.4, "label": "25", "track": "O", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 58.1, "kmAbs": 171.4, "label": "27", "track": "O", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 60.1, "kmAbs": 173.4, "label": "29", "track": "O", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 62.1, "kmAbs": 175.4, "label": "31", "track": "O", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 64.1, "kmAbs": 177.4, "label": "33", "track": "O", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 66.1, "kmAbs": 179.4, "label": "35", "track": "O", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 68.1, "kmAbs": 181.4, "label": "37", "track": "O", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 70.7, "kmAbs": 184.0, "label": "НМ", "track": "O", "kind": "station", "facing": 0, "confidence": "medium"},
+    {"km": 72.7, "kmAbs": 186.0, "label": "1", "track": "E", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 74.7, "kmAbs": 188.0, "label": "Ч4", "track": "E", "kind": "pass", "facing": 0, "confidence": "low"},
+    {"km": 76.7, "kmAbs": 190.0, "label": "Ч4АВ", "track": "E", "kind": "station", "facing": 0, "confidence": "low"},
+    {"km": 78.5, "kmAbs": 191.8, "label": "ЧВ", "track": "E", "kind": "station", "facing": 0, "confidence": "medium"}
+  ],
+  "verification": {
+    "required": ["точные км станций", "точные км и литеры светофоров", "направление facing", "наличие и пикеты переездов", "профиль уклонов"],
+    "photoReading": "best-effort"
+  }
+}
