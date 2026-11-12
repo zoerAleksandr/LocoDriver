@@ -82,6 +82,7 @@ class BrakeHoldingViewModel(application: Application) : AndroidViewModel(applica
             radio = HoldingRadioData(
                 km = prefs.getString(KEY_KM, "").orEmpty(),
                 picket = prefs.getString(KEY_PICKET, "").orEmpty(),
+                stretch = prefs.getString(KEY_STRETCH, "").orEmpty(),
                 // поезд и локомотив запомнены только на время идущей остановки (иначе подставляются из «Поезда»)
                 trainNumber = if (prefs.getLong(KEY_STOP, 0L) > 0L) prefs.getString(KEY_TRAIN, "").orEmpty() else "",
                 locoSeries = if (prefs.getLong(KEY_STOP, 0L) > 0L) prefs.getString(KEY_SERIES, "").orEmpty() else "",
@@ -205,8 +206,8 @@ class BrakeHoldingViewModel(application: Application) : AndroidViewModel(applica
 
     /** Сброс остановки: таймер, отметки шагов и место остановки. */
     fun resetStop() {
-        _state.update { it.copy(stopStartMs = null, helpLocoDeadlineMin = 10, doneSteps = emptySet(), radio = it.radio.copy(km = "", picket = "")) }
-        prefs.edit().remove(KEY_STOP).remove(KEY_DONE).remove(KEY_KM).remove(KEY_PICKET).remove(KEY_HELP_DEADLINE).apply()
+        _state.update { it.copy(stopStartMs = null, helpLocoDeadlineMin = 10, doneSteps = emptySet(), radio = it.radio.copy(km = "", picket = "", stretch = "")) }
+        prefs.edit().remove(KEY_STOP).remove(KEY_DONE).remove(KEY_KM).remove(KEY_PICKET).remove(KEY_STRETCH).remove(KEY_HELP_DEADLINE).apply()
     }
 
     fun toggleStep(i: Int) {
@@ -216,14 +217,15 @@ class BrakeHoldingViewModel(application: Application) : AndroidViewModel(applica
     }
 
     /** Место остановки по GPS: километр и пикет для радиосообщений. */
-    fun setPlace(km: String, picket: String) {
-        _state.update { it.copy(radio = it.radio.copy(km = km, picket = picket)) }
-        prefs.edit().putString(KEY_KM, km).putString(KEY_PICKET, picket).apply()
+    fun setPlace(km: String, picket: String, stretch: String?) {
+        val name = stretch.orEmpty()
+        _state.update { it.copy(radio = it.radio.copy(km = km, picket = picket, stretch = name)) }
+        prefs.edit().putString(KEY_KM, km).putString(KEY_PICKET, picket).putString(KEY_STRETCH, name).apply()
     }
 
     private companion object {
         const val KEY_STOP = "stop_start_ms"; const val KEY_DONE = "done_steps"; const val KEY_HELP_DEADLINE = "help_loco_deadline_min"
-        const val KEY_KM = "r_km"; const val KEY_PICKET = "r_picket"
+        const val KEY_KM = "r_km"; const val KEY_PICKET = "r_picket"; const val KEY_STRETCH = "r_stretch"
         const val KEY_TRAIN = "r_train"; const val KEY_SERIES = "r_series"; const val KEY_NUMBER = "r_number"
     }
 

@@ -29,14 +29,14 @@ object BrakeHoldingRadio {
     /** Распоряжение №1900/р, п. 13.1: сообщение об остановке. */
     fun stopMessage(d: HoldingRadioData): String {
         return "Внимание, все! Я, машинист ${v(d.surname)} поезда № ${v(d.trainNumber)}, остановился по причине ${v(d.cause)} " +
-            "на ${v(d.km)} километре, пикете ${v(d.picket)} номер пути перегона ${v(d.trackNumber)}, Будьте бдительны!"
+            "на ${v(d.km)} километре, пикете ${v(d.picket)}, номер пути ${v(d.trackNumber)}, ближайшая станция ${v(d.stretch)}. Будьте бдительны!"
     }
 
     /** Распоряжение №1900/р, п. 13.4: требование помощи; точное место сообщается после личной проверки. */
     fun helpLocoMessage(d: HoldingRadioData): String {
         val t = d.time.trim().split(":")
         val hm = if (t.size == 2 && t[0].isNotBlank() && t[1].isNotBlank()) "${t[0].trimStart('0').ifEmpty { "0" }} час ${t[1].trimStart('0').ifEmpty { "0" }} мин" else "… час … мин"
-        return "Я машинист ${v(d.surname)} поезда № ${v(d.trainNumber)}, на ${v(d.km)} км ${v(d.picket)} пикете перегона ${v(d.stretch)} " +
+        return "Я машинист ${v(d.surname)} поезда № ${v(d.trainNumber)}, на ${v(d.km)} км ${v(d.picket)} пикете, у станции ${v(d.stretch)} " +
             "требую вспомогательный локомотив по причине неисправности ТПС, ССПС секции ${v(d.locoSection)}, серии ${v(d.locoSeries)}, № ${v(d.locoNumber)}, " +
             "из-за ${v(d.cause)}, точное место остановки сообщу после личного убеждения. Время $hm"
     }
@@ -44,5 +44,5 @@ object BrakeHoldingRadio {
     /** Распоряжение №1900/р, п. 13.4: доклад после личной проверки места головы поезда. */
     fun verifiedPlaceMessage(d: HoldingRadioData): String =
         "Я машинист ${v(d.surname)} поезда № ${v(d.trainNumber)}, нахожусь «головой» поезда на км ${v(d.km)} " +
-            "пикете ${v(d.picket)} перегона ${v(d.stretch)}."
+            "пикете ${v(d.picket)}, у станции ${v(d.stretch)}."
 }

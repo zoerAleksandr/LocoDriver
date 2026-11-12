@@ -35,6 +35,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -278,7 +279,7 @@ private val HOLDING_STEPS = listOf(
     HStep(
         "Радиосвязь об остановке", MASH,
         bullets = listOf(
-            HBullet("Передать сообщение об остановке по форме распоряжения №1900/р (текст - ниже, «Сообщения по радио»)."),
+            HBullet("Передать сообщение об остановке по форме инструкции (текст — ниже, «Сообщения по радио»)."),
             HBullet("Передавать по порядку: УКВ — машинистам встречных и вслед идущих поездов; при пассажирском поезде — также начальнику поезда; затем КВ — ДСП, ограничивающим перегон, и ДНЦ. Если поездная радиосвязь недоступна — доложить по сотовой связи или иным способом дежурному основного депо либо командно-инструкторскому составу, затем передать место и причину остановки ДСП/ДНЦ."),
             HBullet("Получить подтверждение от встречных и вслед идущих поездов, ДСП, ДНЦ."),
         ),
@@ -373,18 +374,17 @@ private fun HoldingStepsTab(state: BrakeHoldingUiState, vm: BrakeHoldingViewMode
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        VuHint("Источник: распоряжение ОАО «РЖД» №1900/р от 07.09.2026. Инструкция «О взаимодействии работников, связанных с движением поездов, при возникновении аварийных и нестандартных ситуаций на железнодорожных путях общего пользования инфраструктуры ОАО „РЖД“», раздел 13.")
         VuHint("Для машинистов без помощника и ВСМВПС порядок устанавливается отдельными распорядительными документами (п. 13.2). При заклинивании колёсной пары действует отдельный сценарий (п. 13.8).")
         VuBlock("ВРЕМЯ ОТ ОСТАНОВКИ") {
-            VuHint("Выберите срок для своей ситуации: 10 минут — общее правило; 5 минут — для машинистов МВПС, работающих на участках с интенсивным пригородным движением, включённых в установленный распорядительными документами ОАО «РЖД» перечень.")
             VuHint("По п. 13.6 ДСП/ДНЦ не вызывает локомотивную бригаду по радио в течение этого срока.")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 VuBtn("10 минут", { vm.setHelpLocoDeadline(10) }, Modifier.weight(1f), kind = if (state.helpLocoDeadlineMin == 10) VuBtnKind.Cta else VuBtnKind.Tonal)
                 VuBtn("5 минут · МВПС по перечню", { vm.setHelpLocoDeadline(5) }, Modifier.weight(1f), kind = if (state.helpLocoDeadlineMin == 5) VuBtnKind.Cta else VuBtnKind.Tonal)
             }
+            VuHint("5 минут — для машинистов МВПС на участках с интенсивным пригородным движением, включённых в перечень распорядительных документов ОАО «РЖД».")
             if (elapsedSec == null) {
                 VuBtn("Остановились", { vm.startStop() }, Modifier.fillMaxWidth())
-                VuHint("Нажмите после остановки: пойдёт отсчёт, а время подставится в сообщение о вспомогательном локомотиве. Время от остановки контролирует помощник машиниста и докладывает машинисту.")
+                VuHint("Время от остановки контролирует помощник машиниста и докладывает машинисту.")
             } else {
                 Text(fmtClock(elapsedSec), fontFamily = VuMono, fontSize = 34.sp, fontWeight = FontWeight.Bold, color = t.text)
                 val deadlineSec = state.helpLocoDeadlineMin * 60L
@@ -402,27 +402,27 @@ private fun HoldingStepsTab(state: BrakeHoldingUiState, vm: BrakeHoldingViewMode
             val done = i in state.doneSteps
             s.phase?.let { HoldingPhaseHeader(it) }
             HoldingStepRow(i + 1, s, done, last = i == HOLDING_STEPS.lastIndex, deadlineMinutes = state.helpLocoDeadlineMin, onToggle = { vm.toggleStep(i) })
-            if (s.title == "Вспомогательный локомотив") HoldingExpandableCard(
-                title = "Ограждение поезда",
-                instruction = "По распоряжению №1900/р, п. 13.7. Выполнять только после получения приказа ДНЦ о закрытии перегона и информации о порядке помощи; ограждение производится по указанию машиниста.",
-                items = listOf(
-                    "Кто ограждает: грузовой поезд — помощник машиниста; пассажирский — поездная бригада; МВПС/ССПС — помощник машиниста; ВСМВПС с локомотивной тягой — локомотивная бригада ВСМВПС.",
-                    "С головы поезда уложить петарды на расстоянии 800 м от головы, затем отойти обратно к поезду на 20–25 м и подавать сигнал остановки.",
-                    "Хвост пассажирского поезда ограждать по требованиям ИСИ.",
-                    "Если помощь грузовому поезду оказывается с хвоста — уложить петарды на расстоянии 800 м от хвостового вагона, отойти обратно к поезду на 20–25 м и подавать сигнал остановки.",
-                ),
-            )
         }
         VuVerdict(false, "Отпуск тормозов поезда до устранения неисправности или прицепки вспомогательного локомотива ЗАПРЕЩЕНО.")
         VuHint("Расчёт закрепления бригада делает заранее - перед отправлением с начальной станции (пункта смены бригад) по самому крутому уклону участка - и фиксирует на бланке ДУ-61.")
 
         VuBlock("СООБЩЕНИЯ ПО РАДИО") {
+            HoldingExpandableCard(
+                title = "Ограждение поезда",
+                instruction = "Ограждение выполняют по указанию машиниста и в случаях, предусмотренных ИСИ; обязанности и расстояния зависят от типа поезда и причины остановки.",
+                items = listOf(
+                    "При вынужденной остановке пассажирского поезда на перегоне проводник последнего вагона по указанию машиниста ограждает хвост, если затребован восстановительный, пожарный поезд или помощь с хвоста, а также в предусмотренных ИСИ случаях отправления при перерыве всех средств сигнализации и связи. Он приводит в действие ручной тормоз, укладывает петарды в 800 м от хвоста, отходит на 20 м к поезду и показывает ручной красный сигнал в сторону перегона; возвращаться можно после подхода и остановки помощи либо передачи ограждения другому работнику (ИСИ, пп. 3.13–3.14).",
+                    "На участках с автоблокировкой при остановке пассажирского поезда проводник последнего вагона проверяет видимость сигналов, наблюдает за перегоном и при появлении следующего поезда принимает меры к его остановке. При ограждении петарды укладываются в 1000 м от головы и хвоста: голову ограждает помощник, хвост — проводник последнего вагона (ИСИ, п. 3.15).",
+                    "При ограждении с головы поезда помощник укладывает петарды в 800 м от головы, отходит на 20–25 м к поезду и показывает сигнал остановки; при помощи грузовому поезду с хвоста — аналогично от хвостового вагона (распоряжение, п. 13.7).",
+                ),
+            )
             HoldingGpsPlace(state, vm)
         }
-        HoldingMessageCard("Сообщение об остановке (№1900/р, п. 13.1)", BrakeHoldingRadio.stopMessage(radio))
-        HoldingMessageCard("Требование помощи (№1900/р, п. 13.4)", BrakeHoldingRadio.helpLocoMessage(radio))
-        HoldingMessageCard("После личной проверки места (№1900/р, п. 13.4)", BrakeHoldingRadio.verifiedPlaceMessage(radio))
+        HoldingMessageCard("Сообщение об остановке", BrakeHoldingRadio.stopMessage(radio))
+        HoldingMessageCard("Требование помощи", BrakeHoldingRadio.helpLocoMessage(radio))
+        HoldingMessageCard("После личной проверки места", BrakeHoldingRadio.verifiedPlaceMessage(radio))
         VuHint("Передавайте требование помощи с формулировкой о том, что точное место сообщите после личной проверки. Затем лично проверьте километр и пикет головы поезда и передайте уточнённый доклад по третьему шаблону. Незаполненные поля («…») назовите сами. Время сообщения и подтверждения фиксируйте на обороте ДУ-61 или в журнале ТУ-152.")
+        VuHint("Нормативные источники: инструкция о взаимодействии работников при аварийных и нестандартных ситуациях, раздел 13; Инструкция по сигнализации на железнодорожном транспорте, пп. 3.13–3.15.")
     }
 }
 
@@ -455,7 +455,7 @@ private fun HoldingStepRow(number: Int, step: HStep, done: Boolean, last: Boolea
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     VuTag(step.who)
                     Text(step.title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = if (done) t.muted else t.text, lineHeight = 22.sp)
-                    (step.badge ?: if (step.title == "Вспомогательный локомотив") "не позднее $deadlineMinutes мин после остановки" else null)?.let {
+                    (step.badge ?: if (step.title == "Вспомогательный локомотив") "не позднее $deadlineMinutes мин после остановки (10 мин общее правило, 5 мин для МВПС по перечню)" else null)?.let {
                         Text(
                             it.uppercase(), fontFamily = VuMono, fontSize = 11.sp, letterSpacing = 0.5.sp, fontWeight = FontWeight.Bold, color = t.bg,
                             modifier = Modifier.background(t.danger, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 3.dp),
@@ -502,7 +502,15 @@ private fun HoldingExpandableCard(title: String, instruction: String, items: Lis
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = t.text)
-                Text(if (expanded) "⌃" else "⌄", fontSize = 20.sp, color = t.accent)
+                androidx.compose.foundation.Canvas(
+                    Modifier.size(24.dp).rotate(if (expanded) 180f else 0f),
+                ) {
+                    val stroke = 2.dp.toPx()
+                    val middleX = size.width / 2f
+                    val middleY = size.height / 2f
+                    drawLine(t.accent, androidx.compose.ui.geometry.Offset(middleX - 5.dp.toPx(), middleY - 2.dp.toPx()), androidx.compose.ui.geometry.Offset(middleX, middleY + 3.dp.toPx()), stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    drawLine(t.accent, androidx.compose.ui.geometry.Offset(middleX, middleY + 3.dp.toPx()), androidx.compose.ui.geometry.Offset(middleX + 5.dp.toPx(), middleY - 2.dp.toPx()), stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                }
             }
             if (expanded) {
                 Text(instruction, fontSize = 13.sp, lineHeight = 19.sp, color = t.muted)
@@ -528,7 +536,7 @@ private fun HoldingMessageCard(title: String, text: String) {
     }
 }
 
-/** Кнопка «Определить место по GPS»: километр и пикет для сообщений (положение + участок с отметками, как на профиле пути; нужен вход и участок рядом). */
+/** Кнопка «Определить место по GPS»: километр/пикет по профилю пути и ближайшая станция по OSM. */
 @Composable
 private fun HoldingGpsPlace(state: BrakeHoldingUiState, vm: BrakeHoldingViewModel) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -538,7 +546,9 @@ private fun HoldingGpsPlace(state: BrakeHoldingUiState, vm: BrakeHoldingViewMode
     val launcher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         if (granted.values.any { it }) { requested = true; busy = true } else note = "Нет доступа к геолокации: разрешите его в настройках телефона или назовите место по столбикам."
     }
-    val place = state.radio.km.takeIf { it.isNotBlank() }?.let { "${state.radio.km} км ${state.radio.picket} пк" }
+    val place = state.radio.km.takeIf { it.isNotBlank() }?.let {
+        "${state.radio.km} км ${state.radio.picket} пк" + state.radio.stretch.takeIf(String::isNotBlank)?.let { station -> ", станция $station" }.orEmpty()
+    }
     VuBtn(
         if (busy) "Определяем место…" else "Определить место по GPS",
         {
@@ -550,12 +560,12 @@ private fun HoldingGpsPlace(state: BrakeHoldingUiState, vm: BrakeHoldingViewMode
     )
     VuHint(
         note ?: place?.let { "Место по GPS: $it (подставлено в сообщения)." }
-            ?: "Подставит километр и пикет в сообщения, если есть GPS, вход в аккаунт и участок пути рядом. Иначе назовите их по столбикам.",
+            ?: "Подставит километр и пикет по профилю пути, а название ближайшей станции — по OSM, если найдётся; иначе назовите место по столбикам.",
     )
     if (requested) {
-        com.z_company.route.component.servicephase.HoldingPositionResolver { km, pk, message ->
+        com.z_company.route.component.servicephase.HoldingPositionResolver { km, pk, stretch, message ->
             requested = false; busy = false
-            if (km != null && pk != null) vm.setPlace(km, pk) else note = message
+            if (km != null && pk != null) vm.setPlace(km, pk, stretch) else note = message
         }
     }
 }
