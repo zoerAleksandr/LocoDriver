@@ -40,6 +40,8 @@ data class BrakeHoldingUiState(
     val filling: Boolean = false,
     /** Момент остановки (мс, «Остановились» на вкладке «Порядок действий»); null - таймер не запущен. Хранится в SharedPreferences. */
     val stopStartMs: Long? = null,
+    /** Срок запроса вспомогательного локомотива: 5 мин только для МВПС на участке из установленного перечня, иначе 10 мин. */
+    val helpLocoDeadlineMin: Int = 10,
     /** Номера отмеченных шагов порядка действий. */
     val doneSteps: Set<Int> = emptySet(),
     /** Поля радиосообщений (вкладка «Порядок действий»). */
@@ -74,6 +76,7 @@ class BrakeHoldingViewModel(application: Application) : AndroidViewModel(applica
     private val _state = MutableStateFlow(
         BrakeHoldingUiState(
             stopStartMs = prefs.getLong(KEY_STOP, 0L).takeIf { it > 0L },
+            helpLocoDeadlineMin = prefs.getInt(KEY_HELP_DEADLINE, 10).takeIf { it == 5 } ?: 10,
             doneSteps = prefs.getStringSet(KEY_DONE, emptySet()).orEmpty().mapNotNull { it.toIntOrNull() }.toSet(),
             // место остановки (километр/пикет по GPS) хранится вместе с остановкой; остальное в сообщениях - из поезда и локомотива
             radio = HoldingRadioData(
@@ -194,10 +197,16 @@ class BrakeHoldingViewModel(application: Application) : AndroidViewModel(applica
             .apply()
     }
 
+    fun setHelpLocoDeadline(minutes: Int) {
+        val value = if (minutes == 5) 5 else 10
+        _state.update { it.copy(helpLocoDeadlineMin = value) }
+        prefs.edit().putInt(KEY_HELP_DEADLINE, value).apply()
+    }
+
     /** Сброс остановки: таймер, отметки шагов и место остановки. */
     fun resetStop() {
-        _state.update { it.copy(stopStartMs = null, doneSteps = emptySet(), radio = it.radio.copy(km = "", picket = "")) }
-        prefs.edit().remove(KEY_STOP).remove(KEY_DONE).remove(KEY_KM).remove(KEY_PICKET).apply()
+        _state.update { it.copy(stopStartMs = null, helpLocoDeadlineMin = 10, doneSteps = emptySet(), radio = it.radio.copy(km = "", picket = "")) }
+        prefs.edit().remove(KEY_STOP).remove(KEY_DONE).remove(KEY_KM).remove(KEY_PICKET).remove(KEY_HELP_DEADLINE).apply()
     }
 
     fun toggleStep(i: Int) {
@@ -213,7 +222,7 @@ class BrakeHoldingViewModel(application: Application) : AndroidViewModel(applica
     }
 
     private companion object {
-        const val KEY_STOP = "stop_start_ms"; const val KEY_DONE = "done_steps"
+        const val KEY_STOP = "stop_start_ms"; const val KEY_DONE = "done_steps"; const val KEY_HELP_DEADLINE = "help_loco_deadline_min"
         const val KEY_KM = "r_km"; const val KEY_PICKET = "r_picket"
         const val KEY_TRAIN = "r_train"; const val KEY_SERIES = "r_series"; const val KEY_NUMBER = "r_number"
     }
