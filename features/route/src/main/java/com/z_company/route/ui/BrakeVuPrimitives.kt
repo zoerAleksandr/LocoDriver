@@ -41,6 +41,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -271,6 +272,7 @@ internal fun VuBtn(
     kind: VuBtnKind = VuBtnKind.Filled,
     h: Dp = 48.dp,
     enabled: Boolean = true,
+    shape: Shape = RoundedCornerShape(h / 2),
 ) {
     val t = vuColors()
     val (bg, fg) = when (kind) {
@@ -283,8 +285,8 @@ internal fun VuBtn(
     Box(
         modifier = modifier
             .height(h)
-            .background(if (enabled) bg else bg.copy(alpha = bg.alpha * 0.4f), RoundedCornerShape(h / 2))
-            .clip(RoundedCornerShape(h / 2))
+            .background(if (enabled) bg else bg.copy(alpha = bg.alpha * 0.4f), shape)
+            .clip(shape)
             .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = if (kind == VuBtnKind.Text) 12.dp else 22.dp),
         contentAlignment = Alignment.Center,
