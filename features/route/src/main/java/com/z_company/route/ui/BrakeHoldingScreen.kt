@@ -380,7 +380,7 @@ private fun HoldingStepsTab(state: BrakeHoldingUiState, vm: BrakeHoldingViewMode
                 VuChip("5 минут", state.helpLocoDeadlineMin == 5, { vm.setHelpLocoDeadline(5) }, Modifier.weight(1f))
             }
             VuHint("5 минут — для машинистов МВПС на участках с интенсивным пригородным движением, включённых в перечень распорядительных документов ОАО «РЖД».")
-            VuHint("В выбранный срок ДСП/ДНЦ не вызывает локомотивную бригаду по радио (п. 13.6 Инструкции о взаимодействии работников по распоряжению ОАО «РЖД» № 1900/р).")
+            VuHint("В выбранный срок ДСП/ДНЦ не вызывает локомотивную бригаду по радио (п. 13.6 Распоряжения ОАО «РЖД» № 1900/р).")
             if (elapsedSec == null) {
                 VuBtn("Остановились", { vm.startStop() }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
                 VuHint("Время от остановки контролирует помощник машиниста и докладывает машинисту.")
