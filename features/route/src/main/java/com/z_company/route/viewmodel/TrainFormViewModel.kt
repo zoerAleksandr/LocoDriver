@@ -35,6 +35,8 @@ import com.z_company.route.util.DeviceLocation
 import kotlinx.coroutines.CoroutineScope
 import com.z_company.domain.util.displayTimeZone
 import kotlinx.coroutines.Dispatchers
+import kotlin.coroutines.cancellation.CancellationException
+import io.sentry.kotlin.multiplatform.Sentry
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
@@ -213,8 +215,10 @@ class TrainFormViewModel(
         loadUsageStats()
         refreshFix()
         viewModelScope.launch {
+            var initStage = "load_stations_sort_order"
             try {
                 loadStationsSortOrder()
+                initStage = "load_train"
                 if (trainId == NULLABLE_ID) {
                     isNewTrain = true
                     currentTrain = Train(basicId = basicId)
@@ -227,6 +231,7 @@ class TrainFormViewModel(
                     autoEditorTrainId = id
                     autoRecord.registerEditor(id, ::applyAutoEvent)
                 }
+                initStage = "load_user_settings"
                 val initJob = this.launch {
                     val setting = settingsUseCase.getUserSettingFlow().first()
                     timeZoneText = "GMT+3"
@@ -235,14 +240,17 @@ class TrainFormViewModel(
                 initJob.join()
 
                 // Load route once
+                initStage = "load_route"
                 val routeState = routeUseCase.routeDetails(basicId).first()
                 if (routeState is ResultState.Success) {
                     routeState.data?.let { route = it }
                 }
 
                 // Subscribe to settings changes (service phases can be updated)
+                initStage = "collect_current_settings"
                 settingsUseCase.getFlowCurrentSettingsState().collect { settingState ->
                     if (settingState is ResultState.Success) {
+                        initStage = "apply_current_settings"
                         settingState.data.let { settings ->
                             _uiState.update {
                                 it.copy(
@@ -252,6 +260,7 @@ class TrainFormViewModel(
                             }
                             com.z_company.core.ui.perf.ScreenPerf.section("train.settingsLists") {
                                 // Подсказки станций: настройки + справочник станций.
+                                initStage = "read_station_directory"
                                 val dirStations = stationDirectory.stations()
                                 stationPointsCache = StationDirectory.points(dirStations)
                                 stationNameList.addAllOrSkip(
@@ -260,11 +269,13 @@ class TrainFormViewModel(
                                         dirStations.map { it.name },
                                     )
                                 )
+                                initStage = "sort_station_suggestions"
                                 mutableStationList.addAllOrSkip(sortSuggestions(stationNameList.distinct()))
                                 locomotiveSeriesList.addAllOrSkip(settings.locomotiveSeriesList)
                                 mutableFilteredSeriesList.addAllOrSkip(locomotiveSeriesList)
                                 servicePhaseList.clear()
                                 // Координаты станций плеч — из справочника станций (единый источник).
+                                initStage = "resolve_service_phases"
                                 stationDirectory.backfillOnce(settings.servicePhases)
                                 servicePhaseList.addAllOrSkip(stationDirectory.resolve(settings.servicePhases))
                             }
@@ -272,7 +283,16 @@ class TrainFormViewModel(
                     }
                 }
             } catch (e: Exception) {
-                e.sendToSentry("TrainFormViewModel", "init")
+                if (e !is CancellationException) {
+                    // This is an intentionally caught initialization error, not proof of a process crash.
+                    // Attach only static stage metadata; never include route or user data.
+                    Sentry.captureException(e) { scope ->
+                        scope.setTag("diagnostic.capture", "handled")
+                        scope.setTag("diagnostic.screen", "train_form")
+                        scope.setTag("diagnostic.operation", "init")
+                        scope.setTag("diagnostic.stage", initStage)
+                    }
+                }
             }
         }
 
