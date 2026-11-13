@@ -1334,7 +1334,12 @@ internal fun SectionPickerDialog(model: ProfileModel, onDismiss: () -> Unit) {
                                         onClick = { downloadViewModel.download(s.id) },
                                         enabled = !downloadState.busy,
                                     ) {
-                                        PstIcon(PstIcons.Download, 20.dp, Pst.accent, description = if (offlineStatus == OfflineStatus.OUTDATED) "Обновить участок" else "Скачать участок")
+                                        PstIcon(
+                                            PstIcons.Download,
+                                            20.dp,
+                                            if (offlineStatus == OfflineStatus.OUTDATED) Pst.success else Pst.accent,
+                                            description = if (offlineStatus == OfflineStatus.OUTDATED) "Обновить участок" else "Скачать участок",
+                                        )
                                     }
                                 }
                             }

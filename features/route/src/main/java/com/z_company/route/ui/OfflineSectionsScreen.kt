@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -190,7 +191,10 @@ private fun Summary(count: Int, bytes: Long, outdated: Int, busy: Boolean, onUpd
         }
         if (outdated > 0) {
             if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
-            else TextButton(onClick = onUpdate) { Text("Обновить ($outdated)") }
+            else TextButton(
+                onClick = onUpdate,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.surfaceTint),
+            ) { Text("Обновить ($outdated)") }
         }
     }
 }
@@ -218,7 +222,10 @@ private fun SectionRow(item: OfflineSectionItem, onDownload: () -> Unit, onRemov
             OfflineStatus.DOWNLOADING -> Box(Modifier.padding(horizontal = 14.dp)) { CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) }
             OfflineStatus.NOT_DOWNLOADED -> TextButton(onClick = onDownload) { Text("Скачать") }
             OfflineStatus.OUTDATED -> Row {
-                TextButton(onClick = onDownload) { Text("Обновить") }
+                TextButton(
+                    onClick = onDownload,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.surfaceTint),
+                ) { Text("Обновить") }
                 TextButton(onClick = onRemove) { Text("Удалить", color = MaterialTheme.colorScheme.error) }
             }
             OfflineStatus.READY -> TextButton(onClick = onRemove) { Text("Удалить", color = MaterialTheme.colorScheme.error) }
