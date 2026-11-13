@@ -1173,11 +1173,23 @@ internal class ProfileModel(
     private val VIRTUAL_LEG_MAX_LOADS = 8
 
     private suspend fun buildVirtualLeg(): SectionProfile? {
+        // Capture Compose-backed state on the caller (UI) dispatcher; graph search and
+        // station-name matching can scan many edges and must not block the main thread.
         val names = legStopNames()
+        val loadedSections = sections
+        return withContext(Dispatchers.Default) {
+            buildVirtualLegOnBackground(names, loadedSections)
+        }
+    }
+
+    private suspend fun buildVirtualLegOnBackground(
+        names: List<String>,
+        loadedSections: List<SectionProfile>,
+    ): SectionProfile? {
         if (names.size < 2) return null
         val g0 = runCatching { repo.graph() }.getOrNull()
         val graph = g0 ?: return null
-        val byId = HashMap<String, SectionProfile>(sections.associateBy { it.id })
+        val byId = HashMap<String, SectionProfile>(loadedSections.associateBy { it.id })
         fun path(): List<EdgeTraversal>? = GraphLeg.pathForStops(graph, byId, names.first(), names.last())
         var found = path()
         if (found == null) {

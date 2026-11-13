@@ -14,6 +14,30 @@ import org.maplibre.android.style.layers.LineLayer
 import kotlin.math.hypot
 import kotlin.math.sqrt
 
+internal data class MapScreenPoint(val x: Float, val y: Float)
+
+internal data class MapQueryBounds(val left: Float, val top: Float, val right: Float, val bottom: Float) {
+    val width: Float get() = right - left
+    val height: Float get() = bottom - top
+}
+
+/** Smallest viewport-clipped box that preserves all candidates within [paddingPx] of the supplied screen points. */
+internal fun mapQueryBoundsAround(
+    points: List<MapScreenPoint>,
+    paddingPx: Float,
+    viewportWidth: Float,
+    viewportHeight: Float,
+): MapQueryBounds? {
+    if (points.isEmpty() || viewportWidth <= 0f || viewportHeight <= 0f || paddingPx < 0f) return null
+    val bounds = MapQueryBounds(
+        left = (points.minOf { it.x } - paddingPx).coerceAtLeast(0f),
+        top = (points.minOf { it.y } - paddingPx).coerceAtLeast(0f),
+        right = (points.maxOf { it.x } + paddingPx).coerceAtMost(viewportWidth),
+        bottom = (points.maxOf { it.y } + paddingPx).coerceAtMost(viewportHeight),
+    )
+    return bounds.takeIf { it.width > 0f && it.height > 0f }
+}
+
 /**
  * Привязка предупреждений на карте к настоящим рельсам подложки. Ось участка редкая (точки через километры), поэтому линия по
  * ней уходит с путей; рельсовые линии берутся из слоёв стиля (то, что нарисовано на экране) и линия предупреждения проецируется
@@ -21,16 +45,16 @@ import kotlin.math.sqrt
  */
 internal object RailSnap {
     /** Рельсовые ломаные подложки на экране, точки `(lat, lon)`. */
-    fun railLines(m: MapLibreMap, width: Int, height: Int): List<List<Pair<Double, Double>>> {
+    fun railLines(m: MapLibreMap, bounds: RectF): List<List<Pair<Double, Double>>> {
         val style = m.style ?: return emptyList()
-        if (width <= 0 || height <= 0) return emptyList()
+        if (bounds.width() <= 0f || bounds.height() <= 0f) return emptyList()
         return try {
             val ids = style.layers
                 .filter { it is LineLayer && !it.id.startsWith("train-map-") && it.id.contains("rail", ignoreCase = true) && !it.id.contains("transit", ignoreCase = true) }
                 .map { it.id }.toTypedArray()
             if (ids.isEmpty()) return emptyList()
             val out = ArrayList<List<Pair<Double, Double>>>()
-            m.queryRenderedFeatures(RectF(0f, 0f, width.toFloat(), height.toFloat()), *ids).forEach { f ->
+            m.queryRenderedFeatures(bounds, *ids).forEach { f ->
                 when (val g = f.geometry()) {
                     is org.maplibre.geojson.LineString -> out += g.coordinates().map { it.latitude() to it.longitude() }
                     is org.maplibre.geojson.MultiLineString -> g.coordinates().forEach { line -> out += line.map { it.latitude() to it.longitude() } }

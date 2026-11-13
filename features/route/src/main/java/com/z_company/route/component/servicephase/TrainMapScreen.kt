@@ -57,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import android.graphics.Color
+import android.graphics.RectF
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.toArgb
@@ -848,9 +849,8 @@ internal fun TrainMapScreen(
             }
             val markRows = marks.map { Row(it.latitude, it.longitude, stopTitle(it, stops), "mark", 11f, 8.5f, 1) }
             val rows = routeRows + markRows
-            // Дешёвые признаки (без обращений к карте): состав подписей и «грубое» положение камеры. Пересчёт подписей
-            // (queryRenderedFeatures по всему экрану + проекции) нужен только когда они изменились: на обновлении GPS раз в
-            // секунду и на каждый «покой» карты после перерисовки источников он раньше выполнялся впустую.
+            // Дешёвые признаки: состав подписей и «грубое» положение камеры. При обычных обновлениях GPS переиспользуем
+            // подписи базовой карты из кэша; queryRenderedFeatures вызывается только для области вокруг подписей приложения.
             val rowsSig = "$styleGen|${rows.joinToString("|") { it.name + it.role + it.lat + it.lon }}"
             val cam = m.cameraPosition
             val camKey = "${Math.round(cam.zoom * 10)}|${Math.round(cam.bearing / 2)}|${mapView.width}x${mapView.height}"
@@ -886,13 +886,52 @@ internal fun TrainMapScreen(
                 stopsState.centerLat = camCenter.latitude
                 stopsState.centerLon = camCenter.longitude
             }
+            val labelsCameraKey = "$styleGen|${cam.target}|${cam.zoom}|${cam.bearing}|${cam.tilt}|${mapView.width}x${mapView.height}"
+            val baseLabelsViewportChanged = stopsState.baseLabelsStyleGen != styleGen ||
+                stopsState.baseLabelsCamKey != labelsCameraKey || stopsState.baseLabelsRowsSig != rowsSig || stopsState.baseLabels == null
+            if (baseLabelsViewportChanged) {
+                stopsState.baseLabelsStyleGen = styleGen
+                stopsState.baseLabelsCamKey = labelsCameraKey
+                stopsState.baseLabelsRowsSig = rowsSig
+                stopsState.baseLabelsCameraChangedAt = nowUp
+                stopsState.baseLabels = null
+            }
             val t0 = MapPerf.begin("refreshStopSources")
             val screenPts = com.z_company.core.ui.perf.ScreenPerf.section("map.project") { rows.map { r -> m.projection.toScreenLocation(LatLng(r.lat, r.lon)) } }
             // Подписи базовой карты (станции/места стиля): своя подпись с тем же названием рядом (<= 40 dp) не рисуется -
-            // иначе два одинаковых названия накладываются друг на друга (SCREEN_SPECS §6.9). Без своих подписей - не запрашиваем.
+            // иначе два одинаковых названия накладываются друг на друга (SCREEN_SPECS §6.9). Повторный запрос нужен только
+            // после смены охвата карты и во время короткого ожидания подписей тайлов, а не на каждом обновлении GPS.
+            val labelsQueryAt = stopsState.baseLabelsQueryAt
+            val settlingTiles = cause == REFRESH_MAP_IDLE &&
+                nowUp - stopsState.baseLabelsCameraChangedAt <= TILE_SETTLE_WINDOW_MS &&
+                nowUp - labelsQueryAt >= MIN_REFRESH_GAP_MS
+            if (stopsState.baseLabels == null || (settlingTiles && stopsState.rendererReady)) {
+                val queryMargin = LabelDedup.RADIUS_DP * density
+                val queryBounds = mapQueryBoundsAround(
+                    points = screenPts.map { MapScreenPoint(it.x, it.y) },
+                    paddingPx = queryMargin.toFloat(),
+                    viewportWidth = mapView.width.toFloat(),
+                    viewportHeight = mapView.height.toFloat(),
+                )
+                if (stopsState.rendererReady) {
+                    stopsState.baseLabels = if (queryBounds == null) {
+                        emptyList()
+                    } else {
+                        com.z_company.core.ui.perf.ScreenPerf.section("map.baseLabels") {
+                            baseMapLabels(
+                                m,
+                                RectF(queryBounds.left, queryBounds.top, queryBounds.right, queryBounds.bottom),
+                                stopsState,
+                                styleGen,
+                            )
+                        }
+                    }
+                    stopsState.baseLabelsQueryAt = nowUp
+                }
+            }
             val dups = if (rows.isEmpty()) emptySet() else LabelDedup.duplicates(
                 rows.mapIndexed { i, r -> AppMapLabel(screenPts[i].x.toDouble(), screenPts[i].y.toDouble(), r.name) },
-                com.z_company.core.ui.perf.ScreenPerf.section("map.baseLabels") { baseMapLabels(m, mapView.width, mapView.height, stopsState, styleGen) },
+                stopsState.baseLabels.orEmpty(),
                 LabelDedup.RADIUS_DP * density,
             )
             // Дубли подписей одного названия рядом (<= 300 м; остановки в парке станции): остаётся одна, ближайшая к центру карты.
@@ -1289,32 +1328,95 @@ internal fun TrainMapScreen(
         // Предупреждения на участке: жёлтая линия по рельсам подложки (ось участка редкая и уходит с путей) и карточка-подпись.
         val warnings = profileModel.mapWarnings
         val warnKey = warnings.map { (sec, r) -> Triple(sec.id, r.warning, r.fromKm to r.toKm) }
+        val calibrationStore = remember { ProfileCalibrationStore(context) }
+        val calibrationNow = profileModel.calibrationKm
+        val warningPaths = remember(warnKey, calibrationNow) {
+            warnings.mapNotNull { (sec, r) ->
+                val shiftKm = calibrationStore.get(sec.id, sec.axisHash)
+                val axisLenKm = sec.axis.locator.lengthKm.takeIf { it > 0 } ?: sec.lengthKm
+                val fromKm = (r.fromKm - shiftKm).coerceIn(0.0, axisLenKm)
+                val toKm = (r.toKm - shiftKm).coerceIn(0.0, axisLenKm)
+                val lenKm = (toKm - fromKm).coerceAtLeast(0.0)
+                val step = (lenKm / 40).coerceIn(0.005, 0.02)
+                val path = com.z_company.domain.track.AxisSlice.smooth(sec.axis.points, fromKm, toKm, step)
+                path.takeIf { it.size >= 2 }?.let { r.warning.id to WarningPathGeometry(it, step * 1000) }
+            }.toMap()
+        }
         var warnRails by remember { mutableStateOf<List<List<Pair<Double, Double>>>>(emptyList()) }
-        DisposableEffect(map, warnings.isNotEmpty(), styleReady) {
-            val on = warnings.isNotEmpty() && styleReady
-            fun refresh() {
+        DisposableEffect(map, warnings.isNotEmpty(), styleReady, styleGen, warningPaths) {
+            val on = warnings.isNotEmpty() && styleReady && warningPaths.isNotEmpty()
+            var previousCameraKey = ""
+            var cameraChangedAt = android.os.SystemClock.uptimeMillis()
+            var lastQueryAt = 0L
+            var pendingQuery: Runnable? = null
+            var firstFrameSeen = false
+            fun refresh(allowLateTileRefresh: Boolean = false) {
                 val m = map ?: return
                 if (!alive.get() || !visible.get()) return
-                // Запрос слоёв до готовности стиля/рендерера роняет нативный код карты.
-                if (m.style?.isFullyLoaded != true || mapView.width == 0 || mapView.height == 0) return
-                warnRails = RailSnap.railLines(m, mapView.width, mapView.height)
+                // Запрос слоёв до первого кадра или при скрытой карте может обратиться к уничтожаемому рендереру.
+                if (!stopsState.rendererReady || m.style?.isFullyLoaded != true || mapView.width == 0 || mapView.height == 0) return
+                val camera = m.cameraPosition
+                val cameraKey = "$styleGen|${Math.round(camera.zoom * 10)}|${Math.round(camera.bearing / 2)}|${camera.target}|${mapView.width}x${mapView.height}"
+                val now = android.os.SystemClock.uptimeMillis()
+                if (cameraKey != previousCameraKey) {
+                    previousCameraKey = cameraKey
+                    cameraChangedAt = now
+                }
+                // Camera-idle and map-idle can arrive back-to-back. Query at most once a second and
+                // retry briefly while tiles settle; later map-idle events still refresh at a lower rate.
+                val withinTileSettleWindow = now - cameraChangedAt <= TILE_SETTLE_WINDOW_MS
+                if (!withinTileSettleWindow && !allowLateTileRefresh) return
+                val minQueryGap = if (withinTileSettleWindow) MIN_REFRESH_GAP_MS else LATE_TILE_REFRESH_GAP_MS
+                val waitForThrottle = minQueryGap - (now - lastQueryAt)
+                if (lastQueryAt != 0L && waitForThrottle > 0L) {
+                    pendingQuery?.let { mapView.removeCallbacks(it) }
+                    val pending = Runnable { pendingQuery = null; refresh(allowLateTileRefresh) }
+                    pendingQuery = pending
+                    mapView.postDelayed(pending, waitForThrottle)
+                    return
+                }
+                val warningPoints = warningPaths.values.flatMap { it.points }
+                if (warningPoints.isEmpty()) return
+                val screenPoints = warningPoints.map { (lat, lon) ->
+                    val point = m.projection.toScreenLocation(LatLng(lat, lon))
+                    MapScreenPoint(point.x, point.y)
+                }
+                val paddingPx = warningPoints.maxOf { (lat, _) ->
+                    (250.0 / m.projection.getMetersPerPixelAtLatitude(lat).coerceAtLeast(0.01)).toFloat()
+                } + 12f * density
+                val bounds = mapQueryBoundsAround(
+                    points = screenPoints,
+                    paddingPx = paddingPx,
+                    viewportWidth = mapView.width.toFloat(),
+                    viewportHeight = mapView.height.toFloat(),
+                ) ?: return
+                warnRails = RailSnap.railLines(m, RectF(bounds.left, bounds.top, bounds.right, bounds.bottom))
+                lastQueryAt = now
             }
             val idle = MapLibreMap.OnCameraIdleListener { refresh() }
-            val mapIdle = MapView.OnDidBecomeIdleListener { refresh() }
+            val mapIdle = MapView.OnDidBecomeIdleListener { refresh(allowLateTileRefresh = true) }
+            val firstFrame = MapView.OnDidFinishRenderingFrameListener { _, _, _ ->
+                if (!firstFrameSeen && stopsState.rendererReady) {
+                    firstFrameSeen = true
+                    refresh()
+                }
+            }
             if (on && map != null) {
                 refresh()
                 map?.addOnCameraIdleListener(idle)
                 mapView.addOnDidBecomeIdleListener(mapIdle)
+                mapView.addOnDidFinishRenderingFrameListener(firstFrame)
             }
             onDispose {
+                pendingQuery?.let { mapView.removeCallbacks(it) }
+                pendingQuery = null
                 map?.removeOnCameraIdleListener(idle)
                 mapView.removeOnDidBecomeIdleListener(mapIdle)
+                mapView.removeOnDidFinishRenderingFrameListener(firstFrame)
             }
         }
         // Ручная привязка профиля сдвигает положение поезда по км, а не зону: на плане зона рисуется там, где поезд входит в неё по
         // профилю (и по записи журнала) - границы на оси смещаются на -поправку своего участка.
-        val calibrationStore = remember { ProfileCalibrationStore(context) }
-        val calibrationNow = profileModel.calibrationKm
         LaunchedEffect(styleGen, styleReady, warnKey, warnRails, calibrationNow) {
             if (!styleReady) return@LaunchedEffect
             val st = map?.style ?: return@LaunchedEffect
@@ -1323,16 +1425,9 @@ internal fun TrainMapScreen(
             val lineFeatures = ArrayList<Feature>()
             val labelFeatures = ArrayList<Feature>()
             warnings.forEach { (sec, r) ->
-                val axis = sec.axis.points
-                val shiftKm = calibrationStore.get(sec.id, sec.axisHash)
-                val axisLenKm = sec.axis.locator.lengthKm.takeIf { it > 0 } ?: sec.lengthKm
-                val fromKm = (r.fromKm - shiftKm).coerceIn(0.0, axisLenKm)
-                val toKm = (r.toKm - shiftKm).coerceIn(0.0, axisLenKm)
-                val lenKm = (toKm - fromKm).coerceAtLeast(0.0)
-                val step = (lenKm / 40).coerceIn(0.005, 0.02)
-                val path = com.z_company.domain.track.AxisSlice.smooth(axis, fromKm, toKm, step)
-                if (path.size < 2) return@forEach
-                val snapped = RailSnap.snap(path, warnRails, step * 1000)
+                val warningPath = warningPaths[r.warning.id] ?: return@forEach
+                val path = warningPath.points
+                val snapped = RailSnap.snap(path, warnRails, warningPath.stepM)
                 val segments = snapped.ifEmpty { listOf(path) }
                 segments.forEach { seg ->
                     lineFeatures += Feature.fromGeometry(LineString.fromLngLats(seg.map { (lat, lon) -> Point.fromLngLat(lon, lat) }))
@@ -2704,6 +2799,11 @@ private fun buildTrackGeo(pts: List<TrainMapRoute.SnappedPoint>, realGaps: List<
     )
 }
 
+private data class WarningPathGeometry(
+    val points: List<Pair<Double, Double>>,
+    val stepM: Double,
+)
+
 private const val REFRESH_DATA = 0
 private const val REFRESH_CAMERA_IDLE = 1
 private const val REFRESH_MAP_IDLE = 2
@@ -2713,6 +2813,9 @@ private const val TILE_SETTLE_WINDOW_MS = 4_000L
 
 /** Не чаще раза в это время пересчитываем подписи по «покою» карты при неподвижной камере, мс. */
 private const val MIN_REFRESH_GAP_MS = 1_000L
+
+/** Поздняя дозагрузка тайлов: повторяем запрос реже, чтобы не терять привязку предупреждений после долгой сети. */
+private const val LATE_TILE_REFRESH_GAP_MS = 5_000L
 
 /** Состояние пересчёта подписей станций: прошлая подпись источника, признаки камеры и отложенный запуск. */
 private class StopRefreshState {
@@ -2725,6 +2828,12 @@ private class StopRefreshState {
     var runAt = 0L
     var camChangedAt = 0L
     var pending: Runnable? = null
+    var baseLabels: List<BaseMapLabel>? = null
+    var baseLabelsStyleGen = -1
+    var baseLabelsCamKey = ""
+    var baseLabelsRowsSig = ""
+    var baseLabelsCameraChangedAt = 0L
+    var baseLabelsQueryAt = 0L
     var baseLayerIds: Array<String>? = null
     var baseLayerIdsGen = -1
 }
@@ -2733,17 +2842,16 @@ private class StopRefreshState {
  * Подписи базовой карты (symbol-слои стиля: станции, населённые пункты) на экране - для отсева дублей своих подписей.
  * Слои приложения (`train-map-*`) не учитываются. Только точечные объекты с названием.
  */
-private fun baseMapLabels(m: MapLibreMap, width: Int, height: Int, cache: StopRefreshState, styleGen: Int): List<BaseMapLabel> {
+private fun baseMapLabels(m: MapLibreMap, queryBounds: RectF, cache: StopRefreshState, styleGen: Int): List<BaseMapLabel> {
     if (!cache.rendererReady) return emptyList()
     val style = m.style ?: return emptyList()
-    if (width <= 0 || height <= 0) return emptyList()
     return try {
         // Список id symbol-слоёв подложки стабилен в пределах поколения стиля - не запрашиваем все слои из нативного кода каждый раз.
         val ids = cache.baseLayerIds?.takeIf { cache.baseLayerIdsGen == styleGen }
             ?: style.layers.filter { it is SymbolLayer && !it.id.startsWith("train-map-") }.map { it.id }.toTypedArray()
                 .also { cache.baseLayerIds = it; cache.baseLayerIdsGen = styleGen }
         if (ids.isEmpty()) return emptyList()
-        m.queryRenderedFeatures(android.graphics.RectF(0f, 0f, width.toFloat(), height.toFloat()), *ids).mapNotNull { f ->
+        m.queryRenderedFeatures(queryBounds, *ids).mapNotNull { f ->
             val pt = f.geometry() as? Point ?: return@mapNotNull null
             val name = listOf("name:ru", "name").firstNotNullOfOrNull { k ->
                 if (f.hasProperty(k)) f.getStringProperty(k)?.takeIf { it.isNotBlank() } else null

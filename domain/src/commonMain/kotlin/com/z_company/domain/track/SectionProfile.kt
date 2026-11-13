@@ -233,6 +233,8 @@ object SectionPicker {
 
 /** Локальное сопоставление названий станции и вариантов с сокращением/номером. */
 object StationNameMatcher {
+    private val wordSeparator = Regex("[^\\p{L}\\p{N}]+")
+
     fun sameStation(a: String, b: String): Boolean {
         val left = words(a)
         val right = words(b)
@@ -247,7 +249,7 @@ object StationNameMatcher {
     private fun norm(s: String) = s.lowercase().replace('ё', 'е').filter { it.isLetterOrDigit() }
 
     private fun words(s: String): List<String> = s.lowercase().replace('ё', 'е')
-        .split(Regex("[^\\p{L}\\p{N}]+"))
+        .split(wordSeparator)
         .filter { it.isNotEmpty() }
 
     private fun hasStationPrefix(short: List<String>, full: List<String>): Boolean {
