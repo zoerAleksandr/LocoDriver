@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import com.z_company.domain.track.AxisPoint
+import com.z_company.route.component.servicephase.DARK_STYLE_URL
 import com.z_company.route.component.servicephase.STYLE_URL
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -24,10 +25,15 @@ import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.tan
 
-/** Полностью скачанные версии карты участка; во время атомарной замены старая и новая могут сосуществовать. */
-data class OfflineTilePacks(val bytesByAxisHash: Map<String, Long>) {
-    fun bytesFor(axisHash: String): Long? = bytesByAxisHash[axisHash]
-    val totalBytes: Long get() = bytesByAxisHash.values.sum()
+/** Пакеты по осям и стилям; участок полностью готов только при наличии обеих подложек. */
+data class OfflineTilePacks(val bytesByAxisHashAndStyle: Map<String, Map<String, Long>>) {
+    fun bytesFor(axisHash: String): Long? {
+        val styles = bytesByAxisHashAndStyle[axisHash] ?: return null
+        if (!styles.keys.containsAll(setOf(MapTilePrefetch.STYLE_LIGHT, MapTilePrefetch.STYLE_DARK))) return null
+        return styles.values.sum()
+    }
+
+    val totalBytes: Long get() = bytesByAxisHashAndStyle.values.sumOf { it.values.sum() }
 }
 
 /**
@@ -42,19 +48,31 @@ object MapTilePrefetch {
     private const val OWNER = "locodriver-offline"
     private const val STATE_STAGING = "staging"
     private const val STATE_READY = "ready"
+    internal const val STYLE_LIGHT = "light"
+    internal const val STYLE_DARK = "dark"
+    private val REQUIRED_STYLE_IDS = setOf(STYLE_LIGHT, STYLE_DARK)
+    private val styleUrls = listOf(STYLE_LIGHT to STYLE_URL, STYLE_DARK to DARK_STYLE_URL)
 
     internal data class PackMetadata(
         val sectionId: String,
         val axisHash: String,
         val state: String,
         val createdAt: Long,
+        val styleId: String = STYLE_LIGHT,
     )
 
-    private class Active {
+    private class Attempt {
         @Volatile var region: OfflineRegion? = null
         @Volatile var cont: CancellableContinuation<Boolean>? = null
         @Volatile var finishing: Boolean = false
         @Volatile var finished: Boolean = false
+    }
+
+    private class Active {
+        @Volatile var current: Attempt? = null
+        val createdRegions = java.util.Collections.synchronizedList(mutableListOf<OfflineRegion>())
+        @Volatile var cancelled = false
+        @Volatile var complete = false
     }
 
     private val active = ConcurrentHashMap<String, Active>()
@@ -84,7 +102,8 @@ object MapTilePrefetch {
         return tiles.size
     }
 
-    fun estimateMb(tileCount: Int): Double = tileCount * TILE_AVG_KB / 1024.0
+    /** Оценка включает два независимых стилевых пака; общие ресурсы MapLibre может дедуплицировать. */
+    fun estimateMb(tileCount: Int): Double = tileCount * TILE_AVG_KB * REQUIRED_STYLE_IDS.size / 1024.0
 
     /** Сеть считается бесплатной по системному признаку, а не просто по типу Wi-Fi. */
     fun isUnmetered(context: Context): Boolean {
@@ -95,7 +114,7 @@ object MapTilePrefetch {
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
     }
 
-    /** Скачать новую версию карты, не трогая прежний ready-пак до полного успеха. */
+    /** Скачать обе темы карты, не трогая прежнюю пару паков до полного успеха. */
     suspend fun download(
         context: Context,
         sectionId: String,
@@ -108,68 +127,94 @@ object MapTilePrefetch {
         if (active.putIfAbsent(sectionId, slot) != null) return false
         val app = context.applicationContext
         val createdAt = System.currentTimeMillis()
-        val definition = OfflineGeometryRegionDefinition(
-            STYLE_URL,
-            LineString.fromLngLats(points.map { Point.fromLngLat(it.lon, it.lat) }),
-            MIN_ZOOM,
-            MAX_ZOOM,
-            1f,
-        )
         return try {
             withTimeoutOrNull(DOWNLOAD_TIMEOUT_MS) {
-                suspendCancellableCoroutine { cont ->
-                    slot.cont = cont
-                    cont.invokeOnCancellation { discardStaging(slot) }
-                    manager(app).createOfflineRegion(
-                        definition,
-                        encodeMetadata(PackMetadata(sectionId, axisHash, STATE_STAGING, createdAt)),
-                        object : OfflineManager.CreateOfflineRegionCallback {
-                            override fun onCreate(region: OfflineRegion) {
-                                slot.region = region
-                                if (!cont.isActive || slot.finished) {
-                                    deleteRegion(region)
-                                    return
-                                }
-                                region.setDeliverInactiveMessages(true)
-                                region.setObserver(object : OfflineRegion.OfflineRegionObserver {
-                                    override fun onStatusChanged(status: OfflineRegionStatus) {
-                                        if (slot.finished || slot.finishing) return
-                                        onProgress(status.completedResourceCount, status.requiredResourceCount)
-                                        if (isComplete(status)) {
-                                            slot.finishing = true
-                                            region.setDownloadState(OfflineRegion.STATE_INACTIVE)
-                                            makeReady(app, region, sectionId, axisHash, createdAt, slot, cont)
-                                        }
-                                    }
-
-                                    override fun onError(error: OfflineRegionError) = finishFailure(slot)
-
-                                    override fun mapboxTileCountLimitExceeded(limit: Long) = finishFailure(slot)
-                                })
-                                region.setDownloadState(OfflineRegion.STATE_ACTIVE)
-                            }
-
-                            override fun onError(error: String) = finishFailure(slot)
-                        },
-                    )
+                val line = LineString.fromLngLats(points.map { Point.fromLngLat(it.lon, it.lat) })
+                styleUrls.forEachIndexed { index, (styleId, styleUrl) ->
+                    if (slot.cancelled) return@withTimeoutOrNull false
+                    val ok = downloadStyle(
+                        app, sectionId, axisHash, createdAt, styleId, styleUrl, line, slot,
+                    ) { done, total ->
+                        val perStyle = 1_000L
+                        val withinStyle = if (total > 0) (done.coerceAtMost(total) * perStyle / total) else 0L
+                        onProgress(index * perStyle + withinStyle, styleUrls.size * perStyle)
+                    }
+                    if (!ok) return@withTimeoutOrNull false
                 }
+                slot.complete = true
+                true
             } ?: false
         } finally {
             active.remove(sectionId, slot)
-            if (!slot.finished) discardStaging(slot)
+            if (!slot.complete) discardBatch(slot)
         }
     }
 
-    /** Отменить только staging-регион; прежний ready-пак остаётся на телефоне. */
-    fun cancel(context: Context, sectionId: String) {
-        val slot = active.remove(sectionId) ?: return
-        if (slot.finished) return
-        slot.finished = true
-        discardStaging(slot)
-        slot.cont?.let { if (it.isActive) it.resume(false) }
+    private suspend fun downloadStyle(
+        app: Context,
+        sectionId: String,
+        axisHash: String,
+        createdAt: Long,
+        styleId: String,
+        styleUrl: String,
+        line: LineString,
+        batch: Active,
+        onProgress: (Long, Long) -> Unit,
+    ): Boolean {
+        val attempt = Attempt()
+        batch.current = attempt
+        val definition = OfflineGeometryRegionDefinition(styleUrl, line, MIN_ZOOM, MAX_ZOOM, 1f)
+        return suspendCancellableCoroutine { cont ->
+            attempt.cont = cont
+            cont.invokeOnCancellation { discardStaging(attempt) }
+            manager(app).createOfflineRegion(
+                definition,
+                encodeMetadata(PackMetadata(sectionId, axisHash, STATE_STAGING, createdAt, styleId)),
+                object : OfflineManager.CreateOfflineRegionCallback {
+                    override fun onCreate(offlineRegion: OfflineRegion) {
+                        attempt.region = offlineRegion
+                        if (!cont.isActive || attempt.finished || batch.cancelled) {
+                            deleteRegion(offlineRegion)
+                            return
+                        }
+                        offlineRegion.setDeliverInactiveMessages(true)
+                        offlineRegion.setObserver(object : OfflineRegion.OfflineRegionObserver {
+                            override fun onStatusChanged(status: OfflineRegionStatus) {
+                                if (attempt.finished || attempt.finishing || batch.cancelled) return
+                                onProgress(status.completedResourceCount.toLong(), status.requiredResourceCount.toLong())
+                                if (isComplete(status)) {
+                                    attempt.finishing = true
+                                    offlineRegion.setDownloadState(OfflineRegion.STATE_INACTIVE)
+                                    makeReady(offlineRegion, sectionId, axisHash, createdAt, styleId, batch, attempt, cont)
+                                }
+                            }
+
+                            override fun onError(error: OfflineRegionError) = finishFailure(batch, attempt)
+                            override fun mapboxTileCountLimitExceeded(limit: Long) = finishFailure(batch, attempt)
+                        })
+                        offlineRegion.setDownloadState(OfflineRegion.STATE_ACTIVE)
+                    }
+
+                    override fun onError(error: String) = finishFailure(batch, attempt)
+                },
+            )
+        }.also { batch.current = null }
     }
 
-    /** После фиксации профиля оставить только самый новый ready-пак его оси. */
+    /** Отменить текущий staging-регион и новые паки; прежняя пара ready-паков остаётся на телефоне. */
+    fun cancel(context: Context, sectionId: String) {
+        val slot = active.remove(sectionId) ?: return
+        if (slot.complete) return
+        slot.cancelled = true
+        slot.current?.let { attempt ->
+            attempt.finished = true
+            discardStaging(attempt)
+            attempt.cont?.let { if (it.isActive) it.resume(false) }
+        }
+        discardBatch(slot)
+    }
+
+    /** После фиксации профиля оставить самый новый ready-пак каждой темы его оси. */
     suspend fun commit(context: Context, sectionId: String, axisHash: String): Unit = suspendCancellableCoroutine { cont ->
         val app = context.applicationContext
         manager(app).listOfflineRegions(object : OfflineManager.ListOfflineRegionsCallback {
@@ -177,15 +222,17 @@ object MapTilePrefetch {
                 val owned = offlineRegions.orEmpty().mapNotNull { region ->
                     parseMetadata(region.metadata)?.takeIf { it.sectionId == sectionId }?.let { region to it }
                 }
-                val keep = owned.filter { it.second.state == STATE_READY && it.second.axisHash == axisHash }
-                    .maxByOrNull { it.second.createdAt }?.first?.id
-                // Если новый ready-регион неожиданно исчез между download и commit,
-                // старую рабочую карту не трогаем: профиль ещё можно откатить/обновить позднее.
-                if (keep == null) {
+                val current = owned.filter { it.second.state == STATE_READY && it.second.axisHash == axisHash }
+                val keep = REQUIRED_STYLE_IDS.mapNotNull { styleId ->
+                    current.filter { it.second.styleId == styleId }.maxByOrNull { it.second.createdAt }?.first
+                }
+                // Если не хватает одной темы, старую рабочую пару не трогаем.
+                if (keep.size != REQUIRED_STYLE_IDS.size) {
                     if (cont.isActive) cont.resume(Unit)
                     return
                 }
-                deleteRegions(owned.map { it.first }.filter { it.id != keep }) {
+                val keepIds = keep.map { it.id }.toSet()
+                deleteRegions(owned.map { it.first }.filter { it.id !in keepIds }) {
                     if (cont.isActive) cont.resume(Unit)
                 }
             }
@@ -225,12 +272,14 @@ object MapTilePrefetch {
                     return
                 }
                 data class Candidate(val metadata: PackMetadata, val bytes: Long)
-                val result = ConcurrentHashMap<String, ConcurrentHashMap<String, Candidate>>()
+                val result = ConcurrentHashMap<String, ConcurrentHashMap<String, ConcurrentHashMap<String, Candidate>>>()
                 val left = AtomicInteger(candidates.size)
                 fun completeOne() {
                     if (left.decrementAndGet() == 0 && cont.isActive) {
                         cont.resume(result.mapValues { entry ->
-                            OfflineTilePacks(entry.value.mapValues { it.value.bytes })
+                            OfflineTilePacks(entry.value.mapValues { axis ->
+                                axis.value.mapValues { it.value.bytes }
+                            })
                         })
                     }
                 }
@@ -239,7 +288,8 @@ object MapTilePrefetch {
                         override fun onStatus(status: OfflineRegionStatus?) {
                             if (status != null && isComplete(status)) {
                                 val byAxis = result.computeIfAbsent(metadata.sectionId) { ConcurrentHashMap() }
-                                byAxis.compute(metadata.axisHash) { _, old ->
+                                    .computeIfAbsent(metadata.axisHash) { ConcurrentHashMap() }
+                                byAxis.compute(metadata.styleId) { _, old ->
                                     val fresh = Candidate(metadata, status.completedResourceSize)
                                     if (old == null || fresh.metadata.createdAt >= old.metadata.createdAt) fresh else old
                                 }
@@ -259,42 +309,52 @@ object MapTilePrefetch {
     }
 
     private fun makeReady(
-        app: Context,
         region: OfflineRegion,
         sectionId: String,
         axisHash: String,
         createdAt: Long,
-        slot: Active,
+        styleId: String,
+        batch: Active,
+        attempt: Attempt,
         cont: CancellableContinuation<Boolean>,
     ) {
         region.updateMetadata(
-            encodeMetadata(PackMetadata(sectionId, axisHash, STATE_READY, createdAt)),
+            encodeMetadata(PackMetadata(sectionId, axisHash, STATE_READY, createdAt, styleId)),
             object : OfflineRegion.OfflineRegionUpdateMetadataCallback {
                 override fun onUpdate(metadata: ByteArray) {
-                    if (!cont.isActive || slot.finished) {
+                    if (!cont.isActive || attempt.finished || batch.cancelled) {
                         deleteRegion(region)
                         return
                     }
-                    slot.finished = true
+                    batch.createdRegions.add(region)
+                    attempt.finished = true
                     cont.resume(true)
                 }
 
-                override fun onError(error: String) = finishFailure(slot)
+                override fun onError(error: String) = finishFailure(batch, attempt)
             },
         )
     }
 
-    private fun finishFailure(slot: Active) {
-        if (slot.finished) return
-        slot.finished = true
-        discardStaging(slot)
-        slot.cont?.let { if (it.isActive) it.resume(false) }
+    private fun finishFailure(batch: Active, attempt: Attempt) {
+        if (attempt.finished) return
+        attempt.finished = true
+        discardStaging(attempt)
+        attempt.cont?.let { if (it.isActive) it.resume(false) }
     }
 
-    private fun discardStaging(slot: Active) {
-        slot.region?.let { region ->
+    private fun discardStaging(attempt: Attempt) {
+        attempt.region?.let { region ->
             runCatching { region.setDownloadState(OfflineRegion.STATE_INACTIVE) }
             deleteRegion(region)
+        }
+    }
+
+    private fun discardBatch(batch: Active) {
+        batch.current?.let(::discardStaging)
+        synchronized(batch.createdRegions) {
+            batch.createdRegions.toList().forEach(::deleteRegion)
+            batch.createdRegions.clear()
         }
     }
 
@@ -335,7 +395,7 @@ object MapTilePrefetch {
     }
 
     internal fun encodeMetadata(m: PackMetadata): ByteArray =
-        """{"owner":"$OWNER","sectionId":"${m.sectionId}","axisHash":"${m.axisHash}","state":"${m.state}","createdAt":${m.createdAt}}""".toByteArray()
+        """{"owner":"$OWNER","sectionId":"${m.sectionId}","axisHash":"${m.axisHash}","state":"${m.state}","createdAt":${m.createdAt},"styleId":"${m.styleId}"}""".toByteArray()
 
     /** Старые JSON-паки без owner/state считаются ready для бесшовного обновления. */
     internal fun parseMetadata(raw: ByteArray): PackMetadata? {
@@ -346,7 +406,8 @@ object MapTilePrefetch {
         if (owner != null && owner != OWNER) return null
         val state = Regex("\\\"state\\\":\\\"([^\\\"]+)\\\"").find(text)?.groupValues?.get(1) ?: STATE_READY
         val createdAt = Regex("\\\"createdAt\\\":([0-9]+)").find(text)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
-        return PackMetadata(sectionId, axisHash, state, createdAt)
+        val styleId = Regex("\\\"styleId\\\":\\\"([^\\\"]+)\\\"").find(text)?.groupValues?.get(1) ?: STYLE_LIGHT
+        return PackMetadata(sectionId, axisHash, state, createdAt, styleId)
     }
 
     private fun isComplete(status: OfflineRegionStatus): Boolean =

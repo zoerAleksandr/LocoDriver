@@ -160,7 +160,7 @@ class OfflineSectionsViewModel(
 
     /**
      * Данные сохранены - докачать тайлы подложки вдоль оси: по Wi-Fi молча, по мобильной сети - вопрос с оценкой
-     * размера (размер считается по числу тайлов в полосе). Данные и карта только вместе: отказ, отмена или сбой
+     * размера (учтены обе темы карты). Данные и карта только вместе: отказ, отмена или сбой
      * тайлов откатывает новую версию профиля, сохраняя прежнюю рабочую копию. true - участок целиком на телефоне.
      */
     private suspend fun afterData(id: String): Boolean {
@@ -221,7 +221,7 @@ class OfflineSectionsViewModel(
         finished = true
         if (ok) {
             packs.value = withContext(Dispatchers.Default) { runCatching { MapTilePrefetch.downloadedPacks(app) }.getOrDefault(packs.value) }
-            _state.update { it.copy(tileProgress = null, message = "Участок и карта сохранены на телефоне") }
+            _state.update { it.copy(tileProgress = null, message = "Участок и обе темы карты сохранены на телефоне") }
         } else {
             val byUser = cancelRequested.remove(section.id)
             _state.update {

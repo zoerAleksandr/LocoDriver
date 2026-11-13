@@ -161,7 +161,7 @@ internal fun OfflineSectionDownloadDialogs(viewModel: OfflineSectionsViewModel) 
         com.z_company.route.component.AppAlertDialog(
             onDismissRequest = { viewModel.cancelDownload() },
             title = "Скачать участок с картой?",
-            text = "Участок «${p.name}» займёт около ${"%.1f".format(p.mb)} МБ. Скачать по мобильной сети?",
+            text = "Участок «${p.name}» со светлой и тёмной картой займёт около ${"%.1f".format(p.mb)} МБ. Скачать по мобильной сети?",
             confirmText = "Скачать",
             onConfirm = { viewModel.acceptTiles() },
             dismissText = "Отмена",

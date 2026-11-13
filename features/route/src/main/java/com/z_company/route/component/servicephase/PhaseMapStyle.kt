@@ -17,7 +17,7 @@ private const val RASTER_STYLE_JSON = """{"version":8,"sources":{"osm":{"type":"
 
 /** Сколько ждём загрузки стиля, прежде чем перейти к следующему варианту (сеть «висит», ошибки нет). */
 private const val STYLE_TIMEOUT_MS = 10_000L
-private const val DARK_STYLE_URL = "https://tiles.openfreemap.org/styles/dark"
+internal const val DARK_STYLE_URL = "https://tiles.openfreemap.org/styles/dark"
 
 /**
  * Загружает подложку цепочкой: 1) свой прокси [STYLE_URL]; 2) OpenFreeMap [STYLE_URL_FALLBACK];
