@@ -31,9 +31,14 @@ internal class TrackWarningStore(context: Context) {
         prefs.all.keys.filter { it == sectionId || it.startsWith("$sectionId|") }.flatMap { load(it, sectionId) }.distinctBy { it.id }
     }.getOrDefault(emptyList())
 
-    /** Вся история по всем участкам без повторов: для подбора прошлых предупреждений плеча без загрузки профиля. */
-    fun loadEvery(): List<TrackWarning> = runCatching {
-        prefs.all.keys.flatMap { load(it, it.substringBefore('|')) }.distinctBy { it.id }
+    /** История только из ключей выбранного плеча и направления его следования. */
+    fun loadEvery(from: String, to: String): List<TrackWarning> = runCatching {
+        fun norm(value: String) = value.lowercase().filter { it.isLetterOrDigit() }
+        val wanted = "${norm(from)}>${norm(to)}"
+        prefs.all.keys
+            .filter { key -> key.substringAfterLast('|', "") == wanted }
+            .flatMap { load(it, it.substringBefore('|')) }
+            .distinctBy { it.id }
     }.getOrDefault(emptyList())
 
     fun save(key: String, list: List<TrackWarning>) {

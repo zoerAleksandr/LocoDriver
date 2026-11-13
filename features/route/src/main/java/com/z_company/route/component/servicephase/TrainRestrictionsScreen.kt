@@ -114,8 +114,10 @@ internal fun TrainRestrictionsScreen(
     val order = remember(stops, legFrom, legTo) { stops.map { it.name }.filter { it.isNotBlank() }.ifEmpty { listOfNotNull(legFrom, legTo) } }
     val warningStore = remember { TrackWarningStore(context.applicationContext) }
     var pastAll by remember { mutableStateOf(emptyList<TrackWarning>()) }
-    LaunchedEffect(trainId, legSelected) {
-        pastAll = if (legSelected) withContext(Dispatchers.Default) { warningStore.loadEvery() } else emptyList()
+    LaunchedEffect(trainId, legSelected, leg.endNames) {
+        pastAll = leg.endNames?.takeIf { legSelected }?.let { (from, to) ->
+            withContext(Dispatchers.Default) { warningStore.loadEvery(from, to) }
+        } ?: emptyList()
     }
     val pastCandidates = remember(pastAll, entries, order) {
         val active = entries.filter { !it.isDeleted }.map { it.warningId }.toSet()
