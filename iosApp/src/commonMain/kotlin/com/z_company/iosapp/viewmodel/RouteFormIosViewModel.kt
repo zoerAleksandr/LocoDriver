@@ -644,8 +644,8 @@ class RouteFormIosViewModel(
             val last = stations.lastOrNull()?.stationName?.takeIf { it.isNotBlank() }
             if (first != null && last != null && first != last) append(", $first — $last")
             append("\n\n")
-            append("Чтобы открыть маршрут, нажмите на ссылку внизу")
-            append("\n\n")
+            append("Открыть в приложении:")
+            append("\n")
             append(url)
         }
         val subject = start?.let { "Маршрут от ${formatDate4(it, offset)} ${formatTime(it, offset)}" } ?: "Маршрут"

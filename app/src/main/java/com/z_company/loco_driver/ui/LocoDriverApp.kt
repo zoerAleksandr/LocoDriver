@@ -59,6 +59,7 @@ import com.z_company.core.theme.ThemeManager
 import com.z_company.core.theme.ThemeMode
 import com.z_company.loco_driver.ui.navigation.RouterImpl
 import com.z_company.loco_driver.ui.theme.LocoDriverTheme
+import com.z_company.loco_driver.viewmodel.SharedRouteImportState
 import com.z_company.route.R
 import com.z_company.route.component.AppAlertDialog
 import com.z_company.route.component.BottomNavigationBar
@@ -91,6 +92,9 @@ fun LocoDriverApp(
     pendingImportRoute: Route? = null,
     onConfirmImport: () -> Unit = {},
     onDismissImport: () -> Unit = {},
+    pendingSharedRouteImport: SharedRouteImportState? = null,
+    onSaveSharedRouteImport: () -> Unit = {},
+    onCancelSharedRouteImport: () -> Unit = {},
     pendingFormOpen: Boolean = false,
     onFormOpened: () -> Unit = {},
     pendingNavigateHome: Boolean = false,
@@ -383,6 +387,14 @@ fun LocoDriverApp(
                     onConfirm = onConfirmImport,
                     dismissText = "Отмена",
                     onDismiss = onDismissImport
+                )
+            }
+
+            pendingSharedRouteImport?.let { state ->
+                SharedRoutesImportBottomSheet(
+                    state = state,
+                    onSave = onSaveSharedRouteImport,
+                    onCancel = onCancelSharedRouteImport,
                 )
             }
 

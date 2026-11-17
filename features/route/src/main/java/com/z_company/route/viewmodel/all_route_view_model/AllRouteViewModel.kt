@@ -829,8 +829,8 @@ class AllRouteViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * Массовый шеринг: для каждого выбранного маршрута создаём публичную ссылку и
-     * отправляем одним сообщением (см. [com.z_company.route.util.ShareLinkData.fromRoutes]).
+     * Массовый шеринг: создаём публичный share id для каждого выбранного маршрута,
+     * объединяем их в одну ссылку и отправляем одним сообщением.
      */
     fun shareSelectedRoutes() {
         val routes = selectedRoutes()

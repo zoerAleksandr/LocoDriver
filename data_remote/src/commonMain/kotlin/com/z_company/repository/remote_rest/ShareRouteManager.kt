@@ -18,8 +18,9 @@ import kotlinx.coroutines.flow.flowOn
  *   POST /v1/share/route       — создаёт публичную запись, возвращает короткий id
  *   GET  /v1/share/route/{id}  — возвращает Route по id (без авторизации)
  *
- * Ссылка формируется на клиенте в формате: `locodriver://share/{id}`.
- * Deep link обрабатывается в `MainActivity` (Android) и `iOSApp.swift` (iOS).
+ * Одиночная ссылка формируется как `https://locodriver.ru/r/{id}`. Для нескольких
+ * маршрутов первый share id остаётся в пути, остальные передаются в `?routes=`.
+ * Deep link обрабатывается в Android `MainActivity` и SwiftUI `iOSApp`.
  */
 class ShareRouteManager(
     private val remoteRestApi: RemoteRestApi
@@ -100,16 +101,33 @@ class ShareRouteManager(
             "https://$SHARE_HTTPS_HOST/$SHARE_HTTPS_PATH/$id"
 
         /**
-         * Извлекает shareId из любого поддерживаемого формата ссылки:
+         * Собирает одну ссылку на несколько публичных маршрутов.
+         * Серверные записи остаются отдельными, а в URL передаются их share id.
+         */
+        fun buildShareUrl(ids: List<String>): String {
+            require(ids.isNotEmpty()) { "At least one share id is required" }
+            val firstUrl = buildShareUrl(ids.first())
+            if (ids.size == 1) return firstUrl
+            return "$firstUrl?routes=${ids.drop(1).joinToString(",")}"
+        }
+
+        /**
+         * Извлекает первый shareId из любого поддерживаемого формата ссылки.
          *  - `https://locodriver.ru/r/{id}`           — основной (App Links)
          *  - `https://locodriver.ru/share/{id}`       — на случай редиректа со старого пути
          *  - `locodriver://share/{id}`                — кастомная схема (fallback / iOS)
          *  - `locodriver://r/{id}`                    — на случай ручного формирования
          *
-         * Возвращает null, если ни один маркер не распознан или id пустой.
+         * Для общей ссылки возвращает первый id, поэтому старые версии приложения
+         * продолжают открывать первый маршрут. Если ссылка не распознана — null.
          */
         fun parseShareId(url: String): String? {
-            if (url.isBlank()) return null
+            return parseShareIds(url).firstOrNull()
+        }
+
+        /** Извлекает один или несколько share id из поддерживаемого формата ссылки. */
+        fun parseShareIds(url: String): List<String> {
+            if (url.isBlank()) return emptyList()
             // /r/   — основной формат: https://locodriver.ru/r/{id}
             // /share/ — кастомная схема: locodriver://share/{id} (содержит "/share/" из-за "://")
             val markers = listOf("/$SHARE_HTTPS_PATH/", "/$SHARE_HOST/")
@@ -117,10 +135,25 @@ class ShareRouteManager(
                 val idx = url.indexOf(marker)
                 if (idx < 0) continue
                 val tail = url.substring(idx + marker.length)
-                val id = tail.substringBefore('?').substringBefore('#').trim('/').trim()
-                if (id.isNotEmpty()) return id
+                val pathIds = tail.substringBefore('?').substringBefore('#')
+                    .replace("%2C", ",", ignoreCase = true)
+                    .trim('/')
+                    .split(',')
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                val query = url.substringAfter('?', "").substringBefore('#')
+                val queryIds = query.split('&')
+                    .firstOrNull { it.substringBefore('=') == "routes" }
+                    ?.substringAfter('=', "")
+                    ?.replace("%2C", ",", ignoreCase = true)
+                    ?.split(',')
+                    ?.map { it.trim() }
+                    ?.filter { it.isNotEmpty() }
+                    .orEmpty()
+                val ids = pathIds + queryIds
+                if (ids.isNotEmpty()) return ids
             }
-            return null
+            return emptyList()
         }
     }
 }

@@ -13,6 +13,7 @@ import SwiftUI
 /// автоматически пропадает на вложенных экранах.
 struct AppCoordinator: View {
     @ObservedObject private var router = AppRouter.shared
+    @StateObject private var sharedRouteImport = SharedRoutesImportViewModelWrapper.shared
     /// Вкладка создаётся при первом открытии (не грузим VM всех вкладок на старте).
     @State private var loadedTabs: Set<AppTab> = []
 
@@ -30,6 +31,13 @@ struct AppCoordinator: View {
         }
         .onAppear { loadedTabs.insert(router.selectedTab) }
         .onChange(of: router.selectedTab) { tab in loadedTabs.insert(tab) }
+        .onChange(of: sharedRouteImport.isPresented) { isPresented in
+            if isPresented {
+                router.present(.sharedRoutesImport)
+            } else if router.sheet == .sharedRoutesImport {
+                router.dismissSheet()
+            }
+        }
         .sheet(item: $router.sheet) { sheet in
             AppSheetView(sheet: sheet, onClose: { router.dismissSheet() })
                 .presentationDetents([.medium, .large])

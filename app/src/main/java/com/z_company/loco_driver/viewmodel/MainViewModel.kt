@@ -13,8 +13,8 @@ import com.z_company.domain.entities.Day
 import com.z_company.domain.entities.MonthOfYear
 import com.z_company.domain.entities.route.Route
 import com.z_company.domain.entities.route.reidentifyForImport
+import com.z_company.domain.entities.setting.UserSettings
 import com.z_company.domain.repositories.SharedPreferencesRepositories
-import com.z_company.domain.util.SharedRouteHolder
 import com.z_company.repository.remote_rest.ShareRouteManager
 import com.z_company.domain.use_cases.LoadCalendarFromStorage
 import com.z_company.domain.use_cases.CalendarUseCase
@@ -32,6 +32,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -41,6 +42,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.z_company.core.sendToSentry
@@ -51,6 +53,13 @@ import java.util.Calendar.MONTH
 import java.util.Calendar.YEAR
 
 private const val TAG = "MainViewModel_TAG"
+
+data class SharedRouteImportState(
+    val routes: List<Route> = emptyList(),
+    val isLoading: Boolean = false,
+    val isSaving: Boolean = false,
+    val userSettings: UserSettings = UserSettings(),
+)
 
 class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val salarySettingUseCase: SalarySettingUseCase by inject()
@@ -137,6 +146,12 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     private val _pendingImportRoute = MutableStateFlow<Route?>(null)
     val pendingImportRoute: StateFlow<Route?> = _pendingImportRoute.asStateFlow()
 
+    /** Пачка маршрутов из общей ссылки; запись в локальную БД происходит только по кнопке «Сохранить». */
+    private val _pendingSharedRouteImport = MutableStateFlow<SharedRouteImportState?>(null)
+    val pendingSharedRouteImport: StateFlow<SharedRouteImportState?> =
+        _pendingSharedRouteImport.asStateFlow()
+    private var sharedRouteImportJob: Job? = null
+
     // Навигация из виджета → FormScreen (добавить маршрут)
     private val _pendingFormOpen = MutableStateFlow(false)
     val pendingFormOpen: StateFlow<Boolean> = _pendingFormOpen.asStateFlow()
@@ -144,8 +159,8 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
     fun requestOpenForm() { _pendingFormOpen.value = true }
     fun clearOpenForm() { _pendingFormOpen.value = false }
 
-    // Открыть FormRoute с конкретным routeId (shared route через SharedRouteHolder,
-    // либо переход из малого виджета на текущий маршрут)
+    // Открыть FormRoute с конкретным routeId при переходе из малого виджета
+    // на текущий маршрут.
     private val _pendingOpenFormWithId = MutableStateFlow<String?>(null)
     val pendingOpenFormWithId: StateFlow<String?> = _pendingOpenFormWithId.asStateFlow()
 
@@ -201,53 +216,98 @@ class MainViewModel : ViewModel(), KoinComponent, DefaultLifecycleObserver {
         _pendingImportRoute.value = null
     }
 
-    /**
-     * Обрабатывает deep-link `locodriver://share/{shareId}`:
-     * 1. Загружает Route с сервера
-     * 2. Переприсваивает идентификаторы
-     * 3. Сохраняет Route в локальную БД с флагом [isDeleted = true] — «tentative»
-     *    (не отображается в списках, но доступен по id, child-сущности работают)
-     * 4. Помечает id в [SharedRouteHolder] для FormViewModel (покажет шторку)
-     * 5. Навигирует на FormScreen через [pendingOpenFormWithId]
-     */
-    fun handleShareDeepLink(shareId: String) {
-        if (shareId.isBlank()) return
-        viewModelScope.launch {
+    /** Все публичные ссылки открывают шторку импорта, в том числе ссылка с одним маршрутом. */
+    fun handleShareDeepLink(shareIds: List<String>) {
+        val ids = shareIds.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        if (ids.isEmpty()) return
+
+        sharedRouteImportJob?.cancel()
+        _pendingSharedRouteImport.value = SharedRouteImportState(isLoading = true)
+        sharedRouteImportJob = viewModelScope.launch {
             try {
-                shareRouteManager.getSharedRoute(shareId).collect { result ->
-                    when (result) {
-                        is ResultState.Success -> {
-                            // Переприсваиваем id + ставим isDeleted = true (tentative)
-                            val imported = result.data.reidentifyForImport()
-                            val tentative = imported.copy(
-                                basicData = imported.basicData.copy(isDeleted = true)
-                            )
-                            // Сохраняем в БД (tentative)
-                            routeUseCase.saveRoute(tentative).collect { saveState ->
-                                if (saveState is ResultState.Success) {
-                                    SharedRouteHolder.markSharedPreview(tentative.basicData.id)
-                                    _pendingOpenFormWithId.value = tentative.basicData.id
-                                } else if (saveState is ResultState.Error) {
-                                    snackbarManager.show(
-                                        saveState.entity.message
-                                            ?: "Ошибка импорта маршрута"
-                                    )
-                                }
-                            }
+                val userSettings = runCatching {
+                    settingsUseCase.getUserSetting()
+                }.getOrDefault(UserSettings())
+                val importedRoutes = mutableListOf<Route>()
+                var failedCount = 0
+                ids.forEach { shareId ->
+                    var route: Route? = null
+                    val failuresBeforeRequest = failedCount
+                    shareRouteManager.getSharedRoute(shareId).collect { result ->
+                        when (result) {
+                            is ResultState.Success -> route = result.data.reidentifyForImport()
+                            is ResultState.Error -> failedCount++
+                            is ResultState.Loading -> Unit
                         }
-                        is ResultState.Error -> {
-                            snackbarManager.show(
-                                result.entity.message ?: "Не удалось загрузить общий маршрут"
-                            )
-                        }
-                        is ResultState.Loading -> Unit
                     }
+                    route?.let(importedRoutes::add)
+                    if (route == null && failedCount == failuresBeforeRequest) failedCount++
                 }
+
+                if (importedRoutes.isEmpty()) {
+                    _pendingSharedRouteImport.value = null
+                    snackbarManager.show("Не удалось загрузить общие маршруты")
+                    return@launch
+                }
+                _pendingSharedRouteImport.value = SharedRouteImportState(
+                    routes = importedRoutes,
+                    userSettings = userSettings,
+                )
+                if (failedCount > 0) {
+                    snackbarManager.show("Не удалось загрузить маршрутов: $failedCount")
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                e.sendToSentry("MainViewModel", "handleShareDeepLink")
-                snackbarManager.show("Ошибка загрузки общего маршрута")
+                e.sendToSentry("MainViewModel", "handleShareDeepLinkBatch")
+                _pendingSharedRouteImport.value = null
+                snackbarManager.show("Ошибка загрузки общих маршрутов")
             }
         }
+    }
+
+    /** Совместимость для точек входа, которые передают одну строку. */
+    fun handleShareDeepLink(shareId: String) = handleShareDeepLink(listOf(shareId))
+
+    fun saveSharedRouteImport() {
+        val state = _pendingSharedRouteImport.value ?: return
+        if (state.isLoading || state.isSaving || state.routes.isEmpty()) return
+        _pendingSharedRouteImport.value = state.copy(isSaving = true)
+        viewModelScope.launch {
+            var savedCount = 0
+            val failedRoutes = mutableListOf<Route>()
+            state.routes.forEach { route ->
+                try {
+                    val result = routeUseCase.saveRoute(route).first { it !is ResultState.Loading }
+                    if (result is ResultState.Success) savedCount++
+                    else failedRoutes += route
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    e.sendToSentry("MainViewModel", "saveSharedRouteImport")
+                    failedRoutes += route
+                }
+            }
+            if (failedRoutes.isEmpty()) {
+                _pendingSharedRouteImport.value = null
+                snackbarManager.show(
+                    if (savedCount == 1) "Маршрут сохранён"
+                    else "Сохранено маршрутов: $savedCount"
+                )
+            } else {
+                _pendingSharedRouteImport.value = state.copy(
+                    routes = failedRoutes,
+                    isSaving = false,
+                )
+                snackbarManager.show("Не удалось сохранить маршрутов: ${failedRoutes.size}")
+            }
+        }
+    }
+
+    fun cancelSharedRouteImport() {
+        if (_pendingSharedRouteImport.value?.isSaving == true) return
+        sharedRouteImportJob?.cancel()
+        _pendingSharedRouteImport.value = null
     }
 
 

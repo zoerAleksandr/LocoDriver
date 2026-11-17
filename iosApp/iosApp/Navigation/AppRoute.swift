@@ -203,6 +203,8 @@ enum AppSheet: Identifiable, Hashable {
     case monthPicker(MonthPickerContext)
     case metricInfo
     case routeUnits(basicId: String)
+    // §3.1 Импорт нескольких маршрутов из общей ссылки
+    case sharedRoutesImport
     // §9.1, §9.3 Быстрый просмотр и легенда
     case routeQuickView(basicId: String)
     case routeLegend
@@ -258,6 +260,7 @@ enum AppSheet: Identifiable, Hashable {
         case let .monthPicker(context): return "monthPicker-\(context.rawValue)"
         case .metricInfo: return "metricInfo"
         case let .routeUnits(basicId): return "routeUnits-\(basicId)"
+        case .sharedRoutesImport: return "sharedRoutesImport"
         case let .routeQuickView(basicId): return "routeQuickView-\(basicId)"
         case .routeLegend: return "routeLegend"
         case let .calcSheet(basicId): return "calcSheet-\(basicId)"
@@ -300,6 +303,7 @@ enum AppSheet: Identifiable, Hashable {
         case .monthPicker: return "Выберите месяц и год"
         case .metricInfo: return "Пояснение"
         case .routeUnits: return "Единицы маршрута"
+        case .sharedRoutesImport: return "Получены маршруты"
         case .routeQuickView: return "Маршрут"
         case .routeLegend: return "Обозначения"
         case .calcSheet: return "Расчёт за смену"
@@ -341,6 +345,7 @@ enum AppSheet: Identifiable, Hashable {
         case .monthPicker: return "§4.4, §9.0.1, §11.7"
         case .metricInfo: return "§4.4"
         case .routeUnits: return "§4.4"
+        case .sharedRoutesImport: return "§3.1, §5.6"
         case .routeQuickView: return "§9.1"
         case .routeLegend: return "§9.3"
         case .calcSheet: return "§11.9"

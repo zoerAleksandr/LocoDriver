@@ -3,6 +3,7 @@ package com.z_company.route.util
 import android.content.Context
 import android.content.Intent
 import com.z_company.domain.entities.route.Route
+import com.z_company.repository.remote_rest.ShareRouteManager
 
 /**
  * Данные для share-Intent при отправке маршрута другому пользователю.
@@ -44,8 +45,8 @@ data class ShareLinkData(
                     append(", $firstStation — $lastStation")
                 }
                 append("\n\n")
-                append("Чтобы открыть маршрут, нажмите на ссылку внизу")
-                append("\n\n")
+                append("Открыть в приложении:")
+                append("\n")
                 append(url)
             }
 
@@ -60,36 +61,24 @@ data class ShareLinkData(
             return ShareLinkData(text = text, subject = subject)
         }
 
-        /**
-         * Собирает [ShareLinkData] сразу для НЕСКОЛЬКИХ маршрутов — режим
-         * множественного выбора на экране «Маршруты». Каждому маршруту
-         * соответствует пара (маршрут, публичная ссылка).
-         * Для одного маршрута полностью повторяет [fromRoute].
-         */
+        /** Собирает сообщение с общей ссылкой для выбранной группы маршрутов. */
         fun fromRoutes(links: List<Pair<Route, String>>): ShareLinkData {
             if (links.size == 1) {
                 val (route, url) = links.first()
                 return fromRoute(route, url)
             }
-            val sdf = java.text.SimpleDateFormat(
-                "dd.MM.yyyy HH:mm",
-                java.util.Locale.getDefault()
-            )
+            val shareIds = links.mapNotNull { (_, url) ->
+                ShareRouteManager.parseShareId(url)
+            }
+            val commonUrl = ShareRouteManager.buildShareUrl(shareIds)
             val text = buildString {
                 append("Маршруты из приложения «Машинист» \uD83D\uDE82")
-                append("\n\n")
-                links.forEach { (route, url) ->
-                    val date = route.basicData.timeStartWork?.let {
-                        sdf.format(java.util.Date(it))
-                    }
-                    append(if (date != null) "Маршрут от $date" else "Маршрут")
-                    append("\n")
-                    append(url)
-                    append("\n\n")
-                }
-                append("Чтобы открыть маршрут, нажмите на нужную ссылку")
+                append(" (${shareIds.size})")
+                append("\n\nОткрыть в приложении:")
+                append("\n")
+                append(commonUrl)
             }
-            return ShareLinkData(text = text, subject = "Маршруты (${links.size})")
+            return ShareLinkData(text = text, subject = "Маршруты (${shareIds.size})")
         }
     }
 }
@@ -107,7 +96,12 @@ fun ShareLinkData.toShareIntent(fromActivity: Boolean = false): Intent {
         putExtra(Intent.EXTRA_SUBJECT, subject)
         putExtra(Intent.EXTRA_TEXT, text)
     }
-    val chooser = Intent.createChooser(sendIntent, "Поделиться маршрутом")
+    val chooserTitle = if (subject.startsWith("Маршруты")) {
+        "Поделиться маршрутами"
+    } else {
+        "Поделиться маршрутом"
+    }
+    val chooser = Intent.createChooser(sendIntent, chooserTitle)
     if (!fromActivity) {
         chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }

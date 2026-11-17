@@ -141,6 +141,7 @@ class MainActivity : ComponentActivity(), KoinComponent {
         setContent {
             val appState = rememberLocoDriverAppState()
             val pendingImportRoute by mainViewModel.pendingImportRoute.collectAsState()
+            val pendingSharedRouteImport by mainViewModel.pendingSharedRouteImport.collectAsState()
             val pendingFormOpen by mainViewModel.pendingFormOpen.collectAsState()
             val pendingNavigateHome by mainViewModel.pendingNavigateHome.collectAsState()
             val pendingNavigateProfile by mainViewModel.pendingNavigateProfile.collectAsState()
@@ -157,6 +158,9 @@ class MainActivity : ComponentActivity(), KoinComponent {
                 pendingImportRoute = pendingImportRoute,
                 onConfirmImport = mainViewModel::confirmImportRoute,
                 onDismissImport = mainViewModel::dismissImportRoute,
+                pendingSharedRouteImport = pendingSharedRouteImport,
+                onSaveSharedRouteImport = mainViewModel::saveSharedRouteImport,
+                onCancelSharedRouteImport = mainViewModel::cancelSharedRouteImport,
                 pendingFormOpen = pendingFormOpen,
                 onFormOpened = mainViewModel::clearOpenForm,
                 pendingNavigateHome = pendingNavigateHome,
@@ -287,13 +291,13 @@ class MainActivity : ComponentActivity(), KoinComponent {
             return
         }
 
-        // Deep link: публичная ссылка на маршрут.
-        //  - https://locodriver.ru/r/{id}      (App Link, кликабелен в Telegram и т.п.)
-        //  - locodriver://share/{id}            (fallback / iOS, кастомная схема)
+        // Deep link: публичная ссылка на один или несколько маршрутов.
+        //  - https://locodriver.ru/r/{id}?routes={id,id…} (App Link)
+        //  - locodriver://share/{id}?routes={id,id…}      (fallback)
         if (i?.action == Intent.ACTION_VIEW && data != null && isShareDeepLink(data)) {
-            val shareId = ShareRouteManager.parseShareId(data.toString())
-            if (!shareId.isNullOrBlank()) {
-                mainViewModel.handleShareDeepLink(shareId)
+            val shareIds = ShareRouteManager.parseShareIds(data.toString())
+            if (shareIds.isNotEmpty()) {
+                mainViewModel.handleShareDeepLink(shareIds)
                 return
             }
         }

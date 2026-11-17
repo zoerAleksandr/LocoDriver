@@ -121,6 +121,7 @@ fun ItemHomeScreen(
     // свайп-удаление отключено, тап по карточке = выделение, слева — маркер.
     selectionMode: Boolean = false,
     isSelected: Boolean = false,
+    isInteractive: Boolean = true,
 ) {
 
     // --- мемоизируем тяжёлые вычисления по route ---
@@ -538,11 +539,15 @@ fun ItemHomeScreen(
                         Row(
                                 modifier = Modifier
                                     .wrapContentWidth()
-                                    .pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onLongPress = { showLegend = true }
-                                        )
-                                    },
+                                    .then(
+                                        if (isInteractive) {
+                                            Modifier.pointerInput(Unit) {
+                                                detectTapGestures(
+                                                    onLongPress = { showLegend = true }
+                                                )
+                                            }
+                                        } else Modifier
+                                    ),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
                             ) {
@@ -668,7 +673,13 @@ fun ItemHomeScreen(
             }
     }
 
-    if (selectionMode) {
+    if (!isInteractive) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = 65.dp)
+        ) { cardContent() }
+    } else if (selectionMode) {
         // В режиме выбора свайп-удаление выключено, тап по карточке — выделение.
         Box(
             modifier = modifier

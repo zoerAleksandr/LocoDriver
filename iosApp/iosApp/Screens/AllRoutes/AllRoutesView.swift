@@ -40,18 +40,11 @@ struct AllRoutesView: View {
         List {
             ForEach(vm.routes, id: \.basicData.id) { route in
                 NavigationLink(destination: FormView(routeId: route.basicData.id)) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Маршрут \(route.basicData.number ?? "—")")
-                            .font(.headline)
-                        let ms = route.basicData.timeStartWork?.int64Value ?? 0
-                        if ms > 0 {
-                            Text(TimeFormatter.formatDateTime(ms: ms))
-                                .font(DSFont.mono(12))
-                                .foregroundColor(DSColor.textMuted)
-                        }
-                    }
-                    .padding(.vertical, 2)
+                    AllRouteCard(route: route)
                 }
+                .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+                .listRowBackground(DSColor.bg)
+                .listRowSeparator(.hidden)
                 .swipeActions(edge: .trailing) {
                     Button(role: .destructive) {
                         routeToDelete = route.basicData.id
@@ -62,5 +55,7 @@ struct AllRoutesView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(DSColor.bg)
     }
 }

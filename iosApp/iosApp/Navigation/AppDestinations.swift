@@ -68,6 +68,14 @@ struct AppSheetView: View {
 
     var body: some View {
         switch sheet {
+        case .sharedRoutesImport:
+            SharedRoutesImportSheet(
+                viewModel: SharedRoutesImportViewModelWrapper.shared,
+                onClose: {
+                    SharedRoutesImportViewModelWrapper.shared.cancel()
+                    onClose()
+                }
+            )
         case .announcement:
             NavigationStack {
                 StubView(title: sheet.title, specSection: sheet.specSection)
