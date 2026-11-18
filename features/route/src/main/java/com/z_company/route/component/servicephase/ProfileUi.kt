@@ -49,8 +49,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import com.z_company.domain.track.Calibration
+import com.z_company.domain.track.BrakeTestDirection
 import com.z_company.domain.track.KmGrid
 import com.z_company.domain.track.ProfileWindow
+import com.z_company.domain.track.SectionBrakeTest
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -70,6 +72,7 @@ import com.z_company.domain.track.LiveProfile
 import com.z_company.domain.track.ProfileElement
 import com.z_company.domain.track.SignalTrack
 import com.z_company.domain.track.TravelParity
+import com.z_company.route.component.AppAlertDialog
 import com.z_company.route.ui.OfflineSectionDownloadDialogs
 import com.z_company.route.viewmodel.OfflineSectionsViewModel
 import com.z_company.route.viewmodel.OfflineStatus
@@ -242,12 +245,24 @@ internal fun ProfileChart(
     // Светофоры нужного литера (по направлению и пути); сторона оси, в которую идёт поезд, - чтобы отличить «спиной».
     val signals = model.shownSignals
     val travelDir = model.travelAxisDir
+    val visibleBrakeTests = remember(section.brakeTests, travelDir) {
+        section.brakeTests.filter { b ->
+            (travelDir > 0 && b.direction == BrakeTestDirection.FORWARD) ||
+                (travelDir < 0 && b.direction == BrakeTestDirection.REVERSE)
+        }
+    }
+    var selectedBrakeTest by remember(section.id) { mutableStateOf<SectionBrakeTest?>(null) }
+    val currentBrakeTests by rememberUpdatedState(visibleBrakeTests)
+    val currentLive by rememberUpdatedState(live)
+    val currentBrakeTestClick by rememberUpdatedState<(SectionBrakeTest) -> Unit>({ selectedBrakeTest = it })
     val evenColor = accent
     val oddColor = Pst.cta
     val onEven = Pst.onAccent
     val onOdd = Pst.ctaInk
     val crossingSign = androidx.compose.ui.graphics.ImageBitmap.imageResource(com.z_company.route.R.drawable.level_crossing_sign)
     val signalStyle: TextStyle = Pst.mono.copy(fontSize = if (detailed) 10.sp else 8.sp, fontWeight = FontWeight.Bold)
+    val brakeRed = Color(0xFFFF0000)
+    val brakeSignTextStyle = Pst.sans.copy(fontSize = if (detailed) 10.sp else 7.sp, fontWeight = FontWeight.Bold, color = brakeRed)
     val hasCurves = remember(section) { section.elements.any { it.curveRadiusM > 0 } }
     // Лямбда меняется при каждой перерисовке: ключом жеста берём только «жесты включены», иначе жест рвётся посреди движения.
     val transform by rememberUpdatedState(onTransform)
@@ -263,6 +278,18 @@ internal fun ProfileChart(
     val tapZones = Modifier.pointerInput(Unit) {
         detectTapGestures { o ->
             val w = currentWindow
+            val activeLive = currentLive
+            val hitBrakeTest = currentBrakeTests.minByOrNull { b ->
+                val markerX = (activeLive.toView(b.km) - w.fromX) / (w.toX - w.fromX).coerceAtLeast(1e-6) * size.width
+                abs(markerX - o.x)
+            }
+            if (hitBrakeTest != null) {
+                val markerX = (activeLive.toView(hitBrakeTest.km) - w.fromX) / (w.toX - w.fromX).coerceAtLeast(1e-6) * size.width
+                if (abs(markerX - o.x) <= 28f * density) {
+                    currentBrakeTestClick(hitBrakeTest)
+                    return@detectTapGestures
+                }
+            }
             val x = w.fromX + o.x / size.width * (w.toX - w.fromX)
             model.activeWarnings.firstOrNull { r ->
                 val a = minOf(live.toView(r.fromKm), live.toView(r.toKm))
@@ -525,9 +552,8 @@ internal fun ProfileChart(
         val rad = (if (detailed) 8f else 5.5f) * dp
         val signH = (if (detailed) 26f else 18f) * dp
         val signW = signH * crossingSign.width / crossingSign.height
-        val boxW = (if (detailed) 26f else 20f) * dp
-        val boxH = (if (detailed) 20f else 15f) * dp
-        val levelH = maxOf(rad * 2f + 2f * dp + chipH, signH, boxH) + 4f * dp
+        val brakeSignSize = (if (detailed) 24f else 18f) * dp
+        val levelH = maxOf(rad * 2f + 2f * dp + chipH, signH, brakeSignSize) + 4f * dp
         // Значки: (x, ширина, рисунок от верха своего яруса).
         val marks = ArrayList<Triple<Float, Float, (Float) -> Unit>>()
         signals.map { it to px(live.toView(it.km)) }
@@ -572,18 +598,19 @@ internal fun ProfileChart(
                 )
             })
         }
-        val brakeRed = Color(0xFFD62828)
-        section.brakeTests.forEach { b ->
+        visibleBrakeTests.forEach { b ->
             val vx = live.toView(b.km)
             if (vx < window.fromX || vx > window.toX) return@forEach
             val xx = px(vx)
-            marks += Triple(xx, boxW, { top ->
+            marks += Triple(xx, brakeSignSize, { top ->
                 val lineY = py(line.heightAt(b.km))
-                if (lineY > top + boxH) drawLine(brakeRed.copy(alpha = 0.8f), Offset(xx, top + boxH), Offset(xx, lineY), strokeWidth = 1f * dp)
-                drawRect(Color.White, Offset(xx - boxW / 2, top), androidx.compose.ui.geometry.Size(boxW, boxH))
-                drawRect(brakeRed, Offset(xx - boxW / 2, top), androidx.compose.ui.geometry.Size(boxW, boxH), style = Stroke(width = 1.6f * dp))
-                val tl = measurer.measure("НТ", signalStyle.copy(color = brakeRed), maxLines = 1)
-                drawText(tl, topLeft = Offset(xx - tl.size.width / 2f, top + (boxH - tl.size.height) / 2f))
+                if (lineY > top + brakeSignSize) drawLine(brakeRed.copy(alpha = 0.8f), Offset(xx, top + brakeSignSize), Offset(xx, lineY), strokeWidth = 1f * dp)
+                val badge = androidx.compose.ui.geometry.Size(brakeSignSize, brakeSignSize)
+                val badgeTopLeft = Offset(xx - brakeSignSize / 2f, top)
+                drawRect(Color.White, badgeTopLeft, badge)
+                drawRect(brakeRed, badgeTopLeft, badge, style = Stroke(width = (if (detailed) 1.6f else 1.2f) * dp))
+                val tl = measurer.measure("НТ", brakeSignTextStyle, maxLines = 1)
+                drawText(tl, topLeft = Offset(xx - tl.size.width / 2f, top + (brakeSignSize - tl.size.height) / 2f))
             })
         }
         val lastEnd = floatArrayOf(-1e9f, -1e9f)
@@ -650,6 +677,26 @@ internal fun ProfileChart(
                 drawPath(arrow, c)
             }
         }
+    }
+    selectedBrakeTest?.let { brakeTest ->
+        val distances = brakeTest.stoppingDistances
+            .filter { it.speedKmh > 0 && it.distanceM > 0 }
+            .sortedBy { it.speedKmh }
+        val kmPosition = if (brakeTest.railKm != null && brakeTest.picket != null) {
+            "${brakeTest.railKm} км ${brakeTest.picket} пк\n\n"
+        } else ""
+        val distanceText = if (distances.isEmpty()) {
+            "Для этого места тормозной путь не задан."
+        } else {
+            "Тормозной путь:\n" + distances.joinToString("\n") { "${it.speedKmh} км/ч — ${it.distanceM} м" }
+        }
+        AppAlertDialog(
+            onDismissRequest = { selectedBrakeTest = null },
+            title = "Проба тормозов",
+            text = kmPosition + distanceText,
+            confirmText = "Понятно",
+            onConfirm = { selectedBrakeTest = null },
+        )
     }
 }
 

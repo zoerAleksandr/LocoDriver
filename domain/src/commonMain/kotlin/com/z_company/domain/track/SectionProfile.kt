@@ -32,8 +32,30 @@ data class SectionStation(val km: Double, val name: String, val lat: Double? = n
 /** Железнодорожный переезд на оси участка: [label] - подпись («134 км 2 пк»), [kind] - вид (пока crossing). */
 data class SectionCrossing(val km: Double, val label: String = "", val kind: String = "crossing")
 
-/** Место опробования тормозов на оси участка: [label] - подпись, [kind] - вид (пока brake_test). */
-data class SectionBrakeTest(val km: Double, val label: String = "", val kind: String = "brake_test")
+/** Направление, для которого проводится опробование тормозов, относительно оси участка. */
+enum class BrakeTestDirection {
+    /** От начала участка к его концу. */
+    FORWARD,
+    /** От конца участка к его началу. */
+    REVERSE,
+    /** Направление ещё не назначено; такая отметка не показывается. */
+    UNASSIGNED,
+}
+
+/** Тормозной путь по скорости для конкретного места опробования. */
+data class BrakeTestStoppingDistance(val speedKmh: Int, val distanceM: Int)
+
+/** Место опробования тормозов на оси участка: [label] — подпись, направление задано относительно оси. */
+data class SectionBrakeTest(
+    val km: Double,
+    val label: String = "",
+    val kind: String = "brake_test",
+    val direction: BrakeTestDirection = BrakeTestDirection.UNASSIGNED,
+    /** Километр и пикет по шкале режимной карты; [km] остаётся координатой относительно начала оси участка. */
+    val railKm: Int? = null,
+    val picket: Int? = null,
+    val stoppingDistances: List<BrakeTestStoppingDistance> = emptyList(),
+)
 
 /** Участок с осью, профилем, километражем и станциями. */
 data class SectionProfile(

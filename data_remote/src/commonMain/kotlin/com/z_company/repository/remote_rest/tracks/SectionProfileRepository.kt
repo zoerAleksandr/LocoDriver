@@ -1,6 +1,8 @@
 package com.z_company.repository.remote_rest.tracks
 
 import com.z_company.domain.track.AxisPoint
+import com.z_company.domain.track.BrakeTestDirection
+import com.z_company.domain.track.BrakeTestStoppingDistance
 import com.z_company.domain.track.EdgeTraversal
 import com.z_company.domain.track.GraphEdge
 import com.z_company.domain.track.GraphNode
@@ -379,7 +381,23 @@ class SectionProfileRepository(
                 )
             }.sortedBy { it.km },
             crossings = d.crossings.map { SectionCrossing(it.km, it.label, it.kind) }.sortedBy { it.km },
-            brakeTests = d.brakeTests.map { SectionBrakeTest(it.km, it.label, it.kind) }.sortedBy { it.km },
+            brakeTests = d.brakeTests.map {
+                SectionBrakeTest(
+                    km = it.km,
+                    label = it.label,
+                    kind = it.kind,
+                    direction = when (it.direction.lowercase()) {
+                        "forward" -> BrakeTestDirection.FORWARD
+                        "reverse" -> BrakeTestDirection.REVERSE
+                        else -> BrakeTestDirection.UNASSIGNED
+                    },
+                    railKm = it.railKm,
+                    picket = it.picket,
+                    stoppingDistances = it.stoppingDistances.map { distance ->
+                        BrakeTestStoppingDistance(distance.speedKmh, distance.distanceM)
+                    }.sortedBy { distance -> distance.speedKmh },
+                )
+            }.sortedBy { it.km },
         )
     }
 

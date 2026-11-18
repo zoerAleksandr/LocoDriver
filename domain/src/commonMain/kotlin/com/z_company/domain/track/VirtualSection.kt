@@ -80,7 +80,12 @@ object VirtualSection {
             }
             for (bt in owner.brakeTests) {
                 if (!inside(bt.km)) continue
-                brakeTests += bt.copy(km = mapKm(bt.km))
+                val direction = if (!t.reverse) bt.direction else when (bt.direction) {
+                    BrakeTestDirection.FORWARD -> BrakeTestDirection.REVERSE
+                    BrakeTestDirection.REVERSE -> BrakeTestDirection.FORWARD
+                    BrakeTestDirection.UNASSIGNED -> BrakeTestDirection.UNASSIGNED
+                }
+                brakeTests += bt.copy(km = mapKm(bt.km), direction = direction)
             }
             offset += t.lengthKm
         }

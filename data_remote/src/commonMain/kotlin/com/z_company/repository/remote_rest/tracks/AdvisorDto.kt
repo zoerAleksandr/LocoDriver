@@ -121,10 +121,20 @@ data class AdvisorCrossingDto(
 )
 
 @Serializable
+data class AdvisorBrakeTestStoppingDistanceDto(
+    val speedKmh: Int,
+    val distanceM: Int,
+)
+
+@Serializable
 data class AdvisorBrakeTestDto(
     val km: Double,
     val label: String = "",
     val kind: String = "brake_test",
+    val direction: String = "unassigned",
+    val railKm: Int? = null,
+    val picket: Int? = null,
+    val stoppingDistances: List<AdvisorBrakeTestStoppingDistanceDto> = emptyList(),
 )
 
 /** Точка оси участка: `km` - от начала оси, высота клиенту не нужна. */
